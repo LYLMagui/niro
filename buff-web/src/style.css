@@ -1,0 +1,23 @@
+/* 引入 Tailwind CSS v4 */
+@import 'tailwindcss';
+
+/* 
+  Tailwind v4 默认包含了 reset 样式。
+  如果需要自定义主题，可以使用 @theme 块，例如：
+  @theme {
+    --color-brand: #0052d9;
+  }
+*/
+
+:root {
+  /* TDesign 品牌色变量 */
+  --td-brand-color: #0052d9;
+}
+
+body {
+  margin: 0;
+  /* 设置全局字体栈 */
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif,
+    'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+}
