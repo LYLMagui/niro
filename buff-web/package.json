@@ -6,13 +6,42 @@
   "scripts": {
     "dev": "vite",
     "serve": "vite dev --mode production",
-    "build": "vue-tsc --build && vite build",
+    "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
+    "build-only": "vite build",
     "type-check": "vue-tsc --build",
     "lint:eslint": "eslint --cache \"src/**/*.{vue,ts}\" --fix",
     "lint:prettier": "prettier --write \"**/*.{js,cjs,ts,json,css,scss,vue,html,md}\"",
-    "lint": "npm run lint:eslint && npm run lint:prettier",
-    "format": "prettier --write src/"
+    "lint:stylelint": "stylelint \"**/*.{css,scss,vue,html}\" --fix",
+    "lint:lint-staged": "lint-staged",
+    "prepare": "husky",
+    "commit": "git-cz"
+  },
+  "lint-staged": {
+    "*.{js,ts}": [
+      "eslint --fix",
+      "prettier --write"
+    ],
+    "*.{cjs,json}": [
+      "prettier --write"
+    ],
+    "*.{vue,html}": [
+      "eslint --fix",
+      "prettier --write",
+      "stylelint --fix"
+    ],
+    "*.{scss,css}": [
+      "stylelint --fix",
+      "prettier --write"
+    ],
+    "*.md": [
+      "prettier --write"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "node_modules/cz-git"
+    }
   },
   "dependencies": {
     "@vueuse/core": "^14.1.0",
@@ -24,19 +53,34 @@
     "vue-router": "^4.2.0"
   },
   "devDependencies": {
+    "@commitlint/config-conventional": "^20.2.0",
     "@eslint/js": "^9.39.2",
     "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
     "@vitejs/plugin-vue": "^5.0.0",
+    "commitizen": "^4.3.1",
+    "commitlint": "^20.2.0",
+    "cz-git": "^1.12.0",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
     "eslint-plugin-vue": "^10.6.2",
     "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "postcss-html": "^1.8.0",
+    "postcss-scss": "^4.0.9",
     "prettier": "^3.7.4",
     "prettier-plugin-tailwindcss": "^0.5.0",
+    "stylelint": "^16.26.1",
+    "stylelint-config-html": "^1.1.0",
+    "stylelint-config-recess-order": "^7.4.0",
+    "stylelint-config-recommended": "^17.0.0",
+    "stylelint-config-recommended-scss": "^16.0.2",
+    "stylelint-config-recommended-vue": "^1.6.1",
+    "stylelint-prettier": "^5.0.3",
     "tailwindcss": "^4.1.18",
     "typescript": "^5.2.0",
     "unplugin-auto-import": "^0.17.0",
