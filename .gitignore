@@ -26,13 +26,21 @@ buff-client/auto-imports.d.ts
 buff-client/components.d.ts
 buff-client/.eslintrc-auto-import.json
 
-# Backend (backend)
-backend/__pycache__/
-backend/*.py[cod]
-backend/*$py.class
-backend/.env
-backend/venv/
-backend/.venv/
-backend/env/
-backend/.idea/
-backend/.vscode/
+# Spring Boot Backend (buff-server)
+buff-server/**/target/
+buff-server/**/.mvn/
+buff-server/**/mvnw
+buff-server/**/mvnw.cmd
+buff-server/**/.idea/
+buff-server/**/.settings/
+buff-server/**/.project
+buff-server/**/.classpath
+buff-server/**/bin/
+buff-server/**/*.log
+buff-server/**/*.jar
+buff-server/**/*.war
+buff-server/**/*.ear
+buff-server/**/logs/
+buff-server/**/temp/
+buff-server/**/tmp/
+buff-server/**/.DS_Store
