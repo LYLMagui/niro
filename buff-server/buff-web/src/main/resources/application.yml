@@ -1,10 +1,34 @@
+# 端口
 server:
   port: 8080
 
 spring:
   application:
-    name: buff-server
+    name: buff-web
 
+knife4j:
+  enable: true
+  setting:
+    language: zh_cn
+    enable-swagger-models: true
+    enable-document-manage: true
+    swagger-model-name: 实体类列表
+
+# SpringDoc OpenAPI配置（Knife4j基于SpringDoc）
+springdoc:
+  swagger-ui:
+    path: /swagger-ui.html
+    tags-sorter: alpha
+    operations-sorter: alpha
+  api-docs:
+    path: /v3/api-docs
+  group-configs:
+    - group: 'default'
+      paths-to-match: '/**'
+      packages-to-scan: com.buff.web.controller
+
+# 日志配置
 logging:
   level:
-    com.buff: INFO
+    com.buff: info
+    org.springframework: warn

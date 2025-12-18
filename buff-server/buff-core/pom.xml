@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>buff-core</name>
-    <description>Core Module - Common utilities and domain models</description>
+    <description>核心通用模块</description>
 
     <dependencies>
         <dependency>

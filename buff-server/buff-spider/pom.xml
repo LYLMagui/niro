@@ -14,7 +14,7 @@
     <packaging>jar</packaging>
 
     <name>buff-spider</name>
-    <description>Spider Module - Web crawling and data extraction</description>
+    <description>爬虫模块</description>
 
     <dependencies>
         <dependency>
