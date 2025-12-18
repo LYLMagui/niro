@@ -1,0 +1,37 @@
+# 测试环境配置
+spring:
+  config:
+    activate:
+      on-profile: test
+  
+  # 数据库配置
+  datasource:
+    url: jdbc:postgresql://test-db-server:5432/buff_test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    username: ${DB_USERNAME:buff_test}
+    password: ${DB_PASSWORD:buff_test}
+
+# 日志配置
+logging:
+  level:
+    com.buff: info
+    org.springframework: warn
+    com.alibaba.druid: info
+    org.mybatis: info
+  file:
+    name: logs/buff-test.log
+    max-size: 50MB
+    max-history: 30
+
+# Knife4j配置（测试环境启用）
+knife4j:
+  enable: true
+
+# 自定义配置
+buff:
+  # 文件上传路径
+  upload-path: ${UPLOAD_PATH:/data/buff/uploads/}
+  # 是否启用调试模式
+  debug: false
+  # JWT配置
+  jwt:
+    secret: ${JWT_SECRET:test_secret_key}
