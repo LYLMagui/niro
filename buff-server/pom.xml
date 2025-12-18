@@ -23,11 +23,9 @@
         <maven-surefire-plugin.version>3.1.2</maven-surefire-plugin.version>
         <lombok.version>1.18.30</lombok.version>
         <junit-jupiter.version>5.10.0</junit-jupiter.version>
-        <mybatis-plus.version>3.5.3.2</mybatis-plus.version>
+        <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <commons-lang3.version>3.13.0</commons-lang3.version>
         <hutool.version>5.8.22</hutool.version>
-        
-        <!-- 基础设施依赖版本 -->
         <postgresql.version>42.7.1</postgresql.version>
         <druid.version>1.2.20</druid.version>
         <redis.version>3.2.1</redis.version>
@@ -159,6 +157,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-validation</artifactId>
+                <version>${spring-boot.version}</version>
             </dependency>
             
             <!-- API文档 -->
