@@ -6,7 +6,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://localhost:5432/buff_dev?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:niro}?currentSchema=${DB_SCHEMA:public}&useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
     username: ${DB_USERNAME:buff_dev}
     password: ${DB_PASSWORD:buff_dev}
 
@@ -19,8 +19,10 @@ logging:
     org.mybatis: debug
   file:
     name: logs/buff-dev.log
-    max-size: 10MB
-    max-history: 30
+  logback:
+    rolling policy:
+      max-file-size: 10MB
+      max-history: 30
 
 # Knife4j配置（开发环境启用）
 knife4j:

@@ -19,7 +19,7 @@ spring:
       time-between-eviction-runs-millis: 60000
       # 连接保持空闲而不被驱逐的最小时间（毫秒）
       min-evictable-idle-time-millis: 300000
-      # 检测连接是否有效的SQL
+      # 检测连接是否有效的SQL (PostgreSQL使用SELECT 1)
       validation-query: SELECT 1
       # 检测连接是否有效，如果为true，则必须validation-query不为空
       test-while-idle: true
@@ -27,8 +27,8 @@ spring:
       test-on-borrow: false
       # 归还连接时执行validationQuery检测连接是否有效
       test-on-return: false
-      # 是否缓存preparedStatement，也就是PSCache
-      pool-prepared-statements: true
+      # PostgreSQL不支持pool-prepared-statements优化，建议关闭
+      pool-prepared-statements: false
       # 指定每个连接上PSCache的最大值
       max-pool-prepared-statement-per-connection-size: 20
       # 合并多个DruidDataSource的监控数据
@@ -60,7 +60,5 @@ mybatis-plus:
       logic-not-delete-value: 0
       # 主键生成策略
       id-type: ASSIGN_ID
-      # 表名前缀
-      table-prefix: buff_
   # 扫描的Mapper接口路径
   mapper-locations: classpath*:mapper/**/*.xml

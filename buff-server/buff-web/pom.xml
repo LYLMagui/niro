@@ -17,11 +17,24 @@
     <description>web模块</description>
 
     <dependencies>
+
+        <dependency>
+            <groupId>com.buff</groupId>
+            <artifactId>buff-core</artifactId>
+            <version>1.0.0-SNAPSHOT</version>
+        </dependency>
         <dependency>
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-web</artifactId>
         </dependency>
         
+        <!-- Dotenv 支持 -->
+        <dependency>
+            <groupId>me.paulschwarz</groupId>
+            <artifactId>spring-dotenv</artifactId>
+            <version>4.0.0</version>
+        </dependency>
+
         <!-- Knife4j API文档 - 实际依赖引入 -->
         <dependency>
             <groupId>com.github.xiaoymin</groupId>
@@ -74,6 +87,8 @@
             <artifactId>spring-boot-starter-test</artifactId>
             <scope>test</scope>
         </dependency>
+        
+        
     </dependencies>
 
     <profiles>
