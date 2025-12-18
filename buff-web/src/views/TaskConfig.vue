@@ -52,30 +52,30 @@
 </template>
 
 <script setup lang="ts">
-import { reactive } from 'vue';
-import { MessagePlugin } from 'tdesign-vue-next';
+import { reactive } from "vue";
+import { MessagePlugin } from "tdesign-vue-next";
 
 // 表单响应式数据
 const formData = reactive({
-  cookies: '',
+  cookies: "",
   interval: 2000,
   priceRange: [0, 1000],
   floatRange: [0, 1],
   autoBuy: false,
-  notifications: ['desktop'],
+  notifications: ["desktop"],
 });
 
 // 表单校验规则
 const rules = {
-  cookies: [{ required: true, message: 'Cookies必填', type: 'error' }],
-  interval: [{ required: true, message: '请设置扫描间隔', type: 'error' }],
+  cookies: [{ required: true, message: "Cookies必填", type: "error" }],
+  interval: [{ required: true, message: "请设置扫描间隔", type: "error" }],
 };
 
 // 提交处理函数
 const onSubmit = ({ validateResult, firstError }: any) => {
   if (validateResult === true) {
     // 这里可以调用 API 保存配置
-    MessagePlugin.success('配置已保存');
+    MessagePlugin.success("配置已保存");
   } else {
     MessagePlugin.warning(firstError);
   }

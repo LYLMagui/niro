@@ -30,29 +30,29 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue';
-import { ClearIcon, RefreshIcon } from 'tdesign-icons-vue-next';
+import { ref } from "vue";
+import { ClearIcon, RefreshIcon } from "tdesign-icons-vue-next";
 
 // 模拟日志数据
 const logs = ref([
-  { time: '2024-03-20 10:00:01', level: 'INFO', message: 'System initialized successfully' },
-  { time: '2024-03-20 10:00:02', level: 'INFO', message: 'Connected to Buff API' },
-  { time: '2024-03-20 10:05:23', level: 'WARN', message: 'High latency detected: 500ms' },
-  { time: '2024-03-20 10:10:45', level: 'ERROR', message: 'Failed to parse response: JSON error' },
-  { time: '2024-03-20 10:11:00', level: 'INFO', message: 'Retrying connection...' },
+  { time: "2024-03-20 10:00:01", level: "INFO", message: "System initialized successfully" },
+  { time: "2024-03-20 10:00:02", level: "INFO", message: "Connected to Buff API" },
+  { time: "2024-03-20 10:05:23", level: "WARN", message: "High latency detected: 500ms" },
+  { time: "2024-03-20 10:10:45", level: "ERROR", message: "Failed to parse response: JSON error" },
+  { time: "2024-03-20 10:11:00", level: "INFO", message: "Retrying connection..." },
 ]);
 
 // 根据日志级别获取颜色样式
 const getLevelClass = (level: string) => {
   switch (level) {
-    case 'INFO':
-      return 'text-blue-400';
-    case 'WARN':
-      return 'text-yellow-400';
-    case 'ERROR':
-      return 'text-red-500';
+    case "INFO":
+      return "text-blue-400";
+    case "WARN":
+      return "text-yellow-400";
+    case "ERROR":
+      return "text-red-500";
     default:
-      return 'text-gray-400';
+      return "text-gray-400";
   }
 };
 
@@ -66,8 +66,8 @@ const refreshLogs = () => {
   // 模拟从后端获取新日志
   logs.value.push({
     time: new Date().toLocaleString(),
-    level: 'INFO',
-    message: 'Logs refreshed manually',
+    level: "INFO",
+    message: "Logs refreshed manually",
   });
 };
 </script>

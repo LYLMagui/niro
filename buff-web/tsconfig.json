@@ -17,12 +17,7 @@
     "paths": {
       "@/*": ["src/*"]
     },
-    "types": [
-      "node",
-      "vite/client",
-      "vite-plugin-vue-devtools/client",
-      "unplugin-icons/types/vue"
-    ]
+    "types": ["node", "vite/client", "unplugin-icons/types/vue"]
   },
   "include": [
     "src/**/*.ts",
@@ -33,7 +28,5 @@
     "vite.config.ts"
   ],
   "exclude": ["node_modules", "dist"],
-  "references": [
-    { "path": "./tsconfig.node.json" }
-  ]
+  "references": [{ "path": "./tsconfig.node.json" }]
 }

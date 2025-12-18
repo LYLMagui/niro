@@ -1,13 +1,13 @@
-import { createApp } from 'vue';
-import { createPinia } from 'pinia';
-import TDesign from 'tdesign-vue-next';
-import App from './App.vue';
-import router from './router';
+import { createApp } from "vue";
+import { createPinia } from "pinia";
+import TDesign from "tdesign-vue-next";
+import App from "./App.vue";
+import router from "./router";
 
 // 引入组件库全局样式资源
-import 'tdesign-vue-next/es/style/index.css';
+import "tdesign-vue-next/es/style/index.css";
 // 引入项目全局样式（包含 Tailwind CSS v4）
-import './style.css';
+import "./style.css";
 
 // 创建 Vue 应用实例
 const app = createApp(App);
@@ -20,4 +20,4 @@ app.use(router);
 app.use(TDesign);
 
 // 挂载应用到 DOM
-app.mount('#app');
+app.mount("#app");

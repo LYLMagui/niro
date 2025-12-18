@@ -7,7 +7,9 @@
       <t-menu theme="light" :value="activeValue" style="margin-right: 50px" height="550px">
         <!-- 菜单顶部 Logo 区域 -->
         <template #logo>
-          <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">Buff Spider</div>
+          <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">
+            Buff Spider
+          </div>
         </template>
 
         <!-- 菜单项：概览 -->
@@ -57,22 +59,24 @@
       </t-content>
 
       <!-- 底部版权信息 -->
-      <t-footer class="py-4 text-center text-sm text-gray-400"> Copyright @ 2024 Buff Spider Control </t-footer>
+      <t-footer class="py-4 text-center text-sm text-gray-400">
+        Copyright @ 2024 Buff Spider Control
+      </t-footer>
     </t-layout>
   </t-layout>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRoute, useRouter } from 'vue-router';
-import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon } from 'tdesign-icons-vue-next';
+import { computed } from "vue";
+import { useRoute, useRouter } from "vue-router";
+import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon } from "tdesign-icons-vue-next";
 
 const route = useRoute();
 const router = useRouter();
 
 // 计算当前激活的菜单项，基于当前路由名称
 const activeValue = computed(() => route.name as string);
-</script> 
+</script>
 
 <style scoped>
 /* 针对布局组件的特定样式覆盖 */

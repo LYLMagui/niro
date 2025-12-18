@@ -31,12 +31,12 @@ export default defineConfig(({ mode }) => {
       port: +env.VITE_PORT || 5173,
       proxy: {
         // 代理 /dev-api 的请求，这里使用了动态键值对
-        [env.VITE_BASE_API || '/api']: {
+        [env.VITE_BASE_API || "/api"]: {
           // 从环境变量中获取代理地址
-          target: env.VITE_APP_URL || 'http://localhost:8000',
+          target: env.VITE_APP_URL || "http://localhost:8000",
           //允许跨域
           changeOrigin: true,
-          rewrite: (path) => path.replace(new RegExp("^" + (env.VITE_BASE_API || '/api')), ""),
+          rewrite: (path) => path.replace(new RegExp("^" + (env.VITE_BASE_API || "/api")), ""),
         },
       },
     },
@@ -46,12 +46,7 @@ export default defineConfig(({ mode }) => {
       // 自动导入插件
       AutoImport({
         // 需要自动导入的模块
-        imports: [
-          "vue",
-          "@vueuse/core",
-          "vue-router",
-          "pinia",
-        ],
+        imports: ["vue", "@vueuse/core", "vue-router", "pinia"],
         eslintrc: {
           // 是否自动生成 eslint 规则，第一次为true，生成之后设置为false防止重复生成
           enabled: true,
@@ -73,8 +68,8 @@ export default defineConfig(({ mode }) => {
             prefix: false,
             enabledCollections: ["view-list", "dashboard", "server", "user-circle"], // Add icons used in Layout.vue
             alias: {
-              'view-list-icon': 'view-list',
-            }
+              "view-list-icon": "view-list",
+            },
           }),
         ],
         // 想要自动导入的组件所在目录

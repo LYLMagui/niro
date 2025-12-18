@@ -8,20 +8,16 @@ import pluginTypeScript from "@typescript-eslint/eslint-plugin"; // TypeScript �
 import parserVue from "vue-eslint-parser"; // Vue 解析器
 import parserTypeScript from "@typescript-eslint/parser"; // TypeScript 解析器
 
-import configPrettier from "eslint-config-prettier"; // 禁用与 Prettier 冲突的规则
-import pluginPrettier from "eslint-plugin-prettier"; // 运行 Prettier 规则
+import configPrettier from "eslint-config-prettier"; // 与 Prettier 兼容
+import pluginPrettier from "eslint-plugin-prettier"; // 运行 Prettier
 import fs from "fs";
 
-let autoImportConfig = { globals: {} };
-try {
-  autoImportConfig = JSON.parse(fs.readFileSync(".eslintrc-auto-import.json", "utf-8"));
-} catch (error) {
-  // console.warn(".eslintrc-auto-import.json not found, skipping auto-import globals.");
-}
+const autoImportConfig = JSON.parse(fs.readFileSync(".eslintrc-auto-import.json", "utf-8"));
+// 自动导入函数
 
 /** @type {import("eslint").Linter.Config[]} */
 export default [
-  // 指定检查文件和忽略文件
+  // 全局忽略文件
   {
     files: ["**/*.{js,mjs,cjs,ts,vue}"],
     ignores: [
@@ -36,13 +32,12 @@ export default [
       "*.sh",
       "src/assets.eslintrc.cjs",
       "eslint.config.js",
-      ".prettierrc.cjs",
-      ".stylelintrc.cjs",
+      "stylelint.config.js",
       "*.md",
       "tsconfig.json",
     ],
   },
-  // 全局配置
+  // 运行 Prettier
   {
     languageOptions: {
       globals: {
@@ -63,26 +58,26 @@ export default [
     },
     plugins: { prettier: pluginPrettier },
     rules: {
-      ...configPrettier.rules, // 关闭与 Prettier 冲突的规则
-      ...pluginPrettier.configs.recommended.rules, // 启用 Prettier 规则
+      ...configPrettier.rules, // 与 Prettier 兼容
+      ...pluginPrettier.configs.recommended.rules, // 运行 Prettier
       "prettier/prettier": "error", // 强制 Prettier 格式化
       "no-unused-vars": [
         "error",
         {
-          argsIgnorePattern: "^_", // 忽略参数名以 _ 开头的参数未使用警告
-          varsIgnorePattern: "^[A-Z0-9_]+$", // 忽略变量名为大写字母、数字或下划线组合的未使用警告（枚举定义未使用场景）
-          ignoreRestSiblings: true, // 忽略解构赋值中同级未使用变量的警告
+          argsIgnorePattern: "^_", // 忽略以 _ 开头的参数
+          varsIgnorePattern: "^[A-Z0-9_]+$", // 忽略全大写的变量
+          ignoreRestSiblings: true, // 忽略剩余属性
         },
       ],
     },
   },
-  // JavaScript 配置
+  // JavaScript 规则
   pluginJs.configs.recommended,
 
-  // TypeScript 配置
+  // TypeScript 规则
   {
     files: ["**/*.ts"],
-    ignores: ["**/*.d.ts"], // 排除d.ts文件
+    ignores: ["**/*.d.ts"], // 忽略 .d.ts 文件
     languageOptions: {
       parser: parserTypeScript,
       parserOptions: {
@@ -98,7 +93,7 @@ export default [
     },
   },
 
-  // Vue 配置
+  // Vue 规则
   {
     files: ["**/*.vue"],
     languageOptions: {
@@ -109,11 +104,10 @@ export default [
       },
     },
     plugins: { vue: pluginVue, "@typescript-eslint": pluginTypeScript },
-    processor: pluginVue.processors[".vue"],
     rules: {
       ...pluginVue.configs.recommended.rules, // Vue 推荐规则
       "vue/no-v-html": "off", // 允许 v-html
-      "vue/multi-word-component-names": "off", // 允许单个单词组件名
+      "vue/multi-word-component-names": "off", // 允许多单词组件名
     },
   },
 ];
