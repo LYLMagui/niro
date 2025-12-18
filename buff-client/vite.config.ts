@@ -1,7 +1,6 @@
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 import vue from "@vitejs/plugin-vue";
 import vueDevTools from "vite-plugin-vue-devtools";
-import { loadEnv } from "vite";
 import AutoImport from "unplugin-auto-import/vite";
 import Components from "unplugin-vue-components/vite";
 import tailwindcss from "@tailwindcss/vite";
@@ -23,8 +22,9 @@ export default defineConfig(({ mode }) => {
    * prefix：接受的环境变量前缀，默认为 VITE_
    */
   const env = loadEnv(mode, process.cwd());
+  
   return {
-    base: env.VITE_BASE,
+    base: env.VITE_BASE || "/",
     server: {
       open: true, // 启动项目时是否打开页面
       host: "0.0.0.0",
@@ -46,7 +46,16 @@ export default defineConfig(({ mode }) => {
       // 自动导入插件
       AutoImport({
         // 需要自动导入的模块
-        imports: ["vue", "@vueuse/core", "vue-router", "pinia"],
+        imports: [
+          "vue", 
+          "@vueuse/core", 
+          "vue-router", 
+          "pinia",
+          // 添加 naive-ui 的自动导入
+          {
+            "naive-ui": ["useDialog", "useMessage", "useNotification", "useLoadingBar"],
+          },
+        ],
         eslintrc: {
           // 是否自动生成 eslint 规则，第一次为true，生成之后设置为false防止重复生成
           enabled: true,
@@ -66,14 +75,11 @@ export default defineConfig(({ mode }) => {
           TDesignResolver({ library: "vue-next" }),
           IconsResolver({
             prefix: false,
-            enabledCollections: ["view-list", "dashboard", "server", "user-circle"], // Add icons used in Layout.vue
-            alias: {
-              "view-list-icon": "view-list",
-            },
+            enabledCollections: ["line-md"],
           }),
         ],
         // 想要自动导入的组件所在目录
-        dirs: ["src/components", "src/**/components", "src/components/CustomComponents"],
+        dirs: ["src/components", "src/**/components"],
         // 导入组件类型声明文件路径 (false:关闭自动生成)
         dts: "src/types/components.d.ts",
       }),
@@ -91,6 +97,35 @@ export default defineConfig(({ mode }) => {
         "@component": resolve(__dirname, "./src/components"),
       },
       extensions: [".js", ".ts", ".json", ".vue", ".mjs"],
+    },
+    // 构建优化
+    build: {
+      // 启用压缩
+      minify: "esbuild",
+      // 分包策略
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            "vue-vendor": ["vue", "vue-router", "pinia"],
+            "ui-vendor": ["tdesign-vue-next", "naive-ui"],
+            "utils-vendor": ["@vueuse/core", "axios", "qs", "lodash-es"],
+          },
+        },
+      },
+    },
+    // 优化依赖预构建
+    optimizeDeps: {
+      include: [
+        "vue", 
+        "vue-router", 
+        "pinia",
+        "tdesign-vue-next",
+        "naive-ui",
+        "@vueuse/core",
+        "axios",
+        "qs",
+        "lodash-es"
+      ],
     },
   };
 });

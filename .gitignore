@@ -1,30 +1,30 @@
-# Frontend (buff-web)
-buff-web/node_modules
-buff-web/dist
-buff-web/dist-ssr
-buff-web/coverage
-buff-web/*.log
-buff-web/npm-debug.log*
-buff-web/yarn-debug.log*
-buff-web/yarn-error.log*
-buff-web/pnpm-debug.log*
-buff-web/lerna-debug.log*
-buff-web/.env.local
-buff-web/.env.*.local
-buff-web/.vscode/*
-!buff-web/.vscode/extensions.json
-buff-web/.idea
-buff-web/.DS_Store
-buff-web/*.suo
-buff-web/*.ntvs
-buff-web/*.njsproj
-buff-web/*.sln
-buff-web/*.sw?
-buff-web/*.tsbuildinfo
-buff-web/.eslintcache
-buff-web/auto-imports.d.ts
-buff-web/components.d.ts
-buff-web/.eslintrc-auto-import.json
+# Frontend (buff-client)
+buff-client/node_modules
+buff-client/dist
+buff-client/dist-ssr
+buff-client/coverage
+buff-client/*.log
+buff-client/npm-debug.log*
+buff-client/yarn-debug.log*
+buff-client/yarn-error.log*
+buff-client/pnpm-debug.log*
+buff-client/lerna-debug.log*
+buff-client/.env.local
+buff-client/.env.*.local
+buff-client/.vscode/*
+!buff-client/.vscode/extensions.json
+buff-client/.idea
+buff-client/.DS_Store
+buff-client/*.suo
+buff-client/*.ntvs
+buff-client/*.njsproj
+buff-client/*.sln
+buff-client/*.sw?
+buff-client/*.tsbuildinfo
+buff-client/.eslintcache
+buff-client/auto-imports.d.ts
+buff-client/components.d.ts
+buff-client/.eslintrc-auto-import.json
 
 # Backend (backend)
 backend/__pycache__/
