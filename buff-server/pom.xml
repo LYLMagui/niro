@@ -25,8 +25,8 @@
         <junit-jupiter.version>5.10.0</junit-jupiter.version>
         <mybatis-plus.version>3.5.9</mybatis-plus.version>
         <commons-lang3.version>3.13.0</commons-lang3.version>
-        <hutool.version>5.8.22</hutool.version>
-        <postgresql.version>42.7.1</postgresql.version>
+        <hutool.version>5.8.40</hutool.version>
+        <postgresql.version>42.7.7</postgresql.version>
         <druid.version>1.2.20</druid.version>
         <redis.version>3.2.1</redis.version>
         <redisson.version>3.24.3</redisson.version>
@@ -114,6 +114,7 @@
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-data-redis</artifactId>
+                <version>${spring-boot.version}</version>
             </dependency>
             
             <!-- Redisson分布式锁 -->
