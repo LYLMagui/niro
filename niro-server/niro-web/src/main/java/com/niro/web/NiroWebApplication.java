@@ -8,9 +8,9 @@ import org.springframework.context.annotation.ComponentScan;
 @SpringBootApplication
 @MapperScan(basePackages = {"com.niro.web.**.mapper"})
 @ComponentScan(basePackages = {"com.niro"})
-public class BuffWebApplication {
+public class NiroWebApplication {
 
     public static void main(String[] args) {
-        SpringApplication.run(BuffWebApplication.class, args);
+        SpringApplication.run(NiroWebApplication.class, args);
     }
 }
