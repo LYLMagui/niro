@@ -8,7 +8,7 @@
         <!-- 菜单顶部 Logo 区域 -->
         <template #logo>
           <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">
-            Buff Spider
+            Niro
           </div>
         </template>
 
@@ -60,7 +60,7 @@
 
       <!-- 底部版权信息 -->
       <t-footer class="py-4 text-center text-sm text-gray-400">
-        Copyright @ 2024 Buff Spider Control
+        Copyright @ 2024 Niro Control
       </t-footer>
     </t-layout>
   </t-layout>

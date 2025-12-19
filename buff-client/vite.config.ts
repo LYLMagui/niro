@@ -39,6 +39,22 @@ export default defineConfig(({ mode }) => {
           rewrite: (path) => path.replace(new RegExp("^" + (env.VITE_BASE_API || "/api")), ""),
         },
       },
+      warmup: {
+        clientFiles: ["./src/main.ts", "./src/views/**/*.vue"],
+      },
+    },
+    optimizeDeps: {
+      include: [
+        "vue",
+        "vue-router",
+        "pinia",
+        "axios",
+        "lodash-es",
+        "tdesign-vue-next",
+        "tdesign-icons-vue-next",
+        "@vueuse/core",
+        "qs",
+      ],
     },
     plugins: [
       vue(),
@@ -51,10 +67,6 @@ export default defineConfig(({ mode }) => {
           "@vueuse/core", 
           "vue-router", 
           "pinia",
-          // 添加 naive-ui 的自动导入
-          {
-            "naive-ui": ["useDialog", "useMessage", "useNotification", "useLoadingBar"],
-          },
         ],
         eslintrc: {
           // 是否自动生成 eslint 规则，第一次为true，生成之后设置为false防止重复生成
@@ -89,6 +101,8 @@ export default defineConfig(({ mode }) => {
       Icons({
         autoInstall: true,
         compiler: "vue3",
+        scale: 1,
+        defaultClass: "inline-block",
       }),
     ],
     resolve: {
@@ -112,20 +126,6 @@ export default defineConfig(({ mode }) => {
           },
         },
       },
-    },
-    // 优化依赖预构建
-    optimizeDeps: {
-      include: [
-        "vue", 
-        "vue-router", 
-        "pinia",
-        "tdesign-vue-next",
-        "naive-ui",
-        "@vueuse/core",
-        "axios",
-        "qs",
-        "lodash-es"
-      ],
     },
   };
 });

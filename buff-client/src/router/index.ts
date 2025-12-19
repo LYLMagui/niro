@@ -4,6 +4,12 @@ import Layout from "@/components/Layout.vue";
 // 路由配置表
 const routes: RouteRecordRaw[] = [
   {
+    path: "/login",
+    name: "Login",
+    component: () => import("@/views/login.vue"),
+    meta: { title: "登录" },
+  },
+  {
     path: "/",
     component: Layout, // 使用 Layout 布局作为父级路由
     redirect: "/dashboard", // 默认重定向到仪表盘
