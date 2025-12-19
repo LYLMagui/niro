@@ -10,6 +10,21 @@ spring:
     username: ${DB_USERNAME:buff_prod}
     password: ${DB_PASSWORD:ENC(prod_password_encrypted)}
 
+  # Redis配置 - Spring Boot 3.x 使用 spring.data.redis
+  data:
+    redis:
+      host: ${REDIS_HOST:localhost}
+      port: ${REDIS_PORT:6379}
+      password: ${REDIS_PASSWORD:}
+      timeout: 2000ms
+      lettuce:
+        pool:
+          max-active: 8
+          max-idle: 8
+          min-idle: 0
+          max-wait: -1ms
+
+
 # 日志配置
 logging:
   level:
