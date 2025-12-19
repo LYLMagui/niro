@@ -102,7 +102,8 @@
 - 使用 `mybatis-plus-generator` 生成代码时，必须自定义模板，确保符合本规范；
 - 依赖管理必须使用 **Maven** 或 **Gradle**，禁止使用本地 JAR 包引入；
 - 执行终端命令时多行命令必须分开，单行内多条命令使用 `;` 分隔；
-
+- 注入bean使用构造函数注入，并加上`@RequiredArgsConstructor`注解，禁止使用`@Autowired`字段注入；
+- 禁止创建VO对象，当前项目中只使用DTO对象进行数据传输；
 ### **6. 响应和异常处理：**
 - 所有 Controller 方法必须返回 `Result<T>` 统一响应体，格式固定为：`{ code, msg, data }`；
 - 全局异常处理必须通过 `@RestControllerAdvice` 统一捕获，禁止在业务代码中大量使用 `try-catch`；
