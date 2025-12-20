@@ -35,4 +35,11 @@ public interface UserService extends IService<User> {
      * 退出登录
      */
     void logout();
+
+    /**
+     * 获取用户
+     * @param id
+     * @return
+     */
+    Result<UserDTO> getUser(Long id);
 }

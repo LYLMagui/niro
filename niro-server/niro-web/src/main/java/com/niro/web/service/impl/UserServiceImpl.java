@@ -16,6 +16,7 @@ import com.niro.web.enums.UserStatusEnum;
 import com.niro.web.mapper.UserMapper;
 import com.niro.web.service.UserService;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.annotation.Bean;
 import org.springframework.stereotype.Service;
 
 /**
@@ -71,5 +72,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public void logout() {
         StpUtil.logout();
+    }
+
+    @Override
+    public Result<UserDTO> getUser(Long id) {
+        User user = this.lambdaQuery().eq(User::getId, id).one();
+        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        return Result.success(userDTO);
     }
 }

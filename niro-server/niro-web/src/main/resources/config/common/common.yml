@@ -91,6 +91,10 @@ sa-token:
   is-concurrent: true
   # 是否输出操作日志 
   is-log: true
+  # token 前缀
+  token-prefix: Bearer
+  # 关闭从 Cookie 读取 Token，强制从 Header 读取，避免 Cookie 中无前缀的 Token 导致"未按照指定前缀提交 token"错误
+  is-read-cookie: false
 
 mybatis-plus:
   mapper-locations: classpath*:/mapper/**/*.xml

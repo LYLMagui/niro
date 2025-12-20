@@ -8,10 +8,7 @@ import com.niro.core.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 /**
  * <p>
@@ -28,9 +25,6 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
-    
-    
-    
     
     @PostMapping("/register")
     @Operation(summary = "用户注册")
@@ -50,5 +44,11 @@ public class UserController {
     public Result<Void> logout(){
         userService.logout();
         return Result.success();
+    }
+    
+    @GetMapping("/getUser/{id}")
+    @Operation(summary = "根据id获取用户")
+    public Result<UserDTO> getUser(@PathVariable("id") Long id){
+        return userService.getUser(id);
     }
 }

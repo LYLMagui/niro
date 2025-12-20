@@ -18,6 +18,8 @@ import com.niro.core.result.StatusCode;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.extern.slf4j.Slf4j;
 
+import cn.dev33.satoken.exception.NotLoginException;
+
 /**
  * 全局异常处理器
  *
@@ -28,6 +30,12 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Order(HIGHEST_PRECEDENCE)
 public class GlobalExceptionHandler {
+
+    @ExceptionHandler(NotLoginException.class)
+    public Result<Void> handlerNotLoginException(NotLoginException ex, HttpServletRequest request) {
+        log.warn("未登录或登录过期 | URI: {} | Msg: {}", request.getRequestURI(), ex.getMessage());
+        return Result.failure(StatusCode.UNAUTHORIZED_CODE, "未登录或登录过期，请重新登录");
+    }
 
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handlerBusinessException(BusinessException ex, HttpServletRequest request) {

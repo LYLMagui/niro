@@ -40,9 +40,10 @@ public class TokenResponseAdvice implements ResponseBodyAdvice<Object> {
             try {
                 String tokenValue = StpUtil.getTokenValue();
                 if (tokenValue != null) {
-                    servletResponse.setHeader("Authorization", "Bearer " + tokenValue);
+                    // 这里的 key 必须和前端 request 中设置的 key 一致
+                    servletResponse.setHeader("niro-token", "Bearer " + tokenValue);
                     servletResponse.setHeader("niro-token-update", tokenValue);
-                    servletResponse.addHeader("Access-Control-Expose-Headers", "Authorization, niro-token-update");
+                    servletResponse.addHeader("Access-Control-Expose-Headers", "niro-token, niro-token-update");
                 }
             } catch (Exception ignored) {
                 // 忽略异常，可能是未登录状态调用

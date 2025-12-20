@@ -27,7 +27,8 @@ service.interceptors.request.use(
     const token = localStorage.getItem("niro-token");
     // 如果 token 存在，则添加到请求头
     if (token) {
-      config.headers["Authorization"] = "Bearer " + token;
+      // 这里的 key 必须和后端 sa-token.token-name 一致
+      config.headers["niro-token"] = "Bearer " + token;
     }
     return config;
   },
