@@ -88,7 +88,7 @@ const { loading, run: login } = useRequest(userApi.login, {
   onSuccess: (data) => {
     // 登录成功后，将 token 存储到 localStorage
     if (data?.token) {
-      localStorage.setItem("niro-token", data.token);
+      localStorage.setItem("niro-web-token", data.token);
     }
     
     MessagePlugin.success("登录成功");

@@ -81,8 +81,8 @@ api:
 sa-token:
   # token风格
   token-style: random-64
-  # token名称
-  token-name: niro-token
+  # token名称 (修改为 niro-web-token 以区分模块)
+  token-name: niro-web-token
   # token 过期时间（秒）
   timeout: 86400000
   # token 最低活跃频率（单位：秒），如果 token 超过此时间没有访问系统就会被冻结，默认-1 代表不限制，永不冻结

@@ -24,11 +24,11 @@ const service: AxiosInstance = axios.create({
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 从 localStorage 获取 token
-    const token = localStorage.getItem("niro-token");
+    const token = localStorage.getItem("niro-web-token");
     // 如果 token 存在，则添加到请求头
     if (token) {
       // 这里的 key 必须和后端 sa-token.token-name 一致
-      config.headers["niro-token"] = "Bearer " + token;
+      config.headers["niro-web-token"] = "Bearer " + token;
     }
     return config;
   },
@@ -47,9 +47,9 @@ service.interceptors.response.use(
     const newToken =
       headers["authorization"] ||
       headers["Authorization"] ||
-      headers["niro-token-update"];
+      headers["niro-web-token-update"];
     if (newToken) {
-      localStorage.setItem("niro-token", newToken);
+      localStorage.setItem("niro-web-token", newToken);
     }
 
     if (res.code !== 0) {
@@ -57,7 +57,8 @@ service.interceptors.response.use(
 
       // 401: 未登录或 Token 过期
       if (res.code === 401) {
-        localStorage.removeItem("niro-token");
+        console.log("Response Interceptor (200 OK -> Code 401): Redirecting to login...");
+        localStorage.removeItem("niro-web-token");
         // 可以重定向到登录页
         window.location.href = "/login";
       }
@@ -67,13 +68,15 @@ service.interceptors.response.use(
     }
   },
   (error: AxiosError) => {
+    console.log("Response Interceptor (Error):", error.response?.status, error.message);
     const { response } = error;
     if (response) {
       MessagePlugin.error(
         (response.data as any)?.message || "系统异常，请联系管理员"
       );
       if (response.status === 401) {
-        localStorage.removeItem("niro-token");
+        console.log("Response Interceptor (Status 401): Redirecting to login...");
+        localStorage.removeItem("niro-web-token");
         window.location.href = "/login";
       }
     } else {

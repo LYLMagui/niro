@@ -65,7 +65,7 @@ router.beforeEach((to, from, next) => {
   NProgress.start();
 
   // 获取 Token
-  const token = localStorage.getItem("niro-token");
+  const token = localStorage.getItem("niro-web-token");
 
   // 设置页面标题
   if (to.meta.title) {

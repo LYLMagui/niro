@@ -16,6 +16,7 @@ import com.niro.core.result.Result;
 import com.niro.core.result.StatusCode;
 
 import jakarta.servlet.http.HttpServletRequest;
+import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import cn.dev33.satoken.exception.NotLoginException;
@@ -32,8 +33,10 @@ import cn.dev33.satoken.exception.NotLoginException;
 public class GlobalExceptionHandler {
 
     @ExceptionHandler(NotLoginException.class)
-    public Result<Void> handlerNotLoginException(NotLoginException ex, HttpServletRequest request) {
+    public Result<Void> handlerNotLoginException(NotLoginException ex, HttpServletRequest request, HttpServletResponse response) {
         log.warn("未登录或登录过期 | URI: {} | Msg: {}", request.getRequestURI(), ex.getMessage());
+        // 设置 HTTP 状态码为 401，确保前端 Axios 拦截器能捕获到 Error
+        response.setStatus(401);
         return Result.failure(StatusCode.UNAUTHORIZED_CODE, "未登录或登录过期，请重新登录");
     }
 
