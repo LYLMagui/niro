@@ -4,7 +4,6 @@ import com.niro.web.dto.UserDTO;
 import com.niro.web.dto.param.UserLoginParam;
 import com.niro.web.dto.param.UserRegisterParam;
 import com.niro.web.service.UserService;
-import com.niro.core.result.Result;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -28,27 +27,25 @@ public class UserController {
     
     @PostMapping("/register")
     @Operation(summary = "用户注册")
-    public Result<Void> register(@RequestBody UserRegisterParam param){
+    public void register(@RequestBody UserRegisterParam param){
         userService.register(param);
-        return Result.success();
     }
     
     @PostMapping("/login")
     @Operation(summary = "用户登录")
-    public Result<UserDTO> login(@RequestBody UserLoginParam param){
+    public UserDTO login(@RequestBody UserLoginParam param){
         return userService.login(param);
     }
 
     @PostMapping("/logout")
     @Operation(summary = "退出登录")
-    public Result<Void> logout(){
+    public void logout(){
         userService.logout();
-        return Result.success();
     }
     
     @GetMapping("/getUser/{id}")
     @Operation(summary = "根据id获取用户")
-    public Result<UserDTO> getUser(@PathVariable("id") Long id){
+    public UserDTO getUser(@PathVariable("id") Long id){
         return userService.getUser(id);
     }
 }

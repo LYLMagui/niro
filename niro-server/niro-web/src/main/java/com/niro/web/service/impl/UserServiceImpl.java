@@ -1,12 +1,9 @@
 package com.niro.web.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.crypto.digest.BCrypt;
-import cn.hutool.captcha.generator.RandomGenerator;
-import cn.hutool.core.bean.BeanUtil;
+import org.springframework.stereotype.Service;
+
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.exception.BusinessException;
-import com.niro.core.result.Result;
 import com.niro.core.util.Assert;
 import com.niro.web.dto.UserDTO;
 import com.niro.web.dto.param.UserLoginParam;
@@ -15,9 +12,12 @@ import com.niro.web.entity.User;
 import com.niro.web.enums.UserStatusEnum;
 import com.niro.web.mapper.UserMapper;
 import com.niro.web.service.UserService;
+
+import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.captcha.generator.RandomGenerator;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.crypto.digest.BCrypt;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.context.annotation.Bean;
-import org.springframework.stereotype.Service;
 
 /**
  * <p>
@@ -51,7 +51,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Result<UserDTO> login(UserLoginParam param) {
+    public UserDTO login(UserLoginParam param) {
         // 查询用户
         User user = this.lambdaQuery().eq(User::getUsername, param.getUsername()).one();
         Assert.validateNull(user, "账号不存在");
@@ -66,7 +66,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 返回结果
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
         userDTO.setToken(StpUtil.getTokenValue());
-        return Result.success(userDTO);
+        return userDTO;
     }
 
     @Override
@@ -75,9 +75,9 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     }
 
     @Override
-    public Result<UserDTO> getUser(Long id) {
+    public UserDTO getUser(Long id) {
         User user = this.lambdaQuery().eq(User::getId, id).one();
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
-        return Result.success(userDTO);
+        return userDTO;
     }
 }

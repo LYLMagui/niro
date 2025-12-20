@@ -1,7 +1,6 @@
 package com.niro.web.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.niro.core.result.Result;
 import com.niro.web.dto.UserDTO;
 import com.niro.web.dto.param.UserLoginParam;
 import com.niro.web.dto.param.UserRegisterParam;
@@ -29,10 +28,11 @@ public interface UserService extends IService<User> {
      * @param param
      * @return
      */
-    Result<UserDTO> login(UserLoginParam param);
+    UserDTO login(UserLoginParam param);
 
     /**
      * 退出登录
+     * @return
      */
     void logout();
 
@@ -41,5 +41,5 @@ public interface UserService extends IService<User> {
      * @param id
      * @return
      */
-    Result<UserDTO> getUser(Long id);
+    UserDTO getUser(Long id);
 }
