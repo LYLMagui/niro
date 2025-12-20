@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.niro.web.enums.UserStatusEnum;
 import lombok.Data;
 
 import java.io.Serializable;
@@ -57,7 +58,7 @@ public class User implements Serializable {
     /**
      * 状态: 1-正常, 0-禁用
      */
-    private Integer status;
+    private UserStatusEnum status;
 
     /**
      * 是否删除: 0-否, 1-是

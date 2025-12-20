@@ -26,14 +26,9 @@ public class UserDTO {
     /**
      * 用户名
      */
-    @Schema(description = "用户名")
+    @Schema(description = "账号")
     private String username;
-
-    /**
-     * 加密后的密码
-     */
-    @Schema(description = "加密后的密码")
-    private String password;
+    
 
     /**
      * 昵称

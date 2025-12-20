@@ -1,4 +1,4 @@
-package com.niro.common.result;
+package com.niro.core.result;
 
 /**
  * 状态码常量

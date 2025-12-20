@@ -1,18 +1,22 @@
-package com.niro.common.handler;
+package com.niro.core.handler;
 
-import com.niro.common.exception.BusinessException;
-import com.niro.common.result.Result;
-import jakarta.servlet.http.HttpServletRequest;
-import lombok.extern.slf4j.Slf4j;
+import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+
+import java.util.stream.Collectors;
+
 import org.springframework.context.support.DefaultMessageSourceResolvable;
 import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.util.stream.Collectors;
+import com.niro.core.exception.BusinessException;
+import com.niro.core.result.Result;
+import com.niro.core.result.StatusCode;
 
-import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * 全局异常处理器
@@ -27,7 +31,7 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(BusinessException.class)
     public Result<Void> handlerBusinessException(BusinessException ex, HttpServletRequest request) {
-        log.warn("业务异常 | URI: {} | Code: {} | Msg: {}", request.getRequestURI(), ex.getCode(), ex.getMessage());
+        log.warn("❌ 业务异常 | URI: {} | Code: {} | Msg: {}", request.getRequestURI(), ex.getCode(), ex.getMessage());
         return Result.failure(ex.getCode(), ex.getMessage());
     }
 
@@ -51,6 +55,12 @@ public class GlobalExceptionHandler {
     public Result<Void> handlerNullPointerException(NullPointerException ex, HttpServletRequest request) {
         log.error("空指针异常 | URI: {}", request.getRequestURI(), ex);
         return Result.failure("系统内部错误(NPE)");
+    }
+
+    @ExceptionHandler(NoResourceFoundException.class)
+    public Result<Void> handlerNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
+        log.debug("静态资源未找到 | URI: {}", request.getRequestURI());
+        return Result.failure(StatusCode.NOT_FOUND_CODE, "资源不存在");
     }
 
     @ExceptionHandler(Exception.class)

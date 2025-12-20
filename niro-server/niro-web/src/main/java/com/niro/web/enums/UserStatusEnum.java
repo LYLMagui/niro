@@ -35,5 +35,13 @@ public enum UserStatusEnum {
     /**
      * 描述
      */
-    private final String msg;
+    private final String description;
+    
+    
+    public static boolean isNormal(UserStatusEnum code){
+        if(NORMAL.code.equals(code)){
+            return true;
+        }
+        return false;
+    }
 }

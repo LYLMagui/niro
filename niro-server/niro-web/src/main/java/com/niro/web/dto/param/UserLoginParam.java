@@ -11,10 +11,12 @@ import lombok.Data;
  * @date 2025/12/19
  */
 @Data
-@Schema(description = "用户登录参数")
+@Schema(name = "用户登录参数", description = "用户登录参数")
 public class UserLoginParam {
-    @NotNull(message = "用户名不能为空")
+    @Schema(description = "账号")
+    @NotNull(message = "账号不能为空")
     private String username;
+    @Schema(description = "密码")
     @NotNull(message = "密码不能为空")
     private String password;
 

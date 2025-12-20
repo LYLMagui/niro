@@ -1,4 +1,4 @@
-package com.niro.common.util;
+package com.niro.core.util;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

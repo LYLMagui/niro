@@ -1,4 +1,4 @@
-package com.niro.common.result;
+package com.niro.core.result;
 
 import lombok.Data;
 import lombok.NoArgsConstructor;

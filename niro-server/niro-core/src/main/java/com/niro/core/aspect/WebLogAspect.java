@@ -1,4 +1,4 @@
-package com.niro.common.aspect;
+package com.niro.core.aspect;
 
 import java.util.Arrays;
 import java.util.List;

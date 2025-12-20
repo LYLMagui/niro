@@ -1,8 +1,8 @@
-package com.niro.common.exception;
+package com.niro.core.exception;
 
 
-import com.niro.common.result.GlobalMessageConstant;
-import com.niro.common.result.StatusCode;
+import com.niro.core.result.GlobalMessageConstant;
+import com.niro.core.result.StatusCode;
 import lombok.Data;
 import lombok.EqualsAndHashCode;
 

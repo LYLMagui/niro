@@ -14,8 +14,8 @@ spring:
   data:
     redis:
       host: ${REDIS_HOST:localhost}
-      port: ${REDIS_PORT:6379}
-      password: ${REDIS_PASSWORD:}
+      port: ${REDIS_PORT:1111}
+      password: ${REDIS_PASSWORD:password}
       timeout: 2000ms
       lettuce:
         pool:
@@ -41,8 +41,13 @@ logging:
 
 # Knife4j配置（开发环境启用）
 knife4j:
-  enable: true
-
+  enable: false
+  setting:
+    language: zh_cn
+    enable-swagger-models: false
+    enable-document-manage: true
+    enable-host: false
+    enable-host-text: ""
 # 自定义配置
 buff:
   # 文件上传路径
