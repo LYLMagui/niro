@@ -1,10 +1,10 @@
 package com.niro.core.config;
 
-import com.niro.core.interceptor.TokenResponseInterceptor;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Web MVC 配置类
@@ -16,16 +16,8 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 @RequiredArgsConstructor
 public class WebConfig implements WebMvcConfigurer {
 
-    private final TokenResponseInterceptor tokenResponseInterceptor;
-
     @Override
     public void addInterceptors(InterceptorRegistry registry) {
-        // 注册 Token 响应拦截器，拦截所有请求
-        registry.addInterceptor(tokenResponseInterceptor)
-                .addPathPatterns("/**")
-                .excludePathPatterns(API_WHITELIST)
-                .excludePathPatterns(EXCLUDE_STATIC_SOURCE_PATH)
-                ;
     }
 
     private static final String[] API_WHITELIST = {

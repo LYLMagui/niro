@@ -47,7 +47,7 @@
         </div>
 
         <t-form-item class="pt-2">
-          <t-button theme="primary" type="submit" block size="large">登录</t-button>
+          <t-button theme="primary" type="submit" block size="large" :loading="loading">登录</t-button>
         </t-form-item>
       </t-form>
     </div>
@@ -64,6 +64,8 @@ import { reactive, ref } from "vue";
 import { MessagePlugin, FormRules, SubmitContext } from "tdesign-vue-next";
 import { useRouter } from "vue-router";
 import { UserIcon, LockOnIcon } from "tdesign-icons-vue-next";
+import { userApi } from "@/api/user";
+import { useRequest } from "@/composables/useRequest";
 
 // 路由
 const router = useRouter();
@@ -82,10 +84,24 @@ const accountRules: FormRules = {
   password: [{ required: true, message: "请输入密码", type: "error" }],
 };
 
+const { loading, run: login } = useRequest(userApi.login, {
+  onSuccess: (data) => {
+    // 登录成功后，将 token 存储到 localStorage
+    if (data?.token) {
+      localStorage.setItem("niro-token", data.token);
+    }
+    
+    MessagePlugin.success("登录成功");
+    
+    // 获取重定向地址，如果有则跳转到重定向地址，否则跳转到仪表盘
+    const redirect = router.currentRoute.value.query.redirect as string;
+    router.push(redirect || "/dashboard");
+  },
+});
+
 const handleAccountLogin = ({ validateResult }: SubmitContext) => {
   if (validateResult === true) {
-    MessagePlugin.success("登录成功");
-    router.push("/dashboard");
+    login(accountFormData);
   }
 };
 </script>

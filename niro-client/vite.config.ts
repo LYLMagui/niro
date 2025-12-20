@@ -33,7 +33,7 @@ export default defineConfig(({ mode }) => {
         // 代理 /dev-api 的请求，这里使用了动态键值对
         [env.VITE_BASE_API || "/api"]: {
           // 从环境变量中获取代理地址
-          target: env.VITE_APP_URL || "http://localhost:8000",
+          target: env.VITE_APP_URL || "http://localhost:8080",
           //允许跨域
           changeOrigin: true,
           rewrite: (path) => path.replace(new RegExp("^" + (env.VITE_BASE_API || "/api")), ""),

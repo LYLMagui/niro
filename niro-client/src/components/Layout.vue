@@ -45,9 +45,11 @@
         <t-head-menu theme="light">
           <template #operations>
             <div class="t-menu__operations">
-              <t-button variant="text" shape="square">
-                <template #icon><user-circle-icon /></template>
-              </t-button>
+              <t-dropdown :options="dropdownOptions" @click="handleDropdownClick">
+                <t-button variant="text" shape="square">
+                  <template #icon><user-circle-icon /></template>
+                </t-button>
+              </t-dropdown>
             </div>
           </template>
         </t-head-menu>
@@ -67,15 +69,40 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from "vue";
+import { computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon } from "tdesign-icons-vue-next";
+import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon } from "tdesign-icons-vue-next";
+import { userApi } from "@/api/user";
+import { MessagePlugin } from "tdesign-vue-next";
 
 const route = useRoute();
 const router = useRouter();
 
 // 计算当前激活的菜单项，基于当前路由名称
 const activeValue = computed(() => route.name as string);
+
+// 下拉菜单选项
+const dropdownOptions = [
+  { content: '退出登录', value: 'logout', prefixIcon: () => h(PoweroffIcon) },
+];
+
+const handleDropdownClick = async (data: any) => {
+  if (data.value === 'logout') {
+    await handleLogout();
+  }
+};
+
+const handleLogout = async () => {
+  try {
+    await userApi.logout();
+  } catch (error) {
+    console.error(error);
+  } finally {
+    localStorage.removeItem("niro-token");
+    MessagePlugin.success("已退出登录");
+    router.push("/login");
+  }
+};
 </script>
 
 <style scoped>

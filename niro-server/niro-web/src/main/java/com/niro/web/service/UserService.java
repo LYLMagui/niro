@@ -30,4 +30,9 @@ public interface UserService extends IService<User> {
      * @return
      */
     Result<UserDTO> login(UserLoginParam param);
+
+    /**
+     * 退出登录
+     */
+    void logout();
 }

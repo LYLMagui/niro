@@ -44,4 +44,11 @@ public class UserController {
     public Result<UserDTO> login(@RequestBody UserLoginParam param){
         return userService.login(param);
     }
+
+    @PostMapping("/logout")
+    @Operation(summary = "退出登录")
+    public Result<Void> logout(){
+        userService.logout();
+        return Result.success();
+    }
 }

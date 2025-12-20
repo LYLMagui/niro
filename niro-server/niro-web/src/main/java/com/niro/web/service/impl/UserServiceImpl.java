@@ -64,6 +64,12 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         StpUtil.login(user.getId());
         // 返回结果
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
+        userDTO.setToken(StpUtil.getTokenValue());
         return Result.success(userDTO);
+    }
+
+    @Override
+    public void logout() {
+        StpUtil.logout();
     }
 }

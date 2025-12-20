@@ -60,4 +60,10 @@ public class UserDTO {
     @TableLogic
     @Schema(description = "是否删除: 0-否, 1-是")
     private Integer isDelete;
+
+    /**
+     * Token令牌
+     */
+    @Schema(description = "Token令牌")
+    private String token;
 }
