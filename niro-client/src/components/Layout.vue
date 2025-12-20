@@ -98,7 +98,7 @@ const handleLogout = async () => {
   } catch (error) {
     console.error(error);
   } finally {
-    localStorage.removeItem("niro-token");
+    localStorage.removeItem("niro-web-token");
     MessagePlugin.success("已退出登录");
     router.push("/login");
   }

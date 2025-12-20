@@ -60,12 +60,13 @@
 </template>
 
 <script setup lang="ts">
-import { reactive, ref } from "vue";
+import { reactive, ref, onMounted } from "vue";
 import { MessagePlugin, FormRules, SubmitContext } from "tdesign-vue-next";
 import { useRouter } from "vue-router";
 import { UserIcon, LockOnIcon } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { useRequest } from "@/composables/useRequest";
+import { encrypt, decrypt } from "@/utils/crypto";
 
 // 路由
 const router = useRouter();
@@ -79,6 +80,27 @@ const accountFormData = reactive({
   password: "",
 });
 
+// 初始化时读取记住的账号密码
+onMounted(() => {
+  const remembered = localStorage.getItem("niro-remember-me");
+  if (remembered) {
+    try {
+      const { username, password, isRemember } = JSON.parse(remembered);
+      if (isRemember) {
+        accountFormData.username = username;
+        // 解密密码
+        const decryptedPassword = decrypt(password);
+        if (decryptedPassword) {
+          accountFormData.password = decryptedPassword;
+          rememberMe.value = true;
+        }
+      }
+    } catch (e) {
+      localStorage.removeItem("niro-remember-me");
+    }
+  }
+});
+
 const accountRules: FormRules = {
   username: [{ required: true, message: "请输入用户名", type: "error" }],
   password: [{ required: true, message: "请输入密码", type: "error" }],
@@ -89,6 +111,19 @@ const { loading, run: login } = useRequest(userApi.login, {
     // 登录成功后，将 token 存储到 localStorage
     if (data?.token) {
       localStorage.setItem("niro-web-token", data.token);
+    }
+
+    // 处理"记住我"逻辑
+    if (rememberMe.value) {
+      // 加密密码存储
+      const encryptedPassword = encrypt(accountFormData.password);
+      localStorage.setItem("niro-remember-me", JSON.stringify({
+        username: accountFormData.username,
+        password: encryptedPassword,
+        isRemember: true
+      }));
+    } else {
+      localStorage.removeItem("niro-remember-me");
     }
     
     MessagePlugin.success("登录成功");
