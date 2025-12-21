@@ -44,3 +44,5 @@ niro-server/**/logs/
 niro-server/**/temp/
 niro-server/**/tmp/
 niro-server/**/.DS_Store
+
+./logs/.log
