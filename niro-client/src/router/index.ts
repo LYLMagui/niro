@@ -27,6 +27,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: "概览", icon: "dashboard" }, // 路由元信息，用于菜单渲染
       },
       {
+        path: "goods",
+        name: "GoodsList",
+        component: () => import("@/views/GoodsList.vue"),
+        meta: { title: "商品列表", icon: "shop" },
+      },
+      {
         path: "tasks",
         name: "TaskConfig",
         component: () => import("@/views/TaskConfig.vue"),

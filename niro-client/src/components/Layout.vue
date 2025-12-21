@@ -20,6 +20,14 @@
           概览
         </t-menu-item>
 
+        <!-- 菜单项：商品列表 -->
+        <t-menu-item value="GoodsList" to="/goods" @click="router.push('/goods')">
+          <template #icon>
+            <shop-icon />
+          </template>
+          商品列表
+        </t-menu-item>
+
         <!-- 菜单项：任务配置 -->
         <t-menu-item value="TaskConfig" to="/tasks" @click="router.push('/tasks')">
           <template #icon>
@@ -71,7 +79,7 @@
 <script setup lang="ts">
 import { computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon } from "tdesign-icons-vue-next";
+import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon, ShopIcon } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { MessagePlugin } from "tdesign-vue-next";
 

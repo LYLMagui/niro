@@ -1,7 +1,7 @@
 ---
 alwaysApply: true
 ---
-```markdown
+**前置条件**：思考前先阅读question_rules.md文件
 # 项目提示词（前后端统一工程规范 / LLM 执行版）
 
 > 适用范围：本仓库的前端 Vue 3、后端 Spring Boot、后端 Python 业务编排代码。  
@@ -214,6 +214,3 @@ from sizi import summarys    # 依赖库完整算法：禁止简化逻辑
 
 ### 6.4 性能与可观测性
 - 
-
----
-```
