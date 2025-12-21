@@ -33,26 +33,14 @@ REDIS_PORT = int(os.getenv("REDIS_PORT", 6379))
 REDIS_PASSWORD = os.getenv("REDIS_PASSWORD", None)
 REDIS_DB = int(os.getenv("REDIS_DB", 0))
 
-# 代理IP池
-PROXIES = [
-    "47.251.87.74:999", 
-    "16.78.82.73:4153", 
-    "47.109.110.100:8081", 
-    "39.104.23.154:4006", 
-    "47.108.159.113:8888", 
-    "47.237.92.86:8181", 
-    "157.175.197.28:393", 
-    "35.183.64.191:9898", 
-    "39.102.211.162:13", 
-    "47.119.22.156:8099", 
-    "15.236.38.248:26319", 
-    "78.12.220.164:1002", 
-    "39.102.213.187:8000", 
-    "39.102.211.162:9080", 
-    "8.138.133.207:3128", 
-    "84.239.49.47:9002", 
-    "39.102.213.187:9999", 
-    "104.129.194.46:11659", 
-    "13.212.14.16:9991", 
-    "47.243.50.83:81"
-]
+
+# PostgreSQL 配置
+DB_HOST = os.getenv("DB_HOST", "localhost")
+DB_PORT = int(os.getenv("DB_PORT", 5432))
+DB_NAME = os.getenv("DB_NAME", "niro")
+DB_SCHEMA = os.getenv("DB_SCHEMA", "public")
+DB_USERNAME = os.getenv("DB_USERNAME", "postgres")
+DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
+DB_MIN_CONN = int(os.getenv("PG_MIN_CONN", 1))
+DB_MAX_CONN = int(os.getenv("PG_MAX_CONN", 10))
+
