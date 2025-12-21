@@ -130,7 +130,7 @@ def get_parent_categories_from_db():
     logger.info("正在从数据库获取一级分类...")
     try:
         with pg_pool.get_cursor() as cur:
-            sql = "SELECT id, internal_name, name, full_internal_name FROM buff_weapon_categories WHERE parent_id = 0"
+            sql = "SELECT id, internal_name, name, full_internal_name FROM buff_goods_categories WHERE parent_id = 0"
             cur.execute(sql)
             rows = cur.fetchall()
             logger.info(f"✅ 获取到 {len(rows)} 个一级分类")
@@ -221,7 +221,7 @@ def sync_categories(total_categories):
             with pg_pool.get_cursor() as cur:
                 # 批量查询已存在的 name
                 cur.execute(
-                    "SELECT id, internal_name, name FROM buff_weapon_categories WHERE name = ANY(%s)",
+                    "SELECT id, internal_name, name FROM buff_goods_categories WHERE name = ANY(%s)",
                     (names_to_check,)
                 )
                 rows = cur.fetchall()
@@ -270,7 +270,7 @@ def sync_categories(total_categories):
             if insert_data:
                 logger.info(f"正在批量插入/更新 {len(insert_data)} 条记录...")
                 sql = """
-                    INSERT INTO buff_weapon_categories (name, parent_id, internal_name, full_internal_name)
+                    INSERT INTO buff_goods_categories (name, parent_id, internal_name, full_internal_name)
                     VALUES %s
                     ON CONFLICT (internal_name)
                     DO UPDATE SET
@@ -286,7 +286,7 @@ def sync_categories(total_categories):
             if conflict_updates:
                 logger.info(f"正在处理 {len(conflict_updates)} 条ID冲突记录...")
                 update_sql = """
-                    UPDATE buff_weapon_categories 
+                    UPDATE buff_goods_categories 
                     SET name = %s, internal_name = %s, full_internal_name = %s, parent_id = %s
                     WHERE id = %s
                 """
