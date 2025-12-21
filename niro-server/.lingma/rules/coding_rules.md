@@ -1,7 +1,8 @@
 ---
 alwaysApply: true
 ---
-```markdown
+
+**前置条件**：思考前先阅读question_rules.md文件
 # 项目提示词（前后端统一工程规范 / LLM 执行版）
 
 > 适用范围：本仓库的前端 Vue 3、后端 Spring Boot、后端 Python 业务编排代码。  
@@ -181,10 +182,10 @@ from sizi import summarys    # 依赖库完整算法：禁止简化逻辑
 
 ## 4. 前后端联调硬规则（避免参数不一致）
 - 修改前端 `api/` 或请求参数时，必须同步查看后端 Controller/DTO/校验规则，确保：
-  - 字段名一致（大小写/下划线/驼峰映射）
-  - 必填/选填一致
-  - 枚举值/范围一致
-  - 分页参数（`pageNo/pageSize` 或 `current/size`）与后端实现一致
+    - 字段名一致（大小写/下划线/驼峰映射）
+    - 必填/选填一致
+    - 枚举值/范围一致
+    - 分页参数（`pageNo/pageSize` 或 `current/size`）与后端实现一致
 - 输出联调说明：接口路径、方法、示例请求、示例响应、错误码与异常提示策略。
 
 ---
@@ -216,4 +217,3 @@ from sizi import summarys    # 依赖库完整算法：禁止简化逻辑
 - 
 
 ---
-```
