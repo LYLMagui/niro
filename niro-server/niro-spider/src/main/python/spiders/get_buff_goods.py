@@ -212,11 +212,12 @@ def process_category(category):
                 rarity_tag = info_tags.get("rarity", {})
                 rarity = rarity_tag.get("internal_name", "")
                 
-                # 提取外观 (存 localized_name，如 "久经沙场"，因为这是用户更习惯的)
+                # 提取外观 (存 internal_name，如 "wearcategory2")
                 exterior_tag = info_tags.get("exterior", {})
-                exterior = exterior_tag.get("localized_name", "") # 改存中文名称
+                exterior = exterior_tag.get("internal_name", "") # 改存 internal_name
                 if not exterior:
-                    exterior = exterior_tag.get("internal_name", "") # fallback
+                    # 如果没有磨损（如印花、箱子），存空字符串或 None
+                    exterior = ""
                 
                 icon_url = goods_info.get("icon_url", "")
                 original_icon_url = goods_info.get("original_icon_url", "")
