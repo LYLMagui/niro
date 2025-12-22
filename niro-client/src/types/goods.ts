@@ -14,12 +14,18 @@ export interface Goods {
   createTime: string;
 }
 
+export interface GoodsSimple {
+  goodsId: number;
+  name: string;
+}
+
 /**
  * 分页查询参数
  */
 export interface GoodsPageQuery {
   page: number;
   pageSize: number;
+  goodsId?: number; // 精确匹配
   name?: string; // 搜索关键词
   exterior?: string; // 磨损筛选
 }

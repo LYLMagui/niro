@@ -64,14 +64,16 @@
       </t-header>
 
       <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
-      <t-content class="overflow-auto bg-gray-50 p-6">
-        <router-view />
+      <t-content class="overflow-auto bg-gray-50 flex flex-col">
+        <div class="flex-1 p-6">
+          <router-view />
+        </div>
+        
+        <!-- 底部版权信息 -->
+        <t-footer class="py-4 text-center text-sm text-gray-400 bg-gray-50">
+          Copyright @ 2024 Niro Control
+        </t-footer>
       </t-content>
-
-      <!-- 底部版权信息 -->
-      <t-footer class="py-4 text-center text-sm text-gray-400">
-        Copyright @ 2024 Niro Control
-      </t-footer>
     </t-layout>
   </t-layout>
 </template>

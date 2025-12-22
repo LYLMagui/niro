@@ -18,6 +18,17 @@ export const ExteriorMap: Record<string, string> = {
   [ExteriorEnum.NONE]: '-',
 };
 
+// 磨损标签颜色 (Buff 风格)
+export const ExteriorColorMap: Record<string, string> = {
+  [ExteriorEnum.FACTORY_NEW]: '#397439', // 崭新出厂
+  [ExteriorEnum.MINIMAL_WEAR]: '#488B48', // 略有磨损
+  [ExteriorEnum.FIELD_TESTED]: '#F1AD4D', // 久经沙场
+  [ExteriorEnum.WELL_WORN]: '#B7625F', // 破损不堪
+  [ExteriorEnum.BATTLE_SCARRED]: '#993A38', // 战痕累累
+  [ExteriorEnum.NOT_PAINTED]: '#808080', // 无涂装
+  [ExteriorEnum.NONE]: '#808080',
+};
+
 // 用于下拉选择框的选项列表
 export const ExteriorOptions = [
   { label: '崭新出厂', value: ExteriorEnum.FACTORY_NEW },
