@@ -85,16 +85,4 @@ public class BuffGoodsDTO {
      */
     @Schema(description = "原始图标url")
     private String originalIconUrl;
-
-    /**
-     * 创建时间
-     */
-    @Schema(description = "创建时间")
-    private LocalDateTime createTime;
-
-    /**
-     * 修改时间
-     */
-    @Schema(description = "修改时间")
-    private LocalDateTime updateTime;
 }

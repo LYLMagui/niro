@@ -21,6 +21,9 @@ public class GoodsQueryParam {
     @Schema(description = "每页大小", defaultValue = "10")
     private Long pageSize = 10L;
 
+    @Schema(description = "商品ID (精确匹配)")
+    private Long goodsId;
+
     @Schema(description = "商品名称/简称")
     private String name;
 
