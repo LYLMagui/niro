@@ -20,9 +20,9 @@ alwaysApply: true
 
 ### 0.2 变更与交付
 - 任何代码改动后，必须归纳：
-  - 修改了哪些文件
-  - 每个文件改动目的与关键点
-  - 如何验证（启动/接口/测试/页面路径）
+    - 修改了哪些文件
+    - 每个文件改动目的与关键点
+    - 如何验证（启动/接口/测试/页面路径）
 - 不得产生“只占位后续实现”的空逻辑，不得提供 Mock/Stub 代替真实实现。
 - 不得吞异常、不得使用空 `catch`、不得把异常当作正常控制流。
 
@@ -30,9 +30,9 @@ alwaysApply: true
 - **不得引入未在项目中声明/安装的第三方包**（如 `lodash`、`dayjs`、`Guava`、`Hutool`），除非已存在依赖或用户明确要求并允许安装。
 - **前端依赖管理使用 `pnpm`，禁止 `npm`。**
 - 终端命令输出要求：
-  - 多行命令必须分开输出
-  - 单行需要合并时使用 `;` 分隔
-  - 默认按 Windows 环境命令风格输出（路径使用 `\`）
+    - 多行命令必须分开输出
+    - 单行需要合并时使用 `;` 分隔
+    - 默认按 Windows 环境命令风格输出（路径使用 `\`）
 
 ### 0.4 需求与产品视角（必须执行）
 - 从产品经理与架构师视角审视：业务流程是否合理、交互是否最小复杂度、是否满足最小可用（MVP）。
@@ -75,8 +75,8 @@ alwaysApply: true
 - 页面加载必须提供骨架屏或 loading，避免白屏
 
 ### 1.6 注释要求（前端）
-- 默认需要简洁中文注释以提升可维护性，**除非任务明确要求不添加注释**  
-- 文件顶部需包含：作者 `liyl`、创建时间、功能简述  
+- 默认需要简洁中文注释以提升可维护性，**除非任务明确要求不添加注释**
+- 文件顶部需包含：作者 `liyl`、创建时间、功能简述
 - 复杂逻辑（`watchEffect`、`computed` 等）必须说明业务含义，而非重复代码
 
 ---
@@ -86,25 +86,29 @@ alwaysApply: true
 ### 2.1 技术栈与硬性约束
 - Spring Boot 版本：3.x；JDK：21+
 - ORM：统一使用 `MyBatis-Plus`
-  - 禁止原生 XML SQL、禁止手写 SQL
-  - 优先 `LambdaQueryWrapper`、`IService`、`ServiceImpl` 链式写法
-  - 复杂联表：优先拆分为多次查询再合并结果，避免不可维护的“超长查询”
+    - 禁止原生 XML SQL、禁止手写 SQL
+    - 优先 `lambdaQuery().xx`、`IService`、`ServiceImpl` 链式写法
+    - 禁止使用 `LambdaQueryWrapper`构造条件
+    - 复杂联表：优先拆分为多次查询再合并结果，避免不可维护的“超长查询”
 - Controller：必须 `@RestController`，禁止 `@Controller + @ResponseBody`
 - 配置文件：使用 `application.yml`（可多环境 `application-dev.yml`、`application-prod.yml`），禁止 `.properties`
 - 依赖注入：统一构造函数注入 + `@RequiredArgsConstructor`，禁止字段注入 `@Autowired`
-- 所有接口返回：统一 `Result<T>`，格式 `{ code, msg, data }`，禁止直接返回实体对象
+- 所有接口返回：响应处理器已经做了`Result<T>`封装，直接返回实体对象
+- 所有DTO的转换统一使用`Hutool`包的`BeanUtil`工具类
+- 所有集合、字符串的判空都必须使用`Hutool`包的相关工具类
+- 优先使用`Hutool`包中的工具类，如果没有满足需求的工具类，则使用自己再创建
 
 ### 2.2 分层与包结构
 - 必须严格分层（仅举例，按项目实际包名为准）：
-  - `controller`：HTTP 入参校验、路由、鉴权入口（不承载业务细节）
-  - `service`：业务接口
-  - `service.impl`：业务实现（必须实现接口）
-  - `mapper`：MyBatis-Plus Mapper
-  - `entity`：数据库实体（PO）
-  - `dto`：数据传输对象（入参/出参统一使用 DTO；**本项目禁止创建 VO**）
-  - `enums`：枚举
-  - `config`：配置
-  - `utils`：无状态且线程安全工具类
+    - `controller`：HTTP 入参校验、路由、鉴权入口（不承载业务细节）
+    - `service`：业务接口
+    - `service.impl`：业务实现（必须实现接口）
+    - `mapper`：MyBatis-Plus Mapper
+    - `entity`：数据库实体（PO）
+    - `dto`：数据传输对象（入参/出参统一使用 DTO；**本项目禁止创建 VO**）
+    - `enums`：枚举
+    - `config`：配置
+    - `utils`：无状态且线程安全工具类
 
 ### 2.3 命名规范
 - 包名：全小写单数
@@ -120,12 +124,12 @@ alwaysApply: true
 
 ### 2.4 注释与日志
 - 类/接口/方法/字段必须使用 Javadoc：`/** ... */`
-  - 类注释包含：`@author l
+    - 类注释包含：`@author l
 iyl`、`@date`、`@description`
-  - 方法注释包含：业务作用、`@param`、`@return`
+    - 方法注释包含：业务作用、`@param`、`@return`
+    - 实体类使用 `lambda`注解，依赖注入使用`@RequiredArgsConstructor`注解注入
 - 日志：统一 `SLF4J`，使用 `{}` 占位符，禁止字符串拼接
-  - `DEBUG` 调试、`INFO` 关键流程、`WARN` 可恢复异常、`ERROR` 严重错误
-- 敏感信息（DB 密码、API Key）：必须放环境变量或配置中心，禁止硬编码
+    - `DEBUG` 调试、`INFO` 关键流程、`WARN` 可恢复异常、`ERROR` 严重错误
 
 ### 2.5 分页与数据一致性
 - 分页必须使用 `Page<T>`，禁止手动计算 `limit/offset`
@@ -133,6 +137,66 @@ iyl`、`@date`、`@description`
 - 参数校验统一 JSR303（`@NotNull`、`@Size` 等）+ Controller `@Valid`
 - 全局异常：使用 `@RestControllerAdvice` 统一捕获；禁止在业务代码中滥用 `try-catch`
 
+### 2.6 项目目录结构
+**所有的文件和目录创建都必须遵守一下目录结构，禁止随意在某个不相干的模块创建代码文件或目录**
+```plant text
+niro-server/
+├── niro-core/              # [核心基础模块]：提供通用工具、全局配置和统一响应封装
+│   └── src/main/java/com/niro/core/
+│       ├── advice/         # 响应拦截器 (如：ResponseAdvice 统一包装响应体)
+│       ├── aspect/         # AOP切面 (如：WebLogAspect 统一记录请求日志)
+│       ├── config/         # 通用配置 (如：RedisConfig, WebConfig)
+│       ├── exception/      # 自定义异常 (如：BusinessException 业务逻辑报错)
+│       ├── handler/        # 全局异常处理器 (如：GlobalExceptionHandler 捕获所有报错)
+│       ├── result/         # 统一返回结果 (如：Result<T> 封装 {code, msg, data})
+│       └── util/           # 通用工具类 (如：RedisUtil, Assert 断言工具)
+│
+├── niro-spider/            # [爬虫业务模块]：Python 实现的独立数据采集服务
+│   ├── src/main/python/
+│   │   ├── config/         # 爬虫配置 (如：settings.py 数据库连接、并发数)
+│   │   ├── spiders/        # 爬虫逻辑 (如：buff_spider.py 抓取 Buff 饰品数据)
+│   │   ├── storage/        # 数据存储 (如：postgres_pool.py 数据库连接池)
+│   │   ├── utils/          # 爬虫工具 (如：proxy_helper.py 代理池管理)
+│   │   └── main.py         # 爬虫启动入口
+│   └── requirements.txt    # Python 依赖清单
+│
+├── niro-web/               # [Web 业务模块]：Spring Boot 实现的主业务服务
+│   └── src/main/
+│       ├── java/com/niro/web/
+│       │   ├── config/     # 业务配置 (如：MybatisPlusConfig 分页插件)
+│       │   ├── controller/ # 接口层 (如：BuffGoodsController 商品接口, UserController 用户接口)
+│       │   ├── dto/        # 数据传输对象
+│       │   │   ├── param/  # 入参对象 (如：GoodsQueryParam 商品查询条件)
+│       │   │   └── *.DTO   # 出参对象 (如：BuffGoodsDTO 返回给前端的商品信息)
+│       │   ├── entity/     # 数据库实体 (如：BuffGoods 对应数据库表结构)
+│       │   ├── enums/      # 枚举常量 (如：ExteriorEnum 磨损枚举, UserStatusEnum 用户状态)
+│       │   ├── mapper/     # DAO层接口 (如：BuffGoodsMapper 数据库操作)
+│       │   ├── service/    # 业务逻辑层 (如：BuffGoodsServiceImpl 复杂的查询与处理逻辑)
+│       │   └── NiroWebApplication.java # Spring Boot 启动类
+│       │
+│       └── resources/      # 资源文件
+│           ├── config/     # 配置文件分类管理
+│           │   ├── common/ # 公共配置 (如：database.yml 数据库账号密码)
+│           │   ├── dev/    # 开发环境 (如：application-dev.yml 本地调试配置)
+│           │   └── prod/   # 生产环境
+│           └── application.yml # 主配置文件 (激活对应环境 profile)
+│
+└── pom.xml                 # Maven 父工程配置 (统一管理子模块版本与依赖)
+```
+### 2.7 其他规范
+- 所有的配置都优先下沉到`core`模块，除非特殊需求
+- 所有依赖的本号应该在父工程中统一管理，子模块只需声明`groupId` 和 `artifactId` ， 无需禁止重复指定`<version>`。
+- 实体类的转换参考`List<BuffGoodsDTO> dtoList = BeanUtil.copyToList(goodsPage.getRecords(), BuffGoodsDTO.class);`，禁止使用如下形式
+```java
+.stream()
+                .map(goods -> {
+BuffGoodsSimpleDTO dto = new BuffGoodsSimpleDTO();
+                    dto.setGoodsId(goods.getGoodsId());
+        dto.setName(goods.getName());
+        return dto;
+                })
+                        .collect(Collectors.toList());
+```
 ---
 
 ## 3. 后端（Python：强依赖复用 + 胶水编排）
@@ -215,5 +279,3 @@ from sizi import summarys    # 依赖库完整算法：禁止简化逻辑
 
 ### 6.4 性能与可观测性
 - 
-
----

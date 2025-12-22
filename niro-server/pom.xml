@@ -60,6 +60,15 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
+
+            <!-- MyBatis-Plus BOM - 统一管理MyBatis-Plus依赖版本 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-bom</artifactId>
+                <version>${mybatis-plus.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
             
             <!-- Dotenv 支持 -->
             <dependency>
@@ -85,9 +94,17 @@
             </dependency>
 
             <!-- MyBatis-Plus-->
+            <!-- spring boot3 引入可选模块 -->
             <dependency>
                 <groupId>com.baomidou</groupId>
-                <artifactId>mybatis-plus-boot-starter</artifactId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+
+            <!-- jdk 11+ 引入可选模块 -->
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
                 <version>${mybatis-plus.version}</version>
             </dependency>
 
