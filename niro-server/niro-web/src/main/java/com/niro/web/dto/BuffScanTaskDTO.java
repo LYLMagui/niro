@@ -1,0 +1,54 @@
+package com.niro.web.dto;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+
+/**
+ * 扫货任务 DTO
+ *
+ * @author liyl
+ * @since 2025-12-24
+ */
+@Data
+@Schema(description = "扫货任务信息")
+public class BuffScanTaskDTO {
+
+    @Schema(description = "任务ID")
+    private Long id;
+
+    @Schema(description = "任务名称")
+    private String name;
+
+    @Schema(description = "商品ID")
+    private Long goodsId;
+
+    @Schema(description = "商品名称 (关联查询)")
+    private String goodsName;
+
+    @Schema(description = "商品图标 (关联查询)")
+    private String goodsIconUrl;
+
+    @Schema(description = "目标最高价格")
+    private BigDecimal maxPrice;
+
+    @Schema(description = "最小磨损")
+    private BigDecimal minPaintwear;
+
+    @Schema(description = "最大磨损")
+    private BigDecimal maxPaintwear;
+
+    @Schema(description = "计划购买数量")
+    private Integer buyCount;
+
+    @Schema(description = "已成功购买数量")
+    private Integer successCount;
+
+    @Schema(description = "状态: 0-停止, 1-运行中, 2-已完成")
+    private Integer status;
+
+    @Schema(description = "创建时间")
+    private LocalDateTime createTime;
+}
