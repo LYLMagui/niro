@@ -22,6 +22,16 @@
             reserve-keyword
           />
         </t-form-item>
+        <t-form-item label="商品分类" name="categoryId">
+          <t-cascader
+            v-model="searchForm.categoryId"
+            :options="categoryOptions"
+            placeholder="请选择分类"
+            clearable
+            check-strictly
+            style="width: 200px"
+          />
+        </t-form-item>
         <t-form-item label="外观磨损" name="exterior">
           <t-select v-model="searchForm.exterior" placeholder="请选择外观" clearable style="width: 160px">
             <t-option v-for="item in ExteriorOptions" :key="item.value" :value="item.value" :label="item.label" />
@@ -147,6 +157,7 @@
 </template>
 
 <script setup lang="ts">
+import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import type { Goods, GoodsPageQuery, GoodsSimple } from "@/types/goods";
 import { LinkIcon, RefreshIcon, SearchIcon } from "tdesign-icons-vue-next";
@@ -171,14 +182,19 @@ const onPreview = (url: string) => {
 const searchForm = reactive<{
   goodsId?: number;
   exterior: string;
+  categoryId?: number;
 }>({
   goodsId: undefined,
   exterior: "",
+  categoryId: undefined,
 });
 
 // 全量商品选项
 const goodsOptions = ref<{ label: string; value: number }[]>([]);
 const searchLoading = ref(false);
+
+// 分类选项
+const categoryOptions = ref<CategoryNode[]>([]);
 
 // 表格数据
 const loading = ref(false);
@@ -209,6 +225,7 @@ const fetchData = async () => {
       pageSize: pagination.pageSize,
       goodsId: searchForm.goodsId,
       exterior: searchForm.exterior,
+      categoryId: searchForm.categoryId,
     };
     const res = await goodsApi.getPage(params);
     // 这里需要断言一下类型，或者直接使用，因为 axios 拦截器已经处理了响应
@@ -261,6 +278,7 @@ const handleSearch = () => {
 const handleReset = () => {
   searchForm.goodsId = undefined;
   searchForm.exterior = "";
+  searchForm.categoryId = undefined;
   pagination.current = 1;
   fetchData();
 };
@@ -272,8 +290,19 @@ const onPageChange = (pageInfo: PageInfo) => {
   fetchData();
 };
 
+// 加载分类树
+const fetchCategoryTree = async () => {
+  try {
+    const res = await categoryApi.getTree();
+    categoryOptions.value = res as unknown as CategoryNode[];
+  } catch (error) {
+    console.error(error);
+  }
+};
+
 onMounted(() => {
   fetchSimpleList();
+  fetchCategoryTree();
   fetchData();
 });
 </script>

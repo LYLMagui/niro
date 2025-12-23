@@ -28,6 +28,7 @@ export interface GoodsPageQuery {
   goodsId?: number; // 精确匹配
   name?: string; // 搜索关键词
   exterior?: string; // 磨损筛选
+  categoryId?: number; // 分类筛选
 }
 
 /**
