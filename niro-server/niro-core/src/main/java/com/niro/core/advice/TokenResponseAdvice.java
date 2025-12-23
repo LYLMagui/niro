@@ -12,6 +12,8 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 import cn.dev33.satoken.stp.StpUtil;
 import jakarta.servlet.http.HttpServletResponse;
 
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 /**
  * 统一响应增强，用于在响应头中添加Token
  *
@@ -23,6 +25,10 @@ public class TokenResponseAdvice implements ResponseBodyAdvice<Object> {
 
     @Override
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
+        // 排除 SSE 流
+        if (SseEmitter.class.isAssignableFrom(returnType.getParameterType())) {
+            return false;
+        }
         // 只有返回Result类型的接口才进行处理，或者可以全部处理
         return true;
     }

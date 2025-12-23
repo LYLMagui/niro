@@ -12,6 +12,8 @@ import org.springframework.http.server.ServerHttpResponse;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
+import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
+
 /**
  * 统一响应体封装
  * 
@@ -28,6 +30,10 @@ public class ResponseAdvice implements ResponseBodyAdvice<Object> {
     public boolean supports(MethodParameter returnType, Class<? extends HttpMessageConverter<?>> converterType) {
         // 如果不需要进行封装的，可以添加逻辑判断
         // 例如：如果不希望封装 String 类型，或者已经封装了 Result 类型
+        // 排除 SSE 流
+        if (SseEmitter.class.isAssignableFrom(returnType.getParameterType())) {
+            return false;
+        }
         return true;
     }
 
