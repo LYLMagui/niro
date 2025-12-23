@@ -4,7 +4,7 @@
     <!-- 侧边栏 -->
     <t-aside>
       <!-- 侧边菜单，绑定当前激活的菜单项 -->
-      <t-menu theme="light" :value="activeValue" style="margin-right: 50px" height="550px">
+      <t-menu theme="light" :value="activeValue" style="margin-right: 50px" height="550px" @change="handleMenuChange">
         <!-- 菜单顶部 Logo 区域 -->
         <template #logo>
           <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">
@@ -13,7 +13,7 @@
         </template>
 
         <!-- 菜单项：概览 -->
-        <t-menu-item value="Dashboard" to="/dashboard" @click="router.push('/dashboard')">
+        <t-menu-item value="Dashboard">
           <template #icon>
             <dashboard-icon />
           </template>
@@ -21,7 +21,7 @@
         </t-menu-item>
 
         <!-- 菜单项：商品列表 -->
-        <t-menu-item value="GoodsList" to="/goods" @click="router.push('/goods')">
+        <t-menu-item value="GoodsList">
           <template #icon>
             <shop-icon />
           </template>
@@ -29,7 +29,7 @@
         </t-menu-item>
 
         <!-- 菜单项：任务配置 -->
-        <t-menu-item value="TaskConfig" to="/tasks" @click="router.push('/tasks')">
+        <t-menu-item value="TaskConfig">
           <template #icon>
             <server-icon />
           </template>
@@ -37,7 +37,7 @@
         </t-menu-item>
 
         <!-- 菜单项：运行日志 -->
-        <t-menu-item value="Logs" to="/logs" @click="router.push('/logs')">
+        <t-menu-item value="Logs">
           <template #icon>
             <view-list-icon />
           </template>
@@ -90,6 +90,14 @@ const router = useRouter();
 
 // 计算当前激活的菜单项，基于当前路由名称
 const activeValue = computed(() => route.name as string);
+
+// 菜单切换处理
+const handleMenuChange = (value: string | number) => {
+  // 仅在 value 存在且为字符串时跳转
+  if (value && typeof value === 'string') {
+    router.push({ name: value });
+  }
+};
 
 // 下拉菜单选项
 const dropdownOptions = [

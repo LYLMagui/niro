@@ -1,68 +1,69 @@
 <template>
   <div class="space-y-4">
-    <!-- 顶部搜索栏 -->
-    <t-card :bordered="false" class="transition-shadow duration-300 hover:shadow">
-      <t-form
-        ref="form"
-        :data="searchForm"
-        layout="inline"
-        @submit="handleSearch"
-        @reset="handleReset"
-      >
-        <t-form-item label="商品名称" name="goodsId">
-          <t-select
-            v-model="searchForm.goodsId"
-            :options="goodsOptions"
-            filterable
-            placeholder="请输入商品名称搜索"
-            clearable
-            style="width: 300px"
-            :on-search="onRemoteSearch"
-            :loading="searchLoading"
-            reserve-keyword
-          />
-        </t-form-item>
-        <t-form-item label="商品分类" name="categoryId">
-          <t-cascader
-            v-model="searchForm.categoryId"
-            :options="categoryOptions"
-            placeholder="请选择分类"
-            clearable
-            check-strictly
-            style="width: 200px"
-          />
-        </t-form-item>
-        <t-form-item label="外观磨损" name="exterior">
-          <t-select v-model="searchForm.exterior" placeholder="请选择外观" clearable style="width: 160px">
-            <t-option v-for="item in ExteriorOptions" :key="item.value" :value="item.value" :label="item.label" />
-          </t-select>
-        </t-form-item>
-        <t-form-item>
-          <div class="flex gap-4">
-            <t-button
-              theme="primary"
-              type="submit"
-              class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
-            >
-              <template #icon><search-icon /></template>
-              查询
-            </t-button>
-            <t-button
-              theme="default"
-              variant="base"
-              type="reset"
-              class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
-            >
-              <template #icon><refresh-icon /></template>
-              重置
-            </t-button>
-          </div>
-        </t-form-item>
-      </t-form>
-    </t-card>
-
-    <!-- 数据表格 -->
+    <!-- 合并后的商品列表卡片 -->
     <t-card :bordered="false" title="商品列表" class="hover:shadow transition-shadow duration-300">
+      <!-- 搜索栏 -->
+      <div class="mb-6 border-b border-gray-100 pb-6">
+        <t-form
+          ref="form"
+          :data="searchForm"
+          layout="inline"
+          @submit="handleSearch"
+          @reset="handleReset"
+        >
+          <t-form-item label="商品名称" name="goodsId">
+            <t-select
+              v-model="searchForm.goodsId"
+              :options="goodsOptions"
+              filterable
+              placeholder="请输入商品名称搜索"
+              clearable
+              style="width: 300px"
+              :on-search="onRemoteSearch"
+              :loading="searchLoading"
+              reserve-keyword
+            />
+          </t-form-item>
+          <t-form-item label="商品分类" name="categoryId">
+            <t-cascader
+              v-model="searchForm.categoryId"
+              :options="categoryOptions"
+              placeholder="请选择分类"
+              clearable
+              check-strictly
+              style="width: 200px"
+            />
+          </t-form-item>
+          <t-form-item label="外观磨损" name="exterior">
+            <t-select v-model="searchForm.exterior" placeholder="请选择外观" clearable style="width: 160px">
+              <t-option v-for="item in ExteriorOptions" :key="item.value" :value="item.value" :label="item.label" />
+            </t-select>
+          </t-form-item>
+          <t-form-item>
+            <div class="flex gap-4">
+              <t-button
+                theme="primary"
+                type="submit"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              >
+                <template #icon><search-icon /></template>
+                查询
+              </t-button>
+              <t-button
+                theme="default"
+                variant="base"
+                type="reset"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              >
+                <template #icon><refresh-icon /></template>
+                重置
+              </t-button>
+            </div>
+          </t-form-item>
+        </t-form>
+      </div>
+
+      <!-- 数据表格 -->
       <t-table
         row-key="id"
         :data="dataList"
@@ -134,14 +135,23 @@
           <t-button
             variant="text"
             theme="primary"
-            :href="`https://buff.163.com/market/csgo#game=csgo&page_num=1&search=${encodeURIComponent(row.name)}&tab=selling`"
-            target="_blank"
             size="small"
             class="transition-all hover:font-bold"
+            @click="openBuffGoods(row.goodsId)"
           >
             <template #icon><link-icon /></template>
             详情
           </t-button>
+          <t-button
+            variant="text"
+            theme="warning"
+            size="small"
+            class="ml-2 transition-all hover:font-bold"
+            @click="openCreateTaskDialog(row)"
+          >
+            <template #icon><shop-icon /></template>
+          扫货
+        </t-button>
         </template>
       </t-table>
     </t-card>
@@ -153,15 +163,87 @@
       :close-on-overlay="true"
       @close="visible = false" 
     />
+
+    <!-- 创建任务弹窗 -->
+    <t-dialog
+      v-model:visible="createTaskDialogVisible"
+      header="创建扫货任务"
+      :confirm-btn="{ content: '提交', loading: submitLoading }"
+      :on-confirm="confirmCreateTask"
+      :on-close="() => createTaskDialogVisible = false"
+      width="500px"
+    >
+      <div v-if="currentGoods" class="mb-4 flex items-center gap-4 rounded bg-gray-50 p-3">
+        <t-image :src="currentGoods.iconUrl" class="h-12 w-12 rounded" fit="contain" />
+        <div class="flex flex-col">
+          <span class="font-bold text-gray-900">{{ currentGoods.name }}</span>
+          <span class="text-xs text-gray-500">{{ currentGoods.marketHashName }}</span>
+        </div>
+      </div>
+
+      <t-form ref="taskFormRef" :data="taskForm" :rules="taskRules" label-align="top">
+        <t-form-item label="最高买入价格 (CNY)" name="maxPrice">
+          <t-input-number
+            v-model="taskForm.maxPrice"
+            :min="0.01"
+            :decimal-places="2"
+            suffix="元"
+            theme="column"
+            style="width: 100%"
+          />
+        </t-form-item>
+
+        <t-row :gutter="16">
+          <t-col :span="6">
+            <t-form-item label="最低磨损" name="minPaintwear">
+              <t-input-number
+                v-model="taskForm.minPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.0001"
+                :decimal-places="4"
+                theme="column"
+                style="width: 100%"
+              />
+            </t-form-item>
+          </t-col>
+          <t-col :span="6">
+            <t-form-item label="最高磨损" name="maxPaintwear">
+              <t-input-number
+                v-model="taskForm.maxPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.0001"
+                :decimal-places="4"
+                theme="column"
+                style="width: 100%"
+              />
+            </t-form-item>
+          </t-col>
+        </t-row>
+
+        <t-form-item label="购买数量" name="buyCount">
+          <t-input-number
+            v-model="taskForm.buyCount"
+            :min="1"
+            :step="1"
+            theme="column"
+            style="width: 100%"
+          />
+        </t-form-item>
+      </t-form>
+    </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
+import { taskApi } from "@/api/task";
 import type { Goods, GoodsPageQuery, GoodsSimple } from "@/types/goods";
-import { LinkIcon, RefreshIcon, SearchIcon } from "tdesign-icons-vue-next";
-import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
+import type { TaskSaveParam } from "@/types/task";
+import { LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
+import type { PageInfo, PrimaryTableCol, FormInstanceFunctions, FormRule } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
 import { onMounted, reactive, ref } from "vue";
 import { debounce } from "lodash";
@@ -176,6 +258,11 @@ const previewImage = ref("");
 const onPreview = (url: string) => {
   previewImage.value = url;
   visible.value = true;
+};
+
+const openBuffGoods = (goodsId: number) => {
+  if (!goodsId) return;
+  window.open(`https://buff.163.com/goods/${goodsId}`, '_blank');
 };
 
 // 搜索表单
@@ -198,6 +285,56 @@ const categoryOptions = ref<CategoryNode[]>([]);
 
 // 表格数据
 const loading = ref(false);
+
+// --- 创建任务相关逻辑 ---
+const createTaskDialogVisible = ref(false);
+const submitLoading = ref(false);
+const currentGoods = ref<GoodsSimple | null>(null);
+const taskFormRef = ref<FormInstanceFunctions | null>(null);
+
+const taskForm = reactive<TaskSaveParam>({
+  goodsId: 0,
+  maxPrice: 0,
+  minPaintwear: 0,
+  maxPaintwear: 1,
+  buyCount: 1,
+});
+
+const taskRules: Record<string, FormRule[]> = {
+  maxPrice: [{ required: true, message: '请输入最高价格', type: 'error' }],
+  buyCount: [{ required: true, message: '请输入购买数量', type: 'error' }],
+};
+
+const openCreateTaskDialog = (row: GoodsSimple) => {
+  currentGoods.value = row;
+  taskForm.goodsId = row.goodsId;
+  // 重置表单值，保留默认磨损
+  taskForm.maxPrice = 0;
+  taskForm.minPaintwear = 0;
+  taskForm.maxPaintwear = 1;
+  taskForm.buyCount = 1;
+  
+  // 如果商品本身有磨损属性，可以在这里优化默认值（可选）
+  createTaskDialogVisible.value = true;
+};
+
+const confirmCreateTask = async () => {
+  const validateResult = await taskFormRef.value?.validate();
+  if (validateResult !== true) return;
+
+  submitLoading.value = true;
+  try {
+    await taskApi.add(taskForm);
+    MessagePlugin.success("扫货任务创建成功");
+    createTaskDialogVisible.value = false;
+  } catch (error) {
+    // 异常已由拦截器处理，此处主要负责关闭loading
+  } finally {
+    submitLoading.value = false;
+  }
+};
+
+// ------------------------
 const dataList = ref<Goods[]>([]);
 const pagination = reactive({
   current: 1,
