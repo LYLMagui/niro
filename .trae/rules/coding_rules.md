@@ -1,9 +1,4 @@
----
-alwaysApply: true
----
-
-**前置条件**：思考前先阅读 question_rules.md 文件
-
+**前置条件**：思考前先阅读**project_rules.md**文件，若已读取则忽略
 # 项目提示词（前后端统一工程规范 / LLM 执行版）
 
 > 适用范围：本仓库的前端 Vue 3、后端 Spring Boot、后端 Python 业务编排代码。  
