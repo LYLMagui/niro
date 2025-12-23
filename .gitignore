@@ -45,4 +45,25 @@ niro-server/**/temp/
 niro-server/**/tmp/
 niro-server/**/.DS_Store
 
-./logs/.log
+# Python (General)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+*.log
+
+# Runtime & Logs
+niro-spider/
+logs/
+*.log
+
+# IDE & Misc
+.idea/
+.vscode/
+*.swp
+*.swo
+.DS_Store
