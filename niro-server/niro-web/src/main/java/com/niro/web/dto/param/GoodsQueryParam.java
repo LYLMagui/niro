@@ -29,4 +29,7 @@ public class GoodsQueryParam {
 
     @Schema(description = "磨损/外观 (例如: 久经沙场)")
     private String exterior;
+
+    @Schema(description = "分类ID")
+    private Long categoryId;
 }
