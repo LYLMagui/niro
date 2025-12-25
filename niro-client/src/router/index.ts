@@ -44,6 +44,12 @@ const routes: RouteRecordRaw[] = [
         component: () => import("@/views/Logs.vue"),
         meta: { title: "运行日志", icon: "bulletin-board" },
       },
+      {
+        path: "settings",
+        name: "Settings",
+        component: () => import("@/views/Settings.vue"),
+        meta: { title: "个人配置", icon: "setting" },
+      },
     ],
   },
   // 404 页面

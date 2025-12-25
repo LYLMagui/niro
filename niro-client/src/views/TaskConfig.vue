@@ -100,17 +100,49 @@
           </t-select>
         </t-form-item>
         <t-form-item label="最高价格" name="maxPrice">
-          <t-input-number v-model="formData.maxPrice" :min="0.01" :step="0.1" suffix="元" theme="column" />
+          <t-input-number
+            v-model="formData.maxPrice"
+            :min="0.01"
+            :step="0.1"
+            :decimal-places="2"
+            suffix="元"
+            theme="column"
+            style="width: 200px"
+          />
         </t-form-item>
         <t-form-item label="磨损范围" name="minPaintwear">
-          <div class="flex items-center w-full">
-            <t-input-number v-model="formData.minPaintwear" :min="0" :max="1" :step="0.01" theme="column" placeholder="最小" />
-            <span class="mx-2">-</span>
-            <t-input-number v-model="formData.maxPaintwear" :min="0" :max="1" :step="0.01" theme="column" placeholder="最大" />
+          <div class="flex items-center gap-2">
+            <t-input-number
+              v-model="formData.minPaintwear"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              :decimal-places="4"
+              theme="column"
+              placeholder="最小"
+              style="width: 140px"
+            />
+            <span class="text-gray-400">-</span>
+            <t-input-number
+              v-model="formData.maxPaintwear"
+              :min="0"
+              :max="1"
+              :step="0.01"
+              :decimal-places="4"
+              theme="column"
+              placeholder="最大"
+              style="width: 140px"
+            />
           </div>
         </t-form-item>
         <t-form-item label="购买数量" name="buyCount">
-          <t-input-number v-model="formData.buyCount" :min="1" :step="1" theme="column" />
+          <t-input-number
+            v-model="formData.buyCount"
+            :min="1"
+            :step="1"
+            theme="column"
+            style="width: 120px"
+          />
         </t-form-item>
       </t-form>
     </t-dialog>

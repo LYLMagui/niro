@@ -43,6 +43,14 @@
           </template>
           运行日志
         </t-menu-item>
+
+        <!-- 菜单项：个人配置 -->
+        <t-menu-item value="Settings">
+          <template #icon>
+            <setting-icon />
+          </template>
+          个人配置
+        </t-menu-item>
       </t-menu>
     </t-aside>
 
@@ -81,7 +89,7 @@
 <script setup lang="ts">
 import { computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon, ShopIcon } from "tdesign-icons-vue-next";
+import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon, ShopIcon, SettingIcon } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { MessagePlugin } from "tdesign-vue-next";
 
