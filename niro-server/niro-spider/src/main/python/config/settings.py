@@ -47,3 +47,9 @@ DB_PASSWORD = os.getenv("DB_PASSWORD", "password")
 DB_MIN_CONN = int(os.getenv("PG_MIN_CONN", 1))
 DB_MAX_CONN = int(os.getenv("PG_MAX_CONN", 10))
 
+# 企业微信通知配置
+WECOM_CORPID = os.getenv("WECOM_CORPID", "")     # 企业ID
+WECOM_CORPSECRET = os.getenv("WECOM_CORPSECRET", "") # 自建应用Secret
+WECOM_AGENTID = os.getenv("WECOM_AGENTID", "")   # 自建应用AgentID
+WECOM_TOUSER = os.getenv("WECOM_TOUSER", "@all") # 接收消息的用户ID，默认为全部
+

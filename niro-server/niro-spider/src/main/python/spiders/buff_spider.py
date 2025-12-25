@@ -134,24 +134,14 @@ class BuffSpider:
         :param allow_tradable_cooldown: 是否允许冷却
         :return: 成功返回订单数据(dict)，失败返回 None
         """
-        # --- 模拟测试代码 START (已禁用) ---
-        # import time
-        # logger.info(f"🛒 [模拟购买] 正发起虚拟下单... GoodsID={goods_id}, Price={price_str}")
-        # time.sleep(0.5) # 模拟网络延迟
-        # mock_order_id = f"MOCK_ORDER_{int(time.time())}"
-        # logger.info(f"✅ [模拟成功] 下单成功! 虚拟订单号: {mock_order_id}, 状态: 支付成功")
-        # return {
-        #     "id": mock_order_id,
-        #     "state_text": "支付成功",
-        #     "price": price_str
-        # }
-        # --- 模拟测试代码 END ---
-
         url = "/api/market/goods/buy"
+        # 确保 item_id 是字符串
+        sell_order_id = str(item_id)
+        
         payload = {
             "game": "csgo",
             "goods_id": int(goods_id),
-            "sell_order_id": str(item_id),
+            "sell_order_id": sell_order_id,
             "price": float(price_str),
             "pay_method": int(pay_method),
             "allow_tradable_cooldown": int(allow_tradable_cooldown),
@@ -167,11 +157,10 @@ class BuffSpider:
             "Referer": f"https://buff.163.com/goods/{goods_id}?from=market"
         })
         
-        logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str}")
-        # logger.debug(f"Payload: {json.dumps(payload)}")
+        logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str} | PayMethod={pay_method}")
         
         response = requests.post(self.host + url, headers=headers, json=payload, timeout=10)
-        # 记录状态码，方便排查
+        
         if response.status_code != 200:
             logger.error(f"❌ 下单请求失败, HTTP状态码: {response.status_code}, 内容: {response.text}")
             return None
@@ -181,13 +170,17 @@ class BuffSpider:
             data = res_json.get("data", {})
             order_id = data.get("id")
             state = data.get("state_text", "未知")
+            pay_url = data.get("pay_url")
             logger.info(f"✅ 下单成功! 订单号: {order_id}, 状态: {state}")
+            if pay_url:
+                logger.info(f"🔗 支付链接: {pay_url}")
             return data
         else:
-            # 这里的错误信息通常包含：{"code": "Invalid Argument", "error": "..."}
+            # 返回完整的 JSON 结果，以便上层判断错误类型（如：该饰品暂不支持此支付方式）
             error_msg = res_json.get("error") or res_json.get("msg") or "未知错误"
-            logger.error(f"❌ 下单失败: {res_json.get('code')} - {error_msg} | Full Response: {json.dumps(res_json, ensure_ascii=False)}")
-            return None
+            res_json["error_msg"] = error_msg # 方便统一获取
+            logger.error(f"❌ 下单失败: {res_json.get('code')} - {error_msg}")
+            return res_json # 返回整个响应用于逻辑判断
 
     def _get_csrf_token(self):
         """从 Cookie 中提取 CSRF Token"""
