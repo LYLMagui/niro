@@ -3,8 +3,11 @@ import json
 import os
 import requests
 import pandas as pd
+from http.cookies import SimpleCookie
 from config import settings
+from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
+from utils.exception_handler import handle_api_error
 
 
 logger = get_logger(__name__)
@@ -13,11 +16,36 @@ logger = get_logger(__name__)
 class BuffSpider:
     def __init__(self):
         self.host = "https://buff.163.com"
+        self.pg_pool = PostgresPool()
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-            "cookie": settings.BUFF_COOKIE,
+            "cookie": settings.BUFF_COOKIE, # 默认先使用配置文件的
         }
+        # 初始化时刷新一次 Cookie
+        self.refresh_cookie()
 
+    def refresh_cookie(self):
+        """从数据库刷新最新的有效 Cookie"""
+        try:
+            with self.pg_pool.get_cursor() as cur:
+                # 从 user_buff_settings 表中获取最新的 Cookie
+                # 假设我们只获取 ID 最大的那一条（实际生产应按用户或激活状态）
+                cur.execute("""
+                    SELECT buff_cookie FROM user_buff_settings 
+                    ORDER BY update_time DESC LIMIT 1
+                """)
+                row = cur.fetchone()
+                if row and row.get('buff_cookie'):
+                    new_cookie = row['buff_cookie']
+                    if new_cookie != self.headers.get("cookie"):
+                        self.headers["cookie"] = new_cookie
+                        logger.info("🔄 [Cookie] 已从数据库加载最新 Cookie (UserBuffSettings)")
+                else:
+                    logger.warning("⚠️ 数据库 user_buff_settings 表中未找到有效 Cookie，将继续使用当前 Cookie")
+        except Exception as e:
+            logger.error(f"❌ 从数据库刷新 Cookie 失败: {e}")
+
+    @handle_api_error(default_return=[])
     def get_goods_list(self, goods_id, page_num=1):
         """
         获取饰品列表
@@ -25,44 +53,40 @@ class BuffSpider:
         :param page_num: 页码
         :return: 解析后的数据列表
         """
-        # --- 模拟测试代码 START ---
+        # --- 模拟测试代码 START (已禁用) ---
         # 强制返回一个模拟的低价完美磨损商品，确保 TaskScanner 能扫到并下单
-        import random
-        mock_item = {
-            "id": f"MOCK_SELL_ORDER_{random.randint(1000, 9999)}",
-            "goods_id": goods_id,
-            "name": "模拟测试商品 (必被扫到)",
-            "price_usd": "1.00",
-            "price_cny": "7.00",
-            "paintwear": "0.001",  # 极低磨损
-            "price_buff": "0.01",  # 极低价格
-            "user_id": "MOCK_USER",
-            "user_nickname": "测试卖家",
-            "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-            "crawled_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        }
-        logger.info(f"🐛 [测试模式] 已注入模拟商品: 价格=0.01, 磨损=0.001")
-        return [mock_item]
+        # import random
+        # mock_item = {
+        #     "id": f"MOCK_SELL_ORDER_{random.randint(1000, 9999)}",
+        #     "goods_id": goods_id,
+        #     "name": "模拟测试商品 (必被扫到)",
+        #     "price_usd": "1.00",
+        #     "price_cny": "7.00",
+        #     "paintwear": "0.001",  # 极低磨损
+        #     "price_buff": "0.01",  # 极低价格
+        #     "user_id": "MOCK_USER",
+        #     "user_nickname": "测试卖家",
+        #     "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        #     "crawled_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+        # }
+        # logger.info(f"🐛 [测试模式] 已注入模拟商品: 价格=0.01, 磨损=0.001")
+        # return [mock_item]
         # --- 模拟测试代码 END ---
 
-        # url = "/api/market/goods/sell_order"
-        # params = {
-        #     "game": "csgo",
-        #     "goods_id": goods_id,
-        #     "page_num": page_num,
-        # }
-        #
-        # try:
-        #     logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
-        #     response = requests.get(
-        #         self.host + url, headers=self.headers, params=params, timeout=10
-        #     )
-        #     response.raise_for_status()
-        #     data = response.json()
-        #     return self._parse_data(data)
-        # except Exception as e:
-        #     logger.error(f"❌ 请求失败: {e}", exc_info=True)
-        #     return []
+        url = "/api/market/goods/sell_order"
+        params = {
+            "game": "csgo",
+            "goods_id": goods_id,
+            "page_num": page_num,
+        }
+
+        logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
+        response = requests.get(
+            self.host + url, headers=self.headers, params=params, timeout=10
+        )
+        response.raise_for_status()
+        data = response.json()
+        return self._parse_data(data)
 
     def _parse_data(self, data):
         if not data or data.get("code") != "OK" or "data" not in data:
@@ -99,6 +123,7 @@ class BuffSpider:
 
         return parsed_items
 
+    @handle_api_error(default_return=None)
     def buy(self, goods_id, item_id, price_str, pay_method=44, allow_tradable_cooldown=0):
         """
         下单购买接口
@@ -109,66 +134,74 @@ class BuffSpider:
         :param allow_tradable_cooldown: 是否允许冷却
         :return: 成功返回订单数据(dict)，失败返回 None
         """
-        # --- 模拟测试代码 START ---
-        import time
-        logger.info(f"🛒 [模拟购买] 正发起虚拟下单... GoodsID={goods_id}, Price={price_str}")
-        time.sleep(0.5) # 模拟网络延迟
-        mock_order_id = f"MOCK_ORDER_{int(time.time())}"
-        logger.info(f"✅ [模拟成功] 下单成功! 虚拟订单号: {mock_order_id}, 状态: 支付成功")
-        return {
-            "id": mock_order_id,
-            "state_text": "支付成功",
-            "price": price_str
-        }
+        # --- 模拟测试代码 START (已禁用) ---
+        # import time
+        # logger.info(f"🛒 [模拟购买] 正发起虚拟下单... GoodsID={goods_id}, Price={price_str}")
+        # time.sleep(0.5) # 模拟网络延迟
+        # mock_order_id = f"MOCK_ORDER_{int(time.time())}"
+        # logger.info(f"✅ [模拟成功] 下单成功! 虚拟订单号: {mock_order_id}, 状态: 支付成功")
+        # return {
+        #     "id": mock_order_id,
+        #     "state_text": "支付成功",
+        #     "price": price_str
+        # }
         # --- 模拟测试代码 END ---
 
-        # url = "/api/market/goods/buy"
-        # payload = {
-        #     "game": "csgo",
-        #     "goods_id": goods_id, 
-        #     "sell_order_id": item_id,
-        #     "price": float(price_str),
-        #     "pay_method": pay_method,
-        #     "allow_tradable_cooldown": allow_tradable_cooldown,
-        #     "token": self._get_csrf_token()
-        # }
-        # 
-        # # 补充 Headers
-        # headers = self.headers.copy()
-        # headers["X-CSRFToken"] = self._get_csrf_token()
-        # headers["Content-Type"] = "application/json"
-        # headers["Referer"] = f"https://buff.163.com/goods/{goods_id}?from=market"
-        # 
-        # logger.info(f"🛒 [发起购买] POST {url} Price={price_str} PayMethod={pay_method}")
-        # 
-        # try:
-        #     response = requests.post(self.host + url, headers=headers, json=payload, timeout=10)
-        #     if response.status_code != 200:
-        #         logger.error(f"❌ 购买请求失败: HTTP {response.status_code} - {response.text}")
-        #         return None
-        #         
-        #     res_json = response.json()
-        #     if res_json.get("code") == "OK":
-        #         data = res_json.get("data", {})
-        #         order_id = data.get("id")
-        #         state = data.get("state_text", "未知")
-        #         logger.info(f"✅ 下单成功! 订单号: {order_id}, 状态: {state}")
-        #         return data
-        #     else:
-        #         logger.error(f"❌ 下单失败: {res_json.get('code')} - {res_json.get('msg')}")
-        #         return None
-        #         
-        # except Exception as e:
-        #     logger.error(f"❌ 购买异常: {e}", exc_info=True)
-        #     return None
+        url = "/api/market/goods/buy"
+        payload = {
+            "game": "csgo",
+            "goods_id": int(goods_id),
+            "sell_order_id": str(item_id),
+            "price": float(price_str),
+            "pay_method": int(pay_method),
+            "allow_tradable_cooldown": int(allow_tradable_cooldown),
+        }
+        
+        # 补充 Headers
+        headers = self.headers.copy()
+        csrf_token = self._get_csrf_token()
+        headers.update({
+            "X-CSRFToken": csrf_token,
+            "X-Requested-With": "XMLHttpRequest",
+            "Content-Type": "application/json",
+            "Referer": f"https://buff.163.com/goods/{goods_id}?from=market"
+        })
+        
+        logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str}")
+        # logger.debug(f"Payload: {json.dumps(payload)}")
+        
+        response = requests.post(self.host + url, headers=headers, json=payload, timeout=10)
+        # 记录状态码，方便排查
+        if response.status_code != 200:
+            logger.error(f"❌ 下单请求失败, HTTP状态码: {response.status_code}, 内容: {response.text}")
+            return None
+
+        res_json = response.json()
+        if res_json.get("code") == "OK":
+            data = res_json.get("data", {})
+            order_id = data.get("id")
+            state = data.get("state_text", "未知")
+            logger.info(f"✅ 下单成功! 订单号: {order_id}, 状态: {state}")
+            return data
+        else:
+            # 这里的错误信息通常包含：{"code": "Invalid Argument", "error": "..."}
+            error_msg = res_json.get("error") or res_json.get("msg") or "未知错误"
+            logger.error(f"❌ 下单失败: {res_json.get('code')} - {error_msg} | Full Response: {json.dumps(res_json, ensure_ascii=False)}")
+            return None
 
     def _get_csrf_token(self):
         """从 Cookie 中提取 CSRF Token"""
-        if "csrf_token=" in self.headers["cookie"]:
-            try:
-                return self.headers["cookie"].split("csrf_token=")[1].split(";")[0]
-            except:
-                pass
+        try:
+            cookie = SimpleCookie()
+            cookie.load(self.headers.get("cookie", ""))
+            if "csrf_token" in cookie:
+                token = cookie["csrf_token"].value
+                # logger.debug(f"Extracted CSRF Token: {token[:10]}...")
+                return token
+        except Exception as e:
+            logger.warning(f"解析 CSRF Token 失败: {e}")
+        
+        logger.warning("⚠️ 未能在 Cookie 中找到 csrf_token，下单可能会失败！")
         return ""
 
 

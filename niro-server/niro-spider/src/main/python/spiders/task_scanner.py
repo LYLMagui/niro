@@ -3,16 +3,12 @@ import os
 import time
 from decimal import Decimal
 
-# Add src/main/python to sys.path
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir) # src/main
 src_dir = os.path.dirname(parent_dir) # src
-# We need to add src/main/python to path. 
-# If this file is in src/main/python/spiders, then...
-# Wait, this file will be in src/main/python/spiders/
-# But I prefer to import it from src/main/python/run_scanner.py which sets the path.
-# So here I assume standard imports work if path is set correctly.
 
+
+from config import settings
 from spiders.buff_spider import BuffSpider
 from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
@@ -31,6 +27,9 @@ class TaskScanner:
         logger.info("🚀 启动扫货任务扫描器...")
         while True:
             try:
+                # 每次大循环开始前刷新一次 Cookie
+                self.spider.refresh_cookie()
+
                 tasks = self.fetch_active_tasks()
                 if not tasks:
                     logger.info("当前无运行中任务，休眠 5 秒...")
@@ -40,8 +39,8 @@ class TaskScanner:
                 logger.info(f"发现 {len(tasks)} 个运行中任务，开始扫描...")
                 for task in tasks:
                     self.process_task(task)
-                    # 避免请求过快，每个任务间隔 1-3 秒
-                    time.sleep(2)
+                    # 避免请求过快，每个任务间隔
+                    time.sleep(settings.CRAWL_INTERVAL)
 
             except Exception as e:
                 logger.error(f"扫描循环异常: {e}", exc_info=True)
@@ -71,6 +70,11 @@ class TaskScanner:
 
         # 2. 筛选满足条件的商品
         target_item = None
+        
+        # 记录本次扫描到的最低价信息，用于日志展示
+        lowest_price = None
+        lowest_item_name = None
+        
         for item in items:
             try:
                 price_str = item.get('price_buff')
@@ -80,6 +84,12 @@ class TaskScanner:
                     continue
 
                 price = Decimal(price_str)
+                
+                # 记录最低价（items 通常已按价格升序排列，第一个有效价格即最低价）
+                if lowest_price is None:
+                    lowest_price = price
+                    lowest_item_name = item.get('name', '未知商品')
+                
                 # 如果没有磨损值（如箱子、钥匙），默认为 -1，方便后续逻辑判断
                 # 但本系统主要针对饰品，通常都有磨损。如果数据库存了磨损范围，说明用户在意磨损。
                 paintwear = Decimal(paintwear_str) if paintwear_str else Decimal('-1')
@@ -108,6 +118,15 @@ class TaskScanner:
             except Exception as e:
                 logger.warning(f"处理商品数据异常: {e}, item: {item}")
                 continue
+
+        # 如果没有找到目标商品，打印当前扫描情况
+        if not target_item and lowest_price is not None:
+            max_price_limit = task['max_price']
+            is_higher = lowest_price > max_price_limit if max_price_limit is not None else False
+            status_emoji = "📈" if is_higher else "📉"
+            logger.info(f"{status_emoji} 扫描完成: 商品[{lowest_item_name}] 当前最低价: {lowest_price} (目标上限: {max_price_limit}) - 未满足筛选条件")
+        elif not target_item:
+             logger.info(f"⚠️ 扫描完成: 未获取到有效商品价格信息")
 
         # 3. 执行购买 (模拟)
         if target_item:
