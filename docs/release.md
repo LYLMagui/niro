@@ -1,5 +1,32 @@
 # Release Notes
 
+## v1.0.18 (2025-12-25)
+### 修复与优化
+- **扫货逻辑增强**：
+  - **自动支付重试与降级**：当余额支付（默认方式）返回“该饰品暂不支持此支付方式”时，系统会自动重试并降级为“支付宝”模式。
+  - **仅下单不支付支持**：支付宝模式下，Buff 会创建待支付订单并返回支付链接，满足了“仅下单”并手动支付的需求。
+  - **通知系统升级**：企业微信推送现在支持区分“购买成功”与“订单已创建（待支付）”，并附带支付跳转链接，点击即可在手机端完成后续支付。
+- **Redis 连接优化**：
+  - 针对 `QueryTimeoutException` 进行了深度优化，将命令超时与连接超时统一延长至 30s。
+  - **连接稳定性增强**：在 `RedisConfig` 中通过 `LettuceClientConfigurationBuilderCustomizer` 开启了 TCP KeepAlive。
+  - **自动维持连接**：在 Lettuce 连接池配置中新增 `time-between-eviction-runs: 30s`，定期检测并回收无效连接，有效防止因防火墙或服务端超时导致的频繁断连。
+- **后端查询报错修复**：
+  - 修复了 `BuffScanTaskServiceImpl` 中因错误使用 `getOne(lambdaQuery())` 导致的 `MyBatisSystemException`。
+  - 统一将 Service 层中不符合规范的 `getOne` 调用重构为 MyBatis-Plus 推荐的 `lambdaQuery().eq(...).one()` 链式写法。
+- **任务管理完善**：
+  - 实现了 `saveTask` 时自动获取当前登录用户 ID，替换了之前的 `0L` 硬编码占位符。
+  - 引入 `StpUtil` (Sa-Token) 确保任务与创建者账号绑定。
+- **代码规范重构**：
+  - 对 `UserBuffSettingsServiceImpl` 进行了重构，移除了过时的 `LambdaQueryWrapper` 构造方式，全面对齐项目最新的 MyBatis-Plus 编码规范。
+
+## v1.0.17 (2025-12-25)
+### 新增功能
+- **消息推送系统**：
+  - 集成了企业微信自建应用推送功能，解决了 PushDeer 和 Server酱 的使用限制问题。
+  - **模块化设计**：新增 `utils/notifier.py`，支持 Token 自动管理与 Markdown 格式化消息。
+  - **业务集成**：在 `TaskScanner` 中实现扫货成功后的实时通知，包含商品名称、成交价、磨损度及 Buff 订单页跳转链接。
+  - **可配置化**：在 `settings.py` 中新增企业微信相关的环境变量配置。
+
 ## v1.0.16 (2025-12-25)
 ### 修复与优化
 - **下单接口修复**：
