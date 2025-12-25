@@ -3,7 +3,6 @@ package com.niro.web.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.dto.BuffScanTaskDTO;
@@ -16,7 +15,6 @@ import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.core.util.Assert;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
@@ -30,7 +28,6 @@ import java.util.stream.Collectors;
  * @author liyl
  * @since 2025-12-24
  */
-@Slf4j
 @Service
 @RequiredArgsConstructor
 public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, BuffScanTask> implements BuffScanTaskService {
@@ -40,15 +37,15 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     @Override
     public void saveTask(BuffScanTaskParam param) {
         // 校验商品是否存在
-        BuffGoods goods = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId, param.getGoodsId()).one();
+        BuffGoods goods = buffGoodsService.getOne(buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId, param.getGoodsId()));
         Assert.validateNull(goods, "商品不存在");
 
         BuffScanTask task = BeanUtil.copyProperties(param, BuffScanTask.class);
         task.setName(goods.getName()); // 默认任务名为商品名
         task.setStatus(0); // 默认停止
         task.setSuccessCount(0);
-        // 获取当前登录用户ID
-        task.setUserId(StpUtil.getLoginIdAsLong());
+        // TODO: 获取当前登录用户ID
+        task.setUserId(0L); 
         
         this.save(task);
     }
