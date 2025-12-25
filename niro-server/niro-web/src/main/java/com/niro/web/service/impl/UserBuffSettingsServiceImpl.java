@@ -28,8 +28,9 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
 
     @Override
     public UserBuffSettingsDTO getByUserId(Long userId) {
-        UserBuffSettings settings = this.getOne(new LambdaQueryWrapper<UserBuffSettings>()
-                .eq(UserBuffSettings::getUserId, userId));
+        UserBuffSettings settings = this.lambdaQuery()
+                .eq(UserBuffSettings::getUserId, userId)
+                .one();
         
         if (settings == null) {
             return null;
@@ -41,8 +42,9 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void saveOrUpdate(Long userId, UserBuffSettingsParam param) {
-        UserBuffSettings settings = this.getOne(new LambdaQueryWrapper<UserBuffSettings>()
-                .eq(UserBuffSettings::getUserId, userId));
+        UserBuffSettings settings = this.lambdaQuery()
+                .eq(UserBuffSettings::getUserId, userId)
+                .one();
 
         boolean isUpdate = settings != null;
         if (!isUpdate) {
