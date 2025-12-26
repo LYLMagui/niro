@@ -45,6 +45,11 @@ niro-server/**/temp/
 niro-server/**/tmp/
 niro-server/**/.DS_Store
 
+# Environment files
+.env
+.env.local
+.env.*.local
+
 # Python (General)
 __pycache__/
 *.py[cod]
@@ -54,10 +59,8 @@ __pycache__/
 env/
 venv/
 .venv/
-*.log
 
 # Runtime & Logs
-niro-spider/
 logs/
 *.log
 

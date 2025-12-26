@@ -1,15 +1,19 @@
 import os
 from dotenv import load_dotenv
 
-# 加载 .env 文件
-# 假设 .env 文件位于 niro-server/niro-web/.env
-# 从当前文件位置 (src/main/python/config) 向上回溯到 niro-web 目录
-# 路径层级：src/main/python/config -> src/main/python -> src/main -> src -> niro-spider -> niro-server
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))))
-ENV_PATH = os.path.join(BASE_DIR, "niro-web", ".env")
+# 路径配置
+# 当前文件位置: niro-spider/config/settings.py
+SPIDER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PROJECT_ROOT = os.path.dirname(SPIDER_DIR)
 
-# 日志目录: niro/niro-spider/logs (BASE_DIR 是 niro-server，所以需要向上回溯一级)
-LOG_DIR = os.path.join(BASE_DIR, "..", "niro-spider", "logs")
+# 加载 .env 文件
+# 优先从项目根目录加载，如果不存在则尝试从 niro-server/niro-web/.env 加载
+ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
+if not os.path.exists(ENV_PATH):
+    ENV_PATH = os.path.join(PROJECT_ROOT, "niro-server", "niro-web", ".env")
+
+# 日志目录: niro-spider/logs
+LOG_DIR = os.path.join(SPIDER_DIR, "logs")
 
 if os.path.exists(ENV_PATH):
     load_dotenv(ENV_PATH)

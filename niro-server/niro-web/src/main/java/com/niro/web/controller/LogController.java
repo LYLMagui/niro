@@ -29,7 +29,7 @@ import java.util.concurrent.Executors;
 @Slf4j
 public class LogController {
 
-    @Value("${spider.log.path:../niro-spider/logs/niro_spider.log}")
+    @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
     private String logPath;
 
     private final ExecutorService executor = Executors.newCachedThreadPool();

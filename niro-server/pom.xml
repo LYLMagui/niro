@@ -47,7 +47,6 @@
     <modules>
         <module>niro-core</module>
         <module>niro-web</module>
-        <module>niro-spider</module>
     </modules>
 
     <dependencyManagement>
