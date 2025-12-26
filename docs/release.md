@@ -1,5 +1,23 @@
 # Release Notes
 
+## v1.2.0 (2025-12-26)
+### 容器化部署支持
+- **Docker 支持**：
+  - **Python 爬虫容器化**：新增 `niro-spider/Dockerfile`，采用 `python:3.9-slim` 轻量镜像，内置依赖自动安装与时区优化。
+  - **Java 后端容器化**：新增 `niro-server/niro-web/Dockerfile`，采用 `eclipse-temurin:21-jre` 镜像，针对 2H2G 环境优化了 JVM 内存参数（`-Xmx512m`）。
+  - **一键编排启动**：根目录新增 `docker-compose.yml`，集成 Java 后端、Python 爬虫、PostgreSQL 15 和 Redis 7，支持跨容器服务发现与数据持久化。
+  - **环境配置标准化**：统一通过环境变量管理数据库、Redis 连接及 Buff Cookie，提升生产环境安全性。
+
+## v1.1.0 (2025-12-26)
+### 架构重构
+- **Python 模块独立化**：
+  - 将 `niro-spider` 从 `niro-server` 中提取到项目根目录，实现 Java 后端与 Python 爬虫的彻底解耦。
+  - **简化层级**：移除了冗余的 Maven 包装（`pom.xml`、`src/main/python`），Python 核心代码直接位于 `niro-spider/` 下。
+  - **路径引用重构**：
+    - Python 端 `settings.py` 适配新的目录结构，支持从项目根目录自动加载 `.env` 环境变量。
+    - Java 端 `LogController` 同步更新日志读取路径，确保实时日志流功能正常。
+  - **依赖清理**：删除 `niro-server` 下冗余的 `requirements.txt` 和 Maven 模块配置，保持后端代码纯净。
+
 ## v1.0.18 (2025-12-25)
 ### 修复与优化
 - **扫货逻辑增强**：
