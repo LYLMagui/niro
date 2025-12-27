@@ -87,7 +87,7 @@ export default [
     plugins: { "@typescript-eslint": pluginTypeScript },
     rules: {
       ...pluginTypeScript.configs.strict.rules, // TypeScript 严格规则
-      "@typescript-eslint/no-explicit-any": "off", // 允许使用 any
+      "@typescript-eslint/no-explicit-any": "error", // 不允许使用 any
       "@typescript-eslint/no-empty-function": "off", // 允许空函数
       "@typescript-eslint/no-empty-object-type": "off", // 允许空对象类型
     },

@@ -1,24 +1,45 @@
+import type { Result } from "@/types/http";
 import axios from "axios";
 import type {
-  AxiosInstance,
   AxiosError,
   InternalAxiosRequestConfig,
   AxiosResponse,
+  AxiosRequestConfig,
 } from "axios";
 import { MessagePlugin } from "tdesign-vue-next";
-import type { Result } from "@/types/http";
 
 // 环境变量
 const BASE_URL = import.meta.env.VITE_BASE_API || "";
 
 // 创建 axios 实例
-const service: AxiosInstance = axios.create({
+const service = axios.create({
   baseURL: BASE_URL, // API 基础路径
   timeout: 10000, // 请求超时时间
   headers: {
     "Content-Type": "application/json;charset=utf-8",
   },
 });
+
+// 重新定义请求方法以匹配拦截器的返回类型
+export interface RequestInstance {
+  get<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  post<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  put<T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig): Promise<T>;
+  delete<T = unknown>(url: string, config?: AxiosRequestConfig): Promise<T>;
+  request<T = unknown>(config: AxiosRequestConfig): Promise<T>;
+}
+
+const request: RequestInstance = {
+  get: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
+    service.get<Result<T>, T>(url, config),
+  post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
+    service.post<Result<T>, T>(url, data, config),
+  put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
+    service.put<Result<T>, T>(url, data, config),
+  delete: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
+    service.delete<Result<T>, T>(url, config),
+  request: <T = unknown>(config: AxiosRequestConfig) => service.request<Result<T>, T>(config),
+};
 
 // 请求拦截器
 service.interceptors.request.use(
@@ -45,9 +66,7 @@ service.interceptors.response.use(
 
     // 检查响应头中是否有新的 token，如果有则更新
     const newToken =
-      headers["authorization"] ||
-      headers["Authorization"] ||
-      headers["niro-web-token-update"];
+      headers["authorization"] || headers["Authorization"] || headers["niro-web-token-update"];
     if (newToken) {
       localStorage.setItem("niro-web-token", newToken);
     }
@@ -71,9 +90,8 @@ service.interceptors.response.use(
     console.log("Response Interceptor (Error):", error.response?.status, error.message);
     const { response } = error;
     if (response) {
-      MessagePlugin.error(
-        (response.data as any)?.message || "系统异常，请联系管理员"
-      );
+      const data = response.data as Result;
+      MessagePlugin.error(data.message || "系统异常，请联系管理员");
       if (response.status === 401) {
         console.log("Response Interceptor (Status 401): Redirecting to login...");
         localStorage.removeItem("niro-web-token");
@@ -87,4 +105,4 @@ service.interceptors.response.use(
   }
 );
 
-export default service;
+export default request;

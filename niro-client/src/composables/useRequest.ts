@@ -1,21 +1,21 @@
-import { ref } from 'vue';
+import { ref, type Ref } from "vue";
 
 interface UseRequestOptions<T> {
   immediate?: boolean;
   initialData?: T;
   onSuccess?: (data: T) => void;
-  onError?: (error: any) => void;
+  onError?: (error: unknown) => void;
 }
 
-export function useRequest<T = any>(
-  apiFn: (...args: any[]) => Promise<T>,
+export function useRequest<T = unknown>(
+  apiFn: (...args: unknown[]) => Promise<T>,
   options: UseRequestOptions<T> = {}
 ) {
   const loading = ref(false);
-  const data = ref<T | null>(options.initialData || null);
-  const error = ref<any>(null);
+  const data = ref(options.initialData || null) as Ref<T | null>;
+  const error = ref<unknown>(null);
 
-  const run = async (...args: any[]) => {
+  const run = async (...args: unknown[]) => {
     loading.value = true;
     error.value = null;
     try {
