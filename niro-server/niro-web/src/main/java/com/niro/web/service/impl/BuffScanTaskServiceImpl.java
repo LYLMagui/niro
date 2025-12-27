@@ -65,6 +65,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setMinPaintwear(param.getMinPaintwear());
         task.setMaxPaintwear(param.getMaxPaintwear());
         task.setBuyCount(param.getBuyCount());
+        task.setCronExpression(param.getCronExpression());
+        task.setDurationMinutes(param.getDurationMinutes());
+        task.setScanInterval(param.getScanInterval());
         
         this.updateById(task);
     }

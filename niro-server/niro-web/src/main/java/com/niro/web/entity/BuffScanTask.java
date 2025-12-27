@@ -70,6 +70,21 @@ public class BuffScanTask {
     private Integer status;
 
     /**
+     * Cron触发表达式(空则立即开始)
+     */
+    private String cronExpression;
+
+    /**
+     * 持续运行时间(分钟)
+     */
+    private Integer durationMinutes;
+
+    /**
+     * 运行期间的扫描间隔(秒)
+     */
+    private Integer scanInterval;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

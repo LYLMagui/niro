@@ -39,4 +39,15 @@ public class BuffScanTaskParam {
     @Schema(description = "计划购买数量", defaultValue = "1")
     @Min(value = 1, message = "购买数量至少为1")
     private Integer buyCount;
+
+    @Schema(description = "Cron触发表达式")
+    private String cronExpression;
+
+    @Schema(description = "持续运行时间(分钟)", defaultValue = "0")
+    @Min(value = 0, message = "持续时间不能为负数")
+    private Integer durationMinutes;
+
+    @Schema(description = "扫描间隔(秒)", defaultValue = "5")
+    @Min(value = 1, message = "扫描间隔至少为1秒")
+    private Integer scanInterval;
 }
