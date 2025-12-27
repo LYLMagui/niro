@@ -4,7 +4,13 @@
     <!-- 侧边栏 -->
     <t-aside>
       <!-- 侧边菜单，绑定当前激活的菜单项 -->
-      <t-menu theme="light" :value="activeValue" style="margin-right: 50px" height="550px" @change="handleMenuChange">
+      <t-menu
+        theme="light"
+        :value="activeValue"
+        style="margin-right: 50px"
+        height="550px"
+        @change="handleMenuChange"
+      >
         <!-- 菜单顶部 Logo 区域 -->
         <template #logo>
           <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">
@@ -72,13 +78,13 @@
       </t-header>
 
       <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
-      <t-content class="overflow-auto bg-gray-50 flex flex-col">
+      <t-content class="flex flex-col overflow-auto bg-gray-50">
         <div class="flex-1 p-6">
           <router-view />
         </div>
-        
+
         <!-- 底部版权信息 -->
-        <t-footer class="py-4 text-center text-sm text-gray-400 bg-gray-50">
+        <t-footer class="bg-gray-50 py-4 text-center text-sm text-gray-400">
           Copyright @ 2024 Niro Control
         </t-footer>
       </t-content>
@@ -89,7 +95,15 @@
 <script setup lang="ts">
 import { computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import { DashboardIcon, ServerIcon, ViewListIcon, UserCircleIcon, PoweroffIcon, ShopIcon, SettingIcon } from "tdesign-icons-vue-next";
+import {
+  DashboardIcon,
+  ServerIcon,
+  ViewListIcon,
+  UserCircleIcon,
+  PoweroffIcon,
+  ShopIcon,
+  SettingIcon,
+} from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { MessagePlugin } from "tdesign-vue-next";
 
@@ -102,18 +116,18 @@ const activeValue = computed(() => route.name as string);
 // 菜单切换处理
 const handleMenuChange = (value: string | number) => {
   // 仅在 value 存在且为字符串时跳转
-  if (value && typeof value === 'string') {
+  if (value && typeof value === "string") {
     router.push({ name: value });
   }
 };
 
 // 下拉菜单选项
 const dropdownOptions = [
-  { content: '退出登录', value: 'logout', prefixIcon: () => h(PoweroffIcon) },
+  { content: "退出登录", value: "logout", prefixIcon: () => h(PoweroffIcon) },
 ];
 
-const handleDropdownClick = async (data: any) => {
-  if (data.value === 'logout') {
+const handleDropdownClick = async (data: { value: string }) => {
+  if (data.value === "logout") {
     await handleLogout();
   }
 };

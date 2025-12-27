@@ -1,7 +1,7 @@
 <template>
   <div class="space-y-4">
     <!-- 合并后的商品列表卡片 -->
-    <t-card :bordered="false" title="商品列表" class="hover:shadow transition-shadow duration-300">
+    <t-card :bordered="false" title="商品列表" class="transition-shadow duration-300 hover:shadow">
       <!-- 搜索栏 -->
       <div class="mb-6 border-b border-gray-100 pb-6">
         <t-form
@@ -35,8 +35,18 @@
             />
           </t-form-item>
           <t-form-item label="外观磨损" name="exterior">
-            <t-select v-model="searchForm.exterior" placeholder="请选择外观" clearable style="width: 160px">
-              <t-option v-for="item in ExteriorOptions" :key="item.value" :value="item.value" :label="item.label" />
+            <t-select
+              v-model="searchForm.exterior"
+              placeholder="请选择外观"
+              clearable
+              style="width: 160px"
+            >
+              <t-option
+                v-for="item in ExteriorOptions"
+                :key="item.value"
+                :value="item.value"
+                :label="item.label"
+              />
             </t-select>
           </t-form-item>
           <t-form-item>
@@ -70,17 +80,17 @@
         :columns="columns"
         :loading="loading"
         :pagination="pagination"
-        @page-change="onPageChange"
         hover
         :header-affixed-top="true"
         class="custom-table"
         :pagination-affixed-bottom="true"
+        @page-change="onPageChange"
       >
         <!-- 图片列自定义渲染 -->
         <template #iconUrl="{ row }">
-          <div 
-            class="cursor-pointer border border-gray-200 flex items-center justify-center bg-white" 
-            style="width: 110px; height: 110px;"
+          <div
+            class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white"
+            style="width: 110px; height: 110px"
             @click="onPreview(row.iconUrl)"
           >
             <t-image
@@ -101,13 +111,13 @@
 
         <!-- 磨损列自定义渲染 -->
         <template #exterior="{ row }">
-          <t-tag 
-            v-if="row.exterior" 
-            variant="light" 
-            :style="{ 
-              color: ExteriorColorMap[row.exterior] || '#333', 
-              backgroundColor: (ExteriorColorMap[row.exterior] || '#eee') + '20', 
-              borderColor: (ExteriorColorMap[row.exterior] || '#ccc') + '40'
+          <t-tag
+            v-if="row.exterior"
+            variant="light"
+            :style="{
+              color: ExteriorColorMap[row.exterior] || '#333',
+              backgroundColor: (ExteriorColorMap[row.exterior] || '#eee') + '20',
+              borderColor: (ExteriorColorMap[row.exterior] || '#ccc') + '40',
             }"
           >
             {{ ExteriorMap[row.exterior] || row.exterior }}
@@ -117,12 +127,12 @@
 
         <!-- 稀有度列自定义渲染 -->
         <template #rarity="{ row }">
-          <t-tag 
-            v-if="row.rarity" 
-            variant="light" 
-            :style="{ 
+          <t-tag
+            v-if="row.rarity"
+            variant="light"
+            :style="{
               color: RarityColorMap[row.rarity] || '#333',
-              backgroundColor: (RarityColorMap[row.rarity] || '#eee') + '20'
+              backgroundColor: (RarityColorMap[row.rarity] || '#eee') + '20',
             }"
           >
             {{ RarityMap[row.rarity] || row.rarity }}
@@ -150,18 +160,18 @@
             @click="openCreateTaskDialog(row)"
           >
             <template #icon><shop-icon /></template>
-          扫货
-        </t-button>
+            扫货
+          </t-button>
         </template>
       </t-table>
     </t-card>
     <!-- 图片预览组件 -->
-    <t-image-viewer 
-      :images="[previewImage]" 
-      :visible="visible" 
+    <t-image-viewer
+      :images="[previewImage]"
+      :visible="visible"
       mode="modal"
       :close-on-overlay="true"
-      @close="visible = false" 
+      @close="visible = false"
     />
 
     <!-- 创建任务弹窗 -->
@@ -170,7 +180,7 @@
       header="创建扫货任务"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
       :on-confirm="confirmCreateTask"
-      :on-close="() => createTaskDialogVisible = false"
+      :on-close="() => (createTaskDialogVisible = false)"
       width="500px"
     >
       <div v-if="currentGoods" class="mb-4 flex items-center gap-4 rounded bg-gray-50 p-3">
@@ -262,7 +272,7 @@ const onPreview = (url: string) => {
 
 const openBuffGoods = (goodsId: number) => {
   if (!goodsId) return;
-  window.open(`https://buff.163.com/goods/${goodsId}`, '_blank');
+  window.open(`https://buff.163.com/goods/${goodsId}`, "_blank");
 };
 
 // 搜索表单
@@ -301,8 +311,8 @@ const taskForm = reactive<TaskSaveParam>({
 });
 
 const taskRules: Record<string, FormRule[]> = {
-  maxPrice: [{ required: true, message: '请输入最高价格', type: 'error' }],
-  buyCount: [{ required: true, message: '请输入购买数量', type: 'error' }],
+  maxPrice: [{ required: true, message: "请输入最高价格", type: "error" }],
+  buyCount: [{ required: true, message: "请输入购买数量", type: "error" }],
 };
 
 const openCreateTaskDialog = (row: GoodsSimple) => {
@@ -313,7 +323,7 @@ const openCreateTaskDialog = (row: GoodsSimple) => {
   taskForm.minPaintwear = 0;
   taskForm.maxPaintwear = 1;
   taskForm.buyCount = 1;
-  
+
   // 如果商品本身有磨损属性，可以在这里优化默认值（可选）
   createTaskDialogVisible.value = true;
 };
@@ -327,7 +337,7 @@ const confirmCreateTask = async () => {
     await taskApi.add(taskForm);
     MessagePlugin.success("扫货任务创建成功");
     createTaskDialogVisible.value = false;
-  } catch (error) {
+  } catch {
     // 异常已由拦截器处理，此处主要负责关闭loading
   } finally {
     submitLoading.value = false;
@@ -386,7 +396,7 @@ const onRemoteSearch = debounce(async (keyword: string) => {
     const list = await goodsApi.getSimpleList(keyword);
     // 这里需要断言一下类型，或者直接使用，因为 axios 拦截器已经处理了响应
     const items = list as unknown as GoodsSimple[];
-    
+
     goodsOptions.value = items.map((item) => ({
       label: item.name,
       value: item.goodsId,
@@ -447,7 +457,7 @@ onMounted(() => {
 <style scoped>
 /* 表头样式定制 */
 :deep(.custom-table .t-table__header tr) {
-  background-color: #FAFAFA !important;
+  background-color: #fafafa !important;
 }
 
 :deep(.custom-table .t-table__header th) {

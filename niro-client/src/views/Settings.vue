@@ -7,15 +7,13 @@
 
     <!-- 配置表单 -->
     <t-card :bordered="false" class="shadow-sm">
-      <t-form
-        ref="formRef"
-        :data="formData"
-        :rules="rules"
-        label-align="top"
-        @submit="onSubmit"
-      >
+      <t-form ref="formRef" :data="formData" :rules="rules" label-align="top" @submit="onSubmit">
         <!-- Buff Cookie 配置 -->
-        <t-form-item label="Buff Cookie" name="buffCookie" help="请登录网页版 Buff 并在控制台获取 Cookie (包含 session 字段)">
+        <t-form-item
+          label="Buff Cookie"
+          name="buffCookie"
+          help="请登录网页版 Buff 并在控制台获取 Cookie (包含 session 字段)"
+        >
           <t-textarea
             v-model="formData.buffCookie"
             placeholder="请粘贴完整的 Cookie 字符串..."
@@ -53,21 +51,29 @@
 
         <!-- 企业微信通知配置 -->
         <div class="mt-8 mb-4 border-t pt-6">
-          <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+          <h3 class="mb-4 flex items-center text-lg font-medium text-gray-800">
             <t-icon name="chat" class="mr-2" />
             企业微信通知配置
           </h3>
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+          <div class="grid grid-cols-1 gap-x-6 gap-y-4 md:grid-cols-2">
             <t-form-item label="企业ID (CorpID)" name="wecomCorpid">
               <t-input v-model="formData.wecomCorpid" placeholder="请输入企业微信企业ID" />
             </t-form-item>
             <t-form-item label="应用Secret (CorpSecret)" name="wecomCorpsecret">
-              <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="请输入应用Secret" />
+              <t-input
+                v-model="formData.wecomCorpsecret"
+                type="password"
+                placeholder="请输入应用Secret"
+              />
             </t-form-item>
             <t-form-item label="应用AgentID" name="wecomAgentid">
               <t-input v-model="formData.wecomAgentid" placeholder="请输入应用AgentID" />
             </t-form-item>
-            <t-form-item label="接收人账号 (ToUser)" name="wecomTouser" help="默认为 @all，指定多人用 | 分隔">
+            <t-form-item
+              label="接收人账号 (ToUser)"
+              name="wecomTouser"
+              help="默认为 @all，指定多人用 | 分隔"
+            >
               <t-input v-model="formData.wecomTouser" placeholder="请输入接收人账号" />
             </t-form-item>
           </div>
@@ -113,7 +119,7 @@ const formData = reactive<UserBuffSettings>({
 const rules: Record<string, FormRule[]> = {
   buffCookie: [
     { required: true, message: "Cookie 不能为空", type: "error" },
-    { min: 10, message: "Cookie 长度过短，请检查是否正确", type: "warning" }
+    { min: 10, message: "Cookie 长度过短，请检查是否正确", type: "warning" },
   ],
   paymentMethod: [{ required: true, message: "请选择支付方式", type: "error" }],
 };
@@ -125,7 +131,7 @@ const fetchSettings = async () => {
     if (res) {
       Object.assign(formData, res);
     }
-  } catch (error) {
+  } catch {
     // 忽略错误或显示提示
   }
 };
@@ -137,7 +143,7 @@ const onSubmit = async (context: SubmitContext) => {
     try {
       await settingsApi.saveSettings(formData);
       MessagePlugin.success("配置已保存");
-    } catch (error) {
+    } catch {
       // 异常已由拦截器处理
     } finally {
       loading.value = false;

@@ -10,23 +10,27 @@
         </t-button>
         <t-button :theme="isConnected ? 'danger' : 'primary'" @click="toggleConnection">
           <template #icon><refresh-icon :class="{ 'animate-spin': isConnecting }" /></template>
-          {{ isConnected ? '停止监听' : '开始监听' }}
+          {{ isConnected ? "停止监听" : "开始监听" }}
         </t-button>
       </div>
     </div>
 
     <!-- 日志显示区域 -->
-    <t-card :bordered="false" class="flex-1 overflow-hidden flex flex-col">
+    <t-card :bordered="false" class="flex flex-1 flex-col overflow-hidden">
       <!-- 模拟终端风格的日志窗口 -->
-      <div 
+      <div
         ref="logContainerRef"
         class="h-[calc(100vh-200px)] overflow-auto rounded bg-gray-900 p-4 font-mono text-sm leading-6"
       >
-        <div v-if="logs.length === 0" class="text-gray-500 text-center mt-10">
+        <div v-if="logs.length === 0" class="mt-10 text-center text-gray-500">
           暂无日志或等待连接...
         </div>
-        <div v-for="(log, index) in logs" :key="index" class="whitespace-pre-wrap break-all hover:bg-gray-800">
-           <!-- 简单高亮处理 -->
+        <div
+          v-for="(log, index) in logs"
+          :key="index"
+          class="break-all whitespace-pre-wrap hover:bg-gray-800"
+        >
+          <!-- 简单高亮处理 -->
           <span v-if="log.includes('ERROR')" class="text-red-500">{{ log }}</span>
           <span v-else-if="log.includes('WARN')" class="text-yellow-400">{{ log }}</span>
           <span v-else-if="log.includes('INFO')" class="text-blue-400">{{ log }}</span>
@@ -40,7 +44,6 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import { ClearIcon, RefreshIcon } from "tdesign-icons-vue-next";
-import { MessagePlugin } from "tdesign-vue-next";
 
 const logs = ref<string[]>([]);
 const isConnected = ref(false);
@@ -58,10 +61,10 @@ const scrollToBottom = async () => {
 
 const connect = () => {
   if (isConnected.value) return;
-  
+
   isConnecting.value = true;
   logs.value.push(">>> 正在连接日志服务...");
-  
+
   // 使用 /dev-api 前缀，由 Vite 代理转发到后端
   eventSource = new EventSource("/dev-api/log/stream");
 
@@ -90,8 +93,8 @@ const connect = () => {
       eventSource.close();
       eventSource = null;
     } else {
-       // 尝试重连中...
-       // logs.value.push(">>> 连接中断，尝试重连...");
+      // 尝试重连中...
+      // logs.value.push(">>> 连接中断，尝试重连...");
     }
     scrollToBottom();
   };
@@ -136,13 +139,13 @@ onUnmounted(() => {
   height: 8px;
 }
 ::-webkit-scrollbar-track {
-  background: #1f2937; 
+  background: #1f2937;
 }
 ::-webkit-scrollbar-thumb {
-  background: #4b5563; 
+  background: #4b5563;
   border-radius: 4px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: #6b7280; 
+  background: #6b7280;
 }
 </style>

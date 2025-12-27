@@ -4,10 +4,20 @@
       <!-- 搜索栏 -->
       <t-row :gutter="16" class="mb-4">
         <t-col :span="3">
-          <t-input v-model="queryParams.name" placeholder="搜索商品名称" clearable @enter="fetchData" />
+          <t-input
+            v-model="queryParams.name"
+            placeholder="搜索商品名称"
+            clearable
+            @enter="fetchData"
+          />
         </t-col>
         <t-col :span="2">
-          <t-select v-model="queryParams.status" placeholder="任务状态" clearable @change="fetchData">
+          <t-select
+            v-model="queryParams.status"
+            placeholder="任务状态"
+            clearable
+            @change="fetchData"
+          >
             <t-option label="停止" :value="0" />
             <t-option label="运行中" :value="1" />
             <t-option label="已完成" :value="2" />
@@ -16,7 +26,7 @@
         </t-col>
         <t-col :span="2">
           <t-button theme="primary" @click="fetchData">查询</t-button>
-          <t-button theme="default" variant="base" @click="resetQuery" class="ml-2">重置</t-button>
+          <t-button theme="default" variant="base" class="ml-2" @click="resetQuery">重置</t-button>
         </t-col>
         <t-col :span="5" class="text-right">
           <t-button theme="primary" @click="handleAdd">新增任务</t-button>
@@ -34,25 +44,21 @@
       >
         <template #goods="{ row }">
           <div class="flex items-center">
-            <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="w-8 h-8 mr-2 rounded" />
+            <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="mr-2 h-8 w-8 rounded" />
             <div>
-              <div class="font-bold truncate max-w-xs" :title="row.name">{{ row.name }}</div>
+              <div class="max-w-xs truncate font-bold" :title="row.name">{{ row.name }}</div>
               <div class="text-xs text-gray-500">ID: {{ row.goodsId }}</div>
             </div>
           </div>
         </template>
-        
+
         <template #price="{ row }">
-          <div class="text-orange-600 font-bold">¥{{ row.maxPrice }}</div>
+          <div class="font-bold text-orange-600">¥{{ row.maxPrice }}</div>
         </template>
 
-        <template #paintwear="{ row }">
-          {{ row.minPaintwear }} - {{ row.maxPaintwear }}
-        </template>
+        <template #paintwear="{ row }">{{ row.minPaintwear }} - {{ row.maxPaintwear }}</template>
 
-        <template #progress="{ row }">
-          {{ row.successCount }} / {{ row.buyCount }}
-        </template>
+        <template #progress="{ row }">{{ row.successCount }} / {{ row.buyCount }}</template>
 
         <template #status="{ row }">
           <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
@@ -63,11 +69,19 @@
 
         <template #op="{ row }">
           <t-link theme="primary" class="mr-2" @click="handleEdit(row)">编辑</t-link>
-          <t-popconfirm v-if="row.status === 0" content="确定要启动任务吗？" @confirm="handleStatus(row, 1)">
-             <t-link theme="success" class="mr-2">启动</t-link>
+          <t-popconfirm
+            v-if="row.status === 0"
+            content="确定要启动任务吗？"
+            @confirm="handleStatus(row, 1)"
+          >
+            <t-link theme="success" class="mr-2">启动</t-link>
           </t-popconfirm>
-          <t-popconfirm v-if="row.status === 1" content="确定要停止任务吗？" @confirm="handleStatus(row, 0)">
-             <t-link theme="warning" class="mr-2">停止</t-link>
+          <t-popconfirm
+            v-if="row.status === 1"
+            content="确定要停止任务吗？"
+            @confirm="handleStatus(row, 0)"
+          >
+            <t-link theme="warning" class="mr-2">停止</t-link>
           </t-popconfirm>
           <t-popconfirm content="确定要删除任务吗？" @confirm="handleDelete(row)">
             <t-link theme="danger">删除</t-link>
@@ -81,12 +95,12 @@
       v-model:visible="dialogVisible"
       :header="dialogTitle"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
-      @confirm="handleSubmit"
       width="600px"
+      @confirm="handleSubmit"
     >
       <t-form ref="formRef" :data="formData" :rules="rules" :label-width="100">
         <t-form-item label="选择商品" name="goodsId">
-           <t-select
+          <t-select
             v-model="formData.goodsId"
             filterable
             placeholder="输入商品名称搜索"
@@ -94,8 +108,13 @@
             :on-search="remoteSearchGoods"
             :disabled="!!formData.id"
           >
-            <t-option v-for="item in goodsOptions" :key="item.goodsId" :value="item.goodsId" :label="item.name">
-               {{ item.name }}
+            <t-option
+              v-for="item in goodsOptions"
+              :key="item.goodsId"
+              :value="item.goodsId"
+              :label="item.name"
+            >
+              {{ item.name }}
             </t-option>
           </t-select>
         </t-form-item>
@@ -144,18 +163,47 @@
             style="width: 120px"
           />
         </t-form-item>
+        <t-form-item label="Cron表达式" name="cronExpression">
+          <t-input
+            v-model="formData.cronExpression"
+            placeholder="例如: 0 0 * * * (每天零点)"
+            clearable
+          />
+          <template #tips>空则立即开始；Cron 触发后将按下方设置的间隔和持续时间运行。</template>
+        </t-form-item>
+        <t-form-item label="持续时间" name="durationMinutes">
+          <t-input-number
+            v-model="formData.durationMinutes"
+            :min="0"
+            :step="1"
+            suffix="分钟"
+            theme="column"
+            style="width: 150px"
+          />
+          <template #tips>0 表示不限时间 (直到手动停止或达到购买上限)</template>
+        </t-form-item>
+        <t-form-item label="扫描间隔" name="scanInterval">
+          <t-input-number
+            v-model="formData.scanInterval"
+            :min="1"
+            :step="1"
+            suffix="秒"
+            theme="column"
+            style="width: 150px"
+          />
+        </t-form-item>
       </t-form>
     </t-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from "vue";
-import { MessagePlugin, DialogPlugin } from "tdesign-vue-next";
-import { taskApi } from "@/api/task";
 import { goodsApi } from "@/api/goods";
-import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
+import { taskApi } from "@/api/task";
 import type { GoodsSimple } from "@/types/goods";
+import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
+import { MessagePlugin } from "tdesign-vue-next";
+import { onMounted, reactive, ref } from "vue";
 
 // --- 表格数据 ---
 const loading = ref(false);
@@ -188,11 +236,14 @@ const dialogTitle = ref("新增任务");
 const submitLoading = ref(false);
 const formRef = ref();
 const formData = reactive<TaskSaveParam>({
-  goodsId: undefined as any,
+  goodsId: undefined as unknown as number,
   maxPrice: 0,
   minPaintwear: 0,
   maxPaintwear: 1,
   buyCount: 1,
+  cronExpression: "",
+  durationMinutes: 0,
+  scanInterval: 5,
 });
 
 const rules = {
@@ -229,14 +280,14 @@ const fetchData = async () => {
     });
     dataList.value = res.records;
     pagination.total = res.total;
-  } catch (e) {
+  } catch {
     // error handled by interceptor
   } finally {
     loading.value = false;
   }
 };
 
-const onPageChange = (pageInfo: any) => {
+const onPageChange = (pageInfo: { current: number; pageSize: number }) => {
   pagination.current = pageInfo.current;
   pagination.pageSize = pageInfo.pageSize;
   fetchData();
@@ -251,11 +302,14 @@ const resetQuery = () => {
 const handleAdd = () => {
   dialogTitle.value = "新增任务";
   formData.id = undefined;
-  formData.goodsId = undefined as any;
+  formData.goodsId = undefined as unknown as number;
   formData.maxPrice = 0;
   formData.minPaintwear = 0;
   formData.maxPaintwear = 1;
   formData.buyCount = 1;
+  formData.cronExpression = "";
+  formData.durationMinutes = 0;
+  formData.scanInterval = 5;
   dialogVisible.value = true;
   goodsOptions.value = []; // reset options
 };
@@ -268,10 +322,13 @@ const handleEdit = (row: BuffScanTask) => {
   formData.minPaintwear = row.minPaintwear;
   formData.maxPaintwear = row.maxPaintwear;
   formData.buyCount = row.buyCount;
-  
+  formData.cronExpression = row.cronExpression || "";
+  formData.durationMinutes = row.durationMinutes || 0;
+  formData.scanInterval = row.scanInterval || 5;
+
   // 预填充当前商品到选项中，否则显示ID
   goodsOptions.value = [{ goodsId: row.goodsId, name: row.name }];
-  
+
   dialogVisible.value = true;
 };
 

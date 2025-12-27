@@ -18,11 +18,7 @@
         @submit="handleAccountLogin"
       >
         <t-form-item name="username">
-          <t-input
-            v-model="accountFormData.username"
-            placeholder="请输入用户名"
-            size="large"
-          >
+          <t-input v-model="accountFormData.username" placeholder="请输入用户名" size="large">
             <template #prefix-icon>
               <user-icon />
             </template>
@@ -47,15 +43,15 @@
         </div>
 
         <t-form-item class="pt-2">
-          <t-button theme="primary" type="submit" block size="large" :loading="loading">登录</t-button>
+          <t-button theme="primary" type="submit" block size="large" :loading="loading">
+            登录
+          </t-button>
         </t-form-item>
       </t-form>
     </div>
 
     <!-- 底部版权信息 -->
-    <div class="mt-8 text-sm text-gray-400">
-      Copyright @ 2024 Niro Control
-    </div>
+    <div class="mt-8 text-sm text-gray-400">Copyright @ 2024 Niro Control</div>
   </div>
 </template>
 
@@ -95,7 +91,7 @@ onMounted(() => {
           rememberMe.value = true;
         }
       }
-    } catch (e) {
+    } catch {
       localStorage.removeItem("niro-remember-me");
     }
   }
@@ -106,39 +102,43 @@ const accountRules: FormRules = {
   password: [{ required: true, message: "请输入密码", type: "error" }],
 };
 
-const { loading, run: login } = useRequest(userApi.login, {
-  onSuccess: (data) => {
-    // 登录成功后，将 token 存储到 localStorage
-    if (data?.token) {
-      localStorage.setItem("niro-web-token", data.token);
-    }
+const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitContext) => {
+  if (context.validateResult === true) {
+    try {
+      const res = await userApi.login(accountFormData);
+      if (res) {
+        // 登录成功后，将 token 存储到 localStorage
+        if (res.token) {
+          localStorage.setItem("niro-web-token", res.token);
+        }
 
-    // 处理"记住我"逻辑
-    if (rememberMe.value) {
-      // 加密密码存储
-      const encryptedPassword = encrypt(accountFormData.password);
-      localStorage.setItem("niro-remember-me", JSON.stringify({
-        username: accountFormData.username,
-        password: encryptedPassword,
-        isRemember: true
-      }));
-    } else {
-      localStorage.removeItem("niro-remember-me");
-    }
-    
-    MessagePlugin.success("登录成功");
-    
-    // 获取重定向地址，如果有则跳转到重定向地址，否则跳转到仪表盘
-    const redirect = router.currentRoute.value.query.redirect as string;
-    router.push(redirect || "/dashboard");
-  },
-});
+        MessagePlugin.success("登录成功");
 
-const handleAccountLogin = ({ validateResult }: SubmitContext) => {
-  if (validateResult === true) {
-    login(accountFormData);
+        // 记住我逻辑
+        if (rememberMe.value) {
+          // 加密密码存储
+          const encryptedPassword = encrypt(accountFormData.password);
+          localStorage.setItem(
+            "niro-remember-me",
+            JSON.stringify({
+              username: accountFormData.username,
+              password: encryptedPassword,
+              isRemember: true,
+            })
+          );
+        } else {
+          localStorage.removeItem("niro-remember-me");
+        }
+
+        // 获取重定向地址，如果有则跳转到重定向地址，否则跳转到仪表盘
+        const redirect = router.currentRoute.value.query.redirect as string;
+        router.push(redirect || "/dashboard");
+      }
+    } catch {
+      // 异常已由拦截器处理
+    }
   }
-};
+});
 </script>
 
 <style scoped>
