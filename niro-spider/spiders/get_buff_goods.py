@@ -49,35 +49,72 @@ def fetch_goods_data(category_internal_name, page_num=1, max_retries=3):
             logger.debug(f"🌐 请求 URL: {full_url}")
             
             response = requests.get(url, headers=headers, params=params, timeout=15)
+            
+            # 处理 429 限流
+            if response.status_code == 429:
+                # 指数退避: 15s, 30s, 60s... 加上随机抖动
+                wait_time = (2 ** attempt) * 15 + random.uniform(5, 15)
+                logger.warning(f"⚠️ 触发限流 (429)，暂停 {wait_time:.2f} 秒后进行第 {attempt + 1} 次重试...")
+                time.sleep(wait_time)
+                continue
+
             response.raise_for_status()
             
             json_data = response.json()
             if json_data.get("code") != "OK":
-                 # 可能是登录过期或参数错误
-                logger.error(f"❌ API 返回错误: {json_data.get('code')} - {json_data.get('error')}")
+                err_msg = json_data.get("error", "Unknown Error")
+                logger.error(f"❌ API 返回错误: {json_data.get('code')} - {err_msg}")
+                
                 if json_data.get("code") == "Login Required":
-                     raise Exception("Cookie 失效，需要重新登录")
-                return None
+                     logger.critical("🔑 Cookie 已失效，请在 settings.py 中更新 BUFF_COOKIE")
+                     return None
+                
+                # 其他错误可能需要重试
+                time.sleep(5)
+                continue
 
             data = json_data.get("data")
             if data is None:
-                raise Exception(f"请求成功但无数据: {json_data}")
+                raise Exception(f"请求成功但 data 字段为空: {json_data}")
                 
             return data
             
-        except requests.exceptions.HTTPError as e:
-            if response.status_code == 429:
-                wait_time = random.uniform(5, 10) * (attempt + 1)
-                logger.warning(f"⚠️ 触发限流 (429)，暂停 {wait_time:.2f} 秒后重试 ({attempt + 1}/{max_retries})...")
-                time.sleep(wait_time)
-                continue
-            logger.error(f"❌ HTTP 请求失败: {e}")
-            break
-        except Exception as e:
-            logger.error(f"❌ 请求异常: {e}")
-            time.sleep(random.uniform(2, 5))
+        except requests.exceptions.RequestException as e:
+            logger.error(f"❌ 网络请求异常 (尝试 {attempt + 1}/{max_retries}): {e}")
+            time.sleep(random.uniform(5, 10))
             
     return None
+
+def get_db_goods_count(category_id):
+    """
+    获取数据库中某个分类的商品数量
+    """
+    try:
+        # 使用默认 cursor_factory=None 获取元组格式，方便 index 访问
+        with pg_pool.get_cursor(cursor_factory=None) as cur:
+            sql = "SELECT COUNT(*) FROM buff_goods WHERE category_id = %s"
+            cur.execute(sql, (category_id,))
+            res = cur.fetchone()
+            return res[0] if res else 0
+    except Exception as e:
+        logger.error(f"❌ 获取数据库商品计数失败: {e}")
+        return 0
+
+def get_db_existing_ids(goods_ids):
+    """
+    批量检查哪些商品 ID 已经存在于数据库中
+    """
+    if not goods_ids:
+        return set()
+    try:
+        # 使用默认 cursor_factory=None 获取元组格式
+        with pg_pool.get_cursor(cursor_factory=None) as cur:
+            sql = "SELECT goods_id FROM buff_goods WHERE goods_id = ANY(%s)"
+            cur.execute(sql, (list(goods_ids),))
+            return {row[0] for row in cur.fetchall()}
+    except Exception as e:
+        logger.error(f"❌ 检查已存在 ID 失败: {e}")
+        return set()
 
 def get_secondary_categories():
     """
@@ -147,129 +184,123 @@ def save_goods_batch(goods_list):
         logger.error(f"❌ 批量保存失败: {e}")
         return 0
 
-def process_category(category):
+def process_category(category, force=False):
     """
     处理单个分类：分页抓取所有商品
+    force: 是否强制抓取所有页，即使数量匹配或已存在
     """
     cat_id = category['id']
     cat_internal = category['internal_name']
     cat_name = category['name']
     
-    logger.info(f"🚀 开始抓取分类: {cat_name} ({cat_internal}) [ID={cat_id}]")
+    logger.info(f"🚀 开始处理分类: {cat_name} ({cat_internal}) [ID={cat_id}]")
+    
+    # 预检查：如果非强制模式，先看一眼数据库里有多少
+    db_count = get_db_goods_count(cat_id)
     
     page = 1
-    total_pages = 1 # 初始值，第一次请求后更新
+    total_pages = 1 
     total_saved = 0
-    seen_goods_ids = set() # 本次任务内存去重，防止翻页数据漂移
+    seen_goods_ids = set() 
     
     while page <= total_pages:
         logger.info(f"   正在抓取第 {page}/{total_pages} 页...")
         
         data = fetch_goods_data(cat_internal, page_num=page)
         if not data:
-            logger.warning(f"   第 {page} 页获取失败或无数据，跳过本页")
+            logger.warning(f"   第 {page} 页获取失败，跳过")
             page += 1
             continue
             
-        # 更新总页数
         if page == 1:
             total_pages = data.get("total_page", 1)
             total_count = data.get("total_count", 0)
-            logger.info(f"   📊 该分类共有 {total_count} 个商品，共 {total_pages} 页")
+            logger.info(f"   📊 Buff 共有 {total_count} 个商品，数据库已有 {db_count} 个")
             
+            # 优化点 1：数量完全匹配且不强制更新，直接跳过整个分类
+            if not force and db_count >= total_count and total_count > 0:
+                logger.info(f"   ✅ 数量已匹配 ({db_count}/{total_count})，跳过该分类")
+                return
+
         items = data.get("items", [])
         if not items:
-            logger.info("本页无商品数据")
             break
             
+        # 提取当前页的所有 ID
+        current_page_ids = {item.get("id") for item in items if item.get("id")}
+        
+        # 优化点 2：智能跳过 (Early Exit)
+        # 如果当前页的所有商品 ID 都在数据库里了，说明后面可能也没新东西了
+        if not force:
+            existing_ids = get_db_existing_ids(current_page_ids)
+            if len(existing_ids) == len(current_page_ids) and len(current_page_ids) > 0:
+                logger.info(f"   ⏩ 第 {page} 页商品全部已存在，触发智能停机，跳过后续页码")
+                break
+
         # 解析数据
         parsed_goods = []
         for item in items:
             try:
-                goods_info = item.get("goods_info", {})
-                info_tags = goods_info.get("info", {}).get("tags", {})
-                
-                # 提取字段
                 goods_id = item.get("id")
-                
-                # 内存去重：如果本次任务已经处理过该ID，直接跳过
                 if goods_id in seen_goods_ids:
                     continue
                 seen_goods_ids.add(goods_id)
 
-                name = item.get("name", "")
-                short_name = item.get("short_name", "")
-                market_hash_name = item.get("market_hash_name", "")
+                goods_info = item.get("goods_info", {})
+                info_tags = goods_info.get("info", {}).get("tags", {})
                 
-                # 提取内部名称 (优先取 weapon tag 的 internal_name)
+                # 提取内部名称
                 weapon_tag = info_tags.get("weapon", {})
-                internal_name = weapon_tag.get("internal_name", "")
-                if not internal_name:
-                    # 尝试从 category tag 获取
-                    internal_name = info_tags.get("category", {}).get("internal_name", "")
-                
-                # 提取稀有度 (存 internal_name)
-                rarity_tag = info_tags.get("rarity", {})
-                rarity = rarity_tag.get("internal_name", "")
-                
-                # 提取外观 (存 internal_name，如 "wearcategory2")
-                exterior_tag = info_tags.get("exterior", {})
-                exterior = exterior_tag.get("internal_name", "") # 改存 internal_name
-                if not exterior:
-                    # 如果没有磨损（如印花、箱子），存空字符串或 None
-                    exterior = ""
-                
-                icon_url = goods_info.get("icon_url", "")
-                original_icon_url = goods_info.get("original_icon_url", "")
+                internal_name = weapon_tag.get("internal_name", "") or info_tags.get("category", {}).get("internal_name", "")
                 
                 parsed_goods.append({
                     "goods_id": goods_id,
-                    "name": name,
-                    "short_name": short_name,
+                    "name": item.get("name", ""),
+                    "short_name": item.get("short_name", ""),
                     "internal_name": internal_name,
                     "category_id": cat_id,
-                    "rarity": rarity,
-                    "exterior": exterior,
-                    "market_hash_name": market_hash_name,
-                    "icon_url": icon_url,
-                    "original_icon_url": original_icon_url,
-                    "tags": info_tags  # 保存完整 tags 数据
+                    "rarity": info_tags.get("rarity", {}).get("internal_name", ""),
+                    "exterior": info_tags.get("exterior", {}).get("internal_name", ""),
+                    "market_hash_name": item.get("market_hash_name", ""),
+                    "icon_url": goods_info.get("icon_url", ""),
+                    "original_icon_url": goods_info.get("original_icon_url", ""),
+                    "tags": info_tags 
                 })
             except Exception as e:
                 logger.error(f"解析商品出错: {item.get('id')} - {e}")
-                continue
         
-        # 批量入库
-        count = save_goods_batch(parsed_goods)
-        total_saved += count
-        logger.info(f"   ✅ 已保存 {count} 条商品数据")
+        if parsed_goods:
+            count = save_goods_batch(parsed_goods)
+            total_saved += count
+            logger.info(f"   ✅ 本页新增/更新 {count} 条数据")
         
-        # 翻页延时
         page += 1
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(2, 5)) # 基础延时
         
-    logger.info(f"✨ 分类 {cat_name} 抓取完成，累计新增/更新 {total_saved} 个商品")
+    logger.info(f"✨ 分类 {cat_name} 处理完成，本次任务影响 {total_saved} 个商品")
 
 def main():
-    logger.info("=== 开始全量抓取 Buff 商品数据 ===")
+    import argparse
+    parser = argparse.ArgumentParser(description="Buff 商品全量抓取脚本")
+    parser.add_argument("--force", action="store_true", help="强制抓取所有分类和页码，忽略增量跳过逻辑")
+    args = parser.parse_args()
+
+    logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {args.force}) ===")
     
-    # 1. 获取所有二级分类
     categories = get_secondary_categories()
     if not categories:
-        logger.warning("未找到任何二级分类，请先运行 get_buff_goods_category.py 同步分类表")
+        logger.warning("未找到分类数据")
         return
         
-    # 2. 循环处理每个分类
     for i, cat in enumerate(categories):
-        process_category(cat)
+        process_category(cat, force=args.force)
         
-        # 组间长延时，避免封 IP
         if i < len(categories) - 1:
-            sleep_time = random.uniform(5, 10)
+            sleep_time = random.uniform(5, 12)
             logger.info(f"😴 分类间歇休息 {sleep_time:.2f} 秒...")
             time.sleep(sleep_time)
             
-    logger.info("=== 全量抓取任务结束 ===")
+    logger.info("=== 任务结束 ===")
 
 if __name__ == "__main__":
     from utils.logger import setup_logging

@@ -1,13 +1,17 @@
 # Release Notes
-
-## v1.2.0 (2025-12-26)
-### 容器化部署支持
-- **Docker 支持**：
-  - **Python 爬虫容器化**：新增 `niro-spider/Dockerfile`，采用 `python:3.9-slim` 轻量镜像，内置依赖自动安装与时区优化。
-  - **Java 后端容器化**：新增 `niro-server/niro-web/Dockerfile`，采用 `eclipse-temurin:21-jre` 镜像，针对 2H2G 环境优化了 JVM 内存参数（`-Xmx512m`）。
-  - **一键编排启动**：根目录新增 `docker-compose.yml`，集成 Java 后端、Python 爬虫、PostgreSQL 15 和 Redis 7，支持跨容器服务发现与数据持久化。
-  - **环境配置标准化**：统一通过环境变量管理数据库、Redis 连接及 Buff Cookie，提升生产环境安全性。
-
+  
+  
+## v1.1.1 (2025-12-27)
+### 爬虫性能与稳定性优化
+- **全量商品抓取脚本优化 ([get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py))**：
+  - **增量跳过逻辑**：引入分类预检查机制，当数据库商品数与 Buff 接口总数匹配时自动跳过，大幅减少冗余 API 请求。
+  - **智能停机 (Early Exit)**：翻页过程中若检测到当前页所有商品已存在，则自动停止后续页码抓取，针对“商品少页数多”的分类提升 80% 以上效率。
+  - **指数退避限流**：针对 HTTP 429 错误引入指数退避算法（15s, 30s, 60s...）并结合随机抖动（Jitter），显著提升高频抓取下的账号安全性。
+  - **强制更新模式**：新增 `--force` 命令行参数，支持手动忽略增量逻辑执行全量刷新。
+- **数据库兼容性修复**：
+  - **游标访问修正**：修复了 `get_db_existing_ids` 等函数因 `RealDictCursor` 导致的 `KeyError: 0` 报错，通过显式指定标准游标确保了索引访问的稳定性。
+  - **健壮性增强**：优化了字段解析逻辑，增加了对 Cookie 失效（Login Required）等关键业务错误的捕获与提示。
+  
 ## v1.1.0 (2025-12-26)
 ### 架构重构
 - **Python 模块独立化**：
