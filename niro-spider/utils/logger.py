@@ -41,6 +41,9 @@ def setup_logging(log_dir="logs", log_level=logging.INFO):
     file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT))
     logger.addHandler(file_handler)
 
+    # 抑制第三方库的详细日志 (如 apscheduler)
+    logging.getLogger("apscheduler").setLevel(logging.WARNING)
+
     logging.info(f"日志系统初始化完成，日志文件路径: {os.path.abspath(log_file_path)}")
 
 def get_logger(name):

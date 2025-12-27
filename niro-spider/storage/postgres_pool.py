@@ -118,5 +118,22 @@ class PostgresPool:
             logger.info("PostgreSQL 连接池已关闭")
             self._pool = None
 
+    def execute(self, sql, params=None):
+        """执行 SQL (INSERT/UPDATE/DELETE)"""
+        with self.get_cursor() as cur:
+            cur.execute(sql, params)
+
+    def fetch_one(self, sql, params=None):
+        """查询单行数据"""
+        with self.get_cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchone()
+
+    def fetch_all(self, sql, params=None):
+        """查询多行数据"""
+        with self.get_cursor() as cur:
+            cur.execute(sql, params)
+            return cur.fetchall()
+
 # 全局单例实例
 pg_pool = PostgresPool()
