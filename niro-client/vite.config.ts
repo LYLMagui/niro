@@ -52,14 +52,14 @@ export default defineConfig(({ mode }) => {
         "lodash-es",
         "tdesign-vue-next",
         "tdesign-icons-vue-next",
-        "@vueuse/core",
-        "qs",
-      ],
-    },
-    plugins: [
-      vue(),
-      vueDevTools(),
-      // 自动导入插件
+      "@vueuse/core",
+      "qs",
+    ],
+  },
+  plugins: [
+    vue(),
+    vueDevTools(),
+    // 自动导入插件
       AutoImport({
         // 需要自动导入的模块
         imports: [
@@ -78,7 +78,9 @@ export default defineConfig(({ mode }) => {
         vueTemplate: true,
         // 指定自动导入函数TS类型声明文件路径
         dts: "src/types/auto-imports.d.ts",
-        resolvers: [TDesignResolver({ library: "vue-next" })],
+        resolvers: [
+          TDesignResolver({ library: "vue-next" }),
+        ],
       }),
       // 按需自动导入组件
       Components({

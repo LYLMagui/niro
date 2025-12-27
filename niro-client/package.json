@@ -46,6 +46,7 @@
     }
   },
   "dependencies": {
+    "@element-plus/icons-vue": "^2.3.2",
     "@iconify/iconify": "^3.1.1",
     "@iconify/json": "^2.2.343",
     "@iconify/tailwind": "^1.2.0",
@@ -55,6 +56,7 @@
     "@vueuse/core": "^13.2.0",
     "axios": "^1.10.0",
     "crypto-js": "^4.2.0",
+    "element-plus": "^2.13.0",
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
     "nprogress": "^0.2.0",
