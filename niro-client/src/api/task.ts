@@ -36,5 +36,5 @@ export const taskApi = {
    */
   updateStatus(id: number, status: number) {
     return request.post(`/task/status/${id}/${status}`);
-  }
+  },
 };

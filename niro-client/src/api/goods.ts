@@ -13,7 +13,7 @@ export const goodsApi = {
    * 获取所有商品简单列表 (ID+名称)
    */
   getSimpleList(keyword?: string) {
-    const params: any = {};
+    const params: Record<string, string> = {};
     if (keyword) {
       params.keyword = keyword;
     }

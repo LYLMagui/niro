@@ -19,6 +19,6 @@ export const settingsApi = {
 
   // 保存配置
   saveSettings(data: UserBuffSettings) {
-    return request.post<void>("/settings", data);
+    return request.post<unknown>("/settings", data);
   },
 };
