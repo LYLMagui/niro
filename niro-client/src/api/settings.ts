@@ -5,7 +5,10 @@ export interface UserBuffSettings {
   userId?: number;
   buffCookie: string;
   paymentMethod: "BALANCE" | "ALIPAY" | "WECHAT";
-  // 如果需要其他配置项，可以在这里扩展
+  wecomCorpid?: string;
+  wecomCorpsecret?: string;
+  wecomAgentid?: string;
+  wecomTouser?: string;
 }
 
 export const settingsApi = {

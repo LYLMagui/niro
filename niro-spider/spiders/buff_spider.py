@@ -14,34 +14,40 @@ logger = get_logger(__name__)
 
 
 class BuffSpider:
-    def __init__(self):
+    def __init__(self, user_id=None):
         self.host = "https://buff.163.com"
         self.pg_pool = PostgresPool()
+        self.user_id = user_id
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
             "cookie": settings.BUFF_COOKIE, # 默认先使用配置文件的
         }
-        # 初始化时刷新一次 Cookie
-        self.refresh_cookie()
+        # 如果指定了用户 ID，则初始化时刷新该用户的 Cookie
+        if self.user_id:
+            self.refresh_cookie()
 
     def refresh_cookie(self):
-        """从数据库刷新最新的有效 Cookie"""
+        """从数据库刷新指定用户的有效 Cookie"""
         try:
             with self.pg_pool.get_cursor() as cur:
-                # 从 user_buff_settings 表中获取最新的 Cookie
-                # 假设我们只获取 ID 最大的那一条（实际生产应按用户或激活状态）
-                cur.execute("""
-                    SELECT buff_cookie FROM user_buff_settings 
-                    ORDER BY update_time DESC LIMIT 1
-                """)
+                # 严格根据 user_id 获取对应的配置
+                if self.user_id:
+                    sql = "SELECT buff_cookie FROM user_buff_settings WHERE user_id = %s"
+                    params = (self.user_id,)
+                else:
+                    # 如果没有 user_id (通常是测试或全局模式)，获取最新的一条
+                    sql = "SELECT buff_cookie FROM user_buff_settings ORDER BY update_time DESC LIMIT 1"
+                    params = ()
+
+                cur.execute(sql, params)
                 row = cur.fetchone()
                 if row and row.get('buff_cookie'):
                     new_cookie = row['buff_cookie']
                     if new_cookie != self.headers.get("cookie"):
                         self.headers["cookie"] = new_cookie
-                        logger.info("🔄 [Cookie] 已从数据库加载最新 Cookie (UserBuffSettings)")
+                        logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
                 else:
-                    logger.warning("⚠️ 数据库 user_buff_settings 表中未找到有效 Cookie，将继续使用当前 Cookie")
+                    logger.warning(f"⚠️ 数据库中未找到用户 {self.user_id} 的有效 Cookie")
         except Exception as e:
             logger.error(f"❌ 从数据库刷新 Cookie 失败: {e}")
 

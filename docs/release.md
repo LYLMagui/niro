@@ -1,6 +1,20 @@
 # Release Notes
   
   
+## v1.2.0 (2025-12-27)
+### 架构重构与用户隔离 (重大更新)
+- **多用户爬虫实例隔离 (User-Level Isolation)**：
+  - **隔离式爬虫引擎**：重构 `BuffSpider` 类，支持按 `user_id` 初始化。每个用户拥有独立的 Cookie 空间、请求头配置和风控状态，彻底解决多用户混用 Cookie 的安全隐患。
+  - **用户实例池管理**：`TaskScanner` 引入 `user_spiders` 实例池，为每个活跃用户按需创建并复用爬虫实例，实现任务执行层面的物理隔离。
+  - **待支付锁隔离**：引入用户级 `user_pending_locks`，当某个用户产生待支付订单时，仅暂停该用户的扫描任务，不影响其他用户的扫货流程。
+- **通知系统深度定制**：
+  - **用户级通知配置**：重构 `notifier.py` 模块，支持从数据库动态加载每个用户独立的企业微信推送参数（CorpID, Secret, AgentID, ToUser）。
+  - **自动回退机制**：若用户未配置私有通知参数，系统将自动回退至全局默认配置，确保通知不丢失。
+  - **接口参数对齐**：同步更新 `TaskScanner.send_buy_notification`，确保推送消息准确送达对应用户的终端。
+- **数据库与配置扩展**：
+  - **配置表结构升级**：扩展 `user_buff_settings` 表，新增企业微信通知相关的 4 个关键配置字段。
+  - **Java 后端同步更新**：同步重构 `UserBuffSettings` 实体类、DTO 及 Service 实现，实现配置项在 Web 端的可视化管理与持久化。
+
 ## v1.1.1 (2025-12-27)
 ### 爬虫性能与稳定性优化
 - **全量商品抓取脚本优化 ([get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py))**：

@@ -55,6 +55,10 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
 
         settings.setBuffCookie(param.getBuffCookie());
         settings.setPaymentMethod(param.getPaymentMethod());
+        settings.setWecomCorpid(param.getWecomCorpid());
+        settings.setWecomCorpsecret(param.getWecomCorpsecret());
+        settings.setWecomAgentid(param.getWecomAgentid());
+        settings.setWecomTouser(param.getWecomTouser());
         settings.setUpdateTime(LocalDateTime.now());
 
         if (isUpdate) {

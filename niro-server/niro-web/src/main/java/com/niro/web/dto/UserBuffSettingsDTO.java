@@ -31,4 +31,24 @@ public class UserBuffSettingsDTO {
      * 支付方式
      */
     private PaymentMethodEnum paymentMethod;
+
+    /**
+     * 企业微信企业ID
+     */
+    private String wecomCorpid;
+
+    /**
+     * 企业微信应用Secret
+     */
+    private String wecomCorpsecret;
+
+    /**
+     * 企业微信应用AgentID
+     */
+    private String wecomAgentid;
+
+    /**
+     * 企业微信接收人
+     */
+    private String wecomTouser;
 }

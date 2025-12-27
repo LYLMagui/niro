@@ -51,6 +51,28 @@
           </div>
         </t-form-item>
 
+        <!-- 企业微信通知配置 -->
+        <div class="mt-8 mb-4 border-t pt-6">
+          <h3 class="text-lg font-medium text-gray-800 mb-4 flex items-center">
+            <t-icon name="chat" class="mr-2" />
+            企业微信通知配置
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
+            <t-form-item label="企业ID (CorpID)" name="wecomCorpid">
+              <t-input v-model="formData.wecomCorpid" placeholder="请输入企业微信企业ID" />
+            </t-form-item>
+            <t-form-item label="应用Secret (CorpSecret)" name="wecomCorpsecret">
+              <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="请输入应用Secret" />
+            </t-form-item>
+            <t-form-item label="应用AgentID" name="wecomAgentid">
+              <t-input v-model="formData.wecomAgentid" placeholder="请输入应用AgentID" />
+            </t-form-item>
+            <t-form-item label="接收人账号 (ToUser)" name="wecomTouser" help="默认为 @all，指定多人用 | 分隔">
+              <t-input v-model="formData.wecomTouser" placeholder="请输入接收人账号" />
+            </t-form-item>
+          </div>
+        </div>
+
         <!-- 操作按钮 -->
         <t-form-item>
           <t-button theme="primary" type="submit" :loading="loading">保存配置</t-button>
@@ -81,6 +103,10 @@ const paymentOptions = [
 const formData = reactive<UserBuffSettings>({
   buffCookie: "",
   paymentMethod: "BALANCE", // 默认选中余额
+  wecomCorpid: "",
+  wecomCorpsecret: "",
+  wecomAgentid: "",
+  wecomTouser: "@all",
 });
 
 // 表单校验规则

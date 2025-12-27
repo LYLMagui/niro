@@ -40,6 +40,26 @@ public class UserBuffSettings {
     private PaymentMethodEnum paymentMethod;
 
     /**
+     * 企业微信企业ID
+     */
+    private String wecomCorpid;
+
+    /**
+     * 企业微信应用Secret
+     */
+    private String wecomCorpsecret;
+
+    /**
+     * 企业微信应用AgentID
+     */
+    private String wecomAgentid;
+
+    /**
+     * 企业微信接收人 (@all 或 指定用户)
+     */
+    private String wecomTouser;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;
