@@ -129,21 +129,64 @@ class TaskScanner:
             # 如果有 Cron 表达式，先调度一个 Cron 作业，触发时再开启间隔扫描
             job_id = f"scan_task_{task_id}"
             try:
-                # 尝试解析 Cron 表达式 (支持 5 位标准 crontab 或更复杂的格式)
+                # 处理 Cron 表达式兼容性 (将 ? 转换为 *，并处理周几的映射)
+                # APScheduler 不支持 ?，且周一到周日是 0-6
                 parts = cron_expr.strip().split()
-                if len(parts) == 5:
-                    trigger = CronTrigger.from_crontab(cron_expr)
-                elif len(parts) >= 6:
+                
+                # 预处理每一位，将 ? 转换为 *
+                processed_parts = [p.replace('?', '*') for p in parts]
+                
+                if len(processed_parts) == 5:
+                    # 标准 crontab: m h d M w
+                    trigger = CronTrigger.from_crontab(" ".join(processed_parts))
+                elif len(processed_parts) >= 6:
                     # 处理 6 位 (带秒) 或 7 位 (带秒和年) 的表达式
                     # APScheduler CronTrigger 参数顺序: second, minute, hour, day, month, day_of_week, year
-                    # vue3-cron-plus 顺序通常是: s, m, h, d, M, w, y
-                    second = parts[0]
-                    minute = parts[1]
-                    hour = parts[2]
-                    day = parts[3]
-                    month = parts[4]
-                    day_of_week = parts[5]
-                    year = parts[6] if len(parts) > 6 else None
+                    # 我们的前端顺序是: s, m, h, d, M, w, y
+                    
+                    second = processed_parts[0]
+                    minute = processed_parts[1]
+                    hour = processed_parts[2]
+                    day = processed_parts[3]
+                    month = processed_parts[4]
+                    day_of_week = processed_parts[5]
+                    year = processed_parts[6] if len(processed_parts) > 6 else None
+                    
+                    # 处理 last 关键字映射 (Quartz 风格的 L 转换为 APScheduler 的 last)
+                    if day.upper() in ['L', 'LAST']:
+                        day = 'last'
+                    
+                    if day_of_week.upper().endswith('L'):
+                        # 转换 "SUNL" 为 "last sun"
+                        val = day_of_week.upper().replace('L', '')
+                        day_of_week = f"last {val.lower()}"
+                    elif day_of_week.lower().startswith('last '):
+                        # 前端可能直接发送 "last sun"
+                        pass
+                    
+                    # 特殊处理周几的映射
+                    # 前端现在发送小写英文缩写 (mon, tue...)，APScheduler 原生支持且语义一致 (mon=0, sun=6)
+                    # 如果是数字，则认为是 Quartz 格式 (1=Sun, 2=Mon...)，需要转换为 APScheduler 格式 (0=Mon, 6=Sun)
+                    
+                    def map_week_part(p):
+                        p = p.lower()
+                        # 跳过带 last 的部分，因为已经在上面处理过了
+                        if 'last' in p:
+                            return p
+                        if p.isdigit():
+                            val = int(p)
+                            # Quartz: 1(Sun), 2(Mon), 3(Tue), 4(Wed), 5(Thu), 6(Fri), 7(Sat)
+                            # APScheduler: 0(Mon), 1(Tue), 2(Wed), 3(Thu), 4(Fri), 5(Sat), 6(Sun)
+                            # 转换逻辑: 1->6, 2->0, 3->1, 4->2, 5->3, 6->4, 7->5
+                            return str((val + 5) % 7)
+                        return p
+
+                    if ',' in day_of_week:
+                        day_of_week = ",".join([map_week_part(p) for p in day_of_week.split(',')])
+                    elif '-' in day_of_week:
+                        day_of_week = "-".join([map_week_part(p) for p in day_of_week.split('-')])
+                    else:
+                        day_of_week = map_week_part(day_of_week)
                     
                     trigger = CronTrigger(
                         second=second,
@@ -155,7 +198,7 @@ class TaskScanner:
                         year=year
                     )
                 else:
-                    trigger = CronTrigger.from_crontab(cron_expr)
+                    trigger = CronTrigger.from_crontab(" ".join(processed_parts))
                 
                 self.scheduler.add_job(
                     self.trigger_cron_task,
