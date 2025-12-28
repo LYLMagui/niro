@@ -1,6 +1,6 @@
 <template>
-  <div class="p-4">
-    <t-card :bordered="false" title="扫货任务管理">
+  <div :class="{ 'p-4': !dialogOnly }">
+    <t-card v-if="!dialogOnly" :bordered="false" title="扫货任务管理">
       <!-- 搜索栏 -->
       <t-row :gutter="16" class="mb-4">
         <t-col :span="3">
@@ -96,103 +96,190 @@
       :header="dialogTitle"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
       width="600px"
-      @confirm="handleSubmit"
+      class="task-edit-dialog"
+      :footer="null"
     >
-      <t-form ref="formRef" :data="formData" :rules="rules" :label-width="100">
-        <t-form-item label="选择商品" name="goodsId">
-          <t-select
-            v-model="formData.goodsId"
-            filterable
-            placeholder="输入商品名称搜索"
-            :loading="goodsLoading"
-            :on-search="remoteSearchGoods"
-            :disabled="!!formData.id"
-          >
-            <t-option
-              v-for="item in goodsOptions"
-              :key="item.goodsId"
-              :value="item.goodsId"
-              :label="item.name"
+      <div class="form-container py-4">
+        <t-form
+          ref="formRef"
+          :data="formData"
+          :rules="rules"
+          :label-width="110"
+          class="compact-form"
+          label-align="right"
+          scroll-to-first-error="smooth"
+          @submit="handleSubmit"
+        >
+          <t-form-item label="选择商品" name="goodsId" class="mb-6">
+            <t-select
+              v-model="formData.goodsId"
+              filterable
+              placeholder="输入商品名称搜索"
+              :loading="goodsLoading"
+              :on-search="remoteSearchGoods"
+              :disabled="!!formData.id"
+              style="width: 320px"
             >
-              {{ item.name }}
-            </t-option>
-          </t-select>
-        </t-form-item>
-        <t-form-item label="最高价格" name="maxPrice">
-          <t-input-number
-            v-model="formData.maxPrice"
-            :min="0.01"
-            :step="0.1"
-            :decimal-places="2"
-            suffix="元"
-            theme="column"
-            style="width: 200px"
-          />
-        </t-form-item>
-        <t-form-item label="磨损范围" name="minPaintwear">
-          <div class="flex items-center gap-2">
+              <t-option
+                v-for="item in goodsOptions"
+                :key="item.goodsId"
+                :value="item.goodsId"
+                :label="item.name"
+              >
+                {{ item.name }}
+              </t-option>
+            </t-select>
+          </t-form-item>
+          <t-form-item label="最高价格" name="maxPrice" class="mb-6">
             <t-input-number
-              v-model="formData.minPaintwear"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              :decimal-places="4"
+              v-model="formData.maxPrice"
+              :min="0.01"
+              :step="0.1"
+              :decimal-places="2"
+              suffix="元"
               theme="column"
-              placeholder="最小"
-              style="width: 140px"
+              style="width: 160px"
             />
-            <span class="text-gray-400">-</span>
+          </t-form-item>
+          <t-form-item label="磨损范围" name="minPaintwear" class="mb-6">
+            <div class="flex items-center gap-2">
+              <t-input-number
+                v-model="formData.minPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.01"
+                :decimal-places="4"
+                theme="column"
+                placeholder="最小"
+                style="width: 120px"
+              />
+              <span class="text-gray-400">-</span>
+              <t-input-number
+                v-model="formData.maxPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.01"
+                :decimal-places="4"
+                theme="column"
+                placeholder="最大"
+                style="width: 120px"
+              />
+            </div>
+          </t-form-item>
+          <t-form-item label="购买数量" name="buyCount" class="mb-6">
             <t-input-number
-              v-model="formData.maxPaintwear"
-              :min="0"
-              :max="1"
-              :step="0.01"
-              :decimal-places="4"
+              v-model="formData.buyCount"
+              :min="1"
+              :step="1"
               theme="column"
-              placeholder="最大"
-              style="width: 140px"
+              style="width: 120px"
             />
+          </t-form-item>
+
+          <!-- 调度配置分组 -->
+          <div class="schedule-group mt-4 rounded-md border border-blue-100 bg-blue-50/50 p-3">
+            <div class="mb-3 flex items-center gap-2 text-sm font-medium text-blue-700">
+              <t-icon name="time-filled" />
+              <span>运行计划</span>
+            </div>
+
+            <t-form-item label="Cron表达式" name="cronExpression">
+              <t-input
+                v-model="formData.cronExpression"
+                placeholder="立即启动 (留空即可)"
+                clearable
+                style="width: 320px"
+              >
+                <template #suffix>
+                  <t-popup
+                    v-model:visible="cronVisible"
+                    placement="bottom-right"
+                    trigger="click"
+                    :overlay-inner-style="{ padding: 0 }"
+                  >
+                    <t-link theme="primary" variant="underline">
+                      <t-icon name="calendar" class="mr-1" />
+                      可视化配置
+                    </t-link>
+                    <template #content>
+                      <div class="cron-popup-container">
+                        <cron-editor
+                          v-model="formData.cronExpression"
+                          @confirm="cronVisible = false"
+                          @cancel="cronVisible = false"
+                        />
+                      </div>
+                    </template>
+                  </t-popup>
+                </template>
+              </t-input>
+            </t-form-item>
+            <t-form-item label="持续时间" name="durationMinutes">
+              <div class="flex items-center gap-2">
+                <t-input-number
+                  v-model="uiState.durationValue"
+                  :min="0"
+                  :step="1"
+                  theme="column"
+                  style="width: 100px"
+                />
+                <t-select v-model="uiState.durationUnit" style="width: 80px">
+                  <t-option label="分钟" value="m" />
+                  <t-option label="小时" value="h" />
+                  <t-option label="天" value="d" />
+                </t-select>
+              </div>
+              <template #tips>0 表示不限时间</template>
+            </t-form-item>
+            <t-form-item label="扫描间隔" name="scanInterval">
+              <div class="flex items-center gap-2">
+                <t-input-number
+                  v-model="uiState.intervalValue"
+                  :min="uiState.intervalUnit === 's' ? 5 : 1"
+                  :step="1"
+                  theme="column"
+                  style="width: 140px"
+                  @blur="handleIntervalBlur"
+                >
+                  <template #suffix>
+                    <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，建议不低于 5 秒">
+                      <t-icon name="help-circle" class="cursor-help text-gray-400" />
+                    </t-tooltip>
+                  </template>
+                </t-input-number>
+                <t-select
+                  v-model="uiState.intervalUnit"
+                  style="width: 80px"
+                  @change="handleIntervalUnitChange"
+                >
+                  <t-option label="秒" value="s" />
+                  <t-option label="分钟" value="m" />
+                  <t-option label="小时" value="h" />
+                  <t-option label="天" value="d" />
+                </t-select>
+              </div>
+            </t-form-item>
+
+            <!-- 动态逻辑预览 -->
+            <div
+              class="mt-2 ml-[110px] rounded border border-blue-50 bg-white/60 p-2 text-[13px] leading-relaxed text-blue-600"
+            >
+              <div class="flex items-start gap-1.5">
+                <t-icon name="info-circle" class="mt-0.5" />
+                <div>{{ executionSummary }}</div>
+              </div>
+            </div>
           </div>
-        </t-form-item>
-        <t-form-item label="购买数量" name="buyCount">
-          <t-input-number
-            v-model="formData.buyCount"
-            :min="1"
-            :step="1"
-            theme="column"
-            style="width: 120px"
-          />
-        </t-form-item>
-        <t-form-item label="Cron表达式" name="cronExpression">
-          <t-input
-            v-model="formData.cronExpression"
-            placeholder="例如: 0 0 * * * (每天零点)"
-            clearable
-          />
-          <template #tips>空则立即开始；Cron 触发后将按下方设置的间隔和持续时间运行。</template>
-        </t-form-item>
-        <t-form-item label="持续时间" name="durationMinutes">
-          <t-input-number
-            v-model="formData.durationMinutes"
-            :min="0"
-            :step="1"
-            suffix="分钟"
-            theme="column"
-            style="width: 150px"
-          />
-          <template #tips>0 表示不限时间 (直到手动停止或达到购买上限)</template>
-        </t-form-item>
-        <t-form-item label="扫描间隔" name="scanInterval">
-          <t-input-number
-            v-model="formData.scanInterval"
-            :min="1"
-            :step="1"
-            suffix="秒"
-            theme="column"
-            style="width: 150px"
-          />
-        </t-form-item>
-      </t-form>
+
+          <!-- 自定义底部按钮，用于触发表单提交 -->
+          <div class="flex justify-end gap-3 border-t border-gray-100 pt-4">
+            <t-button variant="outline" theme="default" @click="dialogVisible = false">
+              取消
+            </t-button>
+            <t-button theme="primary" type="submit" :loading="submitLoading">提交</t-button>
+          </div>
+        </t-form>
+      </div>
     </t-dialog>
   </div>
 </template>
@@ -200,10 +287,19 @@
 <script setup lang="ts">
 import { goodsApi } from "@/api/goods";
 import { taskApi } from "@/api/task";
+import CronEditor from "@/components/CronEditor.vue";
 import type { GoodsSimple } from "@/types/goods";
 import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
+import cronParser from "cron-parser";
 import { MessagePlugin } from "tdesign-vue-next";
-import { onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+
+const props = defineProps({
+  dialogOnly: {
+    type: Boolean,
+    default: false,
+  },
+});
 
 // --- 表格数据 ---
 const loading = ref(false);
@@ -220,6 +316,101 @@ const pagination = reactive({
   total: 0,
 });
 
+const cronVisible = ref(false);
+
+// --- 表单 UI 状态 (用于单位换算) ---
+const uiState = reactive({
+  durationValue: 0,
+  durationUnit: "m" as "m" | "h" | "d",
+  intervalValue: 5,
+  intervalUnit: "s" as "s" | "m" | "h" | "d",
+});
+
+// 单位换算系数 (基准: 分钟)
+const DURATION_FACTORS = {
+  m: 1,
+  h: 60,
+  d: 1440,
+};
+
+// 单位换算系数 (基准: 秒)
+const INTERVAL_FACTORS = {
+  s: 1,
+  m: 60,
+  h: 3600,
+  d: 86400,
+};
+
+/**
+ * 将存储值转换为最合适的 UI 显示值和单位
+ */
+const convertToUi = (value: number, factors: Record<string, number>) => {
+  if (!value) return { value: 0, unit: Object.keys(factors)[0] };
+  const units = (Object.keys(factors) as Array<keyof typeof factors>).reverse();
+  for (const unit of units) {
+    const factor = factors[unit];
+    if (value % factor === 0) {
+      return { value: value / factor, unit };
+    }
+  }
+  return { value, unit: Object.keys(factors)[0] };
+};
+
+const executionSummary = computed(() => {
+  const cron = formData.cronExpression?.trim();
+  const duration = uiState.durationValue;
+  const durationUnit = { m: "分钟", h: "小时", d: "天" }[uiState.durationUnit] || "分钟";
+  const interval = uiState.intervalValue;
+  const intervalUnit = { s: "秒", m: "分钟", h: "小时", d: "天" }[uiState.intervalUnit] || "秒";
+
+  let summary = "";
+
+  // 判断是否为立即启动：空表达式或全通配符（每秒执行）
+  const isImmediate = !cron || cron === "* * * * * ?" || cron === "* * * * * *";
+
+  if (isImmediate) {
+    summary += `任务将立即启动。`;
+  } else {
+    try {
+      // 1. 计算下一次执行的具体时间
+      const safeExpression = cron
+        .replace(/\?/g, "*")
+        .replace(/last\s+(\w+)/g, "$1L")
+        .replace(/last/g, "L");
+
+      const options: any = {
+        currentDate: new Date(),
+        tz: "Asia/Shanghai",
+      };
+      if (safeExpression.split(" ").length >= 6) {
+        options.hasSeconds = true;
+      }
+
+      const cp = cronParser as any;
+      const interval = cp.parse(safeExpression, options);
+      const nextDate = interval.next().toDate();
+
+      const pad = (n: number) => (n < 10 ? `0${n}` : n);
+      const nextTimeStr =
+        `${nextDate.getFullYear()}-${pad(nextDate.getMonth() + 1)}-${pad(
+          nextDate.getDate()
+        )} ` +
+        `${pad(nextDate.getHours())}:${pad(nextDate.getMinutes())}:${pad(
+          nextDate.getSeconds()
+        )}`;
+
+      summary += `任务预计于 [${nextTimeStr}] 启动。`;
+    } catch (e) {
+      // 翻译失败则回退到原始表达式显示
+      summary += `任务将在 Cron [${cron}] 触发时启动。`;
+    }
+  }
+
+  summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${interval} ${intervalUnit} 进行一次价格采集。`;
+
+  return summary;
+});
+
 const columns = [
   { colKey: "id", title: "ID", width: 80 },
   { colKey: "goods", title: "商品信息", width: 300, cell: "goods" },
@@ -233,6 +424,7 @@ const columns = [
 // --- 表单数据 ---
 const dialogVisible = ref(false);
 const dialogTitle = ref("新增任务");
+const lastModifiedTime = ref<string>(""); // 记录 Cron 修改/初始化的现实时间
 const submitLoading = ref(false);
 const formRef = ref();
 const formData = reactive<TaskSaveParam>({
@@ -250,6 +442,14 @@ const rules = {
   goodsId: [{ required: true, message: "请选择商品", type: "error" }],
   maxPrice: [{ required: true, message: "请输入最高价格", type: "error" }],
   buyCount: [{ required: true, message: "请输入购买数量", type: "error" }],
+  scanInterval: [
+    { required: true, message: "请输入扫描间隔", type: "error" },
+    {
+      validator: (val: number) => val >= 5,
+      message: "扫描间隔不得低于 5 秒，以防触发限流",
+      type: "error",
+    },
+  ],
 };
 
 // --- 商品搜索 ---
@@ -268,6 +468,22 @@ const remoteSearchGoods = async (keyword: string) => {
 };
 
 // --- 方法 ---
+
+const handleIntervalUnitChange = (unit: string) => {
+  if (unit === "s" && uiState.intervalValue < 5) {
+    uiState.intervalValue = 5;
+  }
+};
+
+const handleIntervalBlur = () => {
+  const min = uiState.intervalUnit === "s" ? 5 : 1;
+  if (uiState.intervalValue < min) {
+    uiState.intervalValue = min;
+    MessagePlugin.warning(
+      `扫描间隔已自动调整为最小值 ${min} ${uiState.intervalUnit === "s" ? "秒" : ""}`
+    );
+  }
+};
 
 const fetchData = async () => {
   loading.value = true;
@@ -310,31 +526,94 @@ const handleAdd = () => {
   formData.cronExpression = "";
   formData.durationMinutes = 0;
   formData.scanInterval = 5;
+
+  // 重置 UI 状态
+  uiState.durationValue = 0;
+  uiState.durationUnit = "m";
+  uiState.intervalValue = 5;
+  uiState.intervalUnit = "s";
+
+  lastModifiedTime.value = new Date().toLocaleString(); // 初始化为当前时间
   dialogVisible.value = true;
   goodsOptions.value = []; // reset options
 };
 
 const handleEdit = (row: BuffScanTask) => {
   dialogTitle.value = "编辑任务";
-  formData.id = row.id;
-  formData.goodsId = row.goodsId;
-  formData.maxPrice = row.maxPrice;
-  formData.minPaintwear = row.minPaintwear;
-  formData.maxPaintwear = row.maxPaintwear;
-  formData.buyCount = row.buyCount;
-  formData.cronExpression = row.cronExpression || "";
-  formData.durationMinutes = row.durationMinutes || 0;
-  formData.scanInterval = row.scanInterval || 5;
+  Object.assign(formData, {
+    id: row.id,
+    goodsId: row.goodsId,
+    maxPrice: row.maxPrice,
+    minPaintwear: row.minPaintwear,
+    maxPaintwear: row.maxPaintwear,
+    buyCount: row.buyCount,
+    cronExpression: row.cronExpression || "", // 确保默认为空字符串
+    durationMinutes: row.durationMinutes || 0,
+    scanInterval: row.scanInterval || 5,
+  });
+
+  // 初始化 UI 状态
+  const durationUi = convertToUi(formData.durationMinutes, DURATION_FACTORS);
+  uiState.durationValue = durationUi.value;
+  uiState.durationUnit = durationUi.unit as any;
+
+  const intervalUi = convertToUi(formData.scanInterval, INTERVAL_FACTORS);
+  uiState.intervalValue = intervalUi.value;
+  uiState.intervalUnit = intervalUi.unit as any;
 
   // 预填充当前商品到选项中，否则显示ID
-  goodsOptions.value = [{ goodsId: row.goodsId, name: row.name }];
+  if (row.goodsId && row.name) {
+    goodsOptions.value = [{ goodsId: row.goodsId, name: row.name }];
+  }
 
   dialogVisible.value = true;
 };
 
-const handleSubmit = async () => {
-  const result = await formRef.value.validate();
-  if (result !== true) return;
+// 暴露给外部调用的方法，用于从商品列表页打开
+defineExpose({
+  handleAdd,
+  handleEdit,
+  openWithGoods: (goods: GoodsSimple) => {
+    dialogTitle.value = "新增任务";
+    Object.assign(formData, {
+      id: undefined,
+      goodsId: goods.goodsId,
+      maxPrice: 0,
+      minPaintwear: 0,
+      maxPaintwear: 1,
+      buyCount: 1,
+      cronExpression: "",
+      durationMinutes: 0,
+      scanInterval: 5,
+    });
+    uiState.durationValue = 0;
+    uiState.durationUnit = "m";
+    uiState.intervalValue = 5;
+    uiState.intervalUnit = "s";
+    goodsOptions.value = [{ goodsId: goods.goodsId, name: goods.name }];
+    dialogVisible.value = true;
+  },
+});
+
+// 监听 Cron 表达式变化，记录现实时间
+watch(
+  () => formData.cronExpression,
+  (newVal, oldVal) => {
+    if (newVal !== oldVal) {
+      lastModifiedTime.value = new Date().toLocaleString();
+    }
+  }
+);
+
+const handleSubmit = async ({ validateResult, firstError }: any) => {
+  // 提交前进行单位换算
+  formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+  formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+
+  if (validateResult !== true) {
+    console.log("表单校验失败:", firstError);
+    return;
+  }
 
   submitLoading.value = true;
   try {
@@ -346,7 +625,9 @@ const handleSubmit = async () => {
       MessagePlugin.success("创建成功");
     }
     dialogVisible.value = false;
-    fetchData();
+    if (!props.dialogOnly) {
+      fetchData();
+    }
   } finally {
     submitLoading.value = false;
   }
@@ -365,6 +646,50 @@ const handleStatus = async (row: BuffScanTask, status: number) => {
 };
 
 onMounted(() => {
-  fetchData();
+  if (!props.dialogOnly) {
+    fetchData();
+  }
 });
 </script>
+
+<style scoped>
+.task-edit-dialog :deep(.t-dialog) {
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12); /* 弹窗添加阴影 */
+  border-radius: 8px;
+}
+
+.form-container {
+  padding: 16px;
+  border: 1px solid #ebeef5; /* 表单范围添加边框 */
+  border-radius: 6px;
+  background-color: #fafafa;
+}
+
+.compact-form :deep(.t-form__item) {
+  margin-bottom: 8px; /* 进一步压缩表单项间距 */
+}
+
+.compact-form :deep(.t-form__label) {
+  /* 恢复默认字体大小 */
+}
+
+.compact-form :deep(.t-form__controls-content) {
+  min-height: auto; /* 移除最小高度限制，让布局更紧凑 */
+}
+
+.compact-form :deep(.t-form__tips) {
+  font-size: 12px;
+  line-height: 1.4;
+  margin-top: 2px;
+  color: #999;
+}
+
+.cron-popup-container {
+  width: 520px;
+  max-height: 550px;
+  overflow: hidden;
+  background: #fff;
+  border-radius: 8px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+</style>

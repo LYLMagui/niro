@@ -174,86 +174,18 @@
       @close="visible = false"
     />
 
-    <!-- 创建任务弹窗 -->
-    <t-dialog
-      v-model:visible="createTaskDialogVisible"
-      header="创建扫货任务"
-      :confirm-btn="{ content: '提交', loading: submitLoading }"
-      :on-confirm="confirmCreateTask"
-      :on-close="() => (createTaskDialogVisible = false)"
-      width="500px"
-    >
-      <div v-if="currentGoods" class="mb-4 flex items-center gap-4 rounded bg-gray-50 p-3">
-        <t-image :src="currentGoods.iconUrl" class="h-12 w-12 rounded" fit="contain" />
-        <div class="flex flex-col">
-          <span class="font-bold text-gray-900">{{ currentGoods.name }}</span>
-          <span class="text-xs text-gray-500">{{ currentGoods.marketHashName }}</span>
-        </div>
-      </div>
-
-      <t-form ref="taskFormRef" :data="taskForm" :rules="taskRules" label-align="top">
-        <t-form-item label="最高买入价格 (CNY)" name="maxPrice">
-          <t-input-number
-            v-model="taskForm.maxPrice"
-            :min="0.01"
-            :decimal-places="2"
-            suffix="元"
-            theme="column"
-            style="width: 100%"
-          />
-        </t-form-item>
-
-        <t-row :gutter="16">
-          <t-col :span="6">
-            <t-form-item label="最低磨损" name="minPaintwear">
-              <t-input-number
-                v-model="taskForm.minPaintwear"
-                :min="0"
-                :max="1"
-                :step="0.0001"
-                :decimal-places="4"
-                theme="column"
-                style="width: 100%"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="最高磨损" name="maxPaintwear">
-              <t-input-number
-                v-model="taskForm.maxPaintwear"
-                :min="0"
-                :max="1"
-                :step="0.0001"
-                :decimal-places="4"
-                theme="column"
-                style="width: 100%"
-              />
-            </t-form-item>
-          </t-col>
-        </t-row>
-
-        <t-form-item label="购买数量" name="buyCount">
-          <t-input-number
-            v-model="taskForm.buyCount"
-            :min="1"
-            :step="1"
-            theme="column"
-            style="width: 100%"
-          />
-        </t-form-item>
-      </t-form>
-    </t-dialog>
+    <!-- 任务配置弹窗组件 (隐藏主体只用弹窗) -->
+    <task-config ref="taskConfigRef" dialog-only />
   </div>
 </template>
 
 <script setup lang="ts">
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
-import { taskApi } from "@/api/task";
+import TaskConfig from "@/views/TaskConfig.vue";
 import type { Goods, GoodsPageQuery, GoodsSimple } from "@/types/goods";
-import type { TaskSaveParam } from "@/types/task";
 import { LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
-import type { PageInfo, PrimaryTableCol, FormInstanceFunctions, FormRule } from "tdesign-vue-next";
+import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
 import { onMounted, reactive, ref } from "vue";
 import { debounce } from "lodash";
@@ -264,6 +196,7 @@ import { RarityColorMap, RarityMap } from "@/enums/RarityEnum";
 // 图片预览状态
 const visible = ref(false);
 const previewImage = ref("");
+const taskConfigRef = ref();
 
 const onPreview = (url: string) => {
   previewImage.value = url;
@@ -296,52 +229,8 @@ const categoryOptions = ref<CategoryNode[]>([]);
 // 表格数据
 const loading = ref(false);
 
-// --- 创建任务相关逻辑 ---
-const createTaskDialogVisible = ref(false);
-const submitLoading = ref(false);
-const currentGoods = ref<GoodsSimple | null>(null);
-const taskFormRef = ref<FormInstanceFunctions | null>(null);
-
-const taskForm = reactive<TaskSaveParam>({
-  goodsId: 0,
-  maxPrice: 0,
-  minPaintwear: 0,
-  maxPaintwear: 1,
-  buyCount: 1,
-});
-
-const taskRules: Record<string, FormRule[]> = {
-  maxPrice: [{ required: true, message: "请输入最高价格", type: "error" }],
-  buyCount: [{ required: true, message: "请输入购买数量", type: "error" }],
-};
-
 const openCreateTaskDialog = (row: GoodsSimple) => {
-  currentGoods.value = row;
-  taskForm.goodsId = row.goodsId;
-  // 重置表单值，保留默认磨损
-  taskForm.maxPrice = 0;
-  taskForm.minPaintwear = 0;
-  taskForm.maxPaintwear = 1;
-  taskForm.buyCount = 1;
-
-  // 如果商品本身有磨损属性，可以在这里优化默认值（可选）
-  createTaskDialogVisible.value = true;
-};
-
-const confirmCreateTask = async () => {
-  const validateResult = await taskFormRef.value?.validate();
-  if (validateResult !== true) return;
-
-  submitLoading.value = true;
-  try {
-    await taskApi.add(taskForm);
-    MessagePlugin.success("扫货任务创建成功");
-    createTaskDialogVisible.value = false;
-  } catch {
-    // 异常已由拦截器处理，此处主要负责关闭loading
-  } finally {
-    submitLoading.value = false;
-  }
+  taskConfigRef.value?.openWithGoods(row);
 };
 
 // ------------------------

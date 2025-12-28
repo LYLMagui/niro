@@ -55,6 +55,8 @@
     "@tailwindcss/vite": "^4.1.7",
     "@vueuse/core": "^13.2.0",
     "axios": "^1.10.0",
+    "cron-parser": "^5.4.0",
+    "cronstrue": "^3.9.0",
     "crypto-js": "^4.2.0",
     "element-plus": "^2.13.0",
     "lodash": "^4.17.21",
