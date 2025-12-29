@@ -319,25 +319,63 @@ class TaskScanner:
     def process_task(self, task, spider):
         """处理单个扫描任务"""
         task_type = task.get('task_type', 0)
-        
-        if task_type == 1:
-            # 站内倒卖模式
-            self.process_flipping_logic(task, spider)
-        else:
-            # 炼金扫货模式 (默认)
-            self.process_sniping_logic(task, spider)
-
-    def process_sniping_logic(self, task, spider):
-        """处理炼金扫货逻辑 (严格匹配价格和磨损)"""
         goods_id = task['goods_id']
-        max_price = task['max_price']
-        min_wear = task['min_paintwear']
-        max_wear = task['max_paintwear']
         
+        # 获取饰品列表
         items = spider.get_goods_list(goods_id)
         if not items:
             return
 
+        # 记录价格历史 (取第一项的元数据即可)
+        self.record_price_history(items[0])
+        
+        if task_type == 1:
+            # 站内倒卖模式
+            self.process_flipping_logic(task, items, spider)
+        else:
+            # 炼金扫货模式 (默认)
+            self.process_sniping_logic(task, items, spider)
+
+    def record_price_history(self, item):
+        """记录价格历史"""
+        try:
+            goods_id = item.get('goods_id')
+            price = item.get('sell_min_price')
+            buy_max_price = item.get('buy_max_price')
+            sell_num = item.get('sell_num')
+            
+            if not goods_id or price is None:
+                return
+                
+            sql = """
+                INSERT INTO buff_price_history (goods_id, price, buy_max_price, sell_num)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (goods_id, create_time) DO NOTHING
+            """
+            self.pg_pool.execute(sql, (goods_id, price, buy_max_price, sell_num))
+        except Exception as e:
+            logger.error(f"记录价格历史异常: {e}")
+
+    def get_avg_price_24h(self, goods_id):
+        """获取 24 小时内的平均价"""
+        try:
+            sql = """
+                SELECT AVG(price) as avg_price 
+                FROM buff_price_history 
+                WHERE goods_id = %s AND create_time > NOW() - INTERVAL '24 hours'
+            """
+            res = self.pg_pool.fetch_one(sql, (goods_id,))
+            return float(res['avg_price']) if res and res['avg_price'] else None
+        except Exception as e:
+            logger.error(f"查询历史均价异常: {e}")
+            return None
+
+    def process_sniping_logic(self, task, items, spider):
+        """处理炼金扫货逻辑 (严格匹配价格和磨损)"""
+        max_price = task['max_price']
+        min_wear = task['min_paintwear']
+        max_wear = task['max_paintwear']
+        
         for item in items:
             try:
                 if item.get('id') in self.failed_items:
@@ -369,15 +407,14 @@ class TaskScanner:
             except Exception as e:
                 logger.error(f"处理炼金商品项异常: {e}")
 
-    def process_flipping_logic(self, task, spider):
-        """处理站内倒卖逻辑 (计算利润)"""
+    def process_flipping_logic(self, task, items, spider):
+        """处理站内倒卖逻辑 (计算利润 + 均价风控)"""
         goods_id = task['goods_id']
         min_profit_config = float(task.get('min_profit') or 0)
         
-        items = spider.get_goods_list(goods_id)
-        if not items:
-            return
-
+        # 获取 24 小时均价用于风控
+        avg_price_24h = self.get_avg_price_24h(goods_id)
+        
         for item in items:
             try:
                 if item.get('id') in self.failed_items:
@@ -394,6 +431,13 @@ class TaskScanner:
                 if market_floor <= 0:
                     continue
                 
+                # --- 风控逻辑 START ---
+                # 如果当前市场底价远高于 24h 均价（例如超过 1.1 倍），说明可能有人在拉高价格钓鱼，跳过
+                if avg_price_24h and market_floor > avg_price_24h * 1.15:
+                    logger.warning(f"⚠️ [风控] 商品 {goods_id} 当前底价 {market_floor} 远高于 24h 均价 {avg_price_24h:.2f}，疑似价格操纵，跳过。")
+                    continue
+                # --- 风控逻辑 END ---
+
                 # 计算利润 = (市场最低价 * 0.975) - 当前价格
                 # 0.975 是扣除 2.5% 手续费后的比例
                 estimated_profit = (market_floor * 0.975) - current_price

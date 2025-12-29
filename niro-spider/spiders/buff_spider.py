@@ -122,6 +122,7 @@ class BuffSpider:
                 "price_buff": item.get("price", None),
                 "sell_min_price": goods_info.get("sell_min_price", 0),
                 "buy_max_price": goods_info.get("buy_max_price", 0),
+                "sell_num": goods_info.get("sell_num", 0),
                 "user_id": user_id,
                 "user_nickname": user_info.get("nickname", ""),
                 "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
