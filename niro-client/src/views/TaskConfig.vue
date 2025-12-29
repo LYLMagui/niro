@@ -52,11 +52,21 @@
           </div>
         </template>
 
-        <template #price="{ row }">
-          <div class="font-bold text-orange-600">¥{{ row.maxPrice }}</div>
+        <template #taskType="{ row }">
+          <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
+          <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
         </template>
 
-        <template #paintwear="{ row }">{{ row.minPaintwear }} - {{ row.maxPaintwear }}</template>
+        <template #target="{ row }">
+          <div v-if="row.taskType === 1">
+            <div class="text-xs text-gray-500">最小利润:</div>
+            <div class="font-bold text-orange-600">¥{{ row.minProfit }}</div>
+          </div>
+          <div v-else>
+            <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
+            <div class="text-xs text-gray-500">磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}</div>
+          </div>
+        </template>
 
         <template #progress="{ row }">{{ row.successCount }} / {{ row.buyCount }}</template>
 
@@ -130,7 +140,30 @@
               </t-option>
             </t-select>
           </t-form-item>
-          <t-form-item label="最高价格" name="maxPrice" class="mb-6">
+
+          <t-form-item label="任务类型" name="taskType" class="mb-6">
+            <t-radio-group v-model="formData.taskType">
+              <t-radio :value="0">炼金扫货</t-radio>
+              <t-radio :value="1">站内倒卖</t-radio>
+            </t-radio-group>
+          </t-form-item>
+
+          <t-form-item v-if="formData.taskType === 1" label="预期利润" name="minProfit" class="mb-6">
+            <t-input-number
+              v-model="formData.minProfit"
+              :min="0"
+              :step="1"
+              :decimal-places="2"
+              suffix="元"
+              theme="column"
+              style="width: 160px"
+            />
+            <span class="ml-2 text-xs text-gray-400">
+              计算公式: (市场最低价 * 0.975) - 当前价
+            </span>
+          </t-form-item>
+
+          <t-form-item v-if="formData.taskType === 0" label="最高价格" name="maxPrice" class="mb-6">
             <t-input-number
               v-model="formData.maxPrice"
               :min="0.01"
@@ -141,7 +174,8 @@
               style="width: 160px"
             />
           </t-form-item>
-          <t-form-item label="磨损范围" name="minPaintwear" class="mb-6">
+
+          <t-form-item v-if="formData.taskType === 0" label="磨损范围" name="minPaintwear" class="mb-6">
             <div class="flex items-center gap-2">
               <t-input-number
                 v-model="formData.minPaintwear"
@@ -413,9 +447,9 @@ const executionSummary = computed(() => {
 
 const columns = [
   { colKey: "id", title: "ID", width: 80 },
-  { colKey: "goods", title: "商品信息", width: 300, cell: "goods" },
-  { colKey: "price", title: "目标价格", width: 120, cell: "price" },
-  { colKey: "paintwear", title: "磨损范围", width: 150, cell: "paintwear" },
+  { colKey: "goods", title: "商品信息", width: 250, cell: "goods" },
+  { colKey: "taskType", title: "模式", width: 100, cell: "taskType" },
+  { colKey: "target", title: "目标配置", width: 150, cell: "target" },
   { colKey: "progress", title: "进度", width: 100, cell: "progress" },
   { colKey: "status", title: "状态", width: 100, cell: "status" },
   { colKey: "op", title: "操作", width: 200, cell: "op", fixed: "right" },
@@ -436,11 +470,34 @@ const formData = reactive<TaskSaveParam>({
   cronExpression: "",
   durationMinutes: 0,
   scanInterval: 5,
+  taskType: 0,
+  minProfit: 0,
 });
 
 const rules = {
   goodsId: [{ required: true, message: "请选择商品", type: "error" }],
-  maxPrice: [{ required: true, message: "请输入最高价格", type: "error" }],
+  maxPrice: [
+    {
+      required: true,
+      validator: (val: number) => {
+        if (formData.taskType === 0) return !!val;
+        return true;
+      },
+      message: "请输入最高价格",
+      type: "error",
+    },
+  ],
+  minProfit: [
+    {
+      required: true,
+      validator: (val: number) => {
+        if (formData.taskType === 1) return val !== undefined && val !== null;
+        return true;
+      },
+      message: "请输入最小预期利润",
+      type: "error",
+    },
+  ],
   buyCount: [{ required: true, message: "请输入购买数量", type: "error" }],
   scanInterval: [
     { required: true, message: "请输入扫描间隔", type: "error" },
@@ -526,6 +583,8 @@ const handleAdd = () => {
   formData.cronExpression = "";
   formData.durationMinutes = 0;
   formData.scanInterval = 5;
+  formData.taskType = 0;
+  formData.minProfit = 0;
 
   // 重置 UI 状态
   uiState.durationValue = 0;
@@ -550,6 +609,8 @@ const handleEdit = (row: BuffScanTask) => {
     cronExpression: row.cronExpression || "", // 确保默认为空字符串
     durationMinutes: row.durationMinutes || 0,
     scanInterval: row.scanInterval || 5,
+    taskType: row.taskType || 0,
+    minProfit: row.minProfit || 0,
   });
 
   // 初始化 UI 状态
@@ -585,6 +646,8 @@ defineExpose({
       cronExpression: "",
       durationMinutes: 0,
       scanInterval: 5,
+      taskType: 0,
+      minProfit: 0,
     });
     uiState.durationValue = 0;
     uiState.durationUnit = "m";

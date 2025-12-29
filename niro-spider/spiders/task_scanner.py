@@ -317,19 +317,27 @@ class TaskScanner:
         self.pg_pool.execute(sql, (task_id,))
 
     def process_task(self, task, spider):
-        """处理单个扫描任务 (业务逻辑保持不变)"""
+        """处理单个扫描任务"""
+        task_type = task.get('task_type', 0)
+        
+        if task_type == 1:
+            # 站内倒卖模式
+            self.process_flipping_logic(task, spider)
+        else:
+            # 炼金扫货模式 (默认)
+            self.process_sniping_logic(task, spider)
+
+    def process_sniping_logic(self, task, spider):
+        """处理炼金扫货逻辑 (严格匹配价格和磨损)"""
         goods_id = task['goods_id']
         max_price = task['max_price']
         min_wear = task['min_paintwear']
         max_wear = task['max_paintwear']
-        user_id = task['user_id']
         
-        # 调用爬虫获取商品列表
         items = spider.get_goods_list(goods_id)
         if not items:
             return
 
-        # 筛选符合条件的商品
         for item in items:
             try:
                 if item.get('id') in self.failed_items:
@@ -344,20 +352,59 @@ class TaskScanner:
                 price = float(price_str)
                 paintwear = float(paintwear_str)
                 
+                # 校验价格
                 if price > float(max_price):
                     continue
                 
+                # 校验磨损
                 if min_wear is not None and paintwear < float(min_wear):
                     continue
                 if max_wear is not None and paintwear > float(max_wear):
                     continue
                 
-                logger.info(f"✅ 发现目标! 价格:{price}, 磨损:{paintwear}, ID:{item['id']}")
+                logger.info(f"🎯 [炼金发现] 价格:{price}, 磨损:{paintwear}, ID:{item['id']}")
                 self.buy_goods(task, item, spider)
                 break 
 
             except Exception as e:
-                logger.error(f"处理商品项异常: {e}")
+                logger.error(f"处理炼金商品项异常: {e}")
+
+    def process_flipping_logic(self, task, spider):
+        """处理站内倒卖逻辑 (计算利润)"""
+        goods_id = task['goods_id']
+        min_profit_config = float(task.get('min_profit') or 0)
+        
+        items = spider.get_goods_list(goods_id)
+        if not items:
+            return
+
+        for item in items:
+            try:
+                if item.get('id') in self.failed_items:
+                    continue
+
+                price_str = item.get('price_buff')
+                if not price_str:
+                    continue
+                
+                current_price = float(price_str)
+                # 获取市场最低售价
+                market_floor = float(item.get('sell_min_price') or 0)
+                
+                if market_floor <= 0:
+                    continue
+                
+                # 计算利润 = (市场最低价 * 0.975) - 当前价格
+                # 0.975 是扣除 2.5% 手续费后的比例
+                estimated_profit = (market_floor * 0.975) - current_price
+                
+                if estimated_profit >= min_profit_config:
+                    logger.info(f"💰 [倒卖发现] 当前价:{current_price}, 最低价:{market_floor}, 预计利润:¥{estimated_profit:.2f}, ID:{item['id']}")
+                    self.buy_goods(task, item, spider)
+                    break
+
+            except Exception as e:
+                logger.error(f"处理倒卖商品项异常: {e}")
 
     def buy_goods(self, task, item, spider):
         """执行购买逻辑 (已切换为测试模式，仅发送通知不真实下单)"""

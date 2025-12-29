@@ -25,8 +25,7 @@ public class BuffScanTaskParam {
     @NotNull(message = "商品ID不能为空")
     private Long goodsId;
 
-    @Schema(description = "目标最高价格", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "目标价格不能为空")
+    @Schema(description = "目标最高价格")
     @DecimalMin(value = "0.01", message = "价格必须大于0")
     private BigDecimal maxPrice;
 
@@ -48,6 +47,12 @@ public class BuffScanTaskParam {
     private Integer durationMinutes;
 
     @Schema(description = "扫描间隔(秒)", defaultValue = "5")
-    @Min(value = 1, message = "扫描间隔至少为1秒")
+    @Min(value = 5, message = "扫描间隔不能低于5秒")
     private Integer scanInterval;
+
+    @Schema(description = "任务类型: 0-炼金扫货, 1-站内倒卖", defaultValue = "0")
+    private Integer taskType;
+
+    @Schema(description = "最小预期利润 (仅倒卖任务有效)")
+    private BigDecimal minProfit;
 }

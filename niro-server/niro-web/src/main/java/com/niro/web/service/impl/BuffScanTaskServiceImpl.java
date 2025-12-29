@@ -14,9 +14,11 @@ import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffGoodsService;
+import com.niro.core.exception.BusinessException;
 import com.niro.web.service.BuffScanTaskService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.Map;
@@ -36,7 +38,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final BuffGoodsService buffGoodsService;
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void saveTask(BuffScanTaskParam param) {
+        validateParam(param);
         // 校验商品是否存在
         BuffGoods goods = buffGoodsService.lambdaQuery()
                 .eq(BuffGoods::getGoodsId, param.getGoodsId())
@@ -55,8 +59,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     @Override
+    @Transactional(rollbackFor = Exception.class)
     public void updateTask(BuffScanTaskParam param) {
         Assert.validateNull(param.getId(), "任务ID不能为空");
+        validateParam(param);
         BuffScanTask task = this.getById(param.getId());
         Assert.validateNull(task, "任务不存在");
 
@@ -68,8 +74,22 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setCronExpression(param.getCronExpression());
         task.setDurationMinutes(param.getDurationMinutes());
         task.setScanInterval(param.getScanInterval());
+        task.setTaskType(param.getTaskType());
+        task.setMinProfit(param.getMinProfit());
         
         this.updateById(task);
+    }
+
+    private void validateParam(BuffScanTaskParam param) {
+        if (param.getTaskType() == null || param.getTaskType() == 0) {
+            if (param.getMaxPrice() == null) {
+                throw new BusinessException("炼金扫货模式下，最高价格不能为空");
+            }
+        } else if (param.getTaskType() == 1) {
+            if (param.getMinProfit() == null) {
+                throw new BusinessException("站内倒卖模式下，最小预期利润不能为空");
+            }
+        }
     }
 
     @Override

@@ -58,6 +58,12 @@ public class BuffScanTaskDTO {
     @Schema(description = "扫描间隔(秒)")
     private Integer scanInterval;
 
+    @Schema(description = "任务类型: 0-炼金扫货, 1-站内倒卖")
+    private Integer taskType;
+
+    @Schema(description = "站内倒卖任务的最小预期利润")
+    private BigDecimal minProfit;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 }

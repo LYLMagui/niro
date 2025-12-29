@@ -34,4 +34,6 @@ export interface TaskSaveParam {
   cronExpression?: string;
   durationMinutes?: number;
   scanInterval?: number;
+  taskType?: number;
+  minProfit?: number;
 }

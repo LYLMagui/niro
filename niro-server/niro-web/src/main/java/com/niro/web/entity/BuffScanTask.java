@@ -85,6 +85,16 @@ public class BuffScanTask {
     private Integer scanInterval;
 
     /**
+     * 任务类型: 0-炼金扫货, 1-站内倒卖
+     */
+    private Integer taskType;
+
+    /**
+     * 站内倒卖任务的最小预期利润
+     */
+    private BigDecimal minProfit;
+
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;
