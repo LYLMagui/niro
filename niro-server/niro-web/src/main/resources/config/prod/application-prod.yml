@@ -10,7 +10,7 @@ spring:
     username: ${DB_USERNAME:buff_prod}
     password: ${DB_PASSWORD:ENC(prod_password_encrypted)}
 
-  # Redis配置 - Spring Boot 3.x 使用 spring.data.redis
+  # Redis配置 - 已切换为 Redisson
   data:
     redis:
       host: ${REDIS_HOST:localhost}
@@ -18,14 +18,11 @@ spring:
       password: ${REDIS_PASSWORD:}
       timeout: 30000ms
       connect-timeout: 30000ms
-      lettuce:
-        shutdown-timeout: 2000ms
-        pool:
-          max-active: 20
-          max-idle: 10
-          min-idle: 5
-          max-wait: 10000ms
-          time-between-eviction-runs: 30s
+      # Redisson 特有配置
+      redisson:
+        # 每 30 秒进行一次连接可用性探测 (PING)
+        ping-connection-interval: 30000
+      # 移除 Lettuce 相关配置，Redisson 会自动接管连接池
 
 
 # 日志配置

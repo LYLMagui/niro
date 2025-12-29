@@ -5,9 +5,6 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.jsontype.impl.LaissezFaireSubTypeValidator;
-import io.lettuce.core.ClientOptions;
-import io.lettuce.core.SocketOptions;
-import org.springframework.boot.autoconfigure.data.redis.LettuceClientConfigurationBuilderCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
@@ -18,6 +15,7 @@ import org.springframework.data.redis.serializer.StringRedisSerializer;
 
 /**
  * Redis配置类
+ * 已切换为 Redisson 驱动，移除 Lettuce 相关定制
  *
  * @author liyl
  * @date 2025-12-19
@@ -35,10 +33,10 @@ public class RedisConfig {
         ObjectMapper om = new ObjectMapper();
         om.setVisibility(PropertyAccessor.ALL, JsonAutoDetect.Visibility.ANY);
         // 启用默认类型，允许序列化时包含类型信息，以便反序列化为具体对象
-        om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance, 
-                               ObjectMapper.DefaultTyping.NON_FINAL, 
-                               JsonTypeInfo.As.PROPERTY);
-        
+        om.activateDefaultTyping(LaissezFaireSubTypeValidator.instance,
+                ObjectMapper.DefaultTyping.NON_FINAL,
+                JsonTypeInfo.As.PROPERTY);
+
         Jackson2JsonRedisSerializer<Object> jackson2JsonRedisSerializer = new Jackson2JsonRedisSerializer<>(om, Object.class);
 
         StringRedisSerializer stringRedisSerializer = new StringRedisSerializer();
@@ -54,16 +52,5 @@ public class RedisConfig {
 
         template.afterPropertiesSet();
         return template;
-    }
-
-    /**
-     * 定制Lettuce客户端配置，启用TCP KeepAlive以解决Redis连接频繁断开的问题
-     */
-    @Bean
-    public LettuceClientConfigurationBuilderCustomizer lettuceClientConfigurationBuilderCustomizer() {
-        return clientConfigurationBuilder -> clientConfigurationBuilder.clientOptions(
-                ClientOptions.builder()
-                        .socketOptions(SocketOptions.builder().keepAlive(true).build())
-                        .build());
     }
 }

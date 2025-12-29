@@ -360,8 +360,22 @@ class TaskScanner:
                 logger.error(f"处理商品项异常: {e}")
 
     def buy_goods(self, task, item, spider):
-        """执行购买逻辑 (业务逻辑保持不变)"""
+        """执行购买逻辑 (已切换为测试模式，仅发送通知不真实下单)"""
         user_id = task['user_id']
+        
+        # --- 模拟测试模式 START (不调用真实 API) ---
+        logger.info(f"🧪 [测试模式] 模拟下单成功: {item['name']} (ID:{item['id']})")
+        result = {
+            "code": "OK",
+            "data": {
+                "id": f"MOCK_ORDER_{int(time.time())}",
+                "state_text": "待支付 (模拟测试)",
+                "pay_url": "https://buff.163.com/market/buy_order/history"
+            }
+        }
+        
+        # 原真实下单逻辑 (暂时注释)
+        """
         result = spider.buy(task['goods_id'], item['id'], item['price_buff'], pay_method=44)
         
         if isinstance(result, dict) and result.get("code") != "OK":
@@ -371,11 +385,13 @@ class TaskScanner:
                 return
             if "该饰品暂不支持此支付方式" in error_msg:
                 result = spider.buy(task['goods_id'], item['id'], item['price_buff'], pay_method=3)
+        """
+        # --- 模拟测试模式 END ---
         
         if isinstance(result, dict) and (result.get("id") or result.get("code") == "OK"):
             order_data = result if result.get("id") else result.get("data", {})
-            if order_data.get('pay_url'):
-                self.user_pending_locks[user_id] = True
+            # if order_data.get('pay_url'):
+            #     self.user_pending_locks[user_id] = True
             
             self.update_task_progress(task['id'])
             self.send_buy_notification(task, item, order_data)
