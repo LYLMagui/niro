@@ -46,14 +46,82 @@ class Notifier:
             logger.error(f"查询用户 {user_id} 通知配置失败: {e}")
         return None
 
-    def send_textcard(self, title, description, url, btntxt="详情", user_id=None):
+    def send_text(self, content, user_id=None):
         """
-        发送卡片消息
+        发送纯文本消息 (兼容性最强，无跳转)
+        :param content: 文本内容
+        :param user_id: 用户 ID
+        """
+        config = self.get_user_config(user_id)
+        corpid = config.get('wecom_corpid') if config else settings.WECOM_CORPID
+        corpsecret = config.get('wecom_corpsecret') if config else settings.WECOM_CORPSECRET
+        agentid = config.get('wecom_agentid') if config else settings.WECOM_AGENTID
+        touser = config.get('wecom_touser') if config else settings.WECOM_TOUSER
+
+        if not corpid or not corpsecret or not agentid:
+            logger.warning(f"⚠️ 未配置企业微信参数，跳过通知发送 (UserID: {user_id})")
+            return False
+
+        token = self._get_access_token(corpid, corpsecret)
+        if not token: return False
+
+        send_url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={token}"
+        payload = {
+            "touser": touser,
+            "msgtype": "text",
+            "agentid": agentid,
+            "text": {"content": content}
+        }
+
+        try:
+            resp = requests.post(send_url, json=payload, timeout=10)
+            return resp.json().get("errcode") == 0
+        except Exception as e:
+            logger.error(f"发送纯文本通知异常: {e}")
+            return False
+
+    def send_markdown(self, content, user_id=None):
+        """
+        发送 Markdown 消息 (无强制跳转)
+        :param content: Markdown 内容
+        :param user_id: 用户 ID
+        """
+        config = self.get_user_config(user_id)
+        corpid = config.get('wecom_corpid') if config else settings.WECOM_CORPID
+        corpsecret = config.get('wecom_corpsecret') if config else settings.WECOM_CORPSECRET
+        agentid = config.get('wecom_agentid') if config else settings.WECOM_AGENTID
+        touser = config.get('wecom_touser') if config else settings.WECOM_TOUSER
+
+        if not corpid or not corpsecret or not agentid:
+            logger.warning(f"⚠️ 未配置企业微信参数，跳过通知发送 (UserID: {user_id})")
+            return False
+
+        token = self._get_access_token(corpid, corpsecret)
+        if not token: return False
+
+        send_url = f"https://qyapi.weixin.qq.com/cgi-bin/message/send?access_token={token}"
+        payload = {
+            "touser": touser,
+            "msgtype": "markdown",
+            "agentid": agentid,
+            "markdown": {"content": content}
+        }
+
+        try:
+            resp = requests.post(send_url, json=payload, timeout=10)
+            return resp.json().get("errcode") == 0
+        except Exception as e:
+            logger.error(f"发送 Markdown 通知异常: {e}")
+            return False
+
+    def send_textcard(self, title, description, url="http://localhost", btntxt="", user_id=None):
+        """
+        发送卡片消息 (url 设为 localhost 以减少跳转干扰)
         :param title: 标题
         :param description: 内容描述
-        :param url: 点击跳转链接
-        :param btntxt: 按钮文字
-        :param user_id: 用户 ID，用于获取隔离的通知配置
+        :param url: 点击跳转链接 (强制要求，默认为 localhost)
+        :param btntxt: 按钮文字 (设为空则不显示底部按钮)
+        :param user_id: 用户 ID
         """
         # 1. 获取配置 (优先用户配置，其次全局配置)
         config = self.get_user_config(user_id)
@@ -81,13 +149,16 @@ class Notifier:
             "textcard": {
                 "title": title,
                 "description": description,
-                "url": url,
-                "btntxt": btntxt
+                "url": url or "http://localhost"
             },
             "safe": 0,
             "enable_id_trans": 0,
             "enable_duplicate_check": 0
         }
+        
+        # 只有当 btntxt 不为空时才加入字段
+        if btntxt:
+            payload["textcard"]["btntxt"] = btntxt
 
         try:
             resp = requests.post(send_url, json=payload, timeout=10)

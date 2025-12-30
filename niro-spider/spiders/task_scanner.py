@@ -213,7 +213,8 @@ class TaskScanner:
                 # 如果解析失败，任务将不会被调度
         else:
             # 没有 Cron 表达式，立即开始间隔扫描
-            self.start_scan_job(task)
+            job_id = self.start_scan_job(task)
+            self.scheduled_jobs[task_id] = job_id
             
         self.task_configs[task_id] = new_config
 
@@ -224,7 +225,9 @@ class TaskScanner:
         sql = "SELECT * FROM buff_scan_task WHERE id = %s"
         task = self.pg_pool.fetch_one(sql, (task_id,))
         if task and task['status'] == 1:
-            self.start_scan_job(task)
+            job_id = self.start_scan_job(task)
+            # 记录下这个活跃的扫描作业，防止 sync_tasks 认为它没上架
+            self.scheduled_jobs[task_id] = job_id
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
@@ -243,6 +246,11 @@ class TaskScanner:
             replace_existing=True
         )
         logger.info(f"✅ 激活间隔扫描 [ID:{task_id}] 频率: {scan_interval}s")
+        
+        # 发送启动通知
+        self.send_task_start_notification(task)
+        
+        return job_id
 
     def unschedule_task(self, task_id):
         """从调度器中移除任务相关的所有作业"""
@@ -281,6 +289,7 @@ class TaskScanner:
                 if datetime.datetime.now() > start_time + datetime.timedelta(minutes=duration):
                     logger.info(f"⏱️ 任务 [ID:{task_id}] 运行时间已达 {duration} 分钟，自动停止。")
                     self.stop_task_in_db(task_id)
+                    self.send_task_stop_notification(task, "运行时间到期")
                     self.unschedule_task(task_id)
                     return
 
@@ -501,9 +510,73 @@ class TaskScanner:
                 stop_sql = "UPDATE buff_scan_task SET status = 2 WHERE id = %s"
                 self.pg_pool.execute(stop_sql, (task_id,))
                 logger.info(f"🏁 任务 [ID:{task_id}] 已达到购买上限，自动停止。")
+                
+                # 获取完整任务信息用于通知
+                task_sql = "SELECT * FROM buff_scan_task WHERE id = %s"
+                task = self.pg_pool.fetch_one(task_sql, (task_id,))
+                if task:
+                    self.send_task_stop_notification(task, "达到购买上限")
+                
                 self.unschedule_task(task_id)
         except Exception as e:
             logger.error(f"更新任务进度失败: {e}")
+
+    def send_task_start_notification(self, task):
+        """发送任务启动通知"""
+        try:
+            task_name = task.get('name', '未知任务')
+            scan_interval = task.get('scan_interval') or 5
+            duration = task.get('duration_minutes') or 0
+            buy_count = task.get('buy_count') or 0
+            
+            start_time = datetime.datetime.now()
+            start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
+            
+            end_time_str = "无限制"
+            if duration > 0:
+                end_time = start_time + datetime.timedelta(minutes=duration)
+                end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
+            
+            content = (
+                f"🚀 任务启动通知\n"
+                f"------------------\n"
+                f"任务名称: {task_name}\n"
+                f"启动时间: {start_time_str}\n"
+                f"预计结束: {end_time_str}\n"
+                f"扫描间隔: {scan_interval}s\n"
+                f"目标数量: {buy_count}"
+            )
+            
+            notifier.send_text(
+                content=content,
+                user_id=task.get('user_id')
+            )
+            logger.info(f"📤 已发送任务启动通知: {task_name}")
+        except Exception as e:
+            logger.error(f"发送任务启动通知失败: {e}")
+
+    def send_task_stop_notification(self, task, reason):
+        """发送任务停止通知"""
+        try:
+            task_name = task.get('name', '未知任务')
+            success_count = task.get('success_count', 0)
+            buy_count = task.get('buy_count', 0)
+            
+            content = (
+                f"🏁 任务停止通知\n"
+                f"------------------\n"
+                f"任务名称: {task_name}\n"
+                f"停止原因: {reason}\n"
+                f"完成进度: {success_count}/{buy_count}"
+            )
+            
+            notifier.send_text(
+                content=content,
+                user_id=task.get('user_id')
+            )
+            logger.info(f"📤 已发送任务停止通知: {task_name} ({reason})")
+        except Exception as e:
+            logger.error(f"发送任务停止通知失败: {e}")
 
     def send_buy_notification(self, task, item, result):
         """发送购买成功通知"""
@@ -513,18 +586,20 @@ class TaskScanner:
             paintwear = item.get('paintwear', '无')
             order_id = result.get('id', '未知')
             state = result.get('state_text', '已下单')
-            pay_url = result.get('pay_url') or "https://buff.163.com/market/buy_order/history"
             
             status_text = "✅ 购买成功" if "支付成功" in state else "🔔 订单已创建 (待支付)"
-            
-            title = status_text
-            description = f"商品名称: {name}\n成交价格: ¥{price}\n磨损程度: {paintwear}\n订单状态: {state}\n订单编号: {order_id}"
+            content = (
+                f"{status_text}\n"
+                f"------------------\n"
+                f"商品名称: {name}\n"
+                f"成交价格: ¥{price}\n"
+                f"磨损程度: {paintwear}\n"
+                f"订单状态: {state}\n"
+                f"订单编号: {order_id}"
+            )
 
-            notifier.send_textcard(
-                title=title,
-                description=description,
-                url=pay_url,
-                btntxt="点击前往支付",
+            notifier.send_text(
+                content=content,
                 user_id=task.get('user_id')
             )
         except Exception as e:
