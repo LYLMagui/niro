@@ -217,7 +217,7 @@
               <span>运行计划</span>
             </div>
 
-            <t-form-item label="Cron表达式" name="cronExpression">
+            <t-form-item label="Cron表达式" name="cronExpression" class="mb-6">
               <t-input
                 v-model="formData.cronExpression"
                 placeholder="立即启动 (留空即可)"
@@ -248,7 +248,7 @@
                 </template>
               </t-input>
             </t-form-item>
-            <t-form-item label="持续时间" name="durationMinutes">
+            <t-form-item label="持续时间" name="durationMinutes" class="mb-6">
               <div class="flex items-center gap-2">
                 <t-input-number
                   v-model="uiState.durationValue"
@@ -265,7 +265,7 @@
               </div>
               <template #tips>0 表示不限时间</template>
             </t-form-item>
-            <t-form-item label="扫描间隔" name="scanInterval">
+            <t-form-item label="扫描间隔" name="scanInterval" class="mb-6">
               <div class="flex items-center gap-2">
                 <t-input-number
                   v-model="uiState.intervalValue"
@@ -729,7 +729,7 @@ onMounted(() => {
 }
 
 .compact-form :deep(.t-form__item) {
-  margin-bottom: 8px; /* 进一步压缩表单项间距 */
+  /* 移除硬编码的 margin-bottom，改用 template 中的 mb-6 灵活控制 */
 }
 
 .compact-form :deep(.t-form__label) {
@@ -737,7 +737,7 @@ onMounted(() => {
 }
 
 .compact-form :deep(.t-form__controls-content) {
-  min-height: auto; /* 移除最小高度限制，让布局更紧凑 */
+  /* 移除 min-height: auto，确保校验错误信息有足够的展示空间 */
 }
 
 .compact-form :deep(.t-form__tips) {
