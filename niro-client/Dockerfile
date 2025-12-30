@@ -2,6 +2,8 @@
 FROM node:20-slim AS build-stage
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
+# 设置 pnpm 镜像源为国内腾讯云/淘宝镜像
+RUN pnpm config set registry https://registry.npmmirror.com
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
