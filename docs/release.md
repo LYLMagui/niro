@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.5.1 (2025-12-30)
+
+- [运维] **Docker 生产环境健壮性增强**：
+  - **全链路健康检查 (Healthcheck)**：
+    - **数据库 (PostgreSQL)**：集成 `pg_isready` 检查，确保数据库完全就绪。
+    - **缓存 (Redis)**：集成 `redis-cli ping` 检查，确保缓存连接正常。
+    - **后端 (Spring Boot)**：集成 `wget` 端口存活检查，并设置 `40s` 启动宽限期（`start_period`），适配 Java 应用启动耗时。
+  - **智能启动编排**：
+    - 升级 `depends_on` 配置，从简单的 `service_started` 优化为 `service_healthy`。
+    - 确保 `niro-web` 和 `niro-spider` 仅在数据库和 Redis 真正“可用”时才启动，彻底杜绝启动初期的连接超时报错。
+    - 前端 `niro-client` 仅在后端 API 真正“可用”时才启动，提升容器集群的自愈能力。
+
 ## v1.5.0 (2025-12-30)
 
 - [功能] **双环境 Docker 部署方案**：
