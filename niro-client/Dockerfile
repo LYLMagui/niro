@@ -5,6 +5,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 COPY package.json pnpm-lock.yaml ./
 RUN pnpm install --frozen-lockfile
 COPY . .
+# 增加 Node.js 内存限制，防止 Vite 构建时 OOM
+ENV NODE_OPTIONS="--max-old-space-size=2048"
 RUN pnpm build-only
 
 # Production stage

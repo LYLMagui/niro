@@ -1,6 +1,8 @@
 # Build stage
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
 WORKDIR /app
+# 增加 Maven 内存限制，防止编译时 OOM
+ENV MAVEN_OPTS="-Xmx1024m"
 COPY pom.xml .
 COPY niro-core/pom.xml niro-core/
 COPY niro-web/pom.xml niro-web/
