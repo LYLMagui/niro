@@ -1,5 +1,13 @@
 # Release Notes
 
+## v1.5.4 (2025-12-31)
+
+- [运维] **修复前端构建依赖冲突与清理冗余依赖**：
+  - **移除冗余依赖引用**：从 `niro-client/vite.config.ts` 的 `manualChunks` 中移除了未安装的 `naive-ui` 以及确认未使用的 `element-plus`。
+  - **卸载未使用依赖包**：彻底卸载了 `element-plus` 和 `@element-plus/icons-vue`，减小了项目体积并降低了构建时的依赖解析压力。
+  - **优化分包策略**：精简了 `ui-vendor` 分包配置，确保生产环境构建的稳定性，解决了 "Could not resolve entry module" 导致的构建中断。
+  - **增强构建鲁棒性**：通过清理无效配置和依赖，提升了 `vite build` 在 2G 内存等受限环境下的成功率。
+
 ## v1.5.3 (2025-12-30)
 
 - [运维] **修复前端 Docker 构建 OOM 问题**：

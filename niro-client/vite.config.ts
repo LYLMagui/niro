@@ -123,7 +123,7 @@ export default defineConfig(({ mode }) => {
         output: {
           manualChunks: {
             "vue-vendor": ["vue", "vue-router", "pinia"],
-            "ui-vendor": ["tdesign-vue-next", "naive-ui"],
+            "ui-vendor": ["tdesign-vue-next"],
             "utils-vendor": ["@vueuse/core", "axios", "qs", "lodash-es"],
           },
         },

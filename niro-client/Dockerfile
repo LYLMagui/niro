@@ -5,7 +5,8 @@ RUN corepack enable && corepack prepare pnpm@latest --activate
 # 设置 pnpm 镜像源为国内腾讯云/淘宝镜像
 RUN pnpm config set registry https://registry.npmmirror.com
 COPY package.json pnpm-lock.yaml ./
-RUN pnpm install --frozen-lockfile
+# 暂时去掉 --frozen-lockfile 尝试修复依赖不一致问题
+RUN pnpm install
 COPY . .
 # 增加 Node.js 内存限制，防止 Vite 构建时 OOM
 ENV NODE_OPTIONS="--max-old-space-size=2048"
