@@ -4,13 +4,14 @@ WORKDIR /app
 # 增加 Maven 内存限制，防止编译时 OOM
 ENV MAVEN_OPTS="-Xmx1024m"
 COPY pom.xml .
+COPY maven-settings.xml .
 COPY niro-core/pom.xml niro-core/
 COPY niro-web/pom.xml niro-web/
-# 预下载依赖 (可选，加速后续构建)
-RUN mvn dependency:go-offline -B
+# 预下载依赖 (使用阿里云镜像加速)
+RUN mvn dependency:go-offline -s maven-settings.xml -B
 COPY niro-core/src niro-core/src
 COPY niro-web/src niro-web/src
-RUN mvn clean package -DskipTests
+RUN mvn clean package -s maven-settings.xml -DskipTests
 
 # Run stage
 FROM eclipse-temurin:21-jre-alpine
