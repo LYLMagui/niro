@@ -71,7 +71,7 @@ services:
       retries: 3
       start_period: 40s # Spring Boot 启动较慢，给 40 秒宽限期
     networks:
-      - niro-data-net-prodO
+      - niro-data-net-prod
 
   niro-spider-prod:
     build:
