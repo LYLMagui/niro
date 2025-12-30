@@ -1,0 +1,64 @@
+version: '3.8'
+
+services:
+  niro-web-test:
+    build:
+      context: ./niro-server
+      dockerfile: Dockerfile
+    container_name: niro-web-test
+    restart: always
+    env_file:
+      - .env.test
+    environment:
+      - SPRING_PROFILES_ACTIVE=dev # 测试环境可以使用 dev 或 test profile
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://pgsql:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-niro-admin}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
+      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+    ports:
+      - "8080:8080"
+    external_links:
+      - pgSQL-18:pgsql
+      - redis-8:redis
+    networks:
+      - niro-data-net
+
+  niro-spider-test:
+    build:
+      context: ./niro-spider
+      dockerfile: Dockerfile
+    container_name: niro-spider-test
+    restart: always
+    env_file:
+      - .env.test
+    environment:
+      - DB_HOST=pgsql
+      - DB_PORT=5432
+      - DB_NAME=niro
+      - DB_USERNAME=${DB_USERNAME:-niro-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+    external_links:
+      - pgSQL-18:pgsql
+      - redis-8:redis
+    networks:
+      - niro-data-net
+
+  niro-client-test:
+    build:
+      context: ./niro-client
+      dockerfile: Dockerfile
+    container_name: niro-client-test
+    restart: always
+    ports:
+      - "80:80"
+    networks:
+      - niro-data-net
+
+networks:
+  niro-data-net:
+    external: true

@@ -1,0 +1,95 @@
+services:
+  niro-db-prod:
+    image: postgres:18-alpine
+    container_name: niro-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: niro
+      POSTGRES_USER: ${DB_USERNAME:-niro-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
+      TZ: Asia/Shanghai
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - niro_db_data_prod:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    shm_size: "1gb" # 生产环境建议提升共享内存
+    networks:
+      - niro-data-net-prod
+
+  niro-redis-prod:
+    image: redis:8.0-alpine
+    container_name: niro-redis-prod
+    restart: always
+    command: ["redis-server", "--requirepass", "${REDIS_PASSWORD:-redis_niro_pwd}"]
+    ports:
+      - "6790:6379" # 生产环境映射到 6790，避免与测试环境 6789 冲突
+    networks:
+      - niro-data-net-prod
+
+  niro-web-prod:
+    build:
+      context: ./niro-server
+      dockerfile: Dockerfile
+    container_name: niro-web-prod
+    restart: always
+    depends_on:
+      - niro-db-prod
+      - niro-redis-prod
+    env_file:
+      - .env.prod
+    environment:
+      - SPRING_PROFILES_ACTIVE=prod
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://niro-db-prod:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-niro-admin}
+      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
+      - SPRING_DATA_REDIS_HOST=niro-redis-prod
+      - SPRING_DATA_REDIS_PORT=6379
+      - SPRING_DATA_REDIS_PASSWRD=${REDIS_PASSWORD:-redis_niro_pwd}
+    ports:
+      - "8081:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
+    networks:
+      - niro-data-net-prodO
+
+  niro-spider-prod:
+    build:
+      context: ./niro-spider
+      dockerfile: Dockerfile
+    container_name: niro-spider-prod
+    restart: always
+    depends_on:
+      - niro-db-prod
+      - niro-redis-prod
+      - niro-web-prod
+    env_file:
+      - .env.prod
+    environment:
+      - DB_HOST=niro-db-prod
+      - DB_NAME=niro
+      - DB_USERNAME=${DB_USERNAME:-niro-admin}
+      - DB_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
+      - REDIS_HOST=niro-redis-prod
+      - REDIS_PORT=6379
+      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+    networks:
+      - niro-data-net-prod
+
+  niro-client-prod:
+    build:
+      context: ./niro-client
+      dockerfile: Dockerfile
+    container_name: niro-client-prod
+    restart: always
+    depends_on:
+      - niro-web-prod
+    ports:
+      - "81:80" # 生产环境映射到 81，避免与测试环境 80 冲突
+    networks:
+      - niro-data-net-prod
+
+networks:
+  niro-data-net-prod:
+    driver: bridge
+
+volumes:
+  niro_db_data_prod:
