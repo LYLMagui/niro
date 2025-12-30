@@ -8,24 +8,29 @@ logger = get_logger(__name__)
 
 class Notifier:
     def __init__(self):
-        self.access_token = None
-        self.token_expiry = 0
+        # 存储不同 corpid + corpsecret 的 token 信息
+        # key: (corpid, corpsecret), value: {"token": xxx, "expiry": xxx}
+        self.tokens = {}
 
     def _get_access_token(self, corpid, corpsecret):
         """获取企业微信 access_token"""
+        key = (corpid, corpsecret)
+        token_info = self.tokens.get(key)
+        
         # 如果 token 还在有效期内，直接返回
-        if self.access_token and time.time() < self.token_expiry:
-            return self.access_token
+        if token_info and time.time() < token_info["expiry"]:
+            return token_info["token"]
 
         url = f"https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid={corpid}&corpsecret={corpsecret}"
         try:
             resp = requests.get(url, timeout=10)
             data = resp.json()
             if data.get("errcode") == 0:
-                self.access_token = data.get("access_token")
+                access_token = data.get("access_token")
                 # token 有效期一般为 7200 秒，提前 5 分钟刷新
-                self.token_expiry = time.time() + data.get("expires_in", 7200) - 300
-                return self.access_token
+                expiry = time.time() + data.get("expires_in", 7200) - 300
+                self.tokens[key] = {"token": access_token, "expiry": expiry}
+                return access_token
             else:
                 logger.error(f"获取 WeCom access_token 失败: {data}")
         except Exception as e:
@@ -33,17 +38,21 @@ class Notifier:
         return None
 
     def get_user_config(self, user_id):
-        """从数据库获取用户的通知配置"""
-        if not user_id:
-            return None
-        
+        """从数据库获取用户的通知配置 (优先匹配 user_id，否则获取最新的一条)"""
         try:
-            sql = "SELECT wecom_corpid, wecom_corpsecret, wecom_agentid, wecom_touser FROM user_buff_settings WHERE user_id = %s"
-            res = pg_pool.fetch_one(sql, (user_id,))
+            if user_id:
+                sql = "SELECT wecom_corpid, wecom_corpsecret, wecom_agentid, wecom_touser FROM user_buff_settings WHERE user_id = %s"
+                params = (user_id,)
+            else:
+                # 如果没有 user_id，获取最新更新的一条配置作为兜底
+                sql = "SELECT wecom_corpid, wecom_corpsecret, wecom_agentid, wecom_touser FROM user_buff_settings ORDER BY update_time DESC LIMIT 1"
+                params = ()
+                
+            res = pg_pool.fetch_one(sql, params)
             if res and res.get('wecom_corpid') and res.get('wecom_corpsecret'):
                 return res
         except Exception as e:
-            logger.error(f"查询用户 {user_id} 通知配置失败: {e}")
+            logger.error(f"查询用户 {user_id if user_id else 'Global'} 通知配置失败: {e}")
         return None
 
     def send_text(self, content, user_id=None):
