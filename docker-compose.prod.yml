@@ -115,8 +115,11 @@ services:
 
 networks:
   niro-data-net-prod:
+    name: niro-data-net-prod
     driver: bridge
 
 volumes:
   niro_db_data_prod:
+    name: niro_db_data_prod
   niro_redis_data_prod:
+    name: niro_redis_data_prod
