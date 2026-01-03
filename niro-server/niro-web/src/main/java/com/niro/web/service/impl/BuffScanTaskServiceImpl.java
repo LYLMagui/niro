@@ -13,6 +13,7 @@ import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.mapper.BuffScanTaskMapper;
+import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.core.exception.BusinessException;
 import com.niro.web.service.BuffScanTaskService;
@@ -41,20 +42,26 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     @Transactional(rollbackFor = Exception.class)
     public void saveTask(BuffScanTaskParam param) {
         validateParam(param);
-        // 校验商品是否存在
-        BuffGoods goods = buffGoodsService.lambdaQuery()
-                .eq(BuffGoods::getGoodsId, param.getGoodsId())
-                .one();
-        Assert.validateNull(goods, "商品不存在");
-
         BuffScanTask task = BeanUtil.copyProperties(param, BuffScanTask.class);
-        // 默认任务名为商品名
-        task.setName(goods.getName());
+
+        if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+            // 系统任务不需要关联商品，手动设置任务名
+            task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
+        } else {
+            // 校验商品是否存在
+            BuffGoods goods = buffGoodsService.lambdaQuery()
+                    .eq(BuffGoods::getGoodsId, param.getGoodsId())
+                    .one();
+            Assert.validateNull(goods, "商品不存在");
+            // 默认任务名为商品名
+            task.setName(goods.getName());
+        }
+
         // 默认停止
         task.setStatus(0);
         task.setSuccessCount(0);
-        task.setUserId(StpUtil.getLoginIdAsLong()); 
-        
+        task.setUserId(StpUtil.getLoginIdAsLong());
+
         this.save(task);
     }
 
@@ -81,11 +88,24 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     private void validateParam(BuffScanTaskParam param) {
-        if (param.getTaskType() == null || param.getTaskType() == 0) {
+        if (param.getTaskType() == null) {
+            throw new BusinessException("任务类型不能为空");
+        }
+
+        if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+            // 系统任务不需要校验 goodsId 和 maxPrice
+            return;
+        }
+
+        if (param.getGoodsId() == null) {
+            throw new BusinessException("非系统任务下，商品ID不能为空");
+        }
+
+        if (TaskTypeEnum.SNIPING.getCode().equals(param.getTaskType())) {
             if (param.getMaxPrice() == null) {
                 throw new BusinessException("炼金扫货模式下，最高价格不能为空");
             }
-        } else if (param.getTaskType() == 1) {
+        } else if (TaskTypeEnum.FLIPPING.getCode().equals(param.getTaskType())) {
             if (param.getMinProfit() == null) {
                 throw new BusinessException("站内倒卖模式下，最小预期利润不能为空");
             }

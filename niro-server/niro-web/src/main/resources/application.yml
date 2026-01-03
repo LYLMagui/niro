@@ -4,6 +4,7 @@ spring:
     active: ${SPRING_PROFILES_ACTIVE:dev}  # 默认激活开发环境
   application:
     name: buff-web
+    
   config:
     import:
       - classpath:config/common/common.yml      # 公共通用配置

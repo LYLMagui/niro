@@ -21,12 +21,10 @@ public class BuffScanTaskParam {
     @Schema(description = "任务ID (更新时必填)")
     private Long id;
 
-    @Schema(description = "Buff商品ID", requiredMode = Schema.RequiredMode.REQUIRED)
-    @NotNull(message = "商品ID不能为空")
+    @Schema(description = "Buff商品ID")
     private Long goodsId;
 
     @Schema(description = "目标最高价格")
-    @DecimalMin(value = "0.01", message = "价格必须大于0")
     private BigDecimal maxPrice;
 
     @Schema(description = "最小磨损", defaultValue = "0")
