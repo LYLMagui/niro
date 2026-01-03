@@ -1,6 +1,7 @@
 services:
   niro-db-prod:
     image: postgres:18-alpine
+    user: "70:70"
     container_name: niro-db-prod
     restart: always
     environment:
