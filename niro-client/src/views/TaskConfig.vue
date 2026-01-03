@@ -44,16 +44,27 @@
       >
         <template #goods="{ row }">
           <div class="flex items-center">
-            <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="mr-2 h-8 w-8 rounded" />
+            <t-image
+              v-if="row.goodsIconUrl"
+              :src="row.goodsIconUrl"
+              class="mr-2 h-8 w-8 rounded"
+            />
+            <div v-else-if="row.taskType >= 2" class="mr-2 flex h-8 w-8 items-center justify-center rounded bg-blue-100 text-blue-600">
+              <t-icon name="setting" />
+            </div>
             <div>
-              <div class="max-w-xs truncate font-bold" :title="row.name">{{ row.name }}</div>
-              <div class="text-xs text-gray-500">ID: {{ row.goodsId }}</div>
+              <div class="max-w-xs truncate font-bold" :title="row.name">
+                {{ row.name }}
+              </div>
+              <div v-if="row.goodsId" class="text-xs text-gray-500">ID: {{ row.goodsId }}</div>
             </div>
           </div>
         </template>
 
         <template #taskType="{ row }">
           <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
+          <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
+          <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
           <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
         </template>
 
@@ -62,13 +73,19 @@
             <div class="text-xs text-gray-500">最小利润:</div>
             <div class="font-bold text-orange-600">¥{{ row.minProfit }}</div>
           </div>
+          <div v-else-if="row.taskType >= 2">
+            <div class="text-xs text-gray-500">系统自动执行</div>
+          </div>
           <div v-else>
             <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
             <div class="text-xs text-gray-500">磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}</div>
           </div>
         </template>
 
-        <template #progress="{ row }">{{ row.successCount }} / {{ row.buyCount }}</template>
+        <template #progress="{ row }">
+          <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
+          <span v-else>-</span>
+        </template>
 
         <template #status="{ row }">
           <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
@@ -120,7 +137,16 @@
           scroll-to-first-error="smooth"
           @submit="handleSubmit"
         >
-          <t-form-item label="选择商品" name="goodsId" class="mb-6">
+          <t-form-item label="任务类型" name="taskType" class="mb-6">
+            <t-radio-group v-model="formData.taskType">
+              <t-radio :value="0">炼金扫货</t-radio>
+              <t-radio :value="1">站内倒卖</t-radio>
+              <t-radio :value="2">系统-分类同步</t-radio>
+              <t-radio :value="3">系统-商品同步</t-radio>
+            </t-radio-group>
+          </t-form-item>
+
+          <t-form-item v-if="formData.taskType < 2" label="选择商品" name="goodsId" class="mb-6">
             <t-select
               v-model="formData.goodsId"
               filterable
@@ -139,13 +165,6 @@
                 {{ item.name }}
               </t-option>
             </t-select>
-          </t-form-item>
-
-          <t-form-item label="任务类型" name="taskType" class="mb-6">
-            <t-radio-group v-model="formData.taskType">
-              <t-radio :value="0">炼金扫货</t-radio>
-              <t-radio :value="1">站内倒卖</t-radio>
-            </t-radio-group>
           </t-form-item>
 
           <t-form-item v-if="formData.taskType === 1" label="预期利润" name="minProfit" class="mb-6">
@@ -200,7 +219,7 @@
               />
             </div>
           </t-form-item>
-          <t-form-item label="购买数量" name="buyCount" class="mb-6">
+          <t-form-item v-if="formData.taskType < 2" label="购买数量" name="buyCount" class="mb-6">
             <t-input-number
               v-model="formData.buyCount"
               :min="1"
@@ -217,7 +236,11 @@
               <span>运行计划</span>
             </div>
 
-            <t-form-item label="Cron表达式" name="cronExpression" class="mb-6">
+            <t-form-item
+              :label="formData.taskType >= 2 ? '执行计划' : 'Cron表达式'"
+              name="cronExpression"
+              class="mb-6"
+            >
               <t-input
                 v-model="formData.cronExpression"
                 placeholder="立即启动 (留空即可)"
@@ -248,7 +271,12 @@
                 </template>
               </t-input>
             </t-form-item>
-            <t-form-item label="持续时间" name="durationMinutes" class="mb-6">
+            <t-form-item
+              v-if="formData.taskType < 2"
+              label="持续时间"
+              name="durationMinutes"
+              class="mb-6"
+            >
               <div class="flex items-center gap-2">
                 <t-input-number
                   v-model="uiState.durationValue"
@@ -265,34 +293,39 @@
               </div>
               <template #tips>0 表示不限时间</template>
             </t-form-item>
-            <t-form-item label="扫描间隔" name="scanInterval" class="mb-6">
-              <div class="flex items-center gap-2">
-                <t-input-number
-                  v-model="uiState.intervalValue"
-                  :min="uiState.intervalUnit === 's' ? 5 : 1"
-                  :step="1"
-                  theme="column"
-                  style="width: 140px"
-                  @blur="handleIntervalBlur"
-                >
-                  <template #suffix>
-                    <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，建议不低于 5 秒">
-                      <t-icon name="help-circle" class="cursor-help text-gray-400" />
-                    </t-tooltip>
-                  </template>
-                </t-input-number>
-                <t-select
-                  v-model="uiState.intervalUnit"
-                  style="width: 80px"
-                  @change="handleIntervalUnitChange"
-                >
-                  <t-option label="秒" value="s" />
-                  <t-option label="分钟" value="m" />
-                  <t-option label="小时" value="h" />
-                  <t-option label="天" value="d" />
-                </t-select>
-              </div>
-            </t-form-item>
+          <t-form-item
+            v-if="formData.taskType < 2"
+            label="扫描间隔"
+            name="scanInterval"
+            class="mb-6"
+          >
+            <div class="flex items-center gap-2">
+              <t-input-number
+                v-model="uiState.intervalValue"
+                :min="uiState.intervalUnit === 's' ? 5 : 1"
+                :step="1"
+                theme="column"
+                style="width: 140px"
+                @blur="handleIntervalBlur"
+              >
+                <template #suffix>
+                  <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，必须大于 5 秒">
+                    <t-icon name="help-circle" class="cursor-help text-gray-400" />
+                  </t-tooltip>
+                </template>
+              </t-input-number>
+              <t-select
+                v-model="uiState.intervalUnit"
+                style="width: 80px"
+                @change="handleIntervalUnitChange"
+              >
+                <t-option label="秒" value="s" />
+                <t-option label="分钟" value="m" />
+                <t-option label="小时" value="h" />
+                <t-option label="天" value="d" />
+              </t-select>
+            </div>
+          </t-form-item>
 
             <!-- 动态逻辑预览 -->
             <div
@@ -440,7 +473,12 @@ const executionSummary = computed(() => {
     }
   }
 
-  summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${interval} ${intervalUnit} 进行一次价格采集。`;
+  const actionDesc = formData.taskType < 2 ? "采集价格" : "同步数据";
+  if (formData.taskType < 2) {
+    summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${interval} ${intervalUnit} 进行一次${actionDesc}。`;
+  } else {
+    summary += `启动后将执行一次${actionDesc}。`;
+  }
 
   return summary;
 });
@@ -475,7 +513,17 @@ const formData = reactive<TaskSaveParam>({
 });
 
 const rules = {
-  goodsId: [{ required: true, message: "请选择商品", type: "error" }],
+  goodsId: [
+    {
+      required: true,
+      validator: (val: number) => {
+        if (formData.taskType < 2) return !!val;
+        return true;
+      },
+      message: "请选择商品",
+      type: "error",
+    },
+  ],
   maxPrice: [
     {
       required: true,
@@ -498,12 +546,33 @@ const rules = {
       type: "error",
     },
   ],
-  buyCount: [{ required: true, message: "请输入购买数量", type: "error" }],
-  scanInterval: [
-    { required: true, message: "请输入扫描间隔", type: "error" },
+  buyCount: [
     {
-      validator: (val: number) => val >= 5,
-      message: "扫描间隔不得低于 5 秒，以防触发限流",
+      required: true,
+      validator: (val: number) => {
+        if (formData.taskType < 2) return !!val;
+        return true;
+      },
+      message: "请输入购买数量",
+      type: "error",
+    },
+  ],
+  scanInterval: [
+    {
+      required: true,
+      validator: (val: number) => {
+        if (formData.taskType >= 2) return true;
+        return !!val;
+      },
+      message: "请输入扫描间隔",
+      type: "error",
+    },
+    {
+      validator: (val: number) => {
+        if (formData.taskType >= 2) return true;
+        return val >= 5;
+      },
+      message: "扫描间隔不得低于 5 秒",
       type: "error",
     },
   ],
@@ -536,11 +605,20 @@ const handleIntervalBlur = () => {
   const min = uiState.intervalUnit === "s" ? 5 : 1;
   if (uiState.intervalValue < min) {
     uiState.intervalValue = min;
-    MessagePlugin.warning(
-      `扫描间隔已自动调整为最小值 ${min} ${uiState.intervalUnit === "s" ? "秒" : ""}`
-    );
   }
 };
+
+// 监听 UI 状态变化，实时同步到 formData 供校验和预览使用
+watch(
+  [() => uiState.intervalValue, () => uiState.intervalUnit, () => uiState.durationValue, () => uiState.durationUnit],
+  () => {
+    if (formData.taskType < 2) {
+      formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+      formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+    }
+  },
+  { immediate: true }
+);
 
 const fetchData = async () => {
   loading.value = true;
@@ -658,6 +736,23 @@ defineExpose({
   },
 });
 
+// 监听任务类型变化
+watch(
+  () => formData.taskType,
+  (newVal) => {
+    // 仅在新增任务或 Cron 为空时填充默认推荐值
+    if (!formData.id && !formData.cronExpression) {
+      if (newVal === 2) {
+        // 全量分类同步：每周日凌晨 3 点
+        formData.cronExpression = "0 0 3 * * SUN";
+      } else if (newVal === 3) {
+        // 全量商品同步：每天凌晨 4 点
+        formData.cronExpression = "0 0 4 * * ?";
+      }
+    }
+  }
+);
+
 // 监听 Cron 表达式变化，记录现实时间
 watch(
   () => formData.cronExpression,
@@ -670,8 +765,14 @@ watch(
 
 const handleSubmit = async ({ validateResult, firstError }: any) => {
   // 提交前进行单位换算
-  formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
-  formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+  if (formData.taskType < 2) {
+    formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+    formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+  } else {
+    // 系统任务默认值 (设置 5s 以绕过后端 @Min(5) 校验，虽然系统任务不使用该字段)
+    formData.durationMinutes = 0;
+    formData.scanInterval = 5;
+  }
 
   if (validateResult !== true) {
     console.log("表单校验失败:", firstError);
