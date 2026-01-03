@@ -279,13 +279,11 @@ def process_category(category, force=False):
         
     logger.info(f"✨ 分类 {cat_name} 处理完成，本次任务影响 {total_saved} 个商品")
 
-def main():
-    import argparse
-    parser = argparse.ArgumentParser(description="Buff 商品全量抓取脚本")
-    parser.add_argument("--force", action="store_true", help="强制抓取所有分类和页码，忽略增量跳过逻辑")
-    args = parser.parse_args()
-
-    logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {args.force}) ===")
+def run_goods_sync(force=False):
+    """
+    暴露给外部调用的商品同步主入口
+    """
+    logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {force}) ===")
     
     categories = get_secondary_categories()
     if not categories:
@@ -293,7 +291,7 @@ def main():
         return
         
     for i, cat in enumerate(categories):
-        process_category(cat, force=args.force)
+        process_category(cat, force=force)
         
         if i < len(categories) - 1:
             sleep_time = random.uniform(5, 12)
@@ -301,6 +299,14 @@ def main():
             time.sleep(sleep_time)
             
     logger.info("=== 任务结束 ===")
+
+def main():
+    import argparse
+    parser = argparse.ArgumentParser(description="Buff 商品全量抓取脚本")
+    parser.add_argument("--force", action="store_true", help="强制抓取所有分类和页码，忽略增量跳过逻辑")
+    args = parser.parse_args()
+
+    run_goods_sync(force=args.force)
 
 if __name__ == "__main__":
     from utils.logger import setup_logging

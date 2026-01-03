@@ -333,11 +333,11 @@ def sync_all_children_categories():
         logger.info(f"� 组间休息 {sleep_time:.2f} 秒...")
         time.sleep(sleep_time)
 
-if __name__ == "__main__":
-    from utils.logger import setup_logging
-    
-    setup_logging()
-
+def run_category_sync():
+    """
+    暴露给外部调用的分类同步主入口
+    """
+    logger.info("开始执行全量分类同步任务...")
     # 1. 抓取一级分类 (Parent)
     logger.info("=== 阶段1: 抓取一级分类 ===")
     parent_cats = get_buff_goods_parent_category(max_pages=15)
@@ -346,3 +346,10 @@ if __name__ == "__main__":
     # 2. 抓取二级分类 (Children)
     logger.info("=== 阶段2: 抓取二级分类 ===")
     sync_all_children_categories()
+    logger.info("全量分类同步任务完成")
+
+if __name__ == "__main__":
+    from utils.logger import setup_logging
+    
+    setup_logging()
+    run_category_sync()

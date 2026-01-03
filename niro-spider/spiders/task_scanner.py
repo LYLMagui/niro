@@ -4,6 +4,8 @@ from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from spiders.buff_spider import BuffSpider
+from spiders.get_buff_goods import run_goods_sync
+from spiders.get_buff_goods_category import run_category_sync
 from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
 from utils.notifier import notifier
@@ -61,6 +63,9 @@ class TaskScanner:
             replace_existing=True
         )
         
+        # 立即执行一次同步
+        self.sync_tasks()
+        
         # 保持主线程运行
         try:
             while True:
@@ -79,6 +84,18 @@ class TaskScanner:
             
             active_task_ids = set()
             
+            if not tasks:
+                if hasattr(self, '_last_task_count') and self._last_task_count > 0:
+                    logger.info("ℹ️ 数据库中任务已清空")
+                self._last_task_count = 0
+                return
+            
+            # 记录任务总数变化
+            task_count = len(tasks)
+            if not hasattr(self, '_last_task_count') or self._last_task_count != task_count:
+                logger.info(f"🔍 数据库任务同步: 总计 {task_count} 个任务")
+                self._last_task_count = task_count
+            
             for task in tasks:
                 task_id = task['id']
                 status = task['status']
@@ -88,17 +105,46 @@ class TaskScanner:
                     active_task_ids.add(task_id)
                     self.schedule_task(task)
                 else:
-                    # 如果任务不是运行中，确保调度器中没有它的作业
+                    # 如果任务不是运行中，确保调度器中已移除
                     self.unschedule_task(task_id)
             
-            # 清理已经不存在的任务
-            scheduled_ids = list(self.scheduled_jobs.keys())
-            for tid in scheduled_ids:
+            # 记录运行中任务的变化
+            active_count = len(active_task_ids)
+            if not hasattr(self, '_last_active_count') or self._last_active_count != active_count:
+                if active_count > 0:
+                    logger.info(f"📈 当前有 {active_count} 个运行中的任务")
+                else:
+                    logger.info("ℹ️ 当前无运行中的任务")
+                self._last_active_count = active_count
+            
+            # 清理已经不在数据库活跃列表中的配置缓存
+            cached_ids = list(self.task_configs.keys())
+            for tid in cached_ids:
                 if tid not in active_task_ids:
-                    self.unschedule_task(tid)
+                    del self.task_configs[tid]
                     
         except Exception as e:
-            logger.error(f"❌ 同步任务异常: {e}")
+            logger.error(f"❌ 同步任务失败: {e}", exc_info=True)
+
+    def parse_cron(self, cron_expr):
+        """解析 6 位 Cron 表达式 (Spring/Quartz 格式) 为 APScheduler 的 CronTrigger"""
+        parts = cron_expr.split()
+        if len(parts) == 6:
+            # Spring 格式: second minute hour day month day_of_week
+            # 注意: Spring 的 ? 在 APScheduler 中直接用 * 即可
+            return CronTrigger(
+                second=parts[0],
+                minute=parts[1],
+                hour=parts[2],
+                day=parts[3],
+                month=parts[4],
+                day_of_week=parts[5].replace('?', '*')
+            )
+        elif len(parts) == 5:
+            # 标准 Unix 格式: minute hour day month day_of_week
+            return CronTrigger.from_crontab(cron_expr)
+        else:
+            raise ValueError(f"不支持的 Cron 格式: {cron_expr}")
 
     def schedule_task(self, task):
         """将任务加入调度器或更新现有调度"""
@@ -107,10 +153,11 @@ class TaskScanner:
         scan_interval = task.get('scan_interval') or 5
         duration = task.get('duration_minutes') or 0
         
+        # 构造一个唯一的配置标识，用于检测配置是否变更
         new_config = {
             'cron': cron_expr,
             'interval': scan_interval,
-            'duration': duration
+            'type': task.get('task_type')
         }
         
         # 如果已经存在该任务的作业，检查配置是否有变化
@@ -119,87 +166,14 @@ class TaskScanner:
             if old_config == new_config:
                 return
             else:
-                logger.info(f"🔄 检测到配置变更，正在热更新任务: {task['name']} (ID: {task_id})")
+                logger.info(f"🔄 检测到配置变更，正在更新任务: {task['name']} (ID: {task_id})")
                 self.unschedule_task(task_id)
 
-        cron_info = f" [Cron: {cron_expr}]" if cron_expr else " [立即开始]"
-        logger.info(f"📅 任务上架: {task['name']} (ID: {task_id}){cron_info} 间隔: {scan_interval}s")
-        
         if cron_expr:
-            # 如果有 Cron 表达式，先调度一个 Cron 作业，触发时再开启间隔扫描
-            job_id = f"scan_task_{task_id}"
+            logger.info(f"📅 任务上架 (周期执行): {task['name']} (ID: {task_id}) [Cron: {cron_expr}]")
+            job_id = f"cron_task_{task_id}"
             try:
-                # 处理 Cron 表达式兼容性 (将 ? 转换为 *，并处理周几的映射)
-                # APScheduler 不支持 ?，且周一到周日是 0-6
-                parts = cron_expr.strip().split()
-                
-                # 预处理每一位，将 ? 转换为 *
-                processed_parts = [p.replace('?', '*') for p in parts]
-                
-                if len(processed_parts) == 5:
-                    # 标准 crontab: m h d M w
-                    trigger = CronTrigger.from_crontab(" ".join(processed_parts))
-                elif len(processed_parts) >= 6:
-                    # 处理 6 位 (带秒) 或 7 位 (带秒和年) 的表达式
-                    # APScheduler CronTrigger 参数顺序: second, minute, hour, day, month, day_of_week, year
-                    # 我们的前端顺序是: s, m, h, d, M, w, y
-                    
-                    second = processed_parts[0]
-                    minute = processed_parts[1]
-                    hour = processed_parts[2]
-                    day = processed_parts[3]
-                    month = processed_parts[4]
-                    day_of_week = processed_parts[5]
-                    year = processed_parts[6] if len(processed_parts) > 6 else None
-                    
-                    # 处理 last 关键字映射 (Quartz 风格的 L 转换为 APScheduler 的 last)
-                    if day.upper() in ['L', 'LAST']:
-                        day = 'last'
-                    
-                    if day_of_week.upper().endswith('L'):
-                        # 转换 "SUNL" 为 "last sun"
-                        val = day_of_week.upper().replace('L', '')
-                        day_of_week = f"last {val.lower()}"
-                    elif day_of_week.lower().startswith('last '):
-                        # 前端可能直接发送 "last sun"
-                        pass
-                    
-                    # 特殊处理周几的映射
-                    # 前端现在发送小写英文缩写 (mon, tue...)，APScheduler 原生支持且语义一致 (mon=0, sun=6)
-                    # 如果是数字，则认为是 Quartz 格式 (1=Sun, 2=Mon...)，需要转换为 APScheduler 格式 (0=Mon, 6=Sun)
-                    
-                    def map_week_part(p):
-                        p = p.lower()
-                        # 跳过带 last 的部分，因为已经在上面处理过了
-                        if 'last' in p:
-                            return p
-                        if p.isdigit():
-                            val = int(p)
-                            # Quartz: 1(Sun), 2(Mon), 3(Tue), 4(Wed), 5(Thu), 6(Fri), 7(Sat)
-                            # APScheduler: 0(Mon), 1(Tue), 2(Wed), 3(Thu), 4(Fri), 5(Sat), 6(Sun)
-                            # 转换逻辑: 1->6, 2->0, 3->1, 4->2, 5->3, 6->4, 7->5
-                            return str((val + 5) % 7)
-                        return p
-
-                    if ',' in day_of_week:
-                        day_of_week = ",".join([map_week_part(p) for p in day_of_week.split(',')])
-                    elif '-' in day_of_week:
-                        day_of_week = "-".join([map_week_part(p) for p in day_of_week.split('-')])
-                    else:
-                        day_of_week = map_week_part(day_of_week)
-                    
-                    trigger = CronTrigger(
-                        second=second,
-                        minute=minute,
-                        hour=hour,
-                        day=day,
-                        month=month,
-                        day_of_week=day_of_week,
-                        year=year
-                    )
-                else:
-                    trigger = CronTrigger.from_crontab(" ".join(processed_parts))
-                
+                trigger = self.parse_cron(cron_expr)
                 self.scheduler.add_job(
                     self.trigger_cron_task,
                     trigger=trigger,
@@ -209,11 +183,28 @@ class TaskScanner:
                 )
                 self.scheduled_jobs[task_id] = job_id
             except Exception as e:
-                logger.error(f"❌ 解析任务 [ID:{task_id}] 的 Cron 表达式失败: {cron_expr}, 错误: {e}")
-                # 如果解析失败，任务将不会被调度
+                logger.error(f"❌ Cron 表达式解析失败: {cron_expr}, 错误: {e}")
+                return
         else:
-            # 没有 Cron 表达式，立即开始间隔扫描
-            job_id = self.start_scan_job(task)
+            # 没有 Cron 表达式，立即开始
+            task_type = task.get('task_type', 0)
+            if task_type >= 2:
+                logger.info(f"🚀 任务启动 (单次执行): {task['name']} (ID: {task_id})")
+                # 系统任务：执行一次
+                job_id = f"system_task_immediate_{task_id}_{int(time.time())}"
+                self.scheduler.add_job(
+                    self.run_system_task,
+                    args=[task],
+                    id=job_id
+                )
+                # 系统任务立即执行完后，我们将它的状态在数据库中改为停止，防止下次 sync_tasks 又触发它
+                # 除非它是 Cron 任务，否则它不应该自动重复
+                self.stop_task_in_db(task_id)
+            else:
+                logger.info(f"🚀 任务启动 (循环扫描): {task['name']} (ID: {task_id}) [间隔: {scan_interval}s]")
+                # 普通任务：开启间隔扫描
+                job_id = self.start_scan_job(task)
+            
             self.scheduled_jobs[task_id] = job_id
             
         self.task_configs[task_id] = new_config
@@ -225,9 +216,45 @@ class TaskScanner:
         sql = "SELECT * FROM buff_scan_task WHERE id = %s"
         task = self.pg_pool.fetch_one(sql, (task_id,))
         if task and task['status'] == 1:
-            job_id = self.start_scan_job(task)
-            # 记录下这个活跃的扫描作业，防止 sync_tasks 认为它没上架
-            self.scheduled_jobs[task_id] = job_id
+            task_type = task.get('task_type', 0)
+            if task_type >= 2:
+                # 系统任务：直接执行，不需要开启间隔扫描
+                self.scheduler.add_job(
+                    self.run_system_task,
+                    args=[task],
+                    id=f"system_task_{task_id}_{int(time.time())}"
+                )
+            else:
+                # 普通任务：开启间隔扫描
+                job_id = self.start_scan_job(task)
+                # 记录下这个活跃的扫描作业，防止 sync_tasks 认为它没上架
+                self.scheduled_jobs[task_id] = job_id
+
+    def run_system_task(self, task):
+        """执行单次系统同步任务"""
+        task_id = task['id']
+        task_type = task.get('task_type')
+        task_name = task.get('name', '系统同步任务')
+        
+        logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
+        
+        # 发送启动通知
+        self.send_task_start_notification(task)
+        
+        try:
+            if task_type == 2:
+                # 系统-分类同步
+                run_category_sync()
+            elif task_type == 3:
+                # 系统-商品同步
+                run_goods_sync()
+            
+            logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
+            # 系统任务执行完后不需要更新数据库状态为停止，因为它是由 Cron 周期性触发的
+            self.send_task_stop_notification(task, "同步完成")
+        except Exception as e:
+            logger.error(f"❌ 系统任务执行异常 [ID:{task_id}]: {e}")
+            self.send_task_stop_notification(task, f"同步失败: {e}")
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
@@ -525,27 +552,40 @@ class TaskScanner:
         """发送任务启动通知"""
         try:
             task_name = task.get('name', '未知任务')
-            scan_interval = task.get('scan_interval') or 5
-            duration = task.get('duration_minutes') or 0
-            buy_count = task.get('buy_count') or 0
+            task_type = task.get('task_type', 0)
             
             start_time = datetime.datetime.now()
             start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
             
-            end_time_str = "无限制"
-            if duration > 0:
-                end_time = start_time + datetime.timedelta(minutes=duration)
-                end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
-            
-            content = (
-                f"🚀 任务启动通知\n"
-                f"------------------\n"
-                f"任务名称: {task_name}\n"
-                f"启动时间: {start_time_str}\n"
-                f"预计结束: {end_time_str}\n"
-                f"扫描间隔: {scan_interval}s\n"
-                f"目标数量: {buy_count}"
-            )
+            if task_type >= 2:
+                # 系统同步任务通知
+                content = (
+                    f"🚀 系统同步启动\n"
+                    f"------------------\n"
+                    f"任务名称: {task_name}\n"
+                    f"启动时间: {start_time_str}\n"
+                    f"任务类型: {'分类同步' if task_type == 2 else '商品同步'}"
+                )
+            else:
+                # 普通扫货任务通知
+                scan_interval = task.get('scan_interval') or 5
+                duration = task.get('duration_minutes') or 0
+                buy_count = task.get('buy_count') or 0
+                
+                end_time_str = "无限制"
+                if duration > 0:
+                    end_time = start_time + datetime.timedelta(minutes=duration)
+                    end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
+                
+                content = (
+                    f"🚀 任务启动通知\n"
+                    f"------------------\n"
+                    f"任务名称: {task_name}\n"
+                    f"启动时间: {start_time_str}\n"
+                    f"预计结束: {end_time_str}\n"
+                    f"扫描间隔: {scan_interval}s\n"
+                    f"目标数量: {buy_count}"
+                )
             
             notifier.send_text(
                 content=content,
@@ -559,16 +599,29 @@ class TaskScanner:
         """发送任务停止通知"""
         try:
             task_name = task.get('name', '未知任务')
-            success_count = task.get('success_count', 0)
-            buy_count = task.get('buy_count', 0)
+            task_type = task.get('task_type', 0)
             
-            content = (
-                f"🏁 任务停止通知\n"
-                f"------------------\n"
-                f"任务名称: {task_name}\n"
-                f"停止原因: {reason}\n"
-                f"完成进度: {success_count}/{buy_count}"
-            )
+            if task_type >= 2:
+                # 系统同步任务停止通知
+                content = (
+                    f"🏁 系统同步完成\n"
+                    f"------------------\n"
+                    f"任务名称: {task_name}\n"
+                    f"执行结果: {reason}\n"
+                    f"完成时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                )
+            else:
+                # 普通扫货任务停止通知
+                success_count = task.get('success_count', 0)
+                buy_count = task.get('buy_count') or 0
+                
+                content = (
+                    f"🏁 任务停止通知\n"
+                    f"------------------\n"
+                    f"任务名称: {task_name}\n"
+                    f"停止原因: {reason}\n"
+                    f"完成进度: {success_count}/{buy_count}"
+                )
             
             notifier.send_text(
                 content=content,
