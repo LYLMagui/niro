@@ -1,29 +1,78 @@
-version: '3.8'
-
 services:
+  niro-db-test:
+    image: postgres:18-alpine
+    container_name: niro-db-test
+    restart: always
+    environment:
+      POSTGRES_DB: niro
+      POSTGRES_USER: ${DB_USERNAME:-niro-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
+      TZ: Asia/Shanghai
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - niro_db_data_test:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    shm_size: "1gb" # 生产环境建议提升共享内存
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-niro-admin} -d niro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - niro-data-net-test
+
+  niro-redis-test:
+    image: redis:8.0-alpine
+    container_name: niro-redis-test
+    restart: always
+    # 使用配置文件启动，并同时通过命令行强制设置密码（双重保障）
+    command: ["redis-server", "/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-redis_niro_pwd}"]
+    volumes:
+      - ./docker/redis/redis-test.conf:/etc/redis/redis.conf
+      - niro_redis_data_test:/data
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - niro-data-net-test
+
   niro-web-test:
     build:
       context: ./niro-server
       dockerfile: Dockerfile
     container_name: niro-web-test
     restart: always
+    depends_on:
+      niro-db-test:
+        condition: service_healthy
+      niro-redis-test:
+        condition: service_healthy
     env_file:
-      - .env.test
+      - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=dev # 测试环境可以使用 dev 或 test profile
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://pgsql:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+      - SPRING_PROFILES_ACTIVE=test
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://niro-db-test:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-niro-admin}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
-      - SPRING_DATA_REDIS_HOST=redis
+      - SPRING_DATA_REDIS_HOST=niro-redis-test
       - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+      - SPRING_DATA_REDIS_PASSWRD=${REDIS_PASSWORD:-redis_niro_pwd}
     ports:
-      - "8080:8080"
-    external_links:
-      - pgSQL-18:pgsql
-      - redis-8:redis
+      - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
+    healthcheck:
+      # 使用 nc (netcat) 只检查端口是否开启，不关心业务权限
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s # Spring Boot 启动较慢，给 40 秒宽限期
     networks:
-      - niro-data-net
+      - niro-data-net-test
 
   niro-spider-test:
     build:
@@ -31,22 +80,25 @@ services:
       dockerfile: Dockerfile
     container_name: niro-spider-test
     restart: always
+    depends_on:
+      niro-db-test:
+        condition: service_healthy
+      niro-redis-test:
+        condition: service_healthy
+      niro-web-test:
+        condition: service_healthy
     env_file:
-      - .env.test
+      - .env
     environment:
-      - DB_HOST=pgsql
-      - DB_PORT=5432
+      - DB_HOST=niro-db-test
       - DB_NAME=niro
       - DB_USERNAME=${DB_USERNAME:-niro-admin}
       - DB_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
-      - REDIS_HOST=redis
+      - REDIS_HOST=niro-redis-test
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
-    external_links:
-      - pgSQL-18:pgsql
-      - redis-8:redis
     networks:
-      - niro-data-net
+      - niro-data-net-test
 
   niro-client-test:
     build:
@@ -54,11 +106,21 @@ services:
       dockerfile: Dockerfile
     container_name: niro-client-test
     restart: always
+    depends_on:
+      niro-web-test:
+        condition: service_healthy
     ports:
-      - "80:80"
+      - "80:80" # 生产环境映射到 81，避免与测试环境 80 冲突
     networks:
-      - niro-data-net
+      - niro-data-net-test
 
 networks:
-  niro-data-net:
-    external: true
+  niro-data-net-test:
+    name: niro-data-net-test
+    driver: bridge
+
+volumes:
+  niro_db_data_test:
+    name: niro_db_data_test
+  niro_redis_data_test:
+    name: niro_redis_data_test
