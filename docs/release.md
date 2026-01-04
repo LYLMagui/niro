@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.7.2 (2026-01-04)
+- [修复] **核心请求挂起与假性超时修复**：
+  - **Nginx 路由精细化隔离**：彻底解决了普通 API 请求（如登录）在 Nginx 代理层出现的“响应不闭合”问题。通过将 SSE（实时日志流）专用配置剥离到独立的 `/log/stream` 路径，恢复了普通 API 请求对 `Chunked Transfer Encoding` 的默认支持，消除了浏览器因等待连接关闭而导致的假性超时现象。
+  - **转发稳定性提升**：明确了普通 API 路径的 `proxy_buffering` 和 `proxy_read_timeout` 标准配置，确保高频短连接请求的快速响应与资源及时回收。
+
 ## v1.7.1 (2026-01-04)
 - [优化] **请求链路诊断能力升级与 Nginx 配置精简**：
   - **全链路耗时监控**：在 [request.ts](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/utils/request.ts) 中引入了请求/响应拦截器耗时统计。现在控制台会清晰输出每个接口从发起请求到接收响应的毫秒数，帮助定位后端业务性能瓶颈。
