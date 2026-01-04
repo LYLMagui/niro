@@ -98,8 +98,13 @@ service.interceptors.response.use(
         window.location.href = "/login";
       }
     } else {
-      // 网络错误
-      MessagePlugin.error("网络连接异常，请检查网络");
+      // 网络错误或跨域问题
+      console.error("Network Error or CORS:", error.message);
+      if (error.message === "Network Error") {
+        MessagePlugin.error("网络连接异常，请检查后端服务是否启动或跨域配置");
+      } else {
+        MessagePlugin.error(error.message || "网络连接异常，请检查网络");
+      }
     }
     return Promise.reject(error);
   }

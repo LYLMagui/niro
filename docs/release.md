@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.6.9 (2026-01-04)
+- [修复] **全站跨域 (CORS) 策略增强与登录异常修复**：
+  - **后端全局配置**：在 `niro-core` 的 [WebConfig.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-core/src/main/java/com/niro/core/config/WebConfig.java) 中实现了 `addCorsMappings`，允许来自任何源的跨域请求，并支持 `allowCredentials` 和常用 HTTP 方法，彻底解决了本地开发环境（如 localhost）请求远程生产环境 API 时的 CORS 拦截问题。
+  - **Nginx 代理层加固**：在 [nginx.prod.conf](file:///e:/CodeSpace/PYTHON/niro/niro-client/nginx.prod.conf) 和 [nginx.test.conf](file:///e:/CodeSpace/PYTHON/niro/niro-client/nginx.test.conf) 的 `/prod-api/` 路径下补充了 `Access-Control-Allow-Origin` 等跨域头处理逻辑，并对 `OPTIONS` 预检请求进行了 `204` 快速响应处理，确保在多级代理环境下跨域策略的一致性。
+  - **前端异常诊断优化**：改进了 [request.ts](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/utils/request.ts) 中的网络异常捕获逻辑。针对 200 OK 但无响应内容的典型 CORS/网络错误场景，提供了更具指导性的错误提示（如提示检查后端服务或跨域配置），提升了故障排查效率。
+
 ## v1.6.8 (2026-01-04)
 - [重构] **Redis 基础设施统一化管理**：
   - **连接池收归**：删除了冗余的 `redis_client.py`，新建通用的 [redis_pool.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/redis_pool.py)，采用单例模式统一管理全站 Redis 连接，避免重复创建连接池导致资源浪费。
