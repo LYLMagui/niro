@@ -13,6 +13,45 @@ from utils.logger import get_logger
 
 logger = get_logger(__name__)
 
+import requests
+import time
+import random
+
+def verify_cookie(cookie):
+    """
+    验证 Cookie 是否有效
+    :param cookie: Cookie 字符串
+    :return: (is_valid, message)
+    """
+    if not cookie:
+        return False, "Cookie 为空"
+        
+    url = "https://buff.163.com/api/market/goods?game=csgo&page_num=1&page_size=2"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "cookie": cookie,
+        "referer": "https://buff.163.com/market/csgo",
+        "x-requested-with": "XMLHttpRequest"
+    }
+    
+    try:
+        response = requests.get(url, headers=headers, timeout=10)
+        if response.status_code == 403:
+            return False, "HTTP 403 Forbidden (IP Blocked or Cookie Expired)"
+        
+        response.raise_for_status()
+        json_data = response.json()
+        
+        if json_data.get("code") == "OK":
+            return True, "Valid"
+        elif json_data.get("code") == "Login Required":
+            return False, "Login Required (Cookie Expired)"
+        else:
+            return False, f"API Error: {json_data.get('code')}"
+            
+    except Exception as e:
+        return False, f"Request Error: {str(e)}"
+
 def get_latest_cookie(user_id=None):
     """
     从数据库获取指定用户或最新的 Buff Cookie

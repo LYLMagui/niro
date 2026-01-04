@@ -17,7 +17,7 @@ from storage.postgres_pool import pg_pool
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
-from utils.cookie_util import get_latest_cookie
+from utils.cookie_util import get_latest_cookie, verify_cookie
 
 logger = get_logger(__name__)
 
@@ -43,15 +43,15 @@ def fetch_goods_data(category_internal_name, page_num=1, max_retries=3, user_id=
         return None
 
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "cookie": current_cookie,
         "accept": "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
         "cache-control": "no-cache",
         "pragma": "no-cache",
         "priority": "u=1, i",
         "referer": "https://buff.163.com/market/csgo",
-        "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
         "sec-fetch-dest": "empty",
@@ -343,6 +343,17 @@ def run_goods_sync(force=False, task_id=None, user_id=None):
     if not user_id:
         logger.info("ℹ️ 未指定用户 ID，将尝试从数据库加载最新更新的 Cookie")
     
+    # 运行前预检查 Cookie 有效性
+    test_cookie = get_latest_cookie(user_id)
+    is_valid, msg = verify_cookie(test_cookie)
+    if not is_valid:
+        logger.error(f"❌ Cookie 预检查失败: {msg}")
+        if "403" in msg:
+            raise LoginRequiredError(f"Cookie 预检查失败 (403): {msg}")
+        raise LoginRequiredError(f"Cookie 预检查失败: {msg}")
+    
+    logger.info("✅ Cookie 预检查通过，开始同步...")
+
     categories = get_secondary_categories()
     if not categories:
         logger.warning("未找到分类数据")
