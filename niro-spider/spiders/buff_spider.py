@@ -6,8 +6,8 @@ from http.cookies import SimpleCookie
 from config import settings
 from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
-from utils.exception_handler import handle_api_error
-
+from utils.exception_handler import handle_api_error, LoginRequiredError
+from utils.cookie_util import get_latest_cookie
 
 logger = get_logger(__name__)
 
@@ -17,38 +17,21 @@ class BuffSpider:
         self.host = "https://buff.163.com"
         self.pg_pool = PostgresPool()
         self.user_id = user_id
+        # 初始化时直接从数据库获取最新的 Cookie
+        current_cookie = get_latest_cookie(self.user_id)
         self.headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-            "cookie": settings.BUFF_COOKIE, # 默认先使用配置文件的
+            "cookie": current_cookie,
         }
-        # 如果指定了用户 ID，则初始化时刷新该用户的 Cookie
-        if self.user_id:
-            self.refresh_cookie()
 
     def refresh_cookie(self):
         """从数据库刷新指定用户的有效 Cookie"""
-        try:
-            with self.pg_pool.get_cursor() as cur:
-                # 严格根据 user_id 获取对应的配置
-                if self.user_id:
-                    sql = "SELECT buff_cookie FROM user_buff_settings WHERE user_id = %s"
-                    params = (self.user_id,)
-                else:
-                    # 如果没有 user_id (通常是测试或全局模式)，获取最新的一条
-                    sql = "SELECT buff_cookie FROM user_buff_settings ORDER BY update_time DESC LIMIT 1"
-                    params = ()
-
-                cur.execute(sql, params)
-                row = cur.fetchone()
-                if row and row.get('buff_cookie'):
-                    new_cookie = row['buff_cookie']
-                    if new_cookie != self.headers.get("cookie"):
-                        self.headers["cookie"] = new_cookie
-                        logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
-                else:
-                    logger.warning(f"⚠️ 数据库中未找到用户 {self.user_id} 的有效 Cookie")
-        except Exception as e:
-            logger.error(f"❌ 从数据库刷新 Cookie 失败: {e}")
+        new_cookie = get_latest_cookie(self.user_id)
+        if new_cookie != self.headers.get("cookie"):
+            self.headers["cookie"] = new_cookie
+            logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
+        elif not self.headers.get("cookie"):
+            logger.warning(f"⚠️ 无法加载用户 {self.user_id} 的有效 Cookie")
 
     @handle_api_error(default_return=[])
     def get_goods_list(self, goods_id, page_num=1):
@@ -94,7 +77,15 @@ class BuffSpider:
         return self._parse_data(data)
 
     def _parse_data(self, data):
-        if not data or data.get("code") != "OK" or "data" not in data:
+        if not data:
+            return []
+            
+        code = data.get("code")
+        if code == "Login Required":
+            logger.error("🔑 Cookie 已失效或未登录")
+            raise LoginRequiredError("Buff Login Required")
+            
+        if code != "OK" or "data" not in data:
             logger.warning(f"响应数据异常: {json.dumps(data, ensure_ascii=False)}")
             return []
 

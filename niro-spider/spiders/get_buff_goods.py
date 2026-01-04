@@ -16,12 +16,14 @@ if parent_dir not in sys.path:
 from storage.postgres_pool import pg_pool
 from config import settings
 from utils.logger import get_logger
+from utils.exception_handler import LoginRequiredError
+from utils.cookie_util import get_latest_cookie
 
 logger = get_logger(__name__)
 
 BUFF_HOST = "https://buff.163.com"
 
-def fetch_goods_data(category_internal_name, page_num=1, max_retries=3):
+def fetch_goods_data(category_internal_name, page_num=1, max_retries=3, user_id=None):
     """
     请求 Buff 商品列表接口
     params: game=csgo, category=..., page_num=..., tab=selling
@@ -34,9 +36,12 @@ def fetch_goods_data(category_internal_name, page_num=1, max_retries=3):
         "tab": "selling"
     }
     
+    # 动态获取最新的 Cookie
+    current_cookie = get_latest_cookie(user_id)
+    
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-        "cookie": settings.BUFF_COOKIE,
+        "cookie": current_cookie,
         "accept": "application/json, text/javascript, */*; q=0.01",
         "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
         "referer": f"https://buff.163.com/market/csgo?tab=selling&category={category_internal_name}",
@@ -58,17 +63,21 @@ def fetch_goods_data(category_internal_name, page_num=1, max_retries=3):
                 time.sleep(wait_time)
                 continue
 
+            if response.status_code == 403:
+                logger.error("🔑 HTTP 403 Forbidden: Cookie 已失效或 IP 被封禁")
+                raise LoginRequiredError("Buff Login Required (403)")
+
             response.raise_for_status()
             
             json_data = response.json()
             if json_data.get("code") != "OK":
                 err_msg = json_data.get("error", "Unknown Error")
-                logger.error(f"❌ API 返回错误: {json_data.get('code')} - {err_msg}")
                 
                 if json_data.get("code") == "Login Required":
-                     logger.critical("🔑 Cookie 已失效，请在 settings.py 中更新 BUFF_COOKIE")
-                     return None
+                     logger.error("🔑 API Code: Login Required. Cookie 已失效")
+                     raise LoginRequiredError("Buff Login Required")
                 
+                logger.error(f"❌ API 返回错误: {json_data.get('code')} - {err_msg}")
                 # 其他错误可能需要重试
                 time.sleep(5)
                 continue
@@ -184,7 +193,37 @@ def save_goods_batch(goods_list):
         logger.error(f"❌ 批量保存失败: {e}")
         return 0
 
-def process_category(category, force=False):
+def is_task_running(task_id):
+    """检查任务是否仍处于活跃状态"""
+    if not task_id:
+        return True
+    try:
+        # 使用默认 cursor_factory=None 获取元组格式
+        with pg_pool.get_cursor(cursor_factory=None) as cur:
+            sql = "SELECT status FROM buff_scan_task WHERE id = %s"
+            cur.execute(sql, (task_id,))
+            res = cur.fetchone()
+            # 1: 运行中(Active), 4: 执行中(Running)
+            return res[0] in (1, 4) if res else False
+    except Exception as e:
+        logger.error(f"❌ 检查任务状态失败 [ID:{task_id}]: {e}")
+        return True # 失败时默认继续
+
+def get_task_user_id(task_id):
+    """获取任务所属的用户ID"""
+    if not task_id:
+        return None
+    try:
+        with pg_pool.get_cursor() as cur:
+            sql = "SELECT user_id FROM buff_scan_task WHERE id = %s"
+            cur.execute(sql, (task_id,))
+            res = cur.fetchone()
+            return res.get('user_id') if res else None
+    except Exception as e:
+        logger.error(f"❌ 获取任务用户ID失败 [ID:{task_id}]: {e}")
+        return None
+
+def process_category(category, force=False, task_id=None, user_id=None):
     """
     处理单个分类：分页抓取所有商品
     force: 是否强制抓取所有页，即使数量匹配或已存在
@@ -198,45 +237,43 @@ def process_category(category, force=False):
     # 预检查：如果非强制模式，先看一眼数据库里有多少
     db_count = get_db_goods_count(cat_id)
     
+    # 获取第一页看总数
+    first_page_data = fetch_goods_data(cat_internal, 1, user_id=user_id)
+    if not first_page_data:
+        return
+        
+    total_count = first_page_data.get("total_count", 0)
+    total_pages = first_page_data.get("total_page", 0)
+    
+    logger.info(f"   Buff 总数: {total_count}, 数据库总数: {db_count}")
+    
+    # 增量跳过逻辑
+    if not force and db_count >= total_count and total_count > 0:
+        logger.info(f"   ⏩ 分类 {cat_name} 数量匹配，跳过")
+        return
+
     page = 1
-    total_pages = 1 
     total_saved = 0
-    seen_goods_ids = set() 
+    seen_goods_ids = set() # 本次同步中已见过的 ID，防止同分类重复
     
     while page <= total_pages:
+        # 每一页抓取前都检查一下任务是否被手动停止
+        if task_id and not is_task_running(task_id):
+            logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出分类处理")
+            return "STOPPED"
+
         logger.info(f"   正在抓取第 {page}/{total_pages} 页...")
         
-        data = fetch_goods_data(cat_internal, page_num=page)
+        data = fetch_goods_data(cat_internal, page, user_id=user_id) if page > 1 else first_page_data
         if not data:
             logger.warning(f"   第 {page} 页获取失败，跳过")
             page += 1
             continue
             
-        if page == 1:
-            total_pages = data.get("total_page", 1)
-            total_count = data.get("total_count", 0)
-            logger.info(f"   📊 Buff 共有 {total_count} 个商品，数据库已有 {db_count} 个")
-            
-            # 优化点 1：数量完全匹配且不强制更新，直接跳过整个分类
-            if not force and db_count >= total_count and total_count > 0:
-                logger.info(f"   ✅ 数量已匹配 ({db_count}/{total_count})，跳过该分类")
-                return
-
         items = data.get("items", [])
         if not items:
             break
             
-        # 提取当前页的所有 ID
-        current_page_ids = {item.get("id") for item in items if item.get("id")}
-        
-        # 优化点 2：智能跳过 (Early Exit)
-        # 如果当前页的所有商品 ID 都在数据库里了，说明后面可能也没新东西了
-        if not force:
-            existing_ids = get_db_existing_ids(current_page_ids)
-            if len(existing_ids) == len(current_page_ids) and len(current_page_ids) > 0:
-                logger.info(f"   ⏩ 第 {page} 页商品全部已存在，触发智能停机，跳过后续页码")
-                break
-
         # 解析数据
         parsed_goods = []
         for item in items:
@@ -279,11 +316,14 @@ def process_category(category, force=False):
         
     logger.info(f"✨ 分类 {cat_name} 处理完成，本次任务影响 {total_saved} 个商品")
 
-def run_goods_sync(force=False):
+def run_goods_sync(force=False, task_id=None):
     """
     暴露给外部调用的商品同步主入口
     """
     logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {force}) ===")
+    
+    # 获取所属用户ID以加载正确的 Cookie
+    user_id = get_task_user_id(task_id)
     
     categories = get_secondary_categories()
     if not categories:
@@ -291,7 +331,14 @@ def run_goods_sync(force=False):
         return
         
     for i, cat in enumerate(categories):
-        process_category(cat, force=force)
+        # 检查任务状态
+        if task_id and not is_task_running(task_id):
+            logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，终止同步流程")
+            break
+
+        res = process_category(cat, force=force, task_id=task_id, user_id=user_id)
+        if res == "STOPPED":
+            break
         
         if i < len(categories) - 1:
             sleep_time = random.uniform(5, 12)

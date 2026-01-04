@@ -15,19 +15,25 @@ if parent_dir not in sys.path:
 from storage.postgres_pool import pg_pool
 from config import settings
 from utils.logger import get_logger
+from utils.exception_handler import LoginRequiredError
+from utils.cookie_util import get_latest_cookie
 
 logger = get_logger(__name__)
 
 BUFF_HOST = "https://buff.163.com"
 
-def fetch_buff_goods(params, max_retries=3):
+def fetch_buff_goods(params, max_retries=3, user_id=None):
     """
     通用请求 Buff 饰品列表接口 (带重试机制)
     """
     url = f"{BUFF_HOST}/api/market/goods"
+    
+    # 动态获取最新的 Cookie
+    current_cookie = get_latest_cookie(user_id)
+    
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
-        "cookie": settings.BUFF_COOKIE,
+        "cookie": current_cookie,
         "accept": "application/json, text/javascript, */*; q=0.01",
         "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
         "cache-control": "no-cache",
@@ -50,15 +56,26 @@ def fetch_buff_goods(params, max_retries=3):
             logger.info(f"🌐 请求 URL: {full_url}")
             
             response = requests.get(url, headers=headers, params=params, timeout=10)
+            
+            if response.status_code == 403:
+                logger.error("🔑 HTTP 403 Forbidden: Cookie 已失效或 IP 被封禁")
+                raise LoginRequiredError("Buff Login Required (403)")
+
             response.raise_for_status()
             
             json_data = response.json()
+            if json_data.get("code") == "Login Required":
+                logger.error("🔑 API Code: Login Required. Cookie 已失效")
+                raise LoginRequiredError("Buff Login Required")
+                
             if not json_data or json_data.get("data") is None:
                 # 业务级错误也视为失败，但不一定重试（视情况而定），这里简单抛出
                 raise Exception(f"请求成功但无数据: {json_data}")
                 
             return json_data["data"]
             
+        except LoginRequiredError:
+            raise
         except requests.exceptions.HTTPError as e:
             if response.status_code == 429:
                 wait_time = random.uniform(5, 10) * (attempt + 1)
@@ -74,7 +91,37 @@ def fetch_buff_goods(params, max_retries=3):
     return {}
 
 
-def get_buff_goods_parent_category(max_pages=15):
+def is_task_running(task_id):
+    """检查任务是否仍处于活跃状态"""
+    if not task_id:
+        return True
+    try:
+        # 使用默认 cursor_factory=None 获取元组格式
+        with pg_pool.get_cursor(cursor_factory=None) as cur:
+            sql = "SELECT status FROM buff_scan_task WHERE id = %s"
+            cur.execute(sql, (task_id,))
+            res = cur.fetchone()
+            # 1: 运行中(Active), 4: 执行中(Running)
+            return res[0] in (1, 4) if res else False
+    except Exception as e:
+        logger.error(f"❌ 检查任务状态失败 [ID:{task_id}]: {e}")
+        return True # 失败时默认继续
+
+def get_task_user_id(task_id):
+    """获取任务所属的用户ID"""
+    if not task_id:
+        return None
+    try:
+        with pg_pool.get_cursor() as cur:
+            sql = "SELECT user_id FROM buff_scan_task WHERE id = %s"
+            cur.execute(sql, (task_id,))
+            res = cur.fetchone()
+            return res.get('user_id') if res else None
+    except Exception as e:
+        logger.error(f"❌ 获取任务用户ID失败 [ID:{task_id}]: {e}")
+        return None
+
+def get_buff_goods_parent_category(max_pages=15, task_id=None, user_id=None):
     """
     获取一级分类 (Type)
     params: game=csgo, tab=selling, page_num=1..50
@@ -83,6 +130,11 @@ def get_buff_goods_parent_category(max_pages=15):
     all_categories = []
     
     for page in range(1, max_pages + 1):
+        # 每一页抓取前都检查一下任务是否被手动停止
+        if task_id and not is_task_running(task_id):
+            logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出一级分类抓取")
+            return "STOPPED"
+
         params = {
             "game": "csgo",
             "page_num": page,
@@ -90,7 +142,7 @@ def get_buff_goods_parent_category(max_pages=15):
         }
         
         logger.info(f"正在抓取一级分类第 {page} 页...")
-        data = fetch_buff_goods(params)
+        data = fetch_buff_goods(params, user_id=user_id)
         
         # 提取一级分类: items[*].goods_info.info.tags.type
         # 结果可能包含 None，需过滤
@@ -139,7 +191,7 @@ def get_parent_categories_from_db():
         logger.error(f"❌ 获取一级分类失败: {e}")
         return []
 
-def get_buff_goods_children_category(parent_id, category_group, parent_full_internal_name, max_pages=20):
+def get_buff_goods_children_category(parent_id, category_group, parent_full_internal_name, max_pages=20, task_id=None, user_id=None):
     """
     获取二级分类 (Category)
     params: game=csgo, tab=selling, category_group=..., page_num=1..20
@@ -148,6 +200,11 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
     all_categories = []
     
     for page in range(1, max_pages + 1):
+        # 每一页抓取前都检查一下任务是否被手动停止
+        if task_id and not is_task_running(task_id):
+            logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出二级分类抓取")
+            return "STOPPED"
+
         params = {
             "game": "csgo",
             "page_num": page,
@@ -156,7 +213,7 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
         }
         
         logger.info(f"正在抓取二级分类 [{category_group}] 第 {page} 页...")
-        data = fetch_buff_goods(params)
+        data = fetch_buff_goods(params, user_id=user_id)
         
         # 提取商品列表
         items = data.get("items", [])
@@ -304,7 +361,7 @@ def sync_categories(total_categories):
         logger.error(f"❌ 分类同步失败: {e}")
         raise e
 
-def sync_all_children_categories():
+def sync_all_children_categories(task_id=None, user_id=None):
     """
     主流程：获取所有一级分类 -> 循环抓取对应的二级分类 -> 入库
     """
@@ -314,6 +371,11 @@ def sync_all_children_categories():
         return
 
     for p in parents:
+        # 检查任务状态
+        if task_id and not is_task_running(task_id):
+            logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，终止二级分类抓取流程")
+            break
+
         parent_id = p['id']
         internal_name = p['internal_name']
         name = p['name']
@@ -322,31 +384,41 @@ def sync_all_children_categories():
         logger.info(f"🚀 开始处理一级分类: {name} ({internal_name}) [ID={parent_id}]")
         
         # 抓取该组下的二级分类
-        children = get_buff_goods_children_category(parent_id, internal_name, full_internal_name, max_pages=20)
+        children = get_buff_goods_children_category(parent_id, internal_name, full_internal_name, max_pages=20, task_id=task_id, user_id=user_id)
         
+        if children == "STOPPED":
+            break
+
         if children:
             # 入库 (复用 sync_categories)
             sync_categories(children)
         
         # 组间延时
         sleep_time = random.uniform(5, 8)
-        logger.info(f"� 组间休息 {sleep_time:.2f} 秒...")
+        logger.info(f" 组间休息 {sleep_time:.2f} 秒...")
         time.sleep(sleep_time)
 
-def run_category_sync():
+def run_category_sync(task_id=None):
     """
     暴露给外部调用的分类同步主入口
     """
     logger.info("开始执行全量分类同步任务...")
+
+    # 获取所属用户ID以加载正确的 Cookie
+    user_id = get_task_user_id(task_id)
+
     # 1. 抓取一级分类 (Parent)
     logger.info("=== 阶段1: 抓取一级分类 ===")
-    parent_cats = get_buff_goods_parent_category(max_pages=15)
+    parent_cats = get_buff_goods_parent_category(max_pages=15, task_id=task_id, user_id=user_id)
+    if parent_cats == "STOPPED":
+        return
+        
     sync_categories(parent_cats)
 
     # 2. 抓取二级分类 (Children)
     logger.info("=== 阶段2: 抓取二级分类 ===")
-    sync_all_children_categories()
-    logger.info("全量分类同步任务完成")
+    sync_all_children_categories(task_id=task_id, user_id=user_id)
+    logger.info("🎉 全量分类同步任务完成！")
 
 if __name__ == "__main__":
     from utils.logger import setup_logging
