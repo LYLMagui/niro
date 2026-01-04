@@ -12,6 +12,9 @@
   - **环境配置一致性对齐**：
     - 修复了测试环境 (`test` profile) 配置文件中残留的 `lettuce` 连接池配置。
     - 统一将测试环境的 Redis 驱动配置切换为 `Redisson` 模式，并同步了生产环境的长连接探测 (PING) 与超时策略，彻底解决测试环境下 Redis 连接不稳定导致的登录异常。
+  - **爬虫端依赖与导入修复**：
+    - **移除冗余导入**：移除了 `buff_spider.py` 中未使用的 `pandas` 库导入，解决了 Docker 环境下因缺少该库导致的 `ModuleNotFoundError`。
+    - **补充缺失依赖**：在 `requirements.txt` 中补充了 `jmespath` 依赖，确保分类同步功能在容器化环境下正常运行。
   - **修正用户状态校验逻辑**：
     - 修复了 `UserStatusEnum.isNormal` 中的类型比较 Bug（原为 Enum 与 Integer 错误比较），确保状态判定准确无误。
     - 调整了 `UserServiceImpl` 中的登录拦截逻辑，通过逻辑取反完美适配现有的（反向逻辑）`Assert.validateTrue` 断言工具类。

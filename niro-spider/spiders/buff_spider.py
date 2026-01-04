@@ -2,7 +2,6 @@ import datetime
 import json
 import os
 import requests
-import pandas as pd
 from http.cookies import SimpleCookie
 from config import settings
 from storage.postgres_pool import PostgresPool
