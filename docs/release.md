@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.7.6 (2026-01-05)
+- [修复] **解决服务器环境 403 Forbidden 导致的 Cookie 验证失效问题**：
+  - **请求头特征深度增强**：在 [cookie_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/cookie_util.py) 的 `verify_cookie` 函数中，同步了全量浏览器指纹请求头（包括 `sec-ch-ua`、`sec-fetch-*` 等），使预检查环节的 HTTP 特征与真实浏览器完全一致。
+  - **反爬策略对齐**：统一了整个爬虫模块（Spider, Category Sync, Goods Sync）的 HTTP 身份标识，降低了因预检查请求特征过简而在高安全等级（IDC IP）环境下被 WAF 拦截的概率。
+
 ## v1.7.5 (2026-01-05)
 - [优化] **分类与商品抓取深度优化 (全量同步支持)**：
   - **移除硬编码页数限制**：在 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 中，彻底移除了原有一级分类（15页）和二级分类（20页）的硬编码限制。
