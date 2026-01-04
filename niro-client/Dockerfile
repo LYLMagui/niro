@@ -1,5 +1,6 @@
 # Build stage
 FROM node:20-slim AS build-stage
+ARG ENV_TYPE=prod  # 默认值为 prod
 WORKDIR /app
 RUN corepack enable && corepack prepare pnpm@latest --activate
 # 设置 pnpm 镜像源为国内腾讯云/淘宝镜像
@@ -15,6 +16,6 @@ RUN pnpm build-only
 # Production stage
 FROM nginx:stable-alpine
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY nginx.${ENV_TYPE}.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]

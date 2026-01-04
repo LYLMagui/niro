@@ -104,6 +104,8 @@ services:
     build:
       context: ./niro-client
       dockerfile: Dockerfile
+      args:
+        - ENV_TYPE=${CLIENT_ENV}
     container_name: niro-client-test
     restart: always
     depends_on:
