@@ -8,6 +8,7 @@ from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
 from utils.exception_handler import handle_api_error, LoginRequiredError
 from utils.cookie_util import get_latest_cookie
+from utils.proxy_helper import get_proxies
 
 logger = get_logger(__name__)
 
@@ -17,6 +18,9 @@ class BuffSpider:
         self.host = "https://buff.163.com"
         self.pg_pool = PostgresPool()
         self.user_id = user_id
+        self.proxies = get_proxies()
+        if self.proxies:
+            logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')}")
         # 初始化时直接从数据库获取最新的 Cookie
         current_cookie = get_latest_cookie(self.user_id)
         self.headers = {
@@ -80,7 +84,7 @@ class BuffSpider:
 
         logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
         response = requests.get(
-            self.host + url, headers=self.headers, params=params, timeout=10
+            self.host + url, headers=self.headers, params=params, proxies=self.proxies, timeout=10
         )
         response.raise_for_status()
         data = response.json()
@@ -168,7 +172,7 @@ class BuffSpider:
         
         logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str} | PayMethod={pay_method}")
         
-        response = requests.post(self.host + url, headers=headers, json=payload, timeout=10)
+        response = requests.post(self.host + url, headers=headers, json=payload, proxies=self.proxies, timeout=10)
         
         if response.status_code != 200:
             logger.error(f"❌ 下单请求失败, HTTP状态码: {response.status_code}, 内容: {response.text}")

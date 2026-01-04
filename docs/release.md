@@ -1,5 +1,14 @@
 # Release Notes
 
+## v1.7.7 (2026-01-05)
+- [功能] **新增全局代理支持 (v2rayA 适配)**：
+  - **单点代理配置**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了 `PROXY_URL` 配置项，支持通过环境变量直接设置全局 HTTP/SOCKS5 代理。
+  - **全模块代理覆盖**：
+    - **基础爬虫**：[buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 的 `get_goods_list` 和 `buy` 接口现在均支持代理。
+    - **分类同步**：[get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的 API 请求已接入代理。
+    - **Cookie 验证**：[cookie_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/cookie_util.py) 的预检查环节同步支持代理，确保验证逻辑与抓取逻辑路径一致。
+  - **灵活调度**：通过 [proxy_helper.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/proxy_helper.py) 实现了代理优先级的智能选择（PROXY_URL 优先于代理池），方便用户在不同环境下快速切换。
+
 ## v1.7.6 (2026-01-05)
 - [修复] **解决服务器环境 403 Forbidden 导致的 Cookie 验证失效问题**：
   - **请求头特征深度增强**：在 [cookie_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/cookie_util.py) 的 `verify_cookie` 函数中，同步了全量浏览器指纹请求头（包括 `sec-ch-ua`、`sec-fetch-*` 等），使预检查环节的 HTTP 特征与真实浏览器完全一致。

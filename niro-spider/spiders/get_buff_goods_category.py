@@ -20,6 +20,7 @@ from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
 from utils.cookie_util import get_latest_cookie, verify_cookie
+from utils.proxy_helper import get_proxies
 
 logger = get_logger(__name__)
 
@@ -55,13 +56,18 @@ def fetch_buff_goods(params, max_retries=3, user_id=None):
         "x-requested-with": "XMLHttpRequest",
     }
     
+    # 获取代理
+    proxies = get_proxies()
+    if proxies:
+        logger.debug(f"🛰️ 使用代理: {proxies.get('http')}")
+
     for attempt in range(max_retries):
         try:
             # 构造完整URL仅用于日志打印，不影响 requests.get 调用
             full_url = requests.Request('GET', url, params=params).prepare().url
             logger.info(f"🌐 请求 URL: {full_url}")
             
-            response = requests.get(url, headers=headers, params=params, timeout=10)
+            response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10)
             
             if response.status_code == 403:
                 logger.error("🔑 HTTP 403 Forbidden: Cookie 已失效或 IP 被封禁")

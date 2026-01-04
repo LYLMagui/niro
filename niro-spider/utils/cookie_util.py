@@ -42,8 +42,12 @@ def verify_cookie(cookie):
         "x-requested-with": "XMLHttpRequest"
     }
     
+    # 获取代理
+    from utils.proxy_helper import get_proxies
+    proxies = get_proxies()
+    
     try:
-        response = requests.get(url, headers=headers, timeout=10)
+        response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
         if response.status_code == 403:
             return False, "HTTP 403 Forbidden (IP Blocked or Cookie Expired)"
         
