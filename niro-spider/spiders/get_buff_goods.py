@@ -38,13 +38,25 @@ def fetch_goods_data(category_internal_name, page_num=1, max_retries=3, user_id=
     
     # 动态获取最新的 Cookie
     current_cookie = get_latest_cookie(user_id)
-    
+    if not current_cookie:
+        logger.error(f"❌ 无法获取有效 Cookie (user_id: {user_id})")
+        return None
+
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
         "cookie": current_cookie,
         "accept": "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "referer": f"https://buff.163.com/market/csgo?tab=selling&category={category_internal_name}",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "cache-control": "no-cache",
+        "pragma": "no-cache",
+        "priority": "u=1, i",
+        "referer": "https://buff.163.com/market/csgo",
+        "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+        "sec-ch-ua-mobile": "?0",
+        "sec-ch-ua-platform": '"Windows"',
+        "sec-fetch-dest": "empty",
+        "sec-fetch-mode": "cors",
+        "sec-fetch-site": "same-origin",
         "x-requested-with": "XMLHttpRequest",
     }
     
@@ -316,14 +328,20 @@ def process_category(category, force=False, task_id=None, user_id=None):
         
     logger.info(f"✨ 分类 {cat_name} 处理完成，本次任务影响 {total_saved} 个商品")
 
-def run_goods_sync(force=False, task_id=None):
+def run_goods_sync(force=False, task_id=None, user_id=None):
     """
     暴露给外部调用的商品同步主入口
     """
-    logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {force}) ===")
+    logger.info(f"=== 开始抓取 Buff 商品数据 (Force Mode: {force}, TaskID: {task_id}, UserID: {user_id}) ===")
     
-    # 获取所属用户ID以加载正确的 Cookie
-    user_id = get_task_user_id(task_id)
+    # 如果没传 user_id 但传了 task_id，则从任务中获取
+    if not user_id and task_id:
+        user_id = get_task_user_id(task_id)
+        logger.info(f"👤 从任务 [ID:{task_id}] 中获取到所属用户 ID: {user_id}")
+    
+    # 如果还是没有 user_id，get_latest_cookie(None) 会尝试获取数据库中最新的一条
+    if not user_id:
+        logger.info("ℹ️ 未指定用户 ID，将尝试从数据库加载最新更新的 Cookie")
     
     categories = get_secondary_categories()
     if not categories:
@@ -351,9 +369,11 @@ def main():
     import argparse
     parser = argparse.ArgumentParser(description="Buff 商品全量抓取脚本")
     parser.add_argument("--force", action="store_true", help="强制抓取所有分类和页码，忽略增量跳过逻辑")
+    parser.add_argument("--user_id", type=int, help="指定使用的用户 ID 加载 Cookie")
+    parser.add_argument("--task_id", type=int, help="关联的任务 ID")
     args = parser.parse_args()
 
-    run_goods_sync(force=args.force)
+    run_goods_sync(force=args.force, task_id=args.task_id, user_id=args.user_id)
 
 if __name__ == "__main__":
     from utils.logger import setup_logging

@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.7.3 (2026-01-04)
+- [优化] **爬虫 Cookie 加载机制增强与全量同步稳定性提升**：
+  - **数据库 Cookie 实时检索优化**：重构了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 和 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的入口逻辑。显式支持通过 `user_id` 或 `task_id` 检索对应用户的 Cookie。在未指定参数时，系统将自动回退至数据库中最新更新的有效 Cookie，确保了全量同步任务不再受限于硬编码或过期配置。
+  - **请求头指纹对齐**：统一并升级了商品全量抓取与分类同步的 HTTP 请求头。引入了更现代的 `User-Agent`、`sec-ch-ua` 系列指纹以及更完善的 `Referer` 策略，降低了因请求特征不匹配导致的被动反爬风险。
+  - **脚本交互性增强**：为 `get_buff_goods.py` 脚本增加了命令行参数支持（`--user_id`, `--task_id`），方便开发者在终端进行手动测试或任务补录。
+  - **日志诊断增强**：在同步开始阶段新增了 Cookie 来源与所属用户的关键日志输出，极大地方便了 Cookie 失效场景下的快速定位。
+
 ## v1.7.2 (2026-01-04)
 - [修复] **核心请求挂起与假性超时修复**：
   - **Nginx 路由精细化隔离**：彻底解决了普通 API 请求（如登录）在 Nginx 代理层出现的“响应不闭合”问题。通过将 SSE（实时日志流）专用配置剥离到独立的 `/log/stream` 路径，恢复了普通 API 请求对 `Chunked Transfer Encoding` 的默认支持，消除了浏览器因等待连接关闭而导致的假性超时现象。

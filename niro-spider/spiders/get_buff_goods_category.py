@@ -33,6 +33,9 @@ def fetch_buff_goods(params, max_retries=3, user_id=None):
     
     # 动态获取最新的 Cookie
     current_cookie = get_latest_cookie(user_id)
+    if not current_cookie:
+        logger.error(f"❌ 无法获取有效 Cookie (user_id: {user_id})")
+        return {}
     
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
@@ -416,14 +419,16 @@ def sync_all_children_categories(task_id=None, user_id=None):
         logger.info(f" 组间休息 {sleep_time:.2f} 秒...")
         time.sleep(sleep_time)
 
-def run_category_sync(task_id=None):
+def run_category_sync(task_id=None, user_id=None):
     """
     暴露给外部调用的分类同步主入口
     """
-    logger.info("开始执行全量分类同步任务...")
-
-    # 获取所属用户ID以加载正确的 Cookie
-    user_id = get_task_user_id(task_id)
+    logger.info(f"=== 开始同步 Buff 分类数据 (TaskID: {task_id}, UserID: {user_id}) ===")
+    
+    # 如果没传 user_id 但传了 task_id，则从任务中获取
+    if not user_id and task_id:
+        user_id = get_task_user_id(task_id)
+        logger.info(f"👤 从任务 [ID:{task_id}] 中获取到所属用户 ID: {user_id}")
 
     # 1. 抓取一级分类 (Parent)
     logger.info("=== 阶段1: 抓取一级分类 ===")
