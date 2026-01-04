@@ -9,6 +9,9 @@
     - 将 `Redisson` 版本从 `3.24.3` 升级至 `3.44.0`。
     - **重磅改进**：将 Sa-Token 的 Redis 插件由 `sa-token-redis-jackson` 切换为 **`sa-token-redisson-spring-boot-starter`**。
     - **原理**：直接使用 Redisson 的原生 API 存储 Session，彻底绕过了 Spring Data Redis 的 `RedisConnection` 抽象层。这从根本上消除了在 Spring Boot 3.5.x 环境下由 `DefaultedRedisConnection.pExpire` 引起的递归死循环（StackOverflowError）。
+  - **环境配置一致性对齐**：
+    - 修复了测试环境 (`test` profile) 配置文件中残留的 `lettuce` 连接池配置。
+    - 统一将测试环境的 Redis 驱动配置切换为 `Redisson` 模式，并同步了生产环境的长连接探测 (PING) 与超时策略，彻底解决测试环境下 Redis 连接不稳定导致的登录异常。
   - **修正用户状态校验逻辑**：
     - 修复了 `UserStatusEnum.isNormal` 中的类型比较 Bug（原为 Enum 与 Integer 错误比较），确保状态判定准确无误。
     - 调整了 `UserServiceImpl` 中的登录拦截逻辑，通过逻辑取反完美适配现有的（反向逻辑）`Assert.validateTrue` 断言工具类。

@@ -10,19 +10,19 @@ spring:
     username: ${DB_USERNAME:buff_test}
     password: ${DB_PASSWORD:buff_test}
 
-  # Redis配置 - Spring Boot 3.x 使用 spring.data.redis
+  # Redis配置 - 已切换为 Redisson
   data:
     redis:
       host: ${REDIS_HOST:localhost}
       port: ${REDIS_PORT:6379}
       password: ${REDIS_PASSWORD:}
-      timeout: 2000ms
-      lettuce:
-        pool:
-          max-active: 8
-          max-idle: 8
-          min-idle: 0
-          max-wait: -1ms
+      timeout: 30000ms
+      connect-timeout: 30000ms
+      # Redisson 特有配置
+      redisson:
+        # 每 30 秒进行一次连接可用性探测 (PING)
+        ping-connection-interval: 30000
+      # 移除 Lettuce 相关配置，Redisson 会自动接管连接池
 
 
 # 日志配置
