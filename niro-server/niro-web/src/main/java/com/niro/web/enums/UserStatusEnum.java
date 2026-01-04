@@ -38,10 +38,7 @@ public enum UserStatusEnum {
     private final String description;
     
     
-    public static boolean isNormal(UserStatusEnum code){
-        if(NORMAL.code.equals(code)){
-            return true;
-        }
-        return false;
+    public static boolean isNormal(UserStatusEnum status){
+        return NORMAL == status;
     }
 }

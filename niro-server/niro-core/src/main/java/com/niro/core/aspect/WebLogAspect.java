@@ -63,8 +63,8 @@ public class WebLogAspect {
         String params = "";
         try {
              params = JSONUtil.toJsonStr(logArgs);
-        } catch (Exception e) {
-            // 忽略序列化异常
+        } catch (Throwable e) {
+            // 捕获 Throwable 防止某些情况下序列化导致 StackOverflowError
             params = "无法序列化参数";
         }
 
@@ -85,7 +85,8 @@ public class WebLogAspect {
             if (StrUtil.length(resultStr) > 1000) {
                 resultStr = StrUtil.sub(resultStr, 0, 1000) + "...";
             }
-        } catch (Exception e) {
+        } catch (Throwable e) {
+            // 捕获 Throwable 防止某些情况下序列化导致 StackOverflowError
             resultStr = "无法序列化结果";
         }
 

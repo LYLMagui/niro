@@ -55,7 +55,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         // 查询用户
         User user = this.lambdaQuery().eq(User::getUsername, param.getUsername()).one();
         Assert.validateNull(user, "账号不存在");
-        Assert.validateTrue(UserStatusEnum.isNormal(user.getStatus()),"账号被禁用，请联系管理员");
+        Assert.validateTrue(!UserStatusEnum.isNormal(user.getStatus()),"账号被禁用，请联系管理员");
 
         // 校验密码
         if (!BCrypt.checkpw(param.getPassword(), user.getPassword())) {
