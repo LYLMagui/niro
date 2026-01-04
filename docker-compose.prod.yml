@@ -62,7 +62,7 @@ services:
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
       - SPRING_DATA_REDIS_HOST=niro-redis-prod
       - SPRING_DATA_REDIS_PORT=6379
-      - SPRING_DATA_REDIS_PASSWRD=${REDIS_PASSWORD:-redis_niro_pwd}
+      - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
       - SPIDER_LOG_PATH=/app/logs/spider/niro_spider.log
     volumes:
       - niro_shared_logs_prod:/app/logs/spider

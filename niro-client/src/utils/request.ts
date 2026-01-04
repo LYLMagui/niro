@@ -14,7 +14,7 @@ const BASE_URL = import.meta.env.VITE_BASE_API || "";
 // 创建 axios 实例
 const service = axios.create({
   baseURL: BASE_URL, // API 基础路径
-  timeout: 10000, // 请求超时时间
+  timeout: 15000, // 请求超时时间
   headers: {
     "Content-Type": "application/json;charset=utf-8",
   },

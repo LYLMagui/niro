@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.7.0 (2026-01-04)
+- [修复] **生产/测试环境关键配置纠正与超时优化**：
+  - **Docker 配置修复**：修复了 `docker-compose.prod.yml` 和 `docker-compose.test.yml` 中 Redis 密码环境变量的拼写错误 (`SPRING_DATA_REDIS_PASSWRD` -> `SPRING_DATA_REDIS_PASSWORD`)。该错误曾导致后端无法连接 Redis，进而引发登录接口挂起超时。
+  - **Nginx 链路优化**：移除了 Nginx 代理层冗余的 CORS 响应头配置，统一由 Spring Boot 后端处理，避免了响应头重复导致的浏览器拦截。同时精简了 `proxy_pass` 逻辑，移除了冗余的 `rewrite` 指令。
+  - **前端稳定性增强**：将 Axios 默认请求超时时间从 10s 提升至 15s，并优化了超时错误提示，更精准地引导用户排查环境问题。
+
 ## v1.6.9 (2026-01-04)
 - [修复] **全站跨域 (CORS) 策略增强与登录异常修复**：
   - **后端全局配置**：在 `niro-core` 的 [WebConfig.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-core/src/main/java/com/niro/core/config/WebConfig.java) 中实现了 `addCorsMappings`，允许来自任何源的跨域请求，并支持 `allowCredentials` 和常用 HTTP 方法，彻底解决了本地开发环境（如 localhost）请求远程生产环境 API 时的 CORS 拦截问题。
