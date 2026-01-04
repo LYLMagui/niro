@@ -62,6 +62,9 @@ services:
       - SPRING_DATA_REDIS_HOST=niro-redis-test
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWRD=${REDIS_PASSWORD:-redis_niro_pwd}
+      - SPIDER_LOG_PATH=/app/logs/spider/niro_spider.log
+    volumes:
+      - niro_shared_logs_test:/app/logs/spider
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
     healthcheck:
@@ -97,6 +100,8 @@ services:
       - REDIS_HOST=niro-redis-test
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+    volumes:
+      - niro_shared_logs_test:/app/logs
     networks:
       - niro-data-net-test
 
@@ -126,3 +131,5 @@ volumes:
     name: niro_db_data_test
   niro_redis_data_test:
     name: niro_redis_data_test
+  niro_shared_logs_test:
+    name: niro_shared_logs_test
