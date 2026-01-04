@@ -15,6 +15,7 @@ RUN pnpm build-only
 
 # Production stage
 FROM nginx:stable-alpine
+ARG ENV_TYPE=prod  # 默认值为 prod
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.${ENV_TYPE}.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80
