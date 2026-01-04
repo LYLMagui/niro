@@ -5,8 +5,10 @@
 - [修复] **登录接口稳定性与逻辑增强**：
   - **预防栈溢出 (StackOverflowError)**：针对服务器 Docker 环境下出现的 `/user/login` 接口异常，增强了 `WebLogAspect` 日志切面的健壮性。
     - 在 JSON 序列化阶段引入 `Throwable` 级异常捕获，彻底杜绝由于对象循环引用或序列化深度过大导致的无限递归问题。
-  - **Redis 驱动兼容性修复**：
-    - 将 `Redisson` 版本从 `3.24.3` 升级至 `3.44.0`。解决了在 Spring Boot 3.5.x 环境下 `DefaultedRedisConnection.pExpire` 导致的递归死循环（StackOverflowError）。
+  - **Redis 驱动与 Sa-Token 深度兼容性修复**：
+    - 将 `Redisson` 版本从 `3.24.3` 升级至 `3.44.0`。
+    - **重磅改进**：将 Sa-Token 的 Redis 插件由 `sa-token-redis-jackson` 切换为 **`sa-token-redisson-spring-boot-starter`**。
+    - **原理**：直接使用 Redisson 的原生 API 存储 Session，彻底绕过了 Spring Data Redis 的 `RedisConnection` 抽象层。这从根本上消除了在 Spring Boot 3.5.x 环境下由 `DefaultedRedisConnection.pExpire` 引起的递归死循环（StackOverflowError）。
   - **修正用户状态校验逻辑**：
     - 修复了 `UserStatusEnum.isNormal` 中的类型比较 Bug（原为 Enum 与 Integer 错误比较），确保状态判定准确无误。
     - 调整了 `UserServiceImpl` 中的登录拦截逻辑，通过逻辑取反完美适配现有的（反向逻辑）`Assert.validateTrue` 断言工具类。
