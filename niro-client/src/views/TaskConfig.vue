@@ -89,22 +89,23 @@
 
         <template #status="{ row }">
           <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-          <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
+          <t-tag v-else-if="row.status === 1" theme="success">待运行</t-tag>
           <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
+          <t-tag v-else-if="row.status === 4" theme="warning">执行中</t-tag>
           <t-tag v-else theme="danger">异常</t-tag>
         </template>
 
         <template #op="{ row }">
           <t-link theme="primary" class="mr-2" @click="handleEdit(row)">编辑</t-link>
           <t-popconfirm
-            v-if="row.status === 0"
+            v-if="[0, 2, 3].includes(row.status)"
             content="确定要启动任务吗？"
             @confirm="handleStatus(row, 1)"
           >
             <t-link theme="success" class="mr-2">启动</t-link>
           </t-popconfirm>
           <t-popconfirm
-            v-if="row.status === 1"
+            v-if="[1, 4].includes(row.status)"
             content="确定要停止任务吗？"
             @confirm="handleStatus(row, 0)"
           >

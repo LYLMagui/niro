@@ -9,6 +9,7 @@ from spiders.get_buff_goods_category import run_category_sync
 from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
 from utils.notifier import notifier
+from utils.exception_handler import LoginRequiredError
 
 logger = get_logger(__name__)
 
@@ -25,6 +26,15 @@ class TaskScanner:
         
         # 任务启动时间记录: {task_id: start_datetime}
         self.task_start_times = {}
+        
+        # 正在执行的任务记录: {task_id: True}
+        self.running_tasks = {}
+        
+        # 登录失败次数统计: {task_id: count}
+        self.login_error_counts = {}
+        
+        # 通用错误次数统计: {task_id: count}
+        self.general_error_counts = {}
         
         # 初始化调度器
         self.scheduler = BackgroundScheduler()
@@ -104,6 +114,15 @@ class TaskScanner:
                 if status == 1:
                     active_task_ids.add(task_id)
                     self.schedule_task(task)
+                elif status == 4:
+                    # 如果任务状态是“执行中”，但当前实例并没有记录它在运行，说明可能卡住了（如进程重启）
+                    if task_id not in self.running_tasks:
+                        logger.warning(f"⚠️ 任务 [ID:{task_id}] 状态为执行中但未在运行队列，尝试重置状态...")
+                        # 如果有 cron，重置为 1 (待运行)，否则重置为 0 (停止)
+                        if task.get('cron_expression'):
+                            self.update_task_status(task_id, 1)
+                        else:
+                            self.update_task_status(task_id, 0)
                 else:
                     # 如果任务不是运行中，确保调度器中已移除
                     self.unschedule_task(task_id)
@@ -192,14 +211,16 @@ class TaskScanner:
                 logger.info(f"🚀 任务启动 (单次执行): {task['name']} (ID: {task_id})")
                 # 系统任务：执行一次
                 job_id = f"system_task_immediate_{task_id}_{int(time.time())}"
+                
+                # 在启动前先标记为运行中，防止 sync_tasks 误判
+                self.running_tasks[task_id] = True
+                self.update_task_status(task_id, 4)
+                
                 self.scheduler.add_job(
                     self.run_system_task,
                     args=[task],
                     id=job_id
                 )
-                # 系统任务立即执行完后，我们将它的状态在数据库中改为停止，防止下次 sync_tasks 又触发它
-                # 除非它是 Cron 任务，否则它不应该自动重复
-                self.stop_task_in_db(task_id)
             else:
                 logger.info(f"🚀 任务启动 (循环扫描): {task['name']} (ID: {task_id}) [间隔: {scan_interval}s]")
                 # 普通任务：开启间隔扫描
@@ -218,7 +239,9 @@ class TaskScanner:
         if task and task['status'] == 1:
             task_type = task.get('task_type', 0)
             if task_type >= 2:
-                # 系统任务：直接执行，不需要开启间隔扫描
+                # 系统任务：设置为执行中状态并直接执行
+                self.running_tasks[task_id] = True
+                self.update_task_status(task_id, 4)
                 self.scheduler.add_job(
                     self.run_system_task,
                     args=[task],
@@ -236,6 +259,10 @@ class TaskScanner:
         task_type = task.get('task_type')
         task_name = task.get('name', '系统同步任务')
         
+        # 标记为运行中 (如果 TaskScanner 中有 running_tasks 属性)
+        if hasattr(self, 'running_tasks'):
+            self.running_tasks[task_id] = True
+            
         logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
         
         # 发送启动通知
@@ -244,17 +271,69 @@ class TaskScanner:
         try:
             if task_type == 2:
                 # 系统-分类同步
-                run_category_sync()
+                run_category_sync(task_id=task_id)
             elif task_type == 3:
                 # 系统-商品同步
-                run_goods_sync()
+                run_goods_sync(force=False, task_id=task_id)
             
-            logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
-            # 系统任务执行完后不需要更新数据库状态为停止，因为它是由 Cron 周期性触发的
-            self.send_task_stop_notification(task, "同步完成")
+            # 检查是否在运行过程中已被停止 (如果有 running_tasks 属性)
+            is_running = True
+            if hasattr(self, 'running_tasks'):
+                is_running = task_id in self.running_tasks
+
+            if is_running:
+                logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
+                
+                # 如果是周期任务，设置回 1 (Active)，否则设置为 0 (Stopped)
+                cron_expr = task.get('cron_expression')
+                if cron_expr:
+                    self.update_task_status(task_id, 1)
+                else:
+                    self.stop_task_in_db(task_id)
+                
+                self.send_task_stop_notification(task, "同步完成")
+                # 成功后重置计数
+                if task_id in self.login_error_counts:
+                    self.login_error_counts[task_id] = 0
+                if task_id in self.general_error_counts:
+                    self.general_error_counts[task_id] = 0
+            else:
+                logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 在运行过程中已被停止")
+                
+        except LoginRequiredError:
+            count = self.login_error_counts.get(task_id, 0) + 1
+            self.login_error_counts[task_id] = count
+            logger.error(f"🔑 系统任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录")
+            
+            if count >= 3:
+                logger.critical(f"🛑 系统任务 [ID:{task_id}] 连续 3 次登录失效，正在停止任务...")
+                self.set_task_error(task_id)
+                self.send_task_stop_notification(task, "Cookie 连续失效 3 次，请更新全局 BUFF_COOKIE")
+                self.login_error_counts[task_id] = 0
+            else:
+                # 还没到 3 次，重置回待运行(1)状态，以便下次触发
+                self.update_task_status(task_id, 1)
+                
         except Exception as e:
-            logger.error(f"❌ 系统任务执行异常 [ID:{task_id}]: {e}")
-            self.send_task_stop_notification(task, f"同步失败: {e}")
+            count = self.general_error_counts.get(task_id, 0) + 1
+            self.general_error_counts[task_id] = count
+            logger.error(f"❌ 系统任务 [ID:{task_id}] 第 {count} 次执行异常: {e}")
+            
+            if count >= 3:
+                logger.error(f"🛑 系统任务 [ID:{task_id}] 连续 {count} 次执行异常，正在停止任务...")
+                self.set_task_error(task_id)
+                self.send_task_stop_notification(task, f"同步失败: {e}")
+                self.general_error_counts[task_id] = 0
+            else:
+                # 还没到 3 次，重置回待运行(1)状态
+                self.update_task_status(task_id, 1)
+        finally:
+            if hasattr(self, 'running_tasks') and task_id in self.running_tasks:
+                del self.running_tasks[task_id]
+            
+            # 如果是单次执行的任务，从已调度列表中移除，以便下次 sync_tasks 能再次触发它
+            if not task.get('cron_expression') and task_id in self.scheduled_jobs:
+                del self.scheduled_jobs[task_id]
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
@@ -298,8 +377,17 @@ class TaskScanner:
         if task_id in self.task_configs:
             del self.task_configs[task_id]
 
+        if task_id in self.login_error_counts:
+            del self.login_error_counts[task_id]
+
+        if hasattr(self, 'running_tasks') and task_id in self.running_tasks:
+            del self.running_tasks[task_id]
+
     def run_scan_cycle(self, task_id):
         """执行单次扫描循环"""
+        # 标记为运行中
+        self.running_tasks[task_id] = True
+        
         try:
             # 1. 获取最新任务状态
             sql = "SELECT * FROM buff_scan_task WHERE id = %s"
@@ -337,8 +425,38 @@ class TaskScanner:
             spider.refresh_cookie()
             self.process_task(task, spider)
             
+            # 成功执行后重置失败计数
+            if task_id in self.login_error_counts:
+                self.login_error_counts[task_id] = 0
+            if task_id in self.general_error_counts:
+                self.general_error_counts[task_id] = 0
+            
+        except LoginRequiredError:
+            count = self.login_error_counts.get(task_id, 0) + 1
+            self.login_error_counts[task_id] = count
+            logger.error(f"🔑 任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录")
+            
+            if count >= 3:
+                logger.critical(f"🛑 任务 [ID:{task_id}] 连续 3 次登录失效，正在停止任务...")
+                self.set_task_error(task_id)
+                self.send_task_stop_notification(task, "Cookie 连续失效 3 次，请重新配置")
+                self.unschedule_task(task_id)
+                self.login_error_counts[task_id] = 0
+                
         except Exception as e:
-            logger.error(f"❌ 任务 [ID:{task_id}] 扫描异常: {e}")
+            count = self.general_error_counts.get(task_id, 0) + 1
+            self.general_error_counts[task_id] = count
+            logger.error(f"❌ 任务 [ID:{task_id}] 第 {count} 次扫描异常: {e}")
+            
+            if count >= 5: # 扫描任务允许更多次失败（如网络波动）
+                logger.error(f"🛑 任务 [ID:{task_id}] 连续 {count} 次扫描异常，正在停止任务...")
+                self.set_task_error(task_id)
+                self.unschedule_task(task_id)
+                self.general_error_counts[task_id] = 0
+            # 不到 5 次则等待下个周期继续重试，不 unschedule
+        finally:
+            if task_id in self.running_tasks:
+                del self.running_tasks[task_id]
 
     def check_user_pending_orders(self, spider):
         """检查用户是否有待支付订单 (通过调用 API)"""
@@ -347,9 +465,19 @@ class TaskScanner:
         # 或者调用 spider.get_buy_order_history() 检查是否有 "待支付" 状态
         return self.user_pending_locks.get(spider.user_id, False)
 
+    def update_task_status(self, task_id, status):
+        """更新数据库任务状态"""
+        sql = "UPDATE buff_scan_task SET status = %s WHERE id = %s"
+        self.pg_pool.execute(sql, (status, task_id))
+
     def stop_task_in_db(self, task_id):
         """更新数据库任务状态为停止(0)"""
         sql = "UPDATE buff_scan_task SET status = 0 WHERE id = %s"
+        self.pg_pool.execute(sql, (task_id,))
+
+    def set_task_error(self, task_id):
+        """更新数据库任务状态为异常(3)"""
+        sql = "UPDATE buff_scan_task SET status = 3 WHERE id = %s"
         self.pg_pool.execute(sql, (task_id,))
 
     def process_task(self, task, spider):
