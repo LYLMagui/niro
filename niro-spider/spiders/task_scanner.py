@@ -44,6 +44,8 @@ class TaskScanner:
         self.scheduled_jobs = {}
         # 任务配置缓存: {task_id: config_dict}
         self.task_configs = {}
+        # 记录任务最后一次运行结束的时间: {task_id: timestamp}
+        self.last_finished_tasks = {}
 
     def get_spider(self, user_id):
         """获取或创建用户的爬虫实例"""
@@ -117,6 +119,13 @@ class TaskScanner:
                 elif status == 4:
                     # 如果任务状态是“执行中”，但当前实例并没有记录它在运行，说明可能卡住了（如进程重启）
                     if task_id not in self.running_tasks:
+                        # 增加一个小的宽限期，避免刚完成状态还没更新完就被同步逻辑重置
+                        last_finished = getattr(self, 'last_finished_tasks', {})
+                        finish_time = last_finished.get(task_id, 0)
+                        if time.time() - finish_time < 30:
+                            logger.debug(f"⏳ 任务 [ID:{task_id}] 处于状态 4 且不在队列中，但刚结束不久，跳过重置")
+                            continue
+
                         logger.warning(f"⚠️ 任务 [ID:{task_id}] 状态为执行中但未在运行队列，尝试重置状态...")
                         # 如果有 cron，重置为 1 (待运行)，否则重置为 0 (停止)
                         if task.get('cron_expression'):
@@ -328,6 +337,7 @@ class TaskScanner:
                 # 还没到 3 次，重置回待运行(1)状态
                 self.update_task_status(task_id, 1)
         finally:
+            self.last_finished_tasks[task_id] = time.time()
             if hasattr(self, 'running_tasks') and task_id in self.running_tasks:
                 del self.running_tasks[task_id]
             
@@ -455,6 +465,7 @@ class TaskScanner:
                 self.general_error_counts[task_id] = 0
             # 不到 5 次则等待下个周期继续重试，不 unschedule
         finally:
+            self.last_finished_tasks[task_id] = time.time()
             if task_id in self.running_tasks:
                 del self.running_tasks[task_id]
 
