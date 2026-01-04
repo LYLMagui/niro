@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.6.8 (2026-01-04)
+- [重构] **Redis 基础设施统一化管理**：
+  - **连接池收归**：删除了冗余的 `redis_client.py`，新建通用的 [redis_pool.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/redis_pool.py)，采用单例模式统一管理全站 Redis 连接，避免重复创建连接池导致资源浪费。
+  - **命名语义优化**：将原有的 `RedisProxyPool` 重命名为 [redis_storage.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/redis_storage.py) 中的 `RedisStorage` 类。去除了“代理池”这一具有误导性的命名，使其回归“通用 Redis 业务存储”的本质。
+  - **解耦业务逻辑**：`RedisStorage` 不再自建连接，而是通过引用全局 `redis_pool` 来执行业务逻辑，符合高内聚低耦合的架构设计。
+
+## v1.6.7 (2026-01-04)
+- [优化] **商品分类同步性能极致优化 (Redis 指纹 + 内存比对)**：
+  - **Redis 指纹校验**：引入 Redis 存储分类数据的 MD5 指纹。在每次执行分类抓取任务前，先对比抓取到的数据与 Redis 中的指纹。若无变化（99% 的场景），则直接跳过后续所有的数据库查询与更新操作，将任务耗时从秒级降低至毫秒级。
+  - **内存增量同步**：若指纹发生变化，系统将全量加载对应父分类下的数据库记录到内存，通过 Python 字典进行字段级深度比对，仅对真正发生变更（Name, ParentID, FullInternalName 变化）或新增的记录执行 SQL UPSERT。
+  - **资源节约**：该优化极大减少了数据库的 IO 压力、事务开销以及索引更新频率，特别是在 CSGO 分类极其稳定的环境下，几乎消除了所有无意义的数据库写操作。
+  - **单例 Redis 客户端**：在 `niro-spider` 模块中抽象了通用的单例 `RedisClient` 工具类，并支持连接失败时的自动降级处理。
+
 ## v1.6.6 (2026-01-04)
 - [优化] **生产环境日志配置增强**：
   - 支持通过环境变量 `LOG_MAX_BYTES` 和 `LOG_BACKUP_COUNT` 动态配置爬虫日志的轮转策略（单文件大小及备份保留数）。

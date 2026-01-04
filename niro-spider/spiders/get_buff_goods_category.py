@@ -5,6 +5,8 @@ import os
 import requests
 import time
 import psycopg2.extras
+import hashlib
+import json
 
 # 修复模块导入路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -13,6 +15,7 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from storage.postgres_pool import pg_pool
+from storage.redis_pool import redis_client
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
@@ -258,36 +261,66 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
     logger.info(f"二级分类 [{category_group}] 抓取完成，去重后数量: {len(result)}")
     return result
 
-def sync_categories(total_categories):
+def get_categories_fingerprint(categories):
     """
-    同步分类保存到数据库 (批量插入版)
+    计算分类数据的指纹 (MD5)
+    确保排序以保证结果唯一性
+    """
+    if not categories:
+        return ""
+    # 按照 internal_name 排序并转换为稳定的 JSON 字符串
+    sorted_cats = sorted(categories, key=lambda x: x.get("internal_name", ""))
+    cat_str = json.dumps(sorted_cats, sort_keys=True, ensure_ascii=False)
+    return hashlib.md5(cat_str.encode('utf-8')).hexdigest()
+
+def sync_categories(total_categories, parent_id_filter=None):
+    """
+    同步分类保存到数据库 (Redis 指纹过滤 + 内存比对版)
+    :param total_categories: 抓取到的分类列表
+    :param parent_id_filter: 如果提供，则只对比数据库中该父分类下的数据
     """
     if not total_categories:
         return
 
+    # 1. Redis 指纹校验 (全量跳过逻辑)
+    fingerprint_key = f"niro:spider:category:fingerprint:{parent_id_filter if parent_id_filter is not None else 'all'}"
+    new_fingerprint = get_categories_fingerprint(total_categories)
+    
+    if redis_client:
+        try:
+            old_fingerprint = redis_client.get(fingerprint_key)
+            if old_fingerprint == new_fingerprint:
+                logger.info(f"✨ [Redis] 分类指纹未变化，跳过数据库同步 (ParentID: {parent_id_filter})")
+                return
+        except Exception as e:
+            logger.warning(f"⚠️ Redis 指纹校验失败: {e}")
+
     success_count = 0
     try:
-        # 1. 预处理数据 & 冲突检测
-        logger.info("正在预处理数据...")
+        # 2. 内存比对 & 增量同步
+        logger.info("正在进行内存比对以执行增量更新...")
         
-        # 提取所有 name 用于批量查询冲突
-        names_to_check = [c.get("name", "") for c in total_categories if c.get("name")]
-        
-        existing_map = {} # name -> {id, internal_name}
-        if names_to_check:
-            with pg_pool.get_cursor() as cur:
-                # 批量查询已存在的 name
+        # 2.1 获取数据库中现有的分类
+        existing_db_map = {} # internal_name -> {name, parent_id, full_internal_name}
+        with pg_pool.get_cursor() as cur:
+            if parent_id_filter is not None:
                 cur.execute(
-                    "SELECT id, internal_name, name FROM buff_goods_categories WHERE name = ANY(%s)",
-                    (names_to_check,)
+                    "SELECT internal_name, name, parent_id, full_internal_name FROM buff_goods_categories WHERE parent_id = %s",
+                    (parent_id_filter,)
                 )
-                rows = cur.fetchall()
-                for row in rows:
-                    existing_map[row['name']] = row
+            else:
+                cur.execute("SELECT internal_name, name, parent_id, full_internal_name FROM buff_goods_categories")
+            
+            rows = cur.fetchall()
+            for row in rows:
+                existing_db_map[row['internal_name']] = {
+                    "name": row['name'],
+                    "parent_id": row['parent_id'],
+                    "full_internal_name": row['full_internal_name']
+                }
 
-        insert_data = []      # 待批量插入的数据
-        conflict_updates = [] # 待更新 ID 的冲突数据 (name 相同但 internal_name 不同)
-
+        insert_data = []      # 真正需要插入/更新的数据
+        
         for category in total_categories:
             internal_name = category.get("internal_name")
             name = category.get("name", "")
@@ -297,65 +330,50 @@ def sync_categories(total_categories):
             if not internal_name:
                 continue
 
-            # 检查名称冲突
-            if name in existing_map:
-                existing_record = existing_map[name]
-                if existing_record['internal_name'] != internal_name:
-                    # 发生冲突：旧记录占用了这个名字，且 internal_name 不同
-                    # 策略：强制更新旧记录的 ID
-                    logger.warning(f"⚠️ 名称冲突: '{name}' 已被 ID={existing_record['id']} 占用，加入更新队列")
-                    conflict_updates.append({
-                        "id": existing_record['id'],
-                        "name": name,
-                        "internal_name": internal_name,
-                        "full_internal_name": full_internal_name,
-                        "parent_id": parent_id
-                    })
-                    continue # 跳过插入列表，走更新流程
+            # 比对字段是否发生变化
+            is_changed = True
+            if internal_name in existing_db_map:
+                old = existing_db_map[internal_name]
+                if (old['name'] == name and 
+                    old['parent_id'] == parent_id and 
+                    old['full_internal_name'] == full_internal_name):
+                    is_changed = False
+            
+            if is_changed:
+                insert_data.append((name, parent_id, internal_name, full_internal_name))
 
-            # 加入待插入列表
-            insert_data.append((
-                name,
-                parent_id,
-                internal_name,
-                full_internal_name
-            ))
+        if not insert_data:
+            logger.info(f"✅ 所有分类数据已是最新，无需更新数据库 (ParentID: {parent_id_filter})")
+            # 即使没写 DB，也更新 Redis 指纹
+            if redis_client:
+                redis_client.set(fingerprint_key, new_fingerprint, ex=86400*7)
+            return
 
-        # 2. 执行数据库操作
+        # 3. 执行数据库操作
         with pg_pool.get_cursor() as cur:
-            # 2.1 批量插入 (UPSERT)
-            if insert_data:
-                logger.info(f"正在批量插入/更新 {len(insert_data)} 条记录...")
-                sql = """
-                    INSERT INTO buff_goods_categories (name, parent_id, internal_name, full_internal_name)
-                    VALUES %s
-                    ON CONFLICT (internal_name)
-                    DO UPDATE SET
-                        name = EXCLUDED.name,
-                        parent_id = EXCLUDED.parent_id,
-                        internal_name = EXCLUDED.internal_name,
-                        full_internal_name = EXCLUDED.full_internal_name
-                """
-                psycopg2.extras.execute_values(cur, sql, insert_data)
-                success_count += len(insert_data)
+            logger.info(f"正在批量更新 {len(insert_data)} 条变动记录...")
+            sql = """
+                INSERT INTO buff_goods_categories (name, parent_id, internal_name, full_internal_name)
+                VALUES %s
+                ON CONFLICT (internal_name)
+                DO UPDATE SET
+                    name = EXCLUDED.name,
+                    parent_id = EXCLUDED.parent_id,
+                    internal_name = EXCLUDED.internal_name,
+                    full_internal_name = EXCLUDED.full_internal_name
+            """
+            psycopg2.extras.execute_values(cur, sql, insert_data)
+            success_count = len(insert_data)
 
-            # 2.2 处理冲突更新 (UPDATE by ID)
-            if conflict_updates:
-                logger.info(f"正在处理 {len(conflict_updates)} 条ID冲突记录...")
-                update_sql = """
-                    UPDATE buff_goods_categories 
-                    SET name = %s, internal_name = %s, full_internal_name = %s, parent_id = %s
-                    WHERE id = %s
-                """
-                # 使用 execute_batch 优化 UPDATE
-                update_params = [
-                    (item['name'], item['internal_name'], item['full_internal_name'], item['parent_id'], item['id']) 
-                    for item in conflict_updates
-                ]
-                psycopg2.extras.execute_batch(cur, update_sql, update_params)
-                success_count += len(conflict_updates)
+        # 4. 同步成功后更新 Redis 指纹
+        if redis_client:
+            try:
+                redis_client.set(fingerprint_key, new_fingerprint, ex=86400*7) # 缓存一周
+                logger.debug(f"📝 已更新 Redis 分类指纹: {new_fingerprint}")
+            except Exception as e:
+                logger.error(f"❌ 更新 Redis 指纹失败: {e}")
 
-        logger.info(f"✅ 分类保存完成，共处理 {success_count} 条记录")
+        logger.info(f"✅ 分类增量同步完成，共处理 {success_count} 条变动记录")
 
     except Exception as e:
         logger.error(f"❌ 分类同步失败: {e}")
@@ -391,7 +409,7 @@ def sync_all_children_categories(task_id=None, user_id=None):
 
         if children:
             # 入库 (复用 sync_categories)
-            sync_categories(children)
+            sync_categories(children, parent_id_filter=parent_id)
         
         # 组间延时
         sleep_time = random.uniform(5, 8)
@@ -413,7 +431,7 @@ def run_category_sync(task_id=None):
     if parent_cats == "STOPPED":
         return
         
-    sync_categories(parent_cats)
+    sync_categories(parent_cats, parent_id_filter=0)
 
     # 2. 抓取二级分类 (Children)
     logger.info("=== 阶段2: 抓取二级分类 ===")
