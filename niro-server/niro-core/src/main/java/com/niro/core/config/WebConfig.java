@@ -33,7 +33,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     private static final String[] API_WHITELIST = {
            "/user/login",
-           "/user/register"
+           "/user/register",
+           "/log/stream"
     };
 
     private static final String[] EXCLUDE_STATIC_SOURCE_PATH = {

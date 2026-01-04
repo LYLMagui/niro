@@ -6,20 +6,21 @@ from dotenv import load_dotenv
 SPIDER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(SPIDER_DIR)
 
-# 加载 .env 文件
-# 优先从项目根目录加载，如果不存在则尝试从 niro-server/niro-web/.env 加载
-ENV_PATH = os.path.join(PROJECT_ROOT, ".env")
-if not os.path.exists(ENV_PATH):
-    ENV_PATH = os.path.join(PROJECT_ROOT, "niro-server", "niro-web", ".env")
+# 环境变量路径：优先加载 niro-server/niro-web/.env，因为后端更新 Cookie 会写到这个文件
+ENV_PATH_WEB = os.path.join(PROJECT_ROOT, "niro-server", "niro-web", ".env")
+ENV_PATH_ROOT = os.path.join(PROJECT_ROOT, ".env")
+
+if os.path.exists(ENV_PATH_WEB):
+    load_dotenv(ENV_PATH_WEB, override=True)
+    print(f"✅ 已加载 Web 环境变量: {ENV_PATH_WEB}")
+elif os.path.exists(ENV_PATH_ROOT):
+    load_dotenv(ENV_PATH_ROOT, override=True)
+    print(f"✅ 已加载 Root 环境变量: {ENV_PATH_ROOT}")
+else:
+    print(f"⚠️ 未找到 .env 文件，将使用默认配置")
 
 # 日志目录: niro-spider/logs
 LOG_DIR = os.path.join(SPIDER_DIR, "logs")
-
-if os.path.exists(ENV_PATH):
-    load_dotenv(ENV_PATH)
-    print(f"✅ 已加载环境变量: {ENV_PATH}")
-else:
-    print(f"⚠️ 未找到环境变量文件: {ENV_PATH}")
 
 # 爬虫配置文件
 

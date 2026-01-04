@@ -84,7 +84,13 @@ class Notifier:
 
         try:
             resp = requests.post(send_url, json=payload, timeout=10)
-            return resp.json().get("errcode") == 0
+            data = resp.json()
+            if data.get("errcode") == 0:
+                logger.info(f"🚀 文本通知发送成功 (UserID: {user_id})")
+                return True
+            else:
+                logger.error(f"❌ 文本通知发送失败: {data} (UserID: {user_id})")
+                return False
         except Exception as e:
             logger.error(f"发送纯文本通知异常: {e}")
             return False
@@ -118,7 +124,13 @@ class Notifier:
 
         try:
             resp = requests.post(send_url, json=payload, timeout=10)
-            return resp.json().get("errcode") == 0
+            data = resp.json()
+            if data.get("errcode") == 0:
+                logger.info(f"🚀 Markdown通知发送成功 (UserID: {user_id})")
+                return True
+            else:
+                logger.error(f"❌ Markdown通知发送失败: {data} (UserID: {user_id})")
+                return False
         except Exception as e:
             logger.error(f"发送 Markdown 通知异常: {e}")
             return False
