@@ -19,7 +19,7 @@ from storage.redis_pool import redis_client
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
-from utils.cookie_util import get_latest_cookie
+from utils.cookie_util import get_latest_cookie, verify_cookie
 
 logger = get_logger(__name__)
 
@@ -38,15 +38,15 @@ def fetch_buff_goods(params, max_retries=3, user_id=None):
         return {}
     
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
         "cookie": current_cookie,
         "accept": "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
         "cache-control": "no-cache",
         "pragma": "no-cache",
         "priority": "u=1, i",
         "referer": "https://buff.163.com/market/csgo",
-        "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": '"Windows"',
         "sec-fetch-dest": "empty",
@@ -127,7 +127,7 @@ def get_task_user_id(task_id):
         logger.error(f"❌ 获取任务用户ID失败 [ID:{task_id}]: {e}")
         return None
 
-def get_buff_goods_parent_category(max_pages=15, task_id=None, user_id=None):
+def get_buff_goods_parent_category(task_id=None, user_id=None):
     """
     获取一级分类 (Type)
     params: game=csgo, tab=selling, page_num=1..50
@@ -135,7 +135,10 @@ def get_buff_goods_parent_category(max_pages=15, task_id=None, user_id=None):
     logger.info("开始抓取一级分类...")
     all_categories = []
     
-    for page in range(1, max_pages + 1):
+    page = 1
+    total_pages = 1 # 初始设为 1，第一次请求后更新
+    
+    while page <= total_pages:
         # 每一页抓取前都检查一下任务是否被手动停止
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出一级分类抓取")
@@ -147,9 +150,19 @@ def get_buff_goods_parent_category(max_pages=15, task_id=None, user_id=None):
             "tab": "selling",
         }
         
-        logger.info(f"正在抓取一级分类第 {page} 页...")
+        logger.info(f"正在抓取一级分类第 {page}/{total_pages} 页...")
         data = fetch_buff_goods(params, user_id=user_id)
         
+        if not data:
+            logger.warning(f"⚠️ 第 {page} 页获取失败，跳过")
+            page += 1
+            continue
+
+        # 更新总页数
+        if page == 1:
+            total_pages = data.get("total_page", 1)
+            logger.info(f"📊 检测到一级分类共 {total_pages} 页")
+
         # 提取一级分类: items[*].goods_info.info.tags.type
         # 结果可能包含 None，需过滤
         types = jmespath.search("items[*].goods_info.info.tags.type", data) or []
@@ -171,7 +184,8 @@ def get_buff_goods_parent_category(max_pages=15, task_id=None, user_id=None):
             all_categories.append(cat)
             
         # 随机延时
-        time.sleep(random.uniform(2, 4))
+        time.sleep(random.uniform(2, 6))
+        page += 1
 
     # 去重
     dedup_map = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
@@ -197,7 +211,7 @@ def get_parent_categories_from_db():
         logger.error(f"❌ 获取一级分类失败: {e}")
         return []
 
-def get_buff_goods_children_category(parent_id, category_group, parent_full_internal_name, max_pages=20, task_id=None, user_id=None):
+def get_buff_goods_children_category(parent_id, category_group, parent_full_internal_name, task_id=None, user_id=None):
     """
     获取二级分类 (Category)
     params: game=csgo, tab=selling, category_group=..., page_num=1..20
@@ -205,7 +219,10 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
     logger.info(f"开始抓取 [{category_group}] 下的二级分类...")
     all_categories = []
     
-    for page in range(1, max_pages + 1):
+    page = 1
+    total_pages = 1
+    
+    while page <= total_pages:
         # 每一页抓取前都检查一下任务是否被手动停止
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出二级分类抓取")
@@ -218,9 +235,19 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
             "tab": "selling",
         }
         
-        logger.info(f"正在抓取二级分类 [{category_group}] 第 {page} 页...")
+        logger.info(f"正在抓取二级分类 [{category_group}] 第 {page}/{total_pages} 页...")
         data = fetch_buff_goods(params, user_id=user_id)
         
+        if not data:
+            logger.warning(f"⚠️ 第 {page} 页获取失败，跳过")
+            page += 1
+            continue
+
+        # 更新总页数
+        if page == 1:
+            total_pages = data.get("total_page", 1)
+            logger.info(f"📊 检测到二级分类 [{category_group}] 共 {total_pages} 页")
+
         # 提取商品列表
         items = data.get("items", [])
         if not items:
@@ -256,7 +283,8 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
             }
             all_categories.append(cat)
             
-        time.sleep(random.uniform(2, 4)) # 增加间隔避免触发限流
+        time.sleep(random.uniform(2, 6)) # 增加间隔避免触发限流
+        page += 1
 
     # 去重
     dedup_map = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
@@ -405,7 +433,7 @@ def sync_all_children_categories(task_id=None, user_id=None):
         logger.info(f"🚀 开始处理一级分类: {name} ({internal_name}) [ID={parent_id}]")
         
         # 抓取该组下的二级分类
-        children = get_buff_goods_children_category(parent_id, internal_name, full_internal_name, max_pages=20, task_id=task_id, user_id=user_id)
+        children = get_buff_goods_children_category(parent_id, internal_name, full_internal_name, task_id=task_id, user_id=user_id)
         
         if children == "STOPPED":
             break
@@ -430,9 +458,18 @@ def run_category_sync(task_id=None, user_id=None):
         user_id = get_task_user_id(task_id)
         logger.info(f"👤 从任务 [ID:{task_id}] 中获取到所属用户 ID: {user_id}")
 
+    # 运行前预检查 Cookie 有效性
+    test_cookie = get_latest_cookie(user_id)
+    is_valid, msg = verify_cookie(test_cookie)
+    if not is_valid:
+        logger.error(f"❌ Cookie 预检查失败: {msg}")
+        raise LoginRequiredError(f"Cookie 预检查失败: {msg}")
+    
+    logger.info("✅ Cookie 预检查通过，开始同步...")
+
     # 1. 抓取一级分类 (Parent)
     logger.info("=== 阶段1: 抓取一级分类 ===")
-    parent_cats = get_buff_goods_parent_category(max_pages=15, task_id=task_id, user_id=user_id)
+    parent_cats = get_buff_goods_parent_category(task_id=task_id, user_id=user_id)
     if parent_cats == "STOPPED":
         return
         

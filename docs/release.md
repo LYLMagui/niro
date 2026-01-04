@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.7.5 (2026-01-05)
+- [优化] **分类与商品抓取深度优化 (全量同步支持)**：
+  - **移除硬编码页数限制**：在 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 中，彻底移除了原有一级分类（15页）和二级分类（20页）的硬编码限制。
+  - **动态分页自适应**：重构了分类抓取核心逻辑。系统现在会自动解析 Buff API 响应中的 `total_page` 字段，并根据该字段动态调整循环次数，从而实现分类数据的 100% 全量覆盖。
+  - **商品同步完整性校验**：确认并优化了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 中的分页逻辑，确保其严格遵循 API 返回的总页数进行抓取，消除了潜在的数据遗漏风险。
+  - **性能与安全平衡**：在开启全量抓取的同时，保留并优化了“任务手动停止”秒级响应检查以及基于 `random.uniform` 的随机延时策略，确保在追求数据完整性的同时，最大程度规避 Buff 的反爬风控。
+
+## v1.7.4 (2026-01-04)
+- [修复] **爬虫反爬指纹对齐与任务调度状态机优化**：
+  - **反爬指纹深度对齐**：修复了 `User-Agent` 与 `sec-ch-ua` 版本不一致的问题（之前为 144 与 143 混用，现统一对齐至 131），并补齐了 `sec-fetch-*` 系列现代浏览器安全请求头，降低被 Buff 判定为 Bot 的概率。
+  - **任务重置竞态修复**：优化了 `TaskScanner` 的任务监控逻辑。通过引入 `last_finished_tasks` 宽限期机制（30秒），解决了系统任务在正常结束/异常捕获瞬间，因数据库状态未及时同步而被调度中心误判为“卡死”并强行重置的问题。
+  - **Cookie 预检查机制**：在全量商品同步和分类同步启动前，新增了轻量级的 `verify_cookie` 验证环节。若 Cookie 已失效，任务将立即停止并发出预警，避免在无效状态下进行大量请求导致 IP 风险。
+  - **代码健壮性提升**：统一了 `BuffSpider`、`get_buff_goods.py` 等多处的请求头模板，确保全模块行为一致。
+
 ## v1.7.3 (2026-01-04)
 - [优化] **爬虫 Cookie 加载机制增强与全量同步稳定性提升**：
   - **数据库 Cookie 实时检索优化**：重构了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 和 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的入口逻辑。显式支持通过 `user_id` 或 `task_id` 检索对应用户的 Cookie。在未指定参数时，系统将自动回退至数据库中最新更新的有效 Cookie，确保了全量同步任务不再受限于硬编码或过期配置。
