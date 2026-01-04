@@ -65,8 +65,9 @@ const connect = () => {
   isConnecting.value = true;
   logs.value.push(">>> 正在连接日志服务...");
 
-  // 使用 /dev-api 前缀，由 Vite 代理转发到后端
-  eventSource = new EventSource("/dev-api/log/stream");
+  // 使用环境变量中定义的 API 前缀
+  const baseApi = import.meta.env.VITE_BASE_API || "/dev-api";
+  eventSource = new EventSource(`${baseApi}/log/stream`);
 
   eventSource.onopen = () => {
     isConnected.value = true;

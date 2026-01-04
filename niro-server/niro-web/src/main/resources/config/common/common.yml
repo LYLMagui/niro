@@ -2,9 +2,6 @@
 # 爬虫相关配置
 spider:
   log:
-    # 使用绝对路径或相对于工作目录的正确相对路径
-    # 注意：在开发环境中，niro-web 启动的工作目录通常是 niro-web 目录
-    # 如果 niro-spider 与 niro-web 同级，则应使用 ../../niro-spider
-    # 但为了稳健性，这里我们暂时硬编码为绝对路径（或确保相对路径正确）
-    # 这里我们尝试修正为相对于项目根目录的路径
-    path: E:/CodeSpace/PYTHON/niro/niro-spider/logs/niro_spider.log
+    # 爬虫日志路径，优先使用环境变量 SPIDER_LOG_PATH
+    # 开发环境默认指向 ../../niro-spider/logs/niro_spider.log (相对于 niro-web 启动目录)
+    path: ${SPIDER_LOG_PATH:../../niro-spider/logs/niro_spider.log}

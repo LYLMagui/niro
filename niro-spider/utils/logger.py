@@ -32,10 +32,13 @@ def setup_logging(log_dir="logs", log_level=logging.INFO):
     logger.addHandler(console_handler)
 
     # 2. 文件 Handler (输出到文件，按大小轮转)
-    # maxBytes=10MB, backupCount=5 (保留5个备份文件)
+    # 优先从环境变量获取配置，默认 maxBytes=10MB, backupCount=5
     log_file_path = os.path.join(log_dir, "niro_spider.log")
+    max_bytes = int(os.getenv("LOG_MAX_BYTES", 10 * 1024 * 1024))
+    backup_count = int(os.getenv("LOG_BACKUP_COUNT", 5))
+    
     file_handler = RotatingFileHandler(
-        log_file_path, maxBytes=10*1024*1024, backupCount=5, encoding="utf-8"
+        log_file_path, maxBytes=max_bytes, backupCount=backup_count, encoding="utf-8"
     )
     file_handler.setLevel(log_level)
     file_handler.setFormatter(logging.Formatter(LOG_FORMAT, datefmt=DATE_FORMAT))

@@ -32,6 +32,38 @@ public class LogController {
     @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
     private String logPath;
 
+    /**
+     * 尝试在不同可能的相对路径下寻找日志文件
+     */
+    private File findLogFile() {
+        String userDir = System.getProperty("user.dir");
+        log.info("🔍 正在尝试定位日志文件，当前工作目录: {}", userDir);
+
+        // 1. 尝试配置的路径
+        File file = new File(logPath);
+        if (!file.isAbsolute()) {
+            file = new File(userDir, logPath);
+        }
+        log.info("尝试路径 1 (配置路径): {}", file.getAbsolutePath());
+        if (file.exists()) return file;
+
+        // 2. 尝试从当前目录向上查找直到找到包含 niro-spider 的目录
+        File current = new File(userDir);
+        while (current != null) {
+            File spiderLogs = new File(current, "niro-spider/logs/niro_spider.log");
+            log.info("尝试路径 (向上查找): {}", spiderLogs.getAbsolutePath());
+            if (spiderLogs.exists()) return spiderLogs;
+            
+            // 兼容可能直接在 niro-spider 目录下的情况
+            File directLogs = new File(current, "logs/niro_spider.log");
+            if (directLogs.exists() && current.getName().equals("niro-spider")) return directLogs;
+            
+            current = current.getParentFile();
+        }
+
+        return null;
+    }
+
     private final ExecutorService executor = Executors.newCachedThreadPool();
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
@@ -40,16 +72,22 @@ public class LogController {
         // 设置较长的超时时间 (例如 30 分钟)
         SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
 
-        File logFile = FileUtil.file(logPath);
-        if (!logFile.exists()) {
+        // 尝试多种可能的路径来定位日志文件
+        File logFile = findLogFile();
+        
+        if (logFile == null || !logFile.exists()) {
             try {
-                // 发送一条错误信息后结束
-                emitter.send(SseEmitter.event().data("日志文件不存在: " + logFile.getAbsolutePath()));
+                String currentDir = System.getProperty("user.dir");
+                String errorMsg = String.format("❌ 无法定位日志文件。当前工作目录: %s, 配置路径: %s. 请检查 niro-spider 是否已启动并生成日志。", currentDir, logPath);
+                emitter.send(SseEmitter.event().data(errorMsg));
+                log.error(errorMsg);
             } catch (Exception e) {
                 log.error("SSE发送失败", e);
             }
             return emitter;
         }
+
+        log.info("📌 正在读取日志文件: {}", logFile.getAbsolutePath());
 
         // 使用 Hutool Tailer 监听文件末尾 (读取最后50行)
         Tailer tailer = new Tailer(logFile, StandardCharsets.UTF_8, line -> {
