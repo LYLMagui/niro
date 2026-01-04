@@ -101,6 +101,8 @@ services:
       - REDIS_HOST=niro-redis-prod
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     volumes:
       - niro_shared_logs_prod:/app/logs
     networks:

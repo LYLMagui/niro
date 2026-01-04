@@ -3,6 +3,7 @@
 ## v1.7.7 (2026-01-05)
 - [功能] **新增全局代理支持 (v2rayA 适配)**：
   - **单点代理配置**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了 `PROXY_URL` 配置项，支持通过环境变量直接设置全局 HTTP/SOCKS5 代理。
+  - **Docker 容器间通信优化**：在 [docker-compose.prod.yml](file:///e:/CodeSpace/PYTHON/niro/docker-compose.prod.yml) 和 [docker-compose.test.yml](file:///e:/CodeSpace/PYTHON/niro/docker-compose.test.yml) 中为爬虫服务添加了 `extra_hosts` 配置（`host.docker.internal:host-gateway`）。这使得运行在 Docker 容器内的爬虫能够通过 `host.docker.internal` 直接访问宿主机上的 v2rayA 代理服务，解决了跨容器网络通信的痛点。
   - **全模块代理覆盖**：
     - **基础爬虫**：[buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 的 `get_goods_list` 和 `buy` 接口现在均支持代理。
     - **分类同步**：[get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的 API 请求已接入代理。
