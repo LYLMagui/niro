@@ -14,7 +14,7 @@ const BASE_URL = import.meta.env.VITE_BASE_API || "";
 // 创建 axios 实例
 const service = axios.create({
   baseURL: BASE_URL, // API 基础路径
-  timeout: 15000, // 请求超时时间
+  timeout: 30000, // 请求超时时间增加到 30s
   headers: {
     "Content-Type": "application/json;charset=utf-8",
   },
@@ -44,6 +44,10 @@ const request: RequestInstance = {
 // 请求拦截器
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
+    // 记录请求开始时间
+    (config as any).metadata = { startTime: new Date() };
+    console.log(`[Request Start] ${config.method?.toUpperCase()} ${config.url}`);
+    
     // 从 localStorage 获取 token
     const token = localStorage.getItem("niro-web-token");
     // 如果 token 存在，则添加到请求头
@@ -54,6 +58,7 @@ service.interceptors.request.use(
     return config;
   },
   (error: AxiosError) => {
+    console.error("[Request Error]", error);
     return Promise.reject(error);
   }
 );
@@ -61,6 +66,11 @@ service.interceptors.request.use(
 // 响应拦截器
 service.interceptors.response.use(
   (response: AxiosResponse<Result>) => {
+    // 计算耗时
+    const metadata = (response.config as any).metadata;
+    const duration = new Date().getTime() - metadata.startTime.getTime();
+    console.log(`[Response End] ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`);
+
     const res = response.data;
     const headers = response.headers;
 
@@ -72,6 +82,7 @@ service.interceptors.response.use(
     }
 
     if (res.code !== 0) {
+      console.error("[Business Error]", res);
       MessagePlugin.error(res.message || "系统未知错误");
 
       // 401: 未登录或 Token 过期
@@ -87,7 +98,11 @@ service.interceptors.response.use(
     }
   },
   (error: AxiosError) => {
-    console.log("Response Interceptor (Error):", error.response?.status, error.message);
+    // 计算耗时（即使失败）
+    const metadata = (error.config as any).metadata;
+    const duration = metadata ? new Date().getTime() - metadata.startTime.getTime() : 'unknown';
+    console.error(`[Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${duration}ms`, error);
+
     const { response } = error;
     if (response) {
       const data = response.data as Result;
@@ -97,6 +112,9 @@ service.interceptors.response.use(
         localStorage.removeItem("niro-web-token");
         window.location.href = "/login";
       }
+    } else if (error.code === 'ECONNABORTED' && error.message.indexOf('timeout') !== -1) {
+      // 请求超时
+      MessagePlugin.error("请求超时，请检查后端服务性能或网络状况");
     } else {
       // 网络错误或跨域问题
       console.error("Network Error or CORS:", error.message);

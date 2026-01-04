@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.7.1 (2026-01-04)
+- [优化] **请求链路诊断能力升级与 Nginx 配置精简**：
+  - **全链路耗时监控**：在 [request.ts](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/utils/request.ts) 中引入了请求/响应拦截器耗时统计。现在控制台会清晰输出每个接口从发起请求到接收响应的毫秒数，帮助定位后端业务性能瓶颈。
+  - **深度错误诊断**：优化了 Axios 响应拦截器的错误处理逻辑。新增了“请求超时”专属提示，并区分了“网络错误”、“跨域拦截”与“业务代码异常”，极大降低了假性超时的排查难度。
+  - **性能阈值调整**：将全站 API 请求超时上限从 15s 延长至 **30s**，以适配复杂数据同步任务在服务器端的极端响应场景。
+  - **Nginx 配置精简**：在 [nginx.prod.conf](file:///e:/CodeSpace/PYTHON/niro/niro-client/nginx.prod.conf) 和 [nginx.test.conf](file:///e:/CodeSpace/PYTHON/niro/niro-client/nginx.test.conf) 中移除了冗余的 `rewrite` 指令。利用 `proxy_pass` 结尾斜杠的路径替换特性实现更规范的转发，避免了双重重写可能导致的 URL 路径解析缓慢问题。
+
 ## v1.7.0 (2026-01-04)
 - [修复] **生产/测试环境关键配置纠正与超时优化**：
   - **Docker 配置修复**：修复了 `docker-compose.prod.yml` 和 `docker-compose.test.yml` 中 Redis 密码环境变量的拼写错误 (`SPRING_DATA_REDIS_PASSWRD` -> `SPRING_DATA_REDIS_PASSWORD`)。该错误曾导致后端无法连接 Redis，进而引发登录接口挂起超时。
