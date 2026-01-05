@@ -1,21 +1,25 @@
-import time
-import datetime
+import pendulum
+import pydash
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 from spiders.buff_spider import BuffSpider
 from spiders.get_buff_goods import run_goods_sync
 from spiders.get_buff_goods_category import run_category_sync
-from storage.postgres_pool import PostgresPool
+from storage.models import BuffScanTask, BuffPriceHistory
+from storage.database import Session
+from sqlalchemy import select, update, func, insert
+from sqlalchemy.dialects.postgresql import insert as pg_insert
 from utils.logger import get_logger
 from utils.notifier import notifier
 from utils.exception_handler import LoginRequiredError
+from dto.task_dto import BuffScanTaskDTO
+from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type, before_sleep_log
 
 logger = get_logger(__name__)
 
 class TaskScanner:
     def __init__(self):
-        self.pg_pool = PostgresPool()
         # 用户级爬虫实例池: {user_id: BuffSpider}
         self.user_spiders = {}
         # 记录购买失败的 ItemID
@@ -56,7 +60,7 @@ class TaskScanner:
 
     def clean_failed_items(self):
         """清理过期的失败记录"""
-        now = time.time()
+        now = pendulum.now().timestamp()
         expired = [k for k, v in self.failed_items.items() if now - v > self.failed_expire]
         for k in expired:
             del self.failed_items[k]
@@ -87,12 +91,12 @@ class TaskScanner:
 
     def sync_tasks(self):
         """同步数据库任务到调度器"""
+        session = Session()
         try:
             self.clean_failed_items()
             
             # 获取所有任务
-            sql = "SELECT * FROM buff_scan_task"
-            tasks = self.pg_pool.fetch_all(sql)
+            tasks = session.query(BuffScanTask).all()
             
             active_task_ids = set()
             
@@ -109,26 +113,28 @@ class TaskScanner:
                 self._last_task_count = task_count
             
             for task in tasks:
-                task_id = task['id']
-                status = task['status']
+                task_id = task.id
+                status = task.status
                 
                 # 如果任务是运行中 (1)
                 if status == 1:
                     active_task_ids.add(task_id)
-                    self.schedule_task(task)
+                    # 使用 Pydantic 从 SQLAlchemy 模型转换
+                    task_dto = BuffScanTaskDTO.model_validate(task)
+                    self.schedule_task(task_dto.model_dump())
                 elif status == 4:
                     # 如果任务状态是“执行中”，但当前实例并没有记录它在运行，说明可能卡住了（如进程重启）
                     if task_id not in self.running_tasks:
                         # 增加一个小的宽限期，避免刚完成状态还没更新完就被同步逻辑重置
                         last_finished = getattr(self, 'last_finished_tasks', {})
                         finish_time = last_finished.get(task_id, 0)
-                        if time.time() - finish_time < 30:
+                        if pendulum.now().timestamp() - finish_time < 30:
                             logger.debug(f"⏳ 任务 [ID:{task_id}] 处于状态 4 且不在队列中，但刚结束不久，跳过重置")
                             continue
 
                         logger.warning(f"⚠️ 任务 [ID:{task_id}] 状态为执行中但未在运行队列，尝试重置状态...")
                         # 如果有 cron，重置为 1 (待运行)，否则重置为 0 (停止)
-                        if task.get('cron_expression'):
+                        if task.cron_expression:
                             self.update_task_status(task_id, 1)
                         else:
                             self.update_task_status(task_id, 0)
@@ -153,6 +159,8 @@ class TaskScanner:
                     
         except Exception as e:
             logger.error(f"❌ 同步任务失败: {e}", exc_info=True)
+        finally:
+            Session.remove()
 
     def parse_cron(self, cron_expr):
         """解析 6 位 Cron 表达式 (Spring/Quartz 格式) 为 APScheduler 的 CronTrigger"""
@@ -177,15 +185,14 @@ class TaskScanner:
     def schedule_task(self, task):
         """将任务加入调度器或更新现有调度"""
         task_id = task['id']
-        cron_expr = task.get('cron_expression')
-        scan_interval = task.get('scan_interval') or 5
-        duration = task.get('duration_minutes') or 0
+        cron_expr = pydash.get(task, 'cron_expression')
+        scan_interval = pydash.get(task, 'scan_interval', 5)
         
         # 构造一个唯一的配置标识，用于检测配置是否变更
         new_config = {
             'cron': cron_expr,
             'interval': scan_interval,
-            'type': task.get('task_type')
+            'type': pydash.get(task, 'task_type')
         }
         
         # 如果已经存在该任务的作业，检查配置是否有变化
@@ -243,109 +250,88 @@ class TaskScanner:
         """Cron 触发器：开始执行扫描任务"""
         logger.info(f"⏰ Cron 触发: 任务 [ID:{task_id}] 开始运行...")
         # 重新从数据库获取最新任务信息
-        sql = "SELECT * FROM buff_scan_task WHERE id = %s"
-        task = self.pg_pool.fetch_one(sql, (task_id,))
-        if task and task['status'] == 1:
-            task_type = task.get('task_type', 0)
-            if task_type >= 2:
-                # 系统任务：设置为执行中状态并直接执行
-                self.running_tasks[task_id] = True
-                self.update_task_status(task_id, 4)
-                self.scheduler.add_job(
-                    self.run_system_task,
-                    args=[task],
-                    id=f"system_task_{task_id}_{int(time.time())}"
-                )
-            else:
-                # 普通任务：开启间隔扫描
-                job_id = self.start_scan_job(task)
-                # 记录下这个活跃的扫描作业，防止 sync_tasks 认为它没上架
-                self.scheduled_jobs[task_id] = job_id
+        session = Session()
+        try:
+            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
+            if task and task.status == 1:
+                task_dto = BuffScanTaskDTO.model_validate(task)
+                task_dict = task_dto.model_dump()
+                task_type = task_dto.task_type
+                if task_type >= 2:
+                    # 系统任务：设置为执行中状态并直接执行
+                    self.running_tasks[task_id] = True
+                    self.update_task_status(task_id, 4)
+                    self.scheduler.add_job(
+                        self.run_system_task,
+                        args=[task_dict],
+                        id=f"system_task_{task_id}_{int(time.time())}"
+                    )
+                else:
+                    # 普通任务：开启间隔扫描
+                    job_id = self.start_scan_job(task_dict)
+                    # 记录下这个活跃的扫描作业，防止 sync_tasks 认为它没上架
+                    self.scheduled_jobs[task_id] = job_id
+        except Exception as e:
+            logger.error(f"❌ 触发 Cron 任务失败: {e}")
+        finally:
+            Session.remove()
 
     def run_system_task(self, task):
-        """执行单次系统同步任务"""
+        """执行单次系统同步任务 (带自动重试机制)"""
         task_id = task['id']
         task_type = task.get('task_type')
         task_name = task.get('name', '系统同步任务')
         
-        # 标记为运行中 (如果 TaskScanner 中有 running_tasks 属性)
         if hasattr(self, 'running_tasks'):
             self.running_tasks[task_id] = True
             
         logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
-        
-        # 仅在第一次启动时发送通知（重试不发送）
-        if self.general_error_counts.get(task_id, 0) == 0 and self.login_error_counts.get(task_id, 0) == 0:
-            self.send_task_start_notification(task)
+        self.send_task_start_notification(task)
         
         try:
-            if task_type == 2:
-                # 系统-分类同步
-                run_category_sync(task_id=task_id)
-            elif task_type == 3:
-                # 系统-商品同步
-                run_goods_sync(force=False, task_id=task_id)
+            # 使用内部带重试的方法执行核心逻辑
+            self._execute_system_task_with_retry(task_id, task_type)
             
-            # 检查是否在运行过程中已被停止 (如果有 running_tasks 属性)
-            is_running = True
-            if hasattr(self, 'running_tasks'):
-                is_running = task_id in self.running_tasks
-
+            # 执行成功后的处理
+            is_running = task_id in self.running_tasks if hasattr(self, 'running_tasks') else True
             if is_running:
                 logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
-                
-                # 如果是周期任务，设置回 1 (Active)，否则设置为 0 (Stopped)
                 cron_expr = task.get('cron_expression')
                 if cron_expr:
                     self.update_task_status(task_id, 1)
                 else:
                     self.stop_task_in_db(task_id)
-                
-                # 系统同步任务完成后不再发送推送通知，仅记录日志
-                # self.send_task_stop_notification(task, "同步完成")
-                # 成功后重置计数
-                if task_id in self.login_error_counts:
-                    self.login_error_counts[task_id] = 0
-                if task_id in self.general_error_counts:
-                    self.general_error_counts[task_id] = 0
             else:
                 logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 在运行过程中已被停止")
                 
         except LoginRequiredError:
-            count = self.login_error_counts.get(task_id, 0) + 1
-            self.login_error_counts[task_id] = count
-            
-            if count >= 3:
-                logger.critical(f"🛑 系统任务 [ID:{task_id}] 连续 3 次登录失效，正在停止任务...")
-                self.set_task_error(task_id)
-                self.send_task_stop_notification(task, "Cookie 连续失效 3 次，请更新全局 BUFF_COOKIE")
-                self.login_error_counts[task_id] = 0
-            else:
-                logger.warning(f"🔑 系统任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录 (将自动重试)")
-                # 还没到 3 次，重置回待运行(1)状态，以便下次触发
-                self.update_task_status(task_id, 1)
-                
+            logger.critical(f"🛑 系统任务 [ID:{task_id}] 登录失效且重试耗尽，正在停止任务...")
+            self.set_task_error(task_id)
+            self.send_task_stop_notification(task, "Cookie 连续失效，请更新全局 BUFF_COOKIE")
         except Exception as e:
-            count = self.general_error_counts.get(task_id, 0) + 1
-            self.general_error_counts[task_id] = count
-            
-            if count >= 3:
-                logger.error(f"🛑 系统任务 [ID:{task_id}] 连续 {count} 次执行异常，正在停止任务...")
-                self.set_task_error(task_id)
-                self.send_task_stop_notification(task, f"同步失败: {e}")
-                self.general_error_counts[task_id] = 0
-            else:
-                logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 第 {count} 次执行异常 (将自动重试): {e}")
-                # 还没到 3 次，重置回待运行(1)状态
-                self.update_task_status(task_id, 1)
+            logger.error(f"🛑 系统任务 [ID:{task_id}] 执行异常且重试耗尽: {e}")
+            self.set_task_error(task_id)
+            self.send_task_stop_notification(task, f"同步失败: {e}")
         finally:
             self.last_finished_tasks[task_id] = time.time()
             if hasattr(self, 'running_tasks') and task_id in self.running_tasks:
                 del self.running_tasks[task_id]
-            
-            # 如果是单次执行的任务，从已调度列表中移除，以便下次 sync_tasks 能再次触发它
             if not task.get('cron_expression') and task_id in self.scheduled_jobs:
                 del self.scheduled_jobs[task_id]
+
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_fixed(5),
+        retry=(retry_if_exception_type(Exception) | retry_if_exception_type(LoginRequiredError)),
+        before_sleep=before_sleep_log(logger, "WARNING"),
+        reraise=True
+    )
+    def _execute_system_task_with_retry(self, task_id, task_type):
+        """核心系统任务逻辑，由 tenacity 负责重试"""
+        if task_type == 2:
+            run_category_sync(task_id=task_id)
+        elif task_type == 3:
+            run_goods_sync(force=False, task_id=task_id)
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
@@ -354,7 +340,7 @@ class TaskScanner:
         job_id = f"active_scan_{task_id}"
         
         # 记录启动时间用于持续时间判断
-        self.task_start_times[task_id] = datetime.datetime.now()
+        self.task_start_times[task_id] = pendulum.now()
         
         self.scheduler.add_job(
             self.run_scan_cycle,
@@ -400,76 +386,58 @@ class TaskScanner:
         # 标记为运行中
         self.running_tasks[task_id] = True
         
+        session = Session()
         try:
             # 1. 获取最新任务状态
-            sql = "SELECT * FROM buff_scan_task WHERE id = %s"
-            task = self.pg_pool.fetch_one(sql, (task_id,))
+            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
             
-            if not task or task['status'] != 1:
+            if not task or task.status != 1:
                 self.unschedule_task(task_id)
                 return
 
+            # 使用 Pydantic 从 SQLAlchemy 模型转换
+            task_dto = BuffScanTaskDTO.model_validate(task)
+            task_dict = task_dto.model_dump()
+            user_id = task_dict.get('user_id')
+
+            # 为当前扫描循环绑定上下文，方便 ELK 检索
+            task_logger = logger.bind(task_id=task_id, user_id=user_id, task_name=task_dict.get('name'))
+
             # 2. 持续时间检查
-            duration = task.get('duration_minutes') or 0
+            duration = pydash.get(task_dict, 'duration_minutes', 0)
             if duration > 0 and task_id in self.task_start_times:
                 start_time = self.task_start_times[task_id]
-                if datetime.datetime.now() > start_time + datetime.timedelta(minutes=duration):
-                    logger.info(f"⏱️ 任务 [ID:{task_id}] 运行时间已达 {duration} 分钟，自动停止。")
+                if pendulum.now() > start_time.add(minutes=duration):
+                    task_logger.info(f"⏱️ 任务运行时间已达 {duration} 分钟，自动停止。")
                     self.stop_task_in_db(task_id)
-                    self.send_task_stop_notification(task, "运行时间到期")
+                    self.send_task_stop_notification(task_dict, "运行时间到期")
                     self.unschedule_task(task_id)
                     return
 
             # 3. 待支付锁检查
-            user_id = task['user_id']
+            user_id = task_dict['user_id']
             if self.user_pending_locks.get(user_id):
                 # 尝试通过爬虫检查是否还有未支付订单
                 spider = self.get_spider(user_id)
                 if self.check_user_pending_orders(spider):
-                    logger.debug(f"⏳ 用户 {user_id} 仍有未支付订单，跳过本次扫描...")
+                    task_logger.debug(f"⏳ 用户仍有未支付订单，跳过本次扫描...")
                     return
                 else:
-                    logger.info(f"🔓 用户 {user_id} 未支付订单已处理，释放保护锁")
+                    task_logger.info(f"🔓 用户未支付订单已处理，释放保护锁")
                     self.user_pending_locks[user_id] = False
 
             # 4. 执行业务处理
             spider = self.get_spider(user_id)
             spider.refresh_cookie()
-            self.process_task(task, spider)
+            self.process_task(task_dict, spider)
             
-            # 成功执行后重置失败计数
-            if task_id in self.login_error_counts:
-                self.login_error_counts[task_id] = 0
-            if task_id in self.general_error_counts:
-                self.general_error_counts[task_id] = 0
-            
-        except LoginRequiredError:
-            count = self.login_error_counts.get(task_id, 0) + 1
-            self.login_error_counts[task_id] = count
-            logger.error(f"🔑 任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录")
-            
-            if count >= 3:
-                logger.critical(f"🛑 任务 [ID:{task_id}] 连续 3 次登录失效，正在停止任务...")
-                self.set_task_error(task_id)
-                self.send_task_stop_notification(task, "Cookie 连续失效 3 次，请重新配置")
-                self.unschedule_task(task_id)
-                self.login_error_counts[task_id] = 0
-                
         except Exception as e:
-            count = self.general_error_counts.get(task_id, 0) + 1
-            self.general_error_counts[task_id] = count
-            logger.error(f"❌ 任务 [ID:{task_id}] 第 {count} 次扫描异常: {e}")
-            
-            if count >= 5: # 扫描任务允许更多次失败（如网络波动）
-                logger.error(f"🛑 任务 [ID:{task_id}] 连续 {count} 次扫描异常，正在停止任务...")
-                self.set_task_error(task_id)
-                self.unschedule_task(task_id)
-                self.general_error_counts[task_id] = 0
-            # 不到 5 次则等待下个周期继续重试，不 unschedule
+            task_logger.error(f"❌ 扫描循环异常: {e}", exc_info=True)
         finally:
-            self.last_finished_tasks[task_id] = time.time()
+            self.last_finished_tasks[task_id] = pendulum.now().timestamp()
             if task_id in self.running_tasks:
                 del self.running_tasks[task_id]
+            Session.remove()
 
     def check_user_pending_orders(self, spider):
         """检查用户是否有待支付订单 (通过调用 API)"""
@@ -480,18 +448,23 @@ class TaskScanner:
 
     def update_task_status(self, task_id, status):
         """更新数据库任务状态"""
-        sql = "UPDATE buff_scan_task SET status = %s WHERE id = %s"
-        self.pg_pool.execute(sql, (status, task_id))
+        session = Session()
+        try:
+            session.query(BuffScanTask).filter(BuffScanTask.id == task_id).update({"status": status})
+            session.commit()
+        except Exception as e:
+            session.rollback()
+            logger.error(f"更新任务状态失败: {e}")
+        finally:
+            Session.remove()
 
     def stop_task_in_db(self, task_id):
         """更新数据库任务状态为停止(0)"""
-        sql = "UPDATE buff_scan_task SET status = 0 WHERE id = %s"
-        self.pg_pool.execute(sql, (task_id,))
+        self.update_task_status(task_id, 0)
 
     def set_task_error(self, task_id):
         """更新数据库任务状态为异常(3)"""
-        sql = "UPDATE buff_scan_task SET status = 3 WHERE id = %s"
-        self.pg_pool.execute(sql, (task_id,))
+        self.update_task_status(task_id, 3)
 
     def process_task(self, task, spider):
         """处理单个扫描任务"""
@@ -515,37 +488,46 @@ class TaskScanner:
 
     def record_price_history(self, item):
         """记录价格历史"""
+        session = Session()
         try:
-            goods_id = item.get('goods_id')
-            price = item.get('sell_min_price')
-            buy_max_price = item.get('buy_max_price')
-            sell_num = item.get('sell_num')
+            goods_id = pydash.get(item, 'goods_id')
+            price = pydash.get(item, 'sell_min_price')
+            buy_max_price = pydash.get(item, 'buy_max_price')
+            sell_num = pydash.get(item, 'sell_num')
             
             if not goods_id or price is None:
                 return
                 
-            sql = """
-                INSERT INTO buff_price_history (goods_id, price, buy_max_price, sell_num)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (goods_id, create_time) DO NOTHING
-            """
-            self.pg_pool.execute(sql, (goods_id, price, buy_max_price, sell_num))
+            # 使用 PostgreSQL 的 ON CONFLICT DO NOTHING
+            stmt = pg_insert(BuffPriceHistory).values(
+                goods_id=goods_id,
+                price=price,
+                buy_max_price=buy_max_price,
+                sell_num=sell_num
+            ).on_conflict_do_nothing(index_elements=['goods_id', 'create_time'])
+            
+            session.execute(stmt)
+            session.commit()
         except Exception as e:
+            session.rollback()
             logger.error(f"记录价格历史异常: {e}")
+        finally:
+            Session.remove()
 
     def get_avg_price_24h(self, goods_id):
         """获取 24 小时内的平均价"""
+        session = Session()
         try:
-            sql = """
-                SELECT AVG(price) as avg_price 
-                FROM buff_price_history 
-                WHERE goods_id = %s AND create_time > NOW() - INTERVAL '24 hours'
-            """
-            res = self.pg_pool.fetch_one(sql, (goods_id,))
-            return float(res['avg_price']) if res and res['avg_price'] else None
+            res = session.query(func.avg(BuffPriceHistory.price)).filter(
+                BuffPriceHistory.goods_id == goods_id,
+                BuffPriceHistory.create_time > func.now() - datetime.timedelta(hours=24)
+            ).scalar()
+            return float(res) if res else None
         except Exception as e:
             logger.error(f"查询历史均价异常: {e}")
             return None
+        finally:
+            Session.remove()
 
     def process_sniping_logic(self, task, items, spider):
         """处理炼金扫货逻辑 (严格匹配价格和磨损)"""
@@ -668,26 +650,36 @@ class TaskScanner:
 
     def update_task_progress(self, task_id):
         """更新任务进度"""
+        session = Session()
         try:
-            sql = "UPDATE buff_scan_task SET success_count = success_count + 1 WHERE id = %s"
-            self.pg_pool.execute(sql, (task_id,))
+            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
+            if not task:
+                return
+                
+            task.success_count += 1
+            session.commit()
             
-            check_sql = "SELECT success_count, buy_count FROM buff_scan_task WHERE id = %s"
-            res = self.pg_pool.fetch_one(check_sql, (task_id,))
-            if res and res['success_count'] >= res['buy_count']:
-                stop_sql = "UPDATE buff_scan_task SET status = 2 WHERE id = %s"
-                self.pg_pool.execute(stop_sql, (task_id,))
+            if task.success_count >= task.buy_count:
+                task.status = 2
+                session.commit()
                 logger.info(f"🏁 任务 [ID:{task_id}] 已达到购买上限，自动停止。")
                 
                 # 获取完整任务信息用于通知
-                task_sql = "SELECT * FROM buff_scan_task WHERE id = %s"
-                task = self.pg_pool.fetch_one(task_sql, (task_id,))
-                if task:
-                    self.send_task_stop_notification(task, "达到购买上限")
-                
+                task_dict = {
+                    'id': task.id,
+                    'name': task.name,
+                    'status': task.status,
+                    'user_id': task.user_id,
+                    'success_count': task.success_count,
+                    'buy_count': task.buy_count
+                }
+                self.send_task_stop_notification(task_dict, "达到购买上限")
                 self.unschedule_task(task_id)
         except Exception as e:
+            session.rollback()
             logger.error(f"更新任务进度失败: {e}")
+        finally:
+            Session.remove()
 
     def send_task_start_notification(self, task):
         """发送任务启动通知"""

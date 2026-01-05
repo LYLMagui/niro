@@ -1,14 +1,17 @@
-import datetime
 import json
 import os
+import pendulum
+import pydash
 import requests
 from http.cookies import SimpleCookie
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+
 from config import settings
-from storage.postgres_pool import PostgresPool
 from utils.logger import get_logger
 from utils.exception_handler import handle_api_error, LoginRequiredError
 from utils.cookie_util import get_latest_cookie
 from utils.proxy_helper import get_proxies
+from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
 
 logger = get_logger(__name__)
 
@@ -16,11 +19,13 @@ logger = get_logger(__name__)
 class BuffSpider:
     def __init__(self, user_id=None):
         self.host = "https://buff.163.com"
-        self.pg_pool = PostgresPool()
         self.user_id = user_id
+        # 绑定用户上下文，方便日志追踪
+        self.logger = logger.bind(user_id=user_id)
         self.proxies = get_proxies()
         if self.proxies:
-            logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')}")
+            self.logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')}")
+        
         # 初始化时直接从数据库获取最新的 Cookie
         current_cookie = get_latest_cookie(self.user_id)
         self.headers = {
@@ -43,11 +48,17 @@ class BuffSpider:
         new_cookie = get_latest_cookie(self.user_id)
         if new_cookie != self.headers.get("cookie"):
             self.headers["cookie"] = new_cookie
-            logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
+            self.logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
         elif not self.headers.get("cookie"):
-            logger.warning(f"⚠️ 无法加载用户 {self.user_id} 的有效 Cookie")
+            self.logger.warning(f"⚠️ 无法加载用户 {self.user_id} 的有效 Cookie")
 
     @handle_api_error(default_return=[])
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        reraise=True
+    )
     def get_goods_list(self, goods_id, page_num=1):
         """
         获取饰品列表
@@ -55,26 +66,6 @@ class BuffSpider:
         :param page_num: 页码
         :return: 解析后的数据列表
         """
-        # --- 模拟测试代码 START (已禁用) ---
-        # 强制返回一个模拟的低价完美磨损商品，确保 TaskScanner 能扫到并下单
-        # import random
-        # mock_item = {
-        #     "id": f"MOCK_SELL_ORDER_{random.randint(1000, 9999)}",
-        #     "goods_id": goods_id,
-        #     "name": "模拟测试商品 (必被扫到)",
-        #     "price_usd": "1.00",
-        #     "price_cny": "7.00",
-        #     "paintwear": "0.001",  # 极低磨损
-        #     "price_buff": "0.01",  # 极低价格
-        #     "user_id": "MOCK_USER",
-        #     "user_nickname": "测试卖家",
-        #     "created_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        #     "crawled_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-        # }
-        # logger.info(f"🐛 [测试模式] 已注入模拟商品: 价格=0.01, 磨损=0.001")
-        # return [mock_item]
-        # --- 模拟测试代码 END ---
-
         url = "/api/market/goods/sell_order"
         params = {
             "game": "csgo",
@@ -82,30 +73,76 @@ class BuffSpider:
             "page_num": page_num,
         }
 
-        logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
+        self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
         response = requests.get(
             self.host + url, headers=self.headers, params=params, proxies=self.proxies, timeout=10
         )
         response.raise_for_status()
-        data = response.json()
-        return self._parse_data(data)
+        
+        # 使用 Pydantic 解析响应
+        try:
+            resp_data = BuffSellOrderResponse.model_validate_json(response.text)
+            return self._parse_data_v2(resp_data)
+        except Exception as e:
+            self.logger.error(f"解析 Buff 响应失败: {e}")
+            return []
+
+    def _parse_data_v2(self, resp: BuffSellOrderResponse):
+        """使用 Pydantic 模型进行解析的改进版"""
+        if resp.code == "Login Required":
+            self.logger.error("🔑 Cookie 已失效或未登录")
+            raise LoginRequiredError("Buff Login Required")
+            
+        if resp.code != "OK" or not resp.data:
+            self.logger.warning(f"响应数据异常: {resp.msg}")
+            return []
+
+        data = resp.data
+        parsed_items = []
+        
+        for item in data.items:
+            goods_info = data.goods_infos.get(str(item.goods_id), {})
+            user_info = data.user_infos.get(str(item.user_id), {})
+            created_at_dt = pendulum.from_timestamp(item.created_at)
+
+            parsed_item = ParsedBuffItemDTO(
+                id=item.id,
+                goods_id=item.goods_id,
+                name=goods_info.name if goods_info else "",
+                price_usd=goods_info.steam_price if goods_info else "",
+                price_cny=goods_info.steam_price_cny if goods_info else "",
+                paintwear=item.asset_info.paintwear,
+                price_buff=item.price,
+                sell_min_price=float(goods_info.sell_min_price) if goods_info else 0.0,
+                buy_max_price=float(goods_info.buy_max_price) if goods_info else 0.0,
+                sell_num=goods_info.sell_num if goods_info else 0,
+                user_id=item.user_id,
+                user_nickname=user_info.nickname if user_info else "",
+                created_at=created_at_dt.to_datetime_string(),
+                crawled_at=pendulum.now().to_datetime_string()
+            )
+            parsed_items.append(parsed_item.model_dump())
+
+        return parsed_items
 
     def _parse_data(self, data):
+        """保留旧版解析方法以防万一，但建议使用 _parse_data_v2"""
         if not data:
             return []
             
-        code = data.get("code")
+        code = pydash.get(data, "code")
         if code == "Login Required":
-            logger.error("🔑 Cookie 已失效或未登录")
+            self.logger.error("🔑 Cookie 已失效或未登录")
             raise LoginRequiredError("Buff Login Required")
             
         if code != "OK" or "data" not in data:
-            logger.warning(f"响应数据异常: {json.dumps(data, ensure_ascii=False)}")
+            self.logger.warning(f"响应数据异常: {json.dumps(data, ensure_ascii=False)}")
             return []
 
-        goods_list = data["data"].get("items", [])
-        goods_infos = data["data"].get("goods_infos", {})
-        user_infos = data["data"].get("user_infos", {})
+        data_content = data["data"]
+        goods_list = pydash.get(data_content, "items", [])
+        goods_infos = pydash.get(data_content, "goods_infos", {})
+        user_infos = pydash.get(data_content, "user_infos", {})
 
         parsed_items = []
         for item in goods_list:
@@ -113,8 +150,9 @@ class BuffSpider:
             goods_info = goods_infos.get(str(goods_id), {})
             asset_info = item.get("asset_info", {})
             user_id = item.get("user_id", 0)
-            user_info = user_infos.get(user_id, {})
-            created_at = datetime.datetime.fromtimestamp(item.get("created_at", 0))
+            user_info = user_infos.get(str(user_id), {})
+            
+            created_at = pendulum.from_timestamp(item.get("created_at", 0))
 
             parsed_item = {
                 "id": item.get("id", 0),
@@ -122,15 +160,15 @@ class BuffSpider:
                 "name": goods_info.get("name", ""),
                 "price_usd": goods_info.get("steam_price", ""),
                 "price_cny": goods_info.get("steam_price_cny", ""),
-                "paintwear": asset_info.get("paintwear", None),
-                "price_buff": item.get("price", None),
+                "paintwear": asset_info.get("paintwear"),
+                "price_buff": item.get("price"),
                 "sell_min_price": goods_info.get("sell_min_price", 0),
                 "buy_max_price": goods_info.get("buy_max_price", 0),
                 "sell_num": goods_info.get("sell_num", 0),
                 "user_id": user_id,
                 "user_nickname": user_info.get("nickname", ""),
-                "created_at": created_at.strftime("%Y-%m-%d %H:%M:%S"),
-                "crawled_at": datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                "created_at": created_at.to_datetime_string(),
+                "crawled_at": pendulum.now().to_datetime_string(),
             }
             parsed_items.append(parsed_item)
 
