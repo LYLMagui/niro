@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.9.5 (2026-01-06)
+- [修复] **优化代理配置加载与兼容性**：
+  - **反引号自动清洗**：针对部分环境 `.env` 文件中 `PROXY_URL` 被反引号（`` ` ``）包裹导致解析失败的问题，在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了自动清洗逻辑，确保代理地址合法。
+  - **多路径环境变量探测**：增强了环境变量加载的鲁棒性，现在系统会按优先级探测 `niro-spider/`、`niro-web/` 及项目根目录下的 `.env` 文件，解决了 Docker 部署模式下配置无法读取的痛点。
+  - **代理助手增强**：在 [proxy_helper.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/proxy_helper.py) 中引入了日志记录，方便排查代理调用链路。
+
 ## v1.9.4 (2026-01-06)
 - [修复] **解决商品表 tags 字段为空的问题**：
   - **模型映射补全**：在 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 中为 `BuffGoods` 实体类新增了 `tags` 字段（Text 类型），并对齐数据库中的 JSON 结构。

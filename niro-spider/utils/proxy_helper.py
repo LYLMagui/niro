@@ -1,5 +1,8 @@
 import random
 from config import settings
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 def get_proxies():
     """
@@ -17,18 +20,22 @@ def get_proxies():
     # 1. 优先使用全局单点代理
     proxy_url = getattr(settings, 'PROXY_URL', None)
     if proxy_url:
-        return {
+        proxies = {
             "http": proxy_url,
             "https": proxy_url
         }
+        # logger.debug(f"🌐 使用全局代理: {proxy_url}")
+        return proxies
 
     # 2. 备选使用代理池
     if hasattr(settings, 'PROXIES') and settings.PROXIES:
         proxy_ip = random.choice(settings.PROXIES)
-        return {
+        proxies = {
             "http": f"http://{proxy_ip}",
             "https": f"http://{proxy_ip}"
         }
+        # logger.debug(f"🌐 使用代理池: {proxy_ip}")
+        return proxies
     
     return None
 

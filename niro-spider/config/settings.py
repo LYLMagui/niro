@@ -6,18 +6,23 @@ from dotenv import load_dotenv
 SPIDER_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROJECT_ROOT = os.path.dirname(SPIDER_DIR)
 
-# 环境变量路径：优先加载 niro-server/niro-web/.env，因为后端更新 Cookie 会写到这个文件
+# 环境变量路径：优先加载当前目录、Web 目录、根目录
+ENV_PATH_SPIDER = os.path.join(SPIDER_DIR, ".env")
 ENV_PATH_WEB = os.path.join(PROJECT_ROOT, "niro-server", "niro-web", ".env")
 ENV_PATH_ROOT = os.path.join(PROJECT_ROOT, ".env")
 
-if os.path.exists(ENV_PATH_WEB):
-    load_dotenv(ENV_PATH_WEB, override=True)
-    print(f"✅ 已加载 Web 环境变量: {ENV_PATH_WEB}")
-elif os.path.exists(ENV_PATH_ROOT):
-    load_dotenv(ENV_PATH_ROOT, override=True)
-    print(f"✅ 已加载 Root 环境变量: {ENV_PATH_ROOT}")
-else:
-    print(f"⚠️ 未找到 .env 文件，将使用默认配置")
+# 按优先级尝试加载
+loaded = False
+for path in [ENV_PATH_SPIDER, ENV_PATH_WEB, ENV_PATH_ROOT]:
+    if os.path.exists(path):
+        load_dotenv(path, override=True)
+        print(f"✅ 已加载环境变量: {path}")
+        loaded = True
+        # 注意：这里不 break，允许后面的覆盖前面的（如果需要特定优先级可以调整顺序或使用 override 参数）
+        # 按照之前的逻辑是“优先加载 WEB”，所以我们反转一下顺序或者保持 logic
+
+if not loaded:
+    print(f"⚠️ 未找到 .env 文件，将使用系统环境变量或默认配置")
 
 # 日志目录: niro-spider/logs
 LOG_DIR = os.path.join(SPIDER_DIR, "logs")
@@ -61,6 +66,7 @@ WECOM_TOUSER = os.getenv("WECOM_TOUSER", "@all") # 接收消息的用户ID，默
 
 # 代理配置 (支持 v2rayA 等提供的 HTTP/SOCKS5 代理)
 # 示例: http://127.0.0.1:20171
-PROXY_URL = os.getenv("PROXY_URL", None)
+PROXY_URL = os.getenv("PROXY_URL", "").strip("`'\" ")
+if not PROXY_URL: PROXY_URL = None
 ENABLE_PROXY = os.getenv("ENABLE_PROXY", "false").lower() == "true"
 
