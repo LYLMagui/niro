@@ -1,5 +1,50 @@
 # Release Notes
 
+## v1.8.7 (2026-01-05)
+- [优化] **引入现代工具库进一步精简代码逻辑**：
+  - **Pendulum**：全面替换标准库 `datetime` 和 `time`，利用其更直观的 Fluent API 处理任务持续时间检查、时间戳转换及日志时间格式化。
+  - **Pydash**：在 `BuffSpider` 和 `TaskScanner` 中引入 `pydash.get` 进行深层嵌套字典的安全访问，消灭了大量的 `if/else` 判空逻辑，增强了系统健壮性。
+  - **依赖预引入**：提前引入 `Boltons` 和 `More-itertools` 库，为后续更复杂的集合操作和系统工具开发打下基础。
+
+## v1.8.6 (2026-01-05)
+- [优化] **为 ELK 日志分析系统做深度适配**：
+  - **结构化日志输出**：在 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 中新增了 `niro_spider.json` 处理器。该文件采用 `serialize=True` 配置，每一行均为标准的 JSON 对象，包含时间戳、日志级别、模块名、函数名及所有绑定的上下文。
+  - **业务上下文绑定**：
+    - 在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 的核心扫描循环中，使用 `logger.bind` 自动注入了 `task_id`、`user_id` 和 `task_name`。
+    - 在 [buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 的 `BuffSpider` 类中实现了实例级的 `user_id` 绑定，确保所有 API 请求相关的日志均带有用户属性。
+    - 这使得 ELK 可以实现秒级的多维度筛选与链路追踪。
+  - **全局元数据配置**：统一配置了 `service` 和 `env` 基础元数据，确保日志在分布式环境下具备唯一可识别性。
+
+## v1.8.5 (2026-01-05)
+- [优化] **引入现代 Python 工具链，全方位简化与加固爬虫业务逻辑**：
+  - **日志系统升级**：正式引入 `Loguru` 替换原生 `logging` 模块。实现了零配置的彩色控制台输出、自动日志轮转（10MB）、压缩存档以及异步线程安全写入。
+  - **数据建模与校验 (DTO)**：引入 `Pydantic` 建立了标准化的数据传输对象（DTO）。
+    - **任务模型**：创建了 [task_dto.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/dto/task_dto.py)，实现了 SQLAlchemy 模型到 DTO 的自动转换与验证，消除了手动构建字典的冗余代码。
+    - **API 响应模型**：创建了 [buff_dto.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/dto/buff_dto.py)，支持将 Buff API 的复杂 JSON 响应直接解析为嵌套对象，提升了数据提取的鲁棒性。
+  - **自动重试机制**：引入 `Tenacity` 框架重构了 API 请求与系统任务的重试逻辑。
+    - 在 [buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 中实现了带指数退避的 API 请求自动重试。
+    - 在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 中使用声明式重试装饰器替代了繁琐的手动计数器，代码量大幅减少。
+  - **依赖同步更新**：在 `requirements.txt` 中新增了 `loguru`、`pydantic` 和 `tenacity` 依赖。
+
+## v1.8.4 (2026-01-05)
+- [重构] **深度迁移 ORM 框架至 SQLAlchemy，全面拥抱生产级数据库标准**：
+  - **核心架构升级**：正式弃用轻量级 Peewee，迁移至功能更强大的 [SQLAlchemy](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/database.py)。建立了基于 `scoped_session` 的线程安全连接池管理机制，确保高并发爬虫场景下的数据连接稳定性。
+  - **模型定义对齐**：在 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 中利用 SQLAlchemy 的 `Declarative Base` 完整重构了 6 张核心表的映射模型，并实现了更精确的字段类型（如 `Numeric(10, 8)` 用于磨损程度）与索引约束。
+  - **全模块依赖重构**：
+    - **TaskScanner**：深度重构了 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py)，将所有原生 SQL 和 Peewee 逻辑替换为 SQLAlchemy Session。优化了 `run_scan_cycle`、`update_task_status` 等核心方法的异常捕获与会话自动清理流程。
+    - **Cookie 机制**：重写了 [cookie_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/cookie_util.py)，利用 SQLAlchemy 模型检索用户 Cookie，移除了对 `PostgresPool` 的原生 SQL 依赖。
+    - **通知系统**：重构了 [notifier.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/notifier.py)，实现了基于 ORM 的动态通知配置读取。
+    - **爬虫基类**：清理了 [buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 中残留的旧版连接池引用。
+  - **清理旧冗余**：彻底删除 `storage/postgres_pool.py` 和 `storage/base_model.py`，项目架构更加纯粹，统一使用 SQLAlchemy 处理所有持久化操作。
+  - **依赖同步更新**：更新 `requirements.txt`，正式确立 `sqlalchemy` 为 Python 模块的唯一 ORM 方案。
+
+## v1.8.3 (2026-01-05)
+- [重构] **引入 Peewee ORM 提升 Python 数据库层开发效率**：
+  - **基础设施搭建**：新增 [base_model.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/base_model.py) 建立 Peewee 数据库连接实例，并创建 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 完成对 `buff_goods`、`buff_scan_task`、`sys_user` 等 6 张核心表的 ORM 模型定义。
+  - **业务逻辑重构**：深度重构了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py)，将原生的 `psycopg2` SQL 拼接逻辑替换为 Peewee 的链式调用，代码可读性与健壮性显著提升。
+  - **性能与一致性**：利用 Peewee 的 `on_conflict` 机制完美兼容了 PostgreSQL 的 `UPSERT` 操作，确保商品批量同步时的原子性。
+  - **依赖管理**：同步更新 `requirements.txt`，正式将 `peewee` 纳入项目核心依赖。
+
 ## v1.8.2 (2026-01-05)
 - [优化] **精简系统任务重试与通知逻辑**：
   - **静默重试机制**：系统同步任务（商品/分类）在触发重试时，不再重复发送“任务启动”通知，仅在首次启动时推送。
