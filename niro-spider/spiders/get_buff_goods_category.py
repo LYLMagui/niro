@@ -22,6 +22,7 @@ from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
 from utils.cookie_util import get_latest_cookie
 from utils.proxy_helper import get_proxies
+from utils.network_util import log_request_ip
 
 logger = get_logger(__name__)
 
@@ -71,6 +72,7 @@ def fetch_buff_goods_api(params: Dict[str, Any], user_id: Optional[int] = None) 
     }
     
     proxies = get_proxies()
+    log_request_ip(proxies, prefix="[Category] ")
     response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10)
     
     # 强制设置编码，防止中文乱码

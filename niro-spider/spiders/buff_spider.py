@@ -11,6 +11,7 @@ from utils.logger import get_logger
 from utils.exception_handler import handle_api_error, LoginRequiredError
 from utils.cookie_util import get_latest_cookie
 from utils.proxy_helper import get_proxies
+from utils.network_util import log_request_ip
 from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
 
 logger = get_logger(__name__)
@@ -74,6 +75,7 @@ class BuffSpider:
         }
 
         self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
+        log_request_ip(self.proxies, prefix=f"[GoodsList] ")
         response = requests.get(
             self.host + url, headers=self.headers, params=params, proxies=self.proxies, timeout=10
         )
@@ -222,6 +224,7 @@ class BuffSpider:
         })
         
         logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str} | PayMethod={pay_method}")
+        log_request_ip(self.proxies, prefix=f"[BuyOrder] ")
         
         response = requests.post(self.host + url, headers=headers, json=payload, proxies=self.proxies, timeout=10)
         

@@ -22,6 +22,8 @@ from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
 from utils.cookie_util import get_latest_cookie
+from utils.proxy_helper import get_proxies
+from utils.network_util import log_request_ip
 
 logger = get_logger(__name__)
 
@@ -84,7 +86,9 @@ def fetch_goods_api(category_internal_name: str, page_num: int = 1, user_id: Opt
         "x-requested-with": "XMLHttpRequest",
     }
     
-    response = requests.get(url, headers=headers, params=params, timeout=15)
+    proxies = get_proxies()
+    log_request_ip(proxies, prefix="[GoodsSync] ")
+    response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=15)
     
     # 强制设置编码，防止中文乱码
     response.encoding = 'utf-8'

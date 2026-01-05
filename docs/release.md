@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.9.6 (2026-01-06)
+- [功能] **新增请求 IP 实时打印**：
+  - **网络工具类**：新增了 [network_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/network_util.py)，支持通过 `httpbin.org` 实时获取当前请求的出口 IP 地址。
+  - **全流程集成**：在 `BuffSpider`、商品全量同步及分类同步的关键 API 请求处集成了 IP 打印逻辑。现在每次调用 Buff 接口前都会在日志中清晰展示本次请求实际使用的 IP，极大地方便了代理生效情况的监控。
+  - **修复隐患**：修复了 `get_buff_goods.py` 在 API 请求时未正确透传代理配置的潜在 Bug。
+
 ## v1.9.5 (2026-01-06)
 - [修复] **优化代理配置加载与兼容性**：
   - **反引号自动清洗**：针对部分环境 `.env` 文件中 `PROXY_URL` 被反引号（`` ` ``）包裹导致解析失败的问题，在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了自动清洗逻辑，确保代理地址合法。
