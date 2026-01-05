@@ -1,5 +1,8 @@
 import pendulum
 import pydash
+import time
+import os
+from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
@@ -92,6 +95,7 @@ class TaskScanner:
     def sync_tasks(self):
         """同步数据库任务到调度器"""
         session = Session()
+        pid = os.getpid()
         try:
             self.clean_failed_items()
             
@@ -102,14 +106,14 @@ class TaskScanner:
             
             if not tasks:
                 if hasattr(self, '_last_task_count') and self._last_task_count > 0:
-                    logger.info("ℹ️ 数据库中任务已清空")
+                    logger.info(f"ℹ️ [PID:{pid}] 数据库中任务已清空")
                 self._last_task_count = 0
                 return
             
             # 记录任务总数变化
             task_count = len(tasks)
             if not hasattr(self, '_last_task_count') or self._last_task_count != task_count:
-                logger.info(f"🔍 数据库任务同步: 总计 {task_count} 个任务")
+                logger.info(f"🔍 [PID:{pid}] 数据库任务同步: 总计 {task_count} 个任务")
                 self._last_task_count = task_count
             
             for task in tasks:
@@ -128,16 +132,20 @@ class TaskScanner:
                         # 增加一个小的宽限期，避免刚完成状态还没更新完就被同步逻辑重置
                         last_finished = getattr(self, 'last_finished_tasks', {})
                         finish_time = last_finished.get(task_id, 0)
-                        if pendulum.now().timestamp() - finish_time < 30:
-                            logger.debug(f"⏳ 任务 [ID:{task_id}] 处于状态 4 且不在队列中，但刚结束不久，跳过重置")
+                        elapsed = pendulum.now().timestamp() - finish_time
+                        if elapsed < 30:
+                            logger.info(f"⏳ [PID:{pid}] 任务 [ID:{task_id}] 处于状态 4 且不在队列中，但刚结束不久 ({elapsed:.1f}s)，跳过重置")
                             continue
 
-                        logger.warning(f"⚠️ 任务 [ID:{task_id}] 状态为执行中但未在运行队列，尝试重置状态...")
+                        logger.warning(f"⚠️ [PID:{pid}] 任务 [ID:{task_id}] 状态为执行中但未在当前进程运行队列，尝试重置状态...")
                         # 如果有 cron，重置为 1 (待运行)，否则重置为 0 (停止)
                         if task.cron_expression:
                             self.update_task_status(task_id, 1)
                         else:
                             self.update_task_status(task_id, 0)
+                    else:
+                        # 正在当前进程运行的任务，也计入活跃列表，防止日志统计误判
+                        active_task_ids.add(task_id)
                 else:
                     # 如果任务不是运行中，确保调度器中已移除
                     self.unschedule_task(task_id)
@@ -146,9 +154,9 @@ class TaskScanner:
             active_count = len(active_task_ids)
             if not hasattr(self, '_last_active_count') or self._last_active_count != active_count:
                 if active_count > 0:
-                    logger.info(f"📈 当前有 {active_count} 个运行中的任务")
+                    logger.info(f"📈 [PID:{pid}] 当前有 {active_count} 个运行中的任务")
                 else:
-                    logger.info("ℹ️ 当前无运行中的任务")
+                    logger.info(f"ℹ️ [PID:{pid}] 当前无运行中的任务")
                 self._last_active_count = active_count
             
             # 清理已经不在数据库活跃列表中的配置缓存
@@ -455,8 +463,7 @@ class TaskScanner:
         except Exception as e:
             session.rollback()
             logger.error(f"更新任务状态失败: {e}")
-        finally:
-            Session.remove()
+        # 注意：不要在这里调用 Session.remove()，由调用方负责生命周期控制
 
     def stop_task_in_db(self, task_id):
         """更新数据库任务状态为停止(0)"""
@@ -687,7 +694,7 @@ class TaskScanner:
             task_name = task.get('name', '未知任务')
             task_type = task.get('task_type', 0)
             
-            start_time = datetime.datetime.now()
+            start_time = datetime.now()
             start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
             
             if task_type >= 2:
@@ -707,7 +714,7 @@ class TaskScanner:
                 
                 end_time_str = "无限制"
                 if duration > 0:
-                    end_time = start_time + datetime.timedelta(minutes=duration)
+                    end_time = start_time + timedelta(minutes=duration)
                     end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
                 
                 content = (
@@ -741,7 +748,7 @@ class TaskScanner:
                     f"------------------\n"
                     f"任务名称: {task_name}\n"
                     f"执行结果: {reason}\n"
-                    f"完成时间: {datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
+                    f"完成时间: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}"
                 )
             else:
                 # 普通扫货任务停止通知

@@ -1,11 +1,10 @@
-import jmespath
 import random
 import sys
 import os
 import requests
 import time
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasPath
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
 # 修复模块导入路径
@@ -30,31 +29,13 @@ BUFF_HOST = "https://buff.163.com"
 
 # --- Pydantic 模型定义 ---
 
-class BuffTag(BaseModel):
-    internal_name: str
-    localized_name: str
-
-class BuffGoodsTags(BaseModel):
-    type: Optional[BuffTag] = None
-    exterior: Optional[BuffTag] = None
-    quality: Optional[BuffTag] = None
-    rarity: Optional[BuffTag] = None
-
-class BuffGoodsInfoItem(BaseModel):
-    tags: BuffGoodsTags
-
 class BuffGoodsItem(BaseModel):
-    goods_info: Dict[str, Any]  # 兼容原始结构
-    # 这里我们只关心 tags
-    @property
-    def tags(self) -> BuffGoodsTags:
-        # Buff 的 API 结构比较深: goods_info -> info -> tags
-        info = self.goods_info.get("info", {})
-        tags_data = info.get("tags", {})
-        return BuffGoodsTags.model_validate(tags_data)
+    # 使用 AliasPath 提取深度嵌套字段
+    localized_name: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "localized_name"))
+    internal_name: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "internal_name"))
 
 class BuffGoodsData(BaseModel):
-    items: List[Dict[str, Any]]
+    items: List[BuffGoodsItem]
     total_page: int
 
 class BuffGoodsResponse(BaseModel):
@@ -92,6 +73,9 @@ def fetch_buff_goods_api(params: Dict[str, Any], user_id: Optional[int] = None) 
     proxies = get_proxies()
     response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10)
     
+    # 强制设置编码，防止中文乱码
+    response.encoding = 'utf-8'
+    
     if response.status_code == 403:
         raise LoginRequiredError("Buff Login Required (403)")
     
@@ -101,7 +85,13 @@ def fetch_buff_goods_api(params: Dict[str, Any], user_id: Optional[int] = None) 
 
     response.raise_for_status()
     
-    resp = BuffGoodsResponse.model_validate_json(response.text)
+    # 使用 json() 解析更安全
+    try:
+        resp_json = response.json()
+        resp = BuffGoodsResponse.model_validate(resp_json)
+    except Exception as e:
+        logger.error(f"解析 API 响应失败: {e}")
+        resp = BuffGoodsResponse.model_validate_json(response.text)
     
     if resp.code == "Login Required":
         raise LoginRequiredError("Buff Login Required")
@@ -151,22 +141,22 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
                 total_pages = data.total_page
                 logger.info(f"📊 检测到共 {total_pages} 页，本次最多同步 20 页")
 
-            # 使用 jmespath 提取
+            # 直接从 item 中获取已经解析好的分类信息
             items = data.items
-            types = jmespath.search("[*].goods_info.info.tags.type", items) or []
             
-            for item in types:
-                if not item: continue
-                full_name = item.get("internal_name", "")
+            for item in items:
+                if not item.internal_name: continue
+                full_name = item.internal_name
                 cat = {
                     "parent_id": 0,
-                    "name": item.get("localized_name", ""),
+                    "name": item.localized_name,
                     "internal_name": full_name.split('_')[-1] if full_name else "",
                     "full_internal_name": full_name,
                 }
                 all_categories.append(cat)
                 
             wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
+            logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
             time.sleep(wait_time)
             page += 1
         except LoginRequiredError as e:

@@ -1,9 +1,11 @@
 from typing import List, Optional, Dict
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasPath
 
 class BuffAssetInfo(BaseModel):
     paintwear: Optional[str] = None
-    # 可以根据需要添加更多字段
+    # 使用 AliasPath 提取深度嵌套字段
+    rarity: Optional[str] = Field(None, validation_alias=AliasPath("info", "tags", "rarity", "internal_name"))
+    exterior: Optional[str] = Field(None, validation_alias=AliasPath("info", "tags", "exterior", "internal_name"))
 
 class BuffGoodsInfo(BaseModel):
     name: str
@@ -49,3 +51,5 @@ class ParsedBuffItemDTO(BaseModel):
     user_nickname: str
     created_at: str
     crawled_at: str
+    rarity: Optional[str] = None
+    exterior: Optional[str] = None

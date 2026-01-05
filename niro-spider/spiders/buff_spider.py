@@ -77,15 +77,26 @@ class BuffSpider:
         response = requests.get(
             self.host + url, headers=self.headers, params=params, proxies=self.proxies, timeout=10
         )
+        
+        # 强制设置编码，防止中文乱码
+        response.encoding = 'utf-8'
         response.raise_for_status()
         
         # 使用 Pydantic 解析响应
         try:
-            resp_data = BuffSellOrderResponse.model_validate_json(response.text)
+            # 优先使用 json() 解析更安全
+            resp_json = response.json()
+            resp_data = BuffSellOrderResponse.model_validate(resp_json)
             return self._parse_data_v2(resp_data)
         except Exception as e:
             self.logger.error(f"解析 Buff 响应失败: {e}")
-            return []
+            # 如果 json 解析失败，尝试原始文本
+            try:
+                resp_data = BuffSellOrderResponse.model_validate_json(response.text)
+                return self._parse_data_v2(resp_data)
+            except Exception as e2:
+                self.logger.error(f"解析 Buff 响应最终失败: {e2}")
+                return []
 
     def _parse_data_v2(self, resp: BuffSellOrderResponse):
         """使用 Pydantic 模型进行解析的改进版"""
@@ -119,7 +130,9 @@ class BuffSpider:
                 user_id=item.user_id,
                 user_nickname=user_info.nickname if user_info else "",
                 created_at=created_at_dt.to_datetime_string(),
-                crawled_at=pendulum.now().to_datetime_string()
+                crawled_at=pendulum.now().to_datetime_string(),
+                rarity=item.asset_info.rarity,
+                exterior=item.asset_info.exterior
             )
             parsed_items.append(parsed_item.model_dump())
 
