@@ -258,6 +258,7 @@ def process_category(category, force=False, task_id=None, user_id=None):
     total_pages = first_page_data.get("total_page", 0)
     
     logger.info(f"   Buff 总数: {total_count}, 数据库总数: {db_count}")
+    logger.info(f"   📊 该分类共 {total_pages} 页，本次最多同步 20 页")
     
     # 增量跳过逻辑
     if not force and db_count >= total_count and total_count > 0:
@@ -268,7 +269,7 @@ def process_category(category, force=False, task_id=None, user_id=None):
     total_saved = 0
     seen_goods_ids = set() # 本次同步中已见过的 ID，防止同分类重复
     
-    while page <= total_pages:
+    while page <= total_pages and page <= 20:
         # 每一页抓取前都检查一下任务是否被手动停止
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出分类处理")
@@ -324,7 +325,9 @@ def process_category(category, force=False, task_id=None, user_id=None):
             logger.info(f"   ✅ 本页新增/更新 {count} 条数据")
         
         page += 1
-        time.sleep(random.uniform(2, 5)) # 基础延时
+        wait_time = random.uniform(10, 15)
+        logger.info(f"   😴 页面间歇休息 {wait_time:.2f} 秒...")
+        time.sleep(wait_time)
         
     logger.info(f"✨ 分类 {cat_name} 处理完成，本次任务影响 {total_saved} 个商品")
 

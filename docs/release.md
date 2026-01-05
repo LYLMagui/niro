@@ -1,5 +1,18 @@
 # Release Notes
 
+## v1.7.9 (2026-01-05)
+- [修复] **解决分类同步时的数据库唯一键冲突问题**：
+  - **数据库约束优化建议**：定位到 `buff_goods_categories` 表中 `name` 字段的 `UNIQUE` 约束导致了同步任务回滚。由于 Buff API 存在不同 `internal_name` 对应相同 `name` 的情况，建议移除该约束（SQL 已提供）。
+  - **Python 预去重增强**：在 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的一级和二级分类抓取逻辑中，新增了基于 `name` 的内存级预去重机制。在不影响数据抓取完整性的前提下，确保单次批量写入数据库时不会触发名称冲突，大幅提升了同步任务的鲁棒性。
+
+## v1.7.8 (2026-01-05)
+- [优化] **爬虫频率限制与同步策略调整**：
+  - **请求间隔延长**：为了降低被 Buff 平台封禁的风险，将商品同步和分类同步的单页请求间隔从原有的 2-5 秒大幅延长至 **10-15 秒**。
+  - **最大同步页数限制**：新增了单次同步任务的页数上限。无论是分类抓取还是商品抓取，系统现在最多只同步前 **20 页** 的数据，在保证核心数据新鲜度的同时，有效规避因扫描过深触发的平台风控。
+  - **交互体验优化**：在爬虫日志中新增了总页数与同步上限的实时提示，并在每次请求前打印具体的休眠时长，方便监控同步进度。
+- [修复] **Docker 生产环境代理连通性加固**：
+  - 在 [docker-compose.prod.yml](file:///e:/CodeSpace/PYTHON/niro/docker-compose.prod.yml) 和 [docker-compose.test.yml](file:///e:/CodeSpace/PYTHON/niro/docker-compose.test.yml) 中同步补齐了 `extra_hosts` 配置，确保在所有部署环境下容器均能稳定访问宿主机的 v2rayA 代理服务。
+
 ## v1.7.7 (2026-01-05)
 - [功能] **新增全局代理支持 (v2rayA 适配)**：
   - **单点代理配置**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了 `PROXY_URL` 配置项，支持通过环境变量直接设置全局 HTTP/SOCKS5 代理。

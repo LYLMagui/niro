@@ -144,7 +144,7 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
     page = 1
     total_pages = 1 # 初始设为 1，第一次请求后更新
     
-    while page <= total_pages:
+    while page <= total_pages and page <= 20:
         # 每一页抓取前都检查一下任务是否被手动停止
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出一级分类抓取")
@@ -156,7 +156,7 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
             "tab": "selling",
         }
         
-        logger.info(f"正在抓取一级分类第 {page}/{total_pages} 页...")
+        logger.info(f"正在抓取一级分类第 {page}/{min(total_pages, 20)} 页...")
         data = fetch_buff_goods(params, user_id=user_id)
         
         if not data:
@@ -167,7 +167,7 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
         # 更新总页数
         if page == 1:
             total_pages = data.get("total_page", 1)
-            logger.info(f"📊 检测到一级分类共 {total_pages} 页")
+            logger.info(f"📊 检测到一级分类共 {total_pages} 页，本次最多同步 20 页")
 
         # 提取一级分类: items[*].goods_info.info.tags.type
         # 结果可能包含 None，需过滤
@@ -189,13 +189,27 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
             }
             all_categories.append(cat)
             
-        # 随机延时
-        time.sleep(random.uniform(2, 6))
+        # 随机延时 (调整为 10-15s)
+        wait_time = random.uniform(10, 15)
+        logger.info(f"😴 页面间歇休息 {wait_time:.2f} 秒...")
+        time.sleep(wait_time)
         page += 1
 
-    # 去重
-    dedup_map = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
-    result = list(dedup_map.values())
+    # 去重 (优先按 internal_name，同时兼容数据库可能的 name 唯一约束)
+    seen_names = set()
+    dedup_list = []
+    # 按照 internal_name 预去重 (保留最后出现的)
+    unique_internal = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
+    
+    for c in unique_internal.values():
+        cat_name = c["name"]
+        if cat_name not in seen_names:
+            seen_names.add(cat_name)
+            dedup_list.append(c)
+        else:
+            logger.warning(f"⚠️ 发现重复的一级分类名称 '{cat_name}' (Internal: {c['internal_name']})，已跳过以避免冲突")
+            
+    result = dedup_list
     logger.info(f"一级分类抓取完成，去重后数量: {len(result)}")
     return result
 
@@ -228,7 +242,7 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
     page = 1
     total_pages = 1
     
-    while page <= total_pages:
+    while page <= total_pages and page <= 20:
         # 每一页抓取前都检查一下任务是否被手动停止
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止，退出二级分类抓取")
@@ -241,7 +255,7 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
             "tab": "selling",
         }
         
-        logger.info(f"正在抓取二级分类 [{category_group}] 第 {page}/{total_pages} 页...")
+        logger.info(f"正在抓取二级分类 [{category_group}] 第 {page}/{min(total_pages, 20)} 页...")
         data = fetch_buff_goods(params, user_id=user_id)
         
         if not data:
@@ -252,7 +266,7 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
         # 更新总页数
         if page == 1:
             total_pages = data.get("total_page", 1)
-            logger.info(f"📊 检测到二级分类 [{category_group}] 共 {total_pages} 页")
+            logger.info(f"📊 检测到二级分类 [{category_group}] 共 {total_pages} 页，本次最多同步 20 页")
 
         # 提取商品列表
         items = data.get("items", [])
@@ -289,12 +303,27 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
             }
             all_categories.append(cat)
             
-        time.sleep(random.uniform(2, 6)) # 增加间隔避免触发限流
+        # 调整为 10-15s
+        wait_time = random.uniform(10, 15)
+        logger.info(f"😴 页面间歇休息 {wait_time:.2f} 秒...")
+        time.sleep(wait_time) 
         page += 1
 
-    # 去重
-    dedup_map = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
-    result = list(dedup_map.values())
+    # 去重 (优先按 internal_name，同时兼容数据库可能的 name 唯一约束)
+    seen_names = set()
+    dedup_list = []
+    # 按照 internal_name 预去重 (保留最后出现的)
+    unique_internal = {c["internal_name"]: c for c in all_categories if c.get("internal_name")}
+    
+    for c in unique_internal.values():
+        cat_name = c["name"]
+        if cat_name not in seen_names:
+            seen_names.add(cat_name)
+            dedup_list.append(c)
+        else:
+            logger.warning(f"⚠️ 发现重复的二级分类名称 '{cat_name}' (Internal: {c['internal_name']})，已跳过以避免冲突")
+            
+    result = dedup_list
     logger.info(f"二级分类 [{category_group}] 抓取完成，去重后数量: {len(result)}")
     return result
 
