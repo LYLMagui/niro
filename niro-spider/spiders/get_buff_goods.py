@@ -325,7 +325,7 @@ def process_category(category, force=False, task_id=None, user_id=None):
             logger.info(f"   ✅ 本页新增/更新 {count} 条数据")
         
         page += 1
-        wait_time = random.uniform(10, 15)
+        wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
         logger.info(f"   😴 页面间歇休息 {wait_time:.2f} 秒...")
         time.sleep(wait_time)
         

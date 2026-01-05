@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.8.1 (2026-01-05)
+- [优化] **爬取间隔配置动态化**：
+  - **环境变量解耦**：将商品数据和分类数据的爬取间隔时间由硬编码（10-15s）改为从环境变量读取。
+  - **新增配置项**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中新增了 `CRAWL_INTERVAL_MIN` (默认 10s) 和 `CRAWL_INTERVAL_MAX` (默认 15s) 配置，支持在 `.env` 中灵活调整。
+  - **全模块覆盖**：同步更新了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 和 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py)，确保全局生效。
+
 ## v1.8.0 (2026-01-05)
 - [功能] **新增爬虫代理全局开关控制**：
   - **ENABLE_PROXY 开关**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中引入了 `ENABLE_PROXY` 配置项。现在可以通过 `.env` 文件一键控制爬虫是否启用代理（默认 `false` 为直连模式）。

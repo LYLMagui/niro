@@ -189,8 +189,8 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
             }
             all_categories.append(cat)
             
-        # 随机延时 (调整为 10-15s)
-        wait_time = random.uniform(10, 15)
+        # 随机延时 (从环境变量读取)
+        wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
         logger.info(f"😴 页面间歇休息 {wait_time:.2f} 秒...")
         time.sleep(wait_time)
         page += 1
@@ -303,8 +303,8 @@ def get_buff_goods_children_category(parent_id, category_group, parent_full_inte
             }
             all_categories.append(cat)
             
-        # 调整为 10-15s
-        wait_time = random.uniform(10, 15)
+        # 随机延时 (从环境变量读取)
+        wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
         logger.info(f"😴 页面间歇休息 {wait_time:.2f} 秒...")
         time.sleep(wait_time) 
         page += 1
