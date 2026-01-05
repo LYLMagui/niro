@@ -274,8 +274,9 @@ class TaskScanner:
             
         logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
         
-        # 发送启动通知
-        self.send_task_start_notification(task)
+        # 仅在第一次启动时发送通知（重试不发送）
+        if self.general_error_counts.get(task_id, 0) == 0 and self.login_error_counts.get(task_id, 0) == 0:
+            self.send_task_start_notification(task)
         
         try:
             if task_type == 2:
@@ -300,7 +301,8 @@ class TaskScanner:
                 else:
                     self.stop_task_in_db(task_id)
                 
-                self.send_task_stop_notification(task, "同步完成")
+                # 系统同步任务完成后不再发送推送通知，仅记录日志
+                # self.send_task_stop_notification(task, "同步完成")
                 # 成功后重置计数
                 if task_id in self.login_error_counts:
                     self.login_error_counts[task_id] = 0
@@ -312,7 +314,6 @@ class TaskScanner:
         except LoginRequiredError:
             count = self.login_error_counts.get(task_id, 0) + 1
             self.login_error_counts[task_id] = count
-            logger.error(f"🔑 系统任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录")
             
             if count >= 3:
                 logger.critical(f"🛑 系统任务 [ID:{task_id}] 连续 3 次登录失效，正在停止任务...")
@@ -320,13 +321,13 @@ class TaskScanner:
                 self.send_task_stop_notification(task, "Cookie 连续失效 3 次，请更新全局 BUFF_COOKIE")
                 self.login_error_counts[task_id] = 0
             else:
+                logger.warning(f"🔑 系统任务 [ID:{task_id}] 第 {count} 次检测到 Cookie 失效/未登录 (将自动重试)")
                 # 还没到 3 次，重置回待运行(1)状态，以便下次触发
                 self.update_task_status(task_id, 1)
                 
         except Exception as e:
             count = self.general_error_counts.get(task_id, 0) + 1
             self.general_error_counts[task_id] = count
-            logger.error(f"❌ 系统任务 [ID:{task_id}] 第 {count} 次执行异常: {e}")
             
             if count >= 3:
                 logger.error(f"🛑 系统任务 [ID:{task_id}] 连续 {count} 次执行异常，正在停止任务...")
@@ -334,6 +335,7 @@ class TaskScanner:
                 self.send_task_stop_notification(task, f"同步失败: {e}")
                 self.general_error_counts[task_id] = 0
             else:
+                logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 第 {count} 次执行异常 (将自动重试): {e}")
                 # 还没到 3 次，重置回待运行(1)状态
                 self.update_task_status(task_id, 1)
         finally:
