@@ -1,5 +1,51 @@
 # Release Notes
 
+## v1.9.4 (2026-01-06)
+- [修复] **解决商品表 tags 字段为空的问题**：
+  - **模型映射补全**：在 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 中为 `BuffGoods` 实体类新增了 `tags` 字段（Text 类型），并对齐数据库中的 JSON 结构。
+  - **提取与序列化优化**：在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 中利用 Pydantic 的 `AliasPath` 完整提取了 API 响应中的 `tags` 字典对象，并在保存前通过 `json.dumps` 进行了序列化。
+  - **数据一致性验证**：通过重启扫描器验证了 `tags` 字段已能正确持久化到数据库中，包含了饰品的磨损、稀有度、类型、品质等核心标签信息。
+
+## v1.9.3 (2026-01-06)
+- [优化] **增强任务执行过程的可观测性与日志细节**：
+  - **暂停时间可视化**：应用户需求，在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 和 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 中将爬取间隔的“暂停秒数”日志级别提升至 `INFO`。现在日志流中会明确显示 `💤 暂停 XX.XX 秒后继续...`，方便实时观察采集节奏。
+  - **调度日志增强**：在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 的任务状态检查逻辑中增加了耗时计算日志。当任务处于“已完成”状态但未被重置时，会记录 `⏳ [PID:XXXX] 任务 [ID:X] ... 刚结束不久 (XX.Xs)，跳过重置`，帮助排查多进程竞争下的状态同步问题。
+  - **热重启验证**：通过重启 `run_scanner.py` 验证了代码变更在生产模式下的即时生效，并确认了系统任务在重连后的状态自动修复机制。
+
+## v1.9.2 (2026-01-06)
+- [修复] **彻底解决数据库非空约束冲突与任务调度异常**：
+  - **映射缺陷修复**：在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 中，通过 `AliasPath` 正确提取了嵌套对象中的 `icon_url`，解决了 `NotNullViolation` 报错。
+  - **通知系统修复**：在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 中，重构了 `datetime` 导入方式，解决了 `NameError`。
+  - **调度稳定性增强**：
+    - 修复了 `update_task_status` 过早释放 `scoped_session` 导致的 `Instance not bound to Session` 异常。
+    - 在日志中引入 **PID (进程ID)** 标识，并优化了 `sync_tasks` 逻辑，解决了多进程冲突导致的任务意外重置问题。
+  - **健壮性增强**：统一了时间处理逻辑，确保单次系统同步任务在复杂环境下能稳定运行。
+
+## v1.9.1 (2026-01-06)
+- [重构] **深度优化 BuffSpider 及其 DTO 模型**：
+  - **Pydantic V2 深度适配**：在 [buff_dto.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/dto/buff_dto.py) 中利用 `AliasPath` 实现了对 `sell_order` 接口中 `asset_info.info.tags` 嵌套字段的自动提取（包括 `rarity` 和 `exterior`）。
+  - **防御性请求升级**：在 [buff_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py) 中统一了编码处理逻辑（`utf-8`）与 JSON 安全解析流程，增强了 API 通信的稳定性。
+  - **数据一致性加固**：同步更新了 `ParsedBuffItemDTO`，确保扫货逻辑能够直接获取饰品的稀有度和磨损标签，为后续更精细化的扫货策略打下基础。
+
+## v1.9.0 (2026-01-06)
+- [重构] **深度优化 API 响应模型与数据提取逻辑**：
+  - **Pydantic V2 增强**：引入 `AliasPath` 替代繁琐的手动字典提取。现在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 和 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 能够通过声明式模型直接解析 `goods_info.info.tags` 中的深度嵌套字段（如 `rarity`、`exterior`、`type`）。
+  - **代码精简**：移除了 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 中对 `jmespath` 的依赖，将原本分布在 `property` 或手动循环中的提取逻辑统一收拢至 DTO 定义中。
+  - **防御性解析**：统一了 `fetch_buff_goods_api` 的响应处理逻辑，强制 `utf-8` 编码并优先使用安全可靠的 `response.json()` 解析，仅在异常时回退至 `model_validate_json`。
+  - **模型一致性**：同步了各模块间的 Pydantic 模型定义，确保系统各处对 Buff API 响应的理解完全一致。
+
+## v1.8.9 (2026-01-06)
+- [修复] **解决数据库批量保存失败与通知发送异常**：
+  - **编码纠正**：在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 中强制设置 API 响应编码为 `utf-8`，并改用 `response.json()` 解析，彻底解决了因中文乱码导致的 `name` 字段长度溢出（StringDataRightTruncation）问题。
+  - **导入补全**：在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 中补齐了缺失的 `import datetime`，修复了发送任务启动通知时的 `NameError`。
+  - **健壮性优化**：优化了 API 响应解析逻辑，增加了异常捕获与回退机制，确保在复杂网络环境下数据抓取的稳定性。
+
+## v1.8.8 (2026-01-05)
+- [修复] **解决 Python 环境依赖缺失与导入错误**：
+  - **依赖补全**：安装了 `requirements.txt` 中定义的全部依赖（包括 `pendulum` 等），解决了 `ModuleNotFoundError`。
+  - **导入修正**：在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 中补齐了缺失的 `import time`，修复了 `time.sleep` 导致的 `NameError`。
+  - **启动验证**：确认 `run_scanner.py` 已能正常初始化环境、同步数据库任务并启动调度中心。
+
 ## v1.8.7 (2026-01-05)
 - [优化] **引入现代工具库进一步精简代码逻辑**：
   - **Pendulum**：全面替换标准库 `datetime` 和 `time`，利用其更直观的 Fluent API 处理任务持续时间检查、时间戳转换及日志时间格式化。
