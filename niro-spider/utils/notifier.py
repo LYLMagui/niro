@@ -2,7 +2,8 @@ import requests
 import time
 from config import settings
 from utils.logger import get_logger
-from storage.postgres_pool import pg_pool
+from storage.database import Session
+from storage.models import UserBuffSettings
 
 logger = get_logger(__name__)
 
@@ -39,20 +40,26 @@ class Notifier:
 
     def get_user_config(self, user_id):
         """从数据库获取用户的通知配置 (优先匹配 user_id，否则获取最新的一条)"""
+        session = Session()
         try:
+            query = session.query(UserBuffSettings)
             if user_id:
-                sql = "SELECT wecom_corpid, wecom_corpsecret, wecom_agentid, wecom_touser FROM user_buff_settings WHERE user_id = %s"
-                params = (user_id,)
+                setting = query.filter(UserBuffSettings.user_id == user_id).first()
             else:
                 # 如果没有 user_id，获取最新更新的一条配置作为兜底
-                sql = "SELECT wecom_corpid, wecom_corpsecret, wecom_agentid, wecom_touser FROM user_buff_settings ORDER BY update_time DESC LIMIT 1"
-                params = ()
+                setting = query.order_by(UserBuffSettings.update_time.desc()).first()
                 
-            res = pg_pool.fetch_one(sql, params)
-            if res and res.get('wecom_corpid') and res.get('wecom_corpsecret'):
-                return res
+            if setting:
+                return {
+                    'wecom_corpid': setting.wecom_corpid,
+                    'wecom_corpsecret': setting.wecom_corpsecret,
+                    'wecom_agentid': setting.wecom_agentid,
+                    'wecom_touser': setting.wecom_touser
+                }
         except Exception as e:
             logger.error(f"查询用户 {user_id if user_id else 'Global'} 通知配置失败: {e}")
+        finally:
+            Session.remove()
         return None
 
     def send_text(self, content, user_id=None):

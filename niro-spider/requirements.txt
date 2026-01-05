@@ -2,5 +2,14 @@ requests
 python-dotenv
 redis
 psycopg2-binary
+sqlalchemy
 apscheduler
 jmespath
+loguru
+pydantic
+tenacity
+pendulum
+boltons
+more-itertools
+pydash
+
