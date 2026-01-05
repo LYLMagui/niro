@@ -1,10 +1,11 @@
 import random
 import sys
 import os
+import json
 import requests
 import time
 from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, AliasPath
 from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
 # 修复模块导入路径
@@ -28,26 +29,22 @@ BUFF_HOST = "https://buff.163.com"
 
 # --- Pydantic 模型定义 ---
 
-class BuffGoodsInfo(BaseModel):
-    goods_id: int = Field(alias="id")
-    name: str
-    short_name: Optional[str] = None
-    market_hash_name: Optional[str] = None
-    icon_url: Optional[str] = None
-    original_icon_url: Optional[str] = None
-    internal_name: Optional[str] = None
-
 class BuffGoodsItem(BaseModel):
-    id: int
+    goods_id: int = Field(alias="id")
     name: str
     market_hash_name: Optional[str] = None
-    original_icon_url: Optional[str] = None
-    icon_url: Optional[str] = None
     short_name: Optional[str] = None
-    goods_id: int = Field(alias="id")
+    
+    # 使用 AliasPath 提取深度嵌套字段
+    icon_url: str = Field(validation_alias=AliasPath("goods_info", "icon_url"))
+    original_icon_url: str = Field(validation_alias=AliasPath("goods_info", "original_icon_url"))
+    rarity: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "rarity", "internal_name"))
+    exterior: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "exterior", "internal_name"))
+    type: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "internal_name"))
+    tags_dict: Optional[Dict[str, Any]] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags"))
 
 class BuffGoodsData(BaseModel):
-    items: List[Dict[str, Any]]
+    items: List[BuffGoodsItem]
     total_page: int
     total_count: int
 
@@ -89,6 +86,9 @@ def fetch_goods_api(category_internal_name: str, page_num: int = 1, user_id: Opt
     
     response = requests.get(url, headers=headers, params=params, timeout=15)
     
+    # 强制设置编码，防止中文乱码
+    response.encoding = 'utf-8'
+    
     if response.status_code == 403:
         raise LoginRequiredError("Buff Login Required (403)")
     
@@ -96,7 +96,15 @@ def fetch_goods_api(category_internal_name: str, page_num: int = 1, user_id: Opt
         raise requests.exceptions.RequestException(f"Rate limited (429)", response=response)
 
     response.raise_for_status()
-    resp = BuffGoodsResponse.model_validate_json(response.text)
+    
+    # 使用 json() 解析更安全，或者确保 model_validate_json 接收的是正确编码的字符串
+    try:
+        resp_json = response.json()
+        resp = BuffGoodsResponse.model_validate(resp_json)
+    except Exception as e:
+        logger.error(f"解析 API 响应失败: {e}")
+        # 如果 json 解析失败，尝试原始文本
+        resp = BuffGoodsResponse.model_validate_json(response.text)
     
     if resp.code == "Login Required":
         raise LoginRequiredError("Buff Login Required")
@@ -141,6 +149,7 @@ def save_goods_batch(goods_list):
                 "market_hash_name": stmt.excluded.market_hash_name,
                 "icon_url": stmt.excluded.icon_url,
                 "original_icon_url": stmt.excluded.original_icon_url,
+                "tags": stmt.excluded.tags,
                 "update_time": func.now()
             }
         )
@@ -201,28 +210,31 @@ def process_category(category, force=False, task_id=None, user_id=None):
                     break
 
             items = data.items
+            if items:
+                logger.debug(f"🔍 第一个商品校验: {items[0].name}, icon_url: {items[0].icon_url}")
+            
             goods_to_save = []
             for item in items:
-                # 提取 tags
-                tags = item.get("goods_info", {}).get("info", {}).get("tags", {})
-                
                 goods_to_save.append({
-                    "goods_id": item.get("id"),
-                    "name": item.get("name"),
-                    "market_hash_name": item.get("market_hash_name"),
-                    "original_icon_url": item.get("original_icon_url"),
-                    "icon_url": item.get("icon_url"),
-                    "short_name": item.get("short_name"),
-                    "internal_name": item.get("market_hash_name"), # 暂时用 hash name
+                    "goods_id": item.goods_id,
+                    "name": item.name,
+                    "market_hash_name": item.market_hash_name,
+                    "original_icon_url": item.original_icon_url,
+                    "icon_url": item.icon_url,
+                    "short_name": item.short_name,
+                    "internal_name": item.market_hash_name, # 暂时用 hash name
                     "category_id": cat_id,
-                    "rarity": tags.get("rarity", {}).get("internal_name"),
-                    "exterior": tags.get("exterior", {}).get("internal_name"),
+                    "rarity": item.rarity,
+                    "exterior": item.exterior,
+                    "tags": json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
                 })
             
             saved = save_goods_batch(goods_to_save)
             logger.info(f"📦 第 {page}/{total_pages} 页: 同步 {len(items)} 个，生效 {saved} 个")
             
-            time.sleep(random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX))
+            wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
+            logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
+            time.sleep(wait_time)
             page += 1
             
         except LoginRequiredError:

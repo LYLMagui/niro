@@ -28,6 +28,7 @@ class BuffGoods(Base):
     market_hash_name = Column(String(255))
     icon_url = Column(Text)
     original_icon_url = Column(Text)
+    tags = Column(Text)  # 存储 JSON 字符串
     create_time = Column(DateTime, server_default=func.now())
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now())
 
