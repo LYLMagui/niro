@@ -61,4 +61,5 @@ WECOM_TOUSER = os.getenv("WECOM_TOUSER", "@all") # 接收消息的用户ID，默
 # 代理配置 (支持 v2rayA 等提供的 HTTP/SOCKS5 代理)
 # 示例: http://127.0.0.1:20171
 PROXY_URL = os.getenv("PROXY_URL", None)
+ENABLE_PROXY = os.getenv("ENABLE_PROXY", "false").lower() == "true"
 

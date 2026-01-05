@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.8.0 (2026-01-05)
+- [功能] **新增爬虫代理全局开关控制**：
+  - **ENABLE_PROXY 开关**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中引入了 `ENABLE_PROXY` 配置项。现在可以通过 `.env` 文件一键控制爬虫是否启用代理（默认 `false` 为直连模式）。
+  - **逻辑解耦**：在 [proxy_helper.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/proxy_helper.py) 中实现了开关拦截逻辑。当开关关闭时，系统会彻底忽略 `PROXY_URL` 和 `PROXIES` 配置，直接使用本地网络请求，满足用户在已有系统代理或特定网络环境下的直连需求。
+  - **鲁棒性验证**：已通过单元测试验证了开关切换对代理地址返回的准确控制，确保逻辑闭环。
+
 ## v1.7.9 (2026-01-05)
 - [修复] **解决分类同步时的数据库唯一键冲突问题**：
   - **数据库约束优化建议**：定位到 `buff_goods_categories` 表中 `name` 字段的 `UNIQUE` 约束导致了同步任务回滚。由于 Buff API 存在不同 `internal_name` 对应相同 `name` 的情况，建议移除该约束（SQL 已提供）。
