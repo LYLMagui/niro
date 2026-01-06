@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.10.0 (2026-01-06)
+- [修复] **彻底解决容器环境下日志时间偏差 8 小时的问题**：
+  - **全局时区强制化**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 启动入口增加 `os.environ['TZ'] = 'Asia/Shanghai'` 强制设置进程时区。
+  - **日志初始化重构**：重构了 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 的初始化逻辑，改为先应用 `patcher`（强制使用上海时间）后再添加 `handler`，确保控制台、文本文件和 JSON 日志的时间戳完全同步。
+  - **系统级兼容**：增加了 `time.tzset()` 调用（针对 Unix/Linux 环境），确保系统底层时间函数也遵循设置的时区。
+
 ## v1.9.9 (2026-01-06)
 - [修复] **解决 Python 模块 SyntaxError 导致无法启动的问题**：
   - **修复日志错误**：修复了 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 中 `global logger` 声明位置不当导致的 `SyntaxError`。

@@ -1,5 +1,11 @@
 import os
+import time
 from dotenv import load_dotenv
+
+# 强制设置时区为上海
+os.environ['TZ'] = 'Asia/Shanghai'
+if hasattr(time, 'tzset'):
+    time.tzset()
 
 # 路径配置
 # 当前文件位置: niro-spider/config/settings.py
