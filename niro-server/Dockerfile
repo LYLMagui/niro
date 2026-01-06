@@ -16,6 +16,14 @@ RUN mvn clean package -s maven-settings.xml -DskipTests
 # Run stage
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
+
+# 安装时区数据并设置上海时区
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+ENV TZ=Asia/Shanghai
+
 COPY --from=build /app/niro-web/target/*.jar app.jar
 EXPOSE 8080
 # 生产环境使用 prod profile

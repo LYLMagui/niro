@@ -16,6 +16,14 @@ RUN pnpm build-only
 # Production stage
 FROM nginx:stable-alpine
 ARG ENV_TYPE=prod  # 默认值为 prod
+
+# 安装时区数据并设置上海时区
+RUN apk add --no-cache tzdata \
+    && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
+    && echo "Asia/Shanghai" > /etc/timezone
+
+ENV TZ=Asia/Shanghai
+
 COPY --from=build-stage /app/dist /usr/share/nginx/html
 COPY nginx.${ENV_TYPE}.conf /etc/nginx/conf.d/default.conf
 EXPOSE 80

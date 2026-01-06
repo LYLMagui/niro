@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.10.1 (2026-01-06)
+- [优化] **容器构建层面的时区对齐**：
+  - **Dockerfile 全面优化**：修改了 [niro-spider/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-spider/Dockerfile)、[niro-server/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-server/Dockerfile) 和 [niro-client/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-client/Dockerfile)。
+  - **系统级时区设置**：在镜像构建过程中安装了 `tzdata`，并配置了 `/etc/localtime` 和 `/etc/timezone`。
+  - **环境变量注入**：在所有镜像中统一设置了 `ENV TZ=Asia/Shanghai`，确保即使不手动指定环境变量，容器启动后默认即为上海时间。
+
 ## v1.10.0 (2026-01-06)
 - [修复] **彻底解决容器环境下日志时间偏差 8 小时的问题**：
   - **全局时区强制化**：在 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 启动入口增加 `os.environ['TZ'] = 'Asia/Shanghai'` 强制设置进程时区。
