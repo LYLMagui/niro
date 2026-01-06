@@ -1,5 +1,22 @@
 # Release Notes
 
+## v1.9.8 (2026-01-06)
+- [修复] **解决商品同步时的 NotNullViolation 约束冲突（默认值方案）**：
+  - **问题根源**：Buff 接口中的某些商品（如音乐盒、印花、探员等）不包含 `exterior`（磨损）或 `rarity`（稀有度）等字段，而数据库 `buff_goods` 表设置了 `NOT NULL` 约束。
+  - **架构同步**：更新了 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 中的 SQLAlchemy 模型，显式标注 `nullable=False` 并配置 `default=""` 或 `default=0`，使模型定义与数据库实际约束完全对齐。
+  - **逻辑加固**：
+    - 在 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 中，对所有必填字段（`exterior`、`rarity`、`icon_url` 等）增加了 `or ""` 兜底处理。
+    - 在 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 中同步增强了分类字段的默认值逻辑。
+  - **合规性**：坚持不修改数据库表结构的原则，通过应用层代码确保数据完整性，彻底解决了因字段缺失导致的批量保存失败问题。
+
+## v1.9.7 (2026-01-06)
+- [修复] **统一 Java 与 Python 模块的时区为 Asia/Shanghai (GMT+8)**：
+  - **Java (Spring Boot)**：
+    - 在 [NiroWebApplication.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-web/src/main/java/com/niro/web/NiroWebApplication.java) 中通过 `@PostConstruct` 设置 JVM 默认时区为 `Asia/Shanghai`，确保日志打印时间与北京时间一致。
+    - 在 [common.yml](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-web/src/main/resources/config/common/common.yml) 中配置了 Jackson 的全局时区为 `GMT+8`，保证接口返回的 JSON 时间格式正确。
+  - **Python (Spider)**：
+    - 在 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 中利用 `loguru` 的 `patch` 功能，配合 `pendulum` 强制所有日志记录（控制台、文件、JSON）均使用 `Asia/Shanghai` 时区。解决了服务器系统时区为 UTC 时导致的 8 小时时间差问题。
+
 ## v1.9.6 (2026-01-06)
 - [功能] **新增请求 IP 实时打印**：
   - **网络工具类**：新增了 [network_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/network_util.py)，支持通过 `httpbin.org` 实时获取当前请求的出口 IP 地址。

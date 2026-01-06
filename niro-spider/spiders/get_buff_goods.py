@@ -38,8 +38,8 @@ class BuffGoodsItem(BaseModel):
     short_name: Optional[str] = None
     
     # 使用 AliasPath 提取深度嵌套字段
-    icon_url: str = Field(validation_alias=AliasPath("goods_info", "icon_url"))
-    original_icon_url: str = Field(validation_alias=AliasPath("goods_info", "original_icon_url"))
+    icon_url: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "icon_url"))
+    original_icon_url: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "original_icon_url"))
     rarity: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "rarity", "internal_name"))
     exterior: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "exterior", "internal_name"))
     type: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "internal_name"))
@@ -222,14 +222,14 @@ def process_category(category, force=False, task_id=None, user_id=None):
                 goods_to_save.append({
                     "goods_id": item.goods_id,
                     "name": item.name,
-                    "market_hash_name": item.market_hash_name,
-                    "original_icon_url": item.original_icon_url,
-                    "icon_url": item.icon_url,
-                    "short_name": item.short_name,
-                    "internal_name": item.market_hash_name, # 暂时用 hash name
-                    "category_id": cat_id,
-                    "rarity": item.rarity,
-                    "exterior": item.exterior,
+                    "market_hash_name": item.market_hash_name or "",
+                    "original_icon_url": item.original_icon_url or "",
+                    "icon_url": item.icon_url or "",
+                    "short_name": item.short_name or "",
+                    "internal_name": item.market_hash_name or "", # 暂时用 hash name
+                    "category_id": cat_id or 0,
+                    "rarity": item.rarity or "",
+                    "exterior": item.exterior or "",
                     "tags": json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
                 })
             

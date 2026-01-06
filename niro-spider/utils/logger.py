@@ -1,6 +1,7 @@
 import os
 import sys
 import json
+import pendulum
 from loguru import logger
 
 # 定义日志目录和文件
@@ -8,6 +9,12 @@ LOG_DIR = "logs"
 LOG_FILE = os.path.join(LOG_DIR, "niro_spider.log")
 # 为 ELK 准备的结构化 JSON 日志文件
 LOG_FILE_JSON = os.path.join(LOG_DIR, "niro_spider.json")
+
+def shanghai_time(*args):
+    """
+    返回上海时区的当前时间 (GMT+8)
+    """
+    return pendulum.now('Asia/Shanghai').to_datetime_string()
 
 def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     """
@@ -26,6 +33,9 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
     )
+    # 更新控制台输出使用上海时间 (通过 patch 实现更优雅)
+    # 注意：Loguru 的 format 中的 {time} 默认使用 local time
+    # 为了强制使用上海时间且不改变 format 字符串，我们可以使用 patch
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
     logger.add(
@@ -52,10 +62,14 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         serialize=True,    # 关键属性：将日志记录序列化为 JSON 字符串
     )
 
+    # 使用 patch 强制所有输出使用上海时间
+    global logger
+    logger = logger.patch(lambda record: record.update(time=pendulum.now('Asia/Shanghai')))
+
     # 绑定全局基础信息，方便 ELK 检索
     logger.configure(extra={"service": "niro-spider", "env": os.getenv("APP_ENV", "dev")})
 
-    logger.info(f"🚀 Loguru 日志系统初始化完成")
+    logger.info(f"🚀 Loguru 日志系统初始化完成 (时区: Asia/Shanghai)")
     logger.info(f"📝 文本日志: {os.path.abspath(LOG_FILE)}")
     logger.info(f"📊 JSON日志 (ELK 预备): {os.path.abspath(LOG_FILE_JSON)}")
 

@@ -151,9 +151,9 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
                 full_name = item.internal_name
                 cat = {
                     "parent_id": 0,
-                    "name": item.localized_name,
-                    "internal_name": full_name.split('_')[-1] if full_name else "",
-                    "full_internal_name": full_name,
+                    "name": item.localized_name or "",
+                    "internal_name": (full_name.split('_')[-1] if full_name else "") or "",
+                    "full_internal_name": full_name or "",
                 }
                 all_categories.append(cat)
                 

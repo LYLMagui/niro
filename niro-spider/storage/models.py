@@ -20,17 +20,17 @@ class BuffGoods(Base):
     id = Column(BigInteger, primary_key=True, autoincrement=True)
     goods_id = Column(BigInteger, unique=True, nullable=False)
     name = Column(String(255), nullable=False)
-    short_name = Column(String(255))
-    internal_name = Column(String(255))
-    category_id = Column(BigInteger)
-    rarity = Column(String(100))
-    exterior = Column(String(100))
-    market_hash_name = Column(String(255))
-    icon_url = Column(Text)
-    original_icon_url = Column(Text)
+    short_name = Column(String(255), nullable=False, default="")
+    internal_name = Column(String(255), nullable=False, default="")
+    category_id = Column(BigInteger, nullable=False, default=0)
+    rarity = Column(String(100), nullable=False, default="")
+    exterior = Column(String(100), nullable=False, default="")
+    market_hash_name = Column(String(255), nullable=False, default="")
+    icon_url = Column(Text, nullable=False, default="")
+    original_icon_url = Column(Text, nullable=False, default="")
     tags = Column(Text)  # 存储 JSON 字符串
-    create_time = Column(DateTime, server_default=func.now())
-    update_time = Column(DateTime, server_default=func.now(), onupdate=func.now())
+    create_time = Column(DateTime, nullable=False, server_default=func.now())
+    update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now())
 
 class BuffPriceHistory(Base):
     __tablename__ = 'buff_price_history'

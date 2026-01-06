@@ -5,3 +5,9 @@ spider:
     # 爬虫日志路径，优先使用环境变量 SPIDER_LOG_PATH
     # 开发环境默认指向 ../../niro-spider/logs/niro_spider.log (相对于 niro-web 启动目录)
     path: ${SPIDER_LOG_PATH:../../niro-spider/logs/niro_spider.log}
+
+# Spring 全局配置
+spring:
+  jackson:
+    time-zone: GMT+8
+    date-format: yyyy-MM-dd HH:mm:ss
