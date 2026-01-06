@@ -16,13 +16,14 @@ loaded = False
 for path in [ENV_PATH_SPIDER, ENV_PATH_WEB, ENV_PATH_ROOT]:
     if os.path.exists(path):
         load_dotenv(path, override=True)
-        print(f"✅ 已加载环境变量: {path}")
+        # print(f"✅ 已加载环境变量: {path}") # 减少日志干扰
         loaded = True
-        # 注意：这里不 break，允许后面的覆盖前面的（如果需要特定优先级可以调整顺序或使用 override 参数）
-        # 按照之前的逻辑是“优先加载 WEB”，所以我们反转一下顺序或者保持 logic
 
-if not loaded:
-    print(f"⚠️ 未找到 .env 文件，将使用系统环境变量或默认配置")
+# 如果没有加载到文件，且关键环境变量也不存在，才发出警告
+if not loaded and not os.getenv("DB_PASSWORD"):
+    # 只有在非 Docker 环境下或者确实缺失关键配置时才警告
+    if not os.path.exists("/.dockerenv"):
+        print(f"⚠️ 未找到 .env 文件且未检测到关键环境变量，将使用系统环境变量或默认配置")
 
 # 日志目录: niro-spider/logs
 LOG_DIR = os.path.join(SPIDER_DIR, "logs")

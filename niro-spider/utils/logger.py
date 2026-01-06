@@ -20,6 +20,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     """
     配置全局日志 (使用 Loguru)，支持普通文本和结构化 JSON 两种输出
     """
+    global logger
     # 确保日志目录存在
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)
@@ -63,7 +64,6 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     )
 
     # 使用 patch 强制所有输出使用上海时间
-    global logger
     logger = logger.patch(lambda record: record.update(time=pendulum.now('Asia/Shanghai')))
 
     # 绑定全局基础信息，方便 ELK 检索

@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.9.9 (2026-01-06)
+- [修复] **解决 Python 模块 SyntaxError 导致无法启动的问题**：
+  - **修复日志错误**：修复了 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 中 `global logger` 声明位置不当导致的 `SyntaxError`。
+  - **优化环境配置**：改进了 [settings.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/config/settings.py) 中的 `.env` 加载逻辑。现在会智能识别 Docker 环境并静默处理环境变量，消除了在容器化部署时反复出现的“未找到 .env 文件”警告，同时保留了在本地开发环境缺失配置时的提示。
+
 ## v1.9.8 (2026-01-06)
 - [修复] **解决商品同步时的 NotNullViolation 约束冲突（默认值方案）**：
   - **问题根源**：Buff 接口中的某些商品（如音乐盒、印花、探员等）不包含 `exterior`（磨损）或 `rarity`（稀有度）等字段，而数据库 `buff_goods` 表设置了 `NOT NULL` 约束。
