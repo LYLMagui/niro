@@ -9,6 +9,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from spiders.buff_spider import BuffSpider
 from spiders.get_buff_goods import run_goods_sync
 from spiders.get_buff_goods_category import run_category_sync
+from spiders.buff_sticker_spider import run_sticker_sync
+from enums.task_enums import BuffTaskType
 from storage.models import BuffScanTask, BuffPriceHistory
 from storage.database import Session
 from sqlalchemy import select, update, func, insert
@@ -17,6 +19,8 @@ from utils.logger import get_logger
 from utils.notifier import notifier
 from utils.exception_handler import LoginRequiredError
 from dto.task_dto import BuffScanTaskDTO
+from dto.buff_dto import BuffStickerInfo
+from utils.premium_calculator import PremiumCalculator
 from tenacity import retry, stop_after_attempt, wait_fixed, retry_if_exception_type, before_sleep_log
 
 logger = get_logger(__name__)
@@ -341,10 +345,12 @@ class TaskScanner:
     )
     def _execute_system_task_with_retry(self, task_id, task_type):
         """核心系统任务逻辑，由 tenacity 负责重试"""
-        if task_type == 2:
+        if task_type == BuffTaskType.SYNC_CATEGORY:
             run_category_sync(task_id=task_id)
-        elif task_type == 3:
+        elif task_type == BuffTaskType.SYNC_GOODS:
             run_goods_sync(force=False, task_id=task_id)
+        elif task_type == BuffTaskType.SYNC_STICKER:
+            run_sticker_sync(user_id=1)
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
@@ -485,23 +491,41 @@ class TaskScanner:
 
     def process_task(self, task, spider):
         """处理单个扫描任务"""
+        task_id = task.get('id')
+        task_name = task.get('name')
         task_type = task.get('task_type', 0)
         goods_id = task['goods_id']
+        
+        # 获取当前出口 IP 并创建带 IP 前缀的 logger
+        from utils.network_util import get_current_ip
+        current_ip = get_current_ip(spider.proxies)
+        task_logger = logger.bind(task_id=task_id).patch(lambda r: r.update(message=f"ip：{current_ip} | {r['message']}"))
+        
+        type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
+        task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")
         
         # 获取饰品列表
         items = spider.get_goods_list(goods_id)
         if not items:
+            task_logger.warning(f"⚠️ [任务:{task_id}] 未获取到商品列表，跳过本次循环")
             return
 
         # 记录价格历史 (取第一项的元数据即可)
         self.record_price_history(items[0])
         
-        if task_type == 1:
+        match_found = False
+        if task_type == BuffTaskType.FLIPPING:
             # 站内倒卖模式
-            self.process_flipping_logic(task, items, spider)
-        else:
-            # 炼金扫货模式 (默认)
-            self.process_sniping_logic(task, items, spider)
+            match_found = self.process_flipping_logic(task, items, spider, task_logger)
+        elif task_type == BuffTaskType.SNIPING:
+            # 炼金扫货模式
+            match_found = self.process_sniping_logic(task, items, spider, task_logger)
+            
+        if not match_found:
+            task_logger.info(f"😴 [任务:{task_id}] 本轮未发现符合条件的商品")
+            
+        scan_interval = task.get('scan_interval', 5)
+        task_logger.info(f"💤 [任务:{task_id}] 扫描完成，休眠 {scan_interval}s 后开始下轮...")
 
     def record_price_history(self, item):
         """记录价格历史"""
@@ -546,11 +570,23 @@ class TaskScanner:
         finally:
             Session.remove()
 
-    def process_sniping_logic(self, task, items, spider):
-        """处理炼金扫货逻辑 (严格匹配价格和磨损)"""
+    def process_sniping_logic(self, task, items, spider, task_logger=None):
+        """处理炼金扫货逻辑 (严格匹配价格和磨损 + 印花捡漏)"""
+        if task_logger is None:
+            task_logger = logger
+
+        task_id = task.get('id')
+        task_name = task.get('name')
+        goods_id = task['goods_id']
         max_price = task['max_price']
         min_wear = task['min_paintwear']
         max_wear = task['max_paintwear']
+        
+        task_logger.info(f"🎯 [扫货规则] | 商品ID:{goods_id} | 商品名:{task_name} | 目标价:≤{max_price} | 磨损范围:[{min_wear or 0}, {max_wear or 1}] | 候选项目:{len(items)}")
+        
+        # 印花捡漏开关，默认开启
+        enable_sticker_sniping = True
+        match_found = False
         
         for item in items:
             try:
@@ -566,30 +602,69 @@ class TaskScanner:
                 price = float(price_str)
                 paintwear = float(paintwear_str)
                 
+                # 1. 基础炼金校验
+                is_basic_match = True
                 # 校验价格
                 if price > float(max_price):
-                    continue
+                    is_basic_match = False
                 
                 # 校验磨损
                 if min_wear is not None and paintwear < float(min_wear):
-                    continue
+                    is_basic_match = False
                 if max_wear is not None and paintwear > float(max_wear):
-                    continue
+                    is_basic_match = False
                 
-                logger.info(f"🎯 [炼金发现] 价格:{price}, 磨损:{paintwear}, ID:{item['id']}")
-                self.buy_goods(task, item, spider)
-                break 
+                if is_basic_match:
+                    task_logger.info(f"🎯 [炼金发现] 价格:{price}, 磨损:{paintwear}, ID:{item['id']}")
+                    self.buy_goods(task, item, spider)
+                    match_found = True
+                    break
+                
+                # 2. 如果基础炼金不匹配，尝试印花捡漏逻辑
+                if enable_sticker_sniping:
+                    stickers_raw = item.get('stickers', [])
+                    if stickers_raw:
+                        # stickers_raw 已经是 dict 列表 (来自 ParsedBuffItemDTO.model_dump)
+                        stickers = [BuffStickerInfo(**s) for s in stickers_raw]
+                        # 获取该物品的底价用于溢价评估
+                        market_floor = float(item.get('sell_min_price') or 0)
+                        if market_floor > 0:
+                            # 评估该物品的印花溢价
+                            is_premium_match, reason = PremiumCalculator.evaluate_item_premium(
+                                current_price=price,
+                                market_floor=market_floor,
+                                stickers=stickers
+                            )
+                            
+                            if is_premium_match:
+                                 task_logger.info(f"✨ [印花捡漏] {reason}, 价格:{price}, 底价:{market_floor}, ID:{item['id']}")
+                                 # 记录捡漏理由
+                                 item['_leak_reason'] = reason
+                                 self.buy_goods(task, item, spider)
+                                 match_found = True
+                                 break
 
             except Exception as e:
-                logger.error(f"处理炼金商品项异常: {e}")
+                task_logger.error(f"处理炼金商品项异常: {e}")
+        
+        return match_found
 
-    def process_flipping_logic(self, task, items, spider):
+    def process_flipping_logic(self, task, items, spider, task_logger=None):
         """处理站内倒卖逻辑 (计算利润 + 均价风控)"""
+        if task_logger is None:
+            task_logger = logger
+            
+        task_id = task.get('id')
+        task_name = task.get('name')
         goods_id = task['goods_id']
         min_profit_config = float(task.get('min_profit') or 0)
         
         # 获取 24 小时均价用于风控
         avg_price_24h = self.get_avg_price_24h(goods_id)
+        avg_price_text = f"¥{avg_price_24h:.2f}" if avg_price_24h else "暂无"
+        
+        task_logger.info(f"📈 [盈利标准] | 商品ID:{goods_id} | 商品名:{task_name} | 目标利润:≥{min_profit_config} | 24h均价:{avg_price_text} | 候选项目:{len(items)}")
+        match_found = False
         
         for item in items:
             try:
@@ -608,9 +683,9 @@ class TaskScanner:
                     continue
                 
                 # --- 风控逻辑 START ---
-                # 如果当前市场底价远高于 24h 均价（例如超过 1.1 倍），说明可能有人在拉高价格钓鱼，跳过
+                # 如果当前市场底价远高于 24h 均价（例如超过 1.15 倍），说明可能有人在拉高价格钓鱼，跳过
                 if avg_price_24h and market_floor > avg_price_24h * 1.15:
-                    logger.warning(f"⚠️ [风控] 商品 {goods_id} 当前底价 {market_floor} 远高于 24h 均价 {avg_price_24h:.2f}，疑似价格操纵，跳过。")
+                    task_logger.warning(f"⚠️ [风控] 商品 {goods_id} 当前底价 {market_floor} 远高于 24h 均价 {avg_price_24h:.2f}，疑似价格操纵，跳过。")
                     continue
                 # --- 风控逻辑 END ---
 
@@ -619,24 +694,30 @@ class TaskScanner:
                 estimated_profit = (market_floor * 0.975) - current_price
                 
                 if estimated_profit >= min_profit_config:
-                    logger.info(f"💰 [倒卖发现] 当前价:{current_price}, 最低价:{market_floor}, 预计利润:¥{estimated_profit:.2f}, ID:{item['id']}")
-                    self.buy_goods(task, item, spider)
+                    task_logger.info(f"💰 [倒卖发现] 当前价:{current_price}, 最低价:{market_floor}, 预计利润:¥{estimated_profit:.2f}, ID:{item['id']}")
+                    self.buy_goods(task, item, spider, task_logger)
+                    match_found = True
                     break
 
             except Exception as e:
-                logger.error(f"处理倒卖商品项异常: {e}")
+                task_logger.error(f"处理倒卖商品项异常: {e}")
+        
+        return match_found
 
-    def buy_goods(self, task, item, spider):
+    def buy_goods(self, task, item, spider, task_logger=None):
         """执行购买逻辑 (已切换为测试模式，仅发送通知不真实下单)"""
+        if task_logger is None:
+            task_logger = logger
+            
         user_id = task['user_id']
         
         # --- 模拟测试模式 START (不调用真实 API) ---
-        logger.info(f"🧪 [测试模式] 模拟下单成功: {item['name']} (ID:{item['id']})")
+        task_logger.info(f"🧪 [测试模式] 模拟下单成功: {item['name']} (ID:{item['id']})")
         result = {
             "code": "OK",
             "data": {
                 "id": f"MOCK_ORDER_{int(time.time())}",
-                "state_text": "待支付 (模拟测试)",
+                "state_text": "支付成功 (模拟测试)",
                 "pay_url": "https://buff.163.com/market/buy_order/history"
             }
         }
@@ -660,13 +741,16 @@ class TaskScanner:
             # if order_data.get('pay_url'):
             #     self.user_pending_locks[user_id] = True
             
-            self.update_task_progress(task['id'])
+            self.update_task_progress(task['id'], task_logger)
             self.send_buy_notification(task, item, order_data)
         else:
             self.failed_items[item['id']] = time.time()
 
-    def update_task_progress(self, task_id):
+    def update_task_progress(self, task_id, task_logger=None):
         """更新任务进度"""
+        if task_logger is None:
+            task_logger = logger
+            
         session = Session()
         try:
             task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
@@ -679,7 +763,7 @@ class TaskScanner:
             if task.success_count >= task.buy_count:
                 task.status = 2
                 session.commit()
-                logger.info(f"🏁 任务 [ID:{task_id}] 已达到购买上限，自动停止。")
+                task_logger.info(f"🏁 任务 [ID:{task_id}] 已达到购买上限，自动停止。")
                 
                 # 获取完整任务信息用于通知
                 task_dict = {
@@ -694,7 +778,7 @@ class TaskScanner:
                 self.unschedule_task(task_id)
         except Exception as e:
             session.rollback()
-            logger.error(f"更新任务进度失败: {e}")
+            task_logger.error(f"更新任务进度异常: {e}")
         finally:
             Session.remove()
 
@@ -707,14 +791,20 @@ class TaskScanner:
             start_time = datetime.now()
             start_time_str = start_time.strftime("%Y-%m-%d %H:%M:%S")
             
-            if task_type >= 2:
+            if BuffTaskType.is_system_task(task_type):
                 # 系统同步任务通知
+                task_type_text = '分类同步'
+                if task_type == BuffTaskType.SYNC_GOODS:
+                    task_type_text = '商品同步'
+                elif task_type == BuffTaskType.SYNC_STICKER:
+                    task_type_text = '印花同步'
+                    
                 content = (
                     f"🚀 系统同步启动\n"
                     f"------------------\n"
                     f"任务名称: {task_name}\n"
                     f"启动时间: {start_time_str}\n"
-                    f"任务类型: {'分类同步' if task_type == 2 else '商品同步'}"
+                    f"任务类型: {task_type_text}"
                 )
             else:
                 # 普通扫货任务通知
@@ -789,6 +879,7 @@ class TaskScanner:
             paintwear = item.get('paintwear', '无')
             order_id = result.get('id', '未知')
             state = result.get('state_text', '已下单')
+            leak_reason = item.get('_leak_reason')
             
             status_text = "✅ 购买成功" if "支付成功" in state else "🔔 订单已创建 (待支付)"
             content = (
@@ -800,7 +891,10 @@ class TaskScanner:
                 f"订单状态: {state}\n"
                 f"订单编号: {order_id}"
             )
-
+            
+            if leak_reason:
+                content += f"\n捡漏理由: {leak_reason}"
+            
             notifier.send_text(
                 content=content,
                 user_id=task.get('user_id')

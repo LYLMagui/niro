@@ -67,8 +67,8 @@ class BuffSpider:
             "page_num": page_num,
         }
 
-        self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
-        log_request_ip(self.proxies, prefix=f"[GoodsList] ")
+        # self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
+        # log_request_ip(self.proxies, prefix=f"[GoodsList] ")
         response = requests.get(
             self.host + url, headers=self.profile.get_headers(), params=params, proxies=self.proxies, timeout=10
         )
@@ -127,7 +127,8 @@ class BuffSpider:
                 created_at=created_at_dt.to_datetime_string(),
                 crawled_at=pendulum.now().to_datetime_string(),
                 rarity=item.asset_info.rarity,
-                exterior=item.asset_info.exterior
+                exterior=item.asset_info.exterior,
+                stickers=item.asset_info.stickers
             )
             parsed_items.append(parsed_item.model_dump())
 
