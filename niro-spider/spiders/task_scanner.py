@@ -269,6 +269,11 @@ class TaskScanner:
                     # 系统任务：设置为执行中状态并直接执行
                     self.running_tasks[task_id] = True
                     self.update_task_status(task_id, 4)
+                    
+                    # 系统任务启动，刷新指纹 (如果用户有对应 spider)
+                    if task_dto.user_id:
+                        self.get_spider(task_dto.user_id).refresh_profile()
+                        
                     self.scheduler.add_job(
                         self.run_system_task,
                         args=[task_dict],
@@ -344,8 +349,13 @@ class TaskScanner:
     def start_scan_job(self, task):
         """开始间隔扫描作业"""
         task_id = task['id']
+        user_id = task.get('user_id')
         scan_interval = task.get('scan_interval') or 5
         job_id = f"active_scan_{task_id}"
+        
+        # 任务启动，刷新指纹
+        if user_id:
+            self.get_spider(user_id).refresh_profile()
         
         # 记录启动时间用于持续时间判断
         self.task_start_times[task_id] = pendulum.now()

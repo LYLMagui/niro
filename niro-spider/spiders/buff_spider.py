@@ -9,7 +9,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_excep
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import handle_api_error, LoginRequiredError
-from utils.cookie_util import get_latest_cookie
+from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
 from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
@@ -27,31 +27,24 @@ class BuffSpider:
         if self.proxies:
             self.logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')}")
         
-        # 初始化时直接从数据库获取最新的 Cookie
-        current_cookie = get_latest_cookie(self.user_id)
-        self.headers = {
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "cookie": current_cookie,
-            "accept": "application/json, text/javascript, */*; q=0.01",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-            "referer": "https://buff.163.com/market/csgo",
-            "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin",
-            "x-requested-with": "XMLHttpRequest",
-        }
+        # 初始化时随机生成一个浏览器指纹并绑定 Cookie
+        self.profile = BrowserHelper.create_profile(self.user_id)
+        self.logger.info(f"🎭 已为当前任务分配指纹: {self.profile.user_agent}")
 
     def refresh_cookie(self):
         """从数据库刷新指定用户的有效 Cookie"""
+        from utils.cookie_util import get_latest_cookie
         new_cookie = get_latest_cookie(self.user_id)
-        if new_cookie != self.headers.get("cookie"):
-            self.headers["cookie"] = new_cookie
+        if new_cookie != self.profile.cookie:
+            self.profile.update_cookie(new_cookie)
             self.logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
-        elif not self.headers.get("cookie"):
+        elif not self.profile.cookie:
             self.logger.warning(f"⚠️ 无法加载用户 {self.user_id} 的有效 Cookie")
+
+    def refresh_profile(self):
+        """重新生成浏览器指纹 Profile (通常用于任务启动时)"""
+        self.profile = BrowserHelper.create_profile(self.user_id)
+        self.logger.info(f"🎭 已重新分配浏览器指纹: {self.profile.user_agent}")
 
     @handle_api_error(default_return=[])
     @retry(
@@ -77,7 +70,7 @@ class BuffSpider:
         self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
         log_request_ip(self.proxies, prefix=f"[GoodsList] ")
         response = requests.get(
-            self.host + url, headers=self.headers, params=params, proxies=self.proxies, timeout=10
+            self.host + url, headers=self.profile.get_headers(), params=params, proxies=self.proxies, timeout=10
         )
         
         # 强制设置编码，防止中文乱码
@@ -214,13 +207,11 @@ class BuffSpider:
         }
         
         # 补充 Headers
-        headers = self.headers.copy()
+        headers = self.profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
         csrf_token = self._get_csrf_token()
         headers.update({
             "X-CSRFToken": csrf_token,
-            "X-Requested-With": "XMLHttpRequest",
             "Content-Type": "application/json",
-            "Referer": f"https://buff.163.com/goods/{goods_id}?from=market"
         })
         
         logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str} | PayMethod={pay_method}")
@@ -253,7 +244,7 @@ class BuffSpider:
         """从 Cookie 中提取 CSRF Token"""
         try:
             cookie = SimpleCookie()
-            cookie.load(self.headers.get("cookie", ""))
+            cookie.load(self.profile.cookie or "")
             if "csrf_token" in cookie:
                 token = cookie["csrf_token"].value
                 # logger.debug(f"Extracted CSRF Token: {token[:10]}...")
