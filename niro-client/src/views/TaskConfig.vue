@@ -65,6 +65,7 @@
           <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
           <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
           <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
+          <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">印花同步</t-tag>
           <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
         </template>
 
@@ -111,7 +112,11 @@
           >
             <t-link theme="warning" class="mr-2">停止</t-link>
           </t-popconfirm>
-          <t-popconfirm content="确定要删除任务吗？" @confirm="handleDelete(row)">
+          <t-popconfirm 
+            v-if="![2, 3, 4].includes(row.taskType)" 
+            content="确定要删除任务吗？" 
+            @confirm="handleDelete(row)"
+          >
             <t-link theme="danger">删除</t-link>
           </t-popconfirm>
         </template>
@@ -144,6 +149,7 @@
               <t-radio :value="1">站内倒卖</t-radio>
               <t-radio :value="2">系统-分类同步</t-radio>
               <t-radio :value="3">系统-商品同步</t-radio>
+              <t-radio :value="4">系统-印花同步</t-radio>
             </t-radio-group>
           </t-form-item>
 

@@ -34,6 +34,14 @@
           商品列表
         </t-menu-item>
 
+        <!-- 菜单项：印花价值 -->
+        <t-menu-item value="StickerList">
+          <template #icon>
+            <assignment-icon />
+          </template>
+          印花价值
+        </t-menu-item>
+
         <!-- 菜单项：任务配置 -->
         <t-menu-item value="TaskConfig">
           <template #icon>
@@ -103,6 +111,7 @@ import {
   PoweroffIcon,
   ShopIcon,
   SettingIcon,
+  AssignmentIcon,
 } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { MessagePlugin } from "tdesign-vue-next";

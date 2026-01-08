@@ -33,6 +33,12 @@ const routes: RouteRecordRaw[] = [
         meta: { title: "商品列表", icon: "shop" },
       },
       {
+        path: "stickers",
+        name: "StickerList",
+        component: () => import("@/views/StickerList.vue"),
+        meta: { title: "印花价值", icon: "image" },
+      },
+      {
         path: "tasks",
         name: "TaskConfig",
         component: () => import("@/views/TaskConfig.vue"),

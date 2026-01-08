@@ -4,6 +4,7 @@ export interface BuffScanTask {
   goodsId?: number;
   goodsName?: string;
   goodsIconUrl?: string;
+  marketHashName?: string;
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;
