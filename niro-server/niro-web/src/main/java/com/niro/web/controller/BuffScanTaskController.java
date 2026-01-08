@@ -40,7 +40,7 @@ public class BuffScanTaskController {
     @DeleteMapping("/delete/{id}")
     @Operation(summary = "删除任务")
     public void deleteTask(@PathVariable("id") Long id) {
-        buffScanTaskService.removeById(id);
+        buffScanTaskService.deleteTask(id);
     }
 
     @PostMapping("/status/{id}/{status}")

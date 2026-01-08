@@ -45,6 +45,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         BuffScanTask task = BeanUtil.copyProperties(param, BuffScanTask.class);
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+            // 系统任务唯一性校验：禁止创建多个相同类型的系统任务
+            long count = this.lambdaQuery()
+                    .eq(BuffScanTask::getTaskType, param.getTaskType())
+                    .count();
+            if (count > 0) {
+                throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(param.getTaskType()) + "】已存在，不可重复创建");
+            }
             // 系统任务不需要关联商品，手动设置任务名
             task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
         } else {
@@ -81,7 +88,22 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setCronExpression(param.getCronExpression());
         task.setDurationMinutes(param.getDurationMinutes());
         task.setScanInterval(param.getScanInterval());
-        task.setTaskType(param.getTaskType());
+        
+        // 如果修改了任务类型，且改为系统任务，需要校验唯一性
+        if (param.getTaskType() != null && !param.getTaskType().equals(task.getTaskType())) {
+            if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+                long count = this.lambdaQuery()
+                        .eq(BuffScanTask::getTaskType, param.getTaskType())
+                        .ne(BuffScanTask::getId, task.getId())
+                        .count();
+                if (count > 0) {
+                    throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(param.getTaskType()) + "】已存在，不可重复创建/修改");
+                }
+                task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
+            }
+            task.setTaskType(param.getTaskType());
+        }
+        
         task.setMinProfit(param.getMinProfit());
         
         this.updateById(task);
@@ -130,39 +152,49 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .like(StrUtil.isNotBlank(param.getKeyword()), BuffScanTask::getName, param.getKeyword())
                 .orderByDesc(BuffScanTask::getCreateTime)
                 .page(page);
-                
-        if (CollUtil.isEmpty(taskPage.getRecords())) {
-            return new Page<>(param.getPage(), param.getPageSize());
-        }
-
-        // 转换为DTO
+        
+        // 转换 DTO
         List<BuffScanTaskDTO> dtoList = BeanUtil.copyToList(taskPage.getRecords(), BuffScanTaskDTO.class);
-
-        // 填充商品信息 (图标等)
-        Set<Long> goodsIds = dtoList.stream().map(BuffScanTaskDTO::getGoodsId).collect(Collectors.toSet());
-        if (CollUtil.isNotEmpty(goodsIds)) {
-            List<BuffGoods> goodsList = buffGoodsService.lambdaQuery()
-                    .in(BuffGoods::getGoodsId, goodsIds)
-                    .list();
-            Map<Long, BuffGoods> goodsMap = goodsList.stream()
-                    .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
+        
+        // 补充商品信息
+        if (CollUtil.isNotEmpty(dtoList)) {
+            Set<Long> goodsIds = dtoList.stream()
+                    .map(BuffScanTaskDTO::getGoodsId)
+                    .filter(id -> id != null)
+                    .collect(Collectors.toSet());
             
-            for (BuffScanTaskDTO dto : dtoList) {
-                BuffGoods goods = goodsMap.get(dto.getGoodsId());
-                if (goods != null) {
-                    dto.setGoodsName(goods.getName());
-                    dto.setGoodsIconUrl(goods.getIconUrl());
-                }
+            if (CollUtil.isNotEmpty(goodsIds)) {
+                List<BuffGoods> goodsList = buffGoodsService.lambdaQuery()
+                        .in(BuffGoods::getGoodsId, goodsIds)
+                        .list();
+                Map<Long, BuffGoods> goodsMap = goodsList.stream()
+                        .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
+                
+                dtoList.forEach(dto -> {
+                    if (dto.getGoodsId() != null && goodsMap.containsKey(dto.getGoodsId())) {
+                        BuffGoods g = goodsMap.get(dto.getGoodsId());
+                        dto.setGoodsIconUrl(g.getIconUrl());
+                        dto.setMarketHashName(g.getMarketHashName());
+                    }
+                });
             }
         }
-
-        Page<BuffScanTaskDTO> resultPage = new Page<>();
-        resultPage.setRecords(dtoList);
-        resultPage.setTotal(taskPage.getTotal());
-        resultPage.setCurrent(taskPage.getCurrent());
-        resultPage.setSize(taskPage.getSize());
-        resultPage.setPages(taskPage.getPages());
         
+        Page<BuffScanTaskDTO> resultPage = new Page<>(taskPage.getCurrent(), taskPage.getSize(), taskPage.getTotal());
+        resultPage.setRecords(dtoList);
         return resultPage;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteTask(Long id) {
+        BuffScanTask task = this.getById(id);
+        Assert.validateNull(task, "任务不存在");
+
+        if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
+            throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(task.getTaskType()) + "】禁止删除");
+        }
+
+        this.removeById(id);
     }
 }

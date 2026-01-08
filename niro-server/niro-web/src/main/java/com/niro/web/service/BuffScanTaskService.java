@@ -40,4 +40,10 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
      * @return 分页结果
      */
     Page<BuffScanTaskDTO> pageTask(TaskQueryParam param);
+
+    /**
+     * 删除任务
+     * @param id 任务ID
+     */
+    void deleteTask(Long id);
 }

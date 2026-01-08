@@ -31,6 +31,9 @@ public class BuffScanTaskDTO {
     @Schema(description = "商品图标 (关联查询)")
     private String goodsIconUrl;
 
+    @Schema(description = "商品市场哈希名称 (关联查询)")
+    private String marketHashName;
+
     @Schema(description = "目标最高价格")
     private BigDecimal maxPrice;
 
