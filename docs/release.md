@@ -1,5 +1,16 @@
 # Release Notes
 
+## v1.10.2 (2026-01-08)
+- [重构] **深度优化爬虫请求构建与浏览器指纹管理架构**：
+  - **核心工具类抽象**：新增 [browser_helper.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/browser_helper.py)，引入 `BrowserProfile` 概念。内置主流浏览器指纹库（Chrome/Edge/macOS/Linux），支持动态生成包含 `Sec-CH-UA` 等现代特性的完整请求头。
+  - **指纹生命周期管控**：
+    - **一致性保证**：重构了 `BuffSpider` 及所有同步脚本，确保单个任务在启动时随机分配指纹，并贯穿整个运行周期（直到任务结束或 spider 实例销毁），有效降低了因指纹频繁变动触发风控的风险。
+    - **主动刷新机制**：在 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py) 的任务调度入口（Cron 触发及间隔扫描启动）增加了指纹主动刷新逻辑，确保每次“任务启动”都是全新的身份。
+  - **身份自动装填**：
+    - 优化了 [cookie_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/cookie_util.py) 和各同步函数，支持通过 `BrowserProfile` 自动关联数据库中最新的用户 Cookie。
+    - 彻底移除了散落在各业务代码中的硬编码 `User-Agent` 和 `headers` 字典，实现了请求构建逻辑的完全解耦。
+  - **架构一致性**：同步重构了商品全量同步和分类同步逻辑，使所有出站请求均遵循统一的安全规范。
+
 ## v1.10.1 (2026-01-06)
 - [优化] **容器构建层面的时区对齐**：
   - **Dockerfile 全面优化**：修改了 [niro-spider/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-spider/Dockerfile)、[niro-server/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-server/Dockerfile) 和 [niro-client/Dockerfile](file:///e:/CodeSpace/PYTHON/niro/niro-client/Dockerfile)。

@@ -20,7 +20,7 @@ from sqlalchemy import func
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
-from utils.cookie_util import get_latest_cookie
+from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
 
@@ -53,23 +53,16 @@ class BuffGoodsResponse(BaseModel):
     before_sleep=before_sleep_log(logger, "WARNING"),
     reraise=True
 )
-def fetch_buff_goods_api(params: Dict[str, Any], user_id: Optional[int] = None) -> BuffGoodsData:
+def fetch_buff_goods_api(params: Dict[str, Any], profile: Any = None) -> BuffGoodsData:
     """
     使用 Tenacity 声明式重试的 Buff 饰品列表接口
     """
     url = f"{BUFF_HOST}/api/market/goods"
-    current_cookie = get_latest_cookie(user_id)
     
-    if not current_cookie:
-        raise Exception(f"无法获取有效 Cookie (user_id: {user_id})")
+    if not profile or not profile.cookie:
+        raise Exception(f"无法获取有效 Profile 或 Cookie")
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "cookie": current_cookie,
-        "accept": "application/json, text/javascript, */*; q=0.01",
-        "referer": "https://buff.163.com/market/csgo",
-        "x-requested-with": "XMLHttpRequest",
-    }
+    headers = profile.get_headers()
     
     proxies = get_proxies()
     log_request_ip(proxies, prefix="[Category] ")
@@ -123,7 +116,7 @@ def get_task_user_id(task_id):
     finally:
         Session.remove()
 
-def get_buff_goods_parent_category(task_id=None, user_id=None):
+def get_buff_goods_parent_category(task_id=None, profile=None):
     """获取一级分类 (Type)"""
     logger.info("🚀 开始抓取一级分类...")
     all_categories = []
@@ -138,7 +131,7 @@ def get_buff_goods_parent_category(task_id=None, user_id=None):
         logger.info(f"正在抓取一级分类第 {page}/{min(total_pages, 20)} 页...")
         
         try:
-            data = fetch_buff_goods_api(params, user_id=user_id)
+            data = fetch_buff_goods_api(params, profile=profile)
             if page == 1:
                 total_pages = data.total_page
                 logger.info(f"📊 检测到共 {total_pages} 页，本次最多同步 20 页")
@@ -206,8 +199,12 @@ def save_categories(categories):
 def run_category_sync(task_id=None):
     """运行分类同步任务入口"""
     user_id = get_task_user_id(task_id)
+    # 在任务启动时随机生成一个浏览器指纹并绑定 Cookie
+    profile = BrowserHelper.create_profile(user_id)
+    logger.info(f"🎭 已为分类同步任务分配指纹: {profile.user_agent}")
+    
     try:
-        categories = get_buff_goods_parent_category(task_id, user_id)
+        categories = get_buff_goods_parent_category(task_id, profile=profile)
         if categories == "STOPPED": return
         save_categories(categories)
     except Exception as e:

@@ -21,7 +21,7 @@ from sqlalchemy import func
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import LoginRequiredError
-from utils.cookie_util import get_latest_cookie
+from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
 
@@ -64,7 +64,7 @@ class BuffGoodsResponse(BaseModel):
     before_sleep=before_sleep_log(logger, "WARNING"),
     reraise=True
 )
-def fetch_goods_api(category_internal_name: str, page_num: int = 1, user_id: Optional[int] = None) -> BuffGoodsData:
+def fetch_goods_api(category_internal_name: str, page_num: int = 1, profile: Any = None) -> BuffGoodsData:
     """使用 Tenacity 重试的商品列表 API 请求"""
     url = f"{BUFF_HOST}/api/market/goods"
     params = {
@@ -74,17 +74,10 @@ def fetch_goods_api(category_internal_name: str, page_num: int = 1, user_id: Opt
         "tab": "selling"
     }
     
-    current_cookie = get_latest_cookie(user_id)
-    if not current_cookie:
-        raise Exception(f"无法获取有效 Cookie (user_id: {user_id})")
+    if not profile or not profile.cookie:
+        raise Exception(f"无法获取有效 Profile 或 Cookie")
 
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "cookie": current_cookie,
-        "accept": "application/json, text/javascript, */*; q=0.01",
-        "referer": "https://buff.163.com/market/csgo",
-        "x-requested-with": "XMLHttpRequest",
-    }
+    headers = profile.get_headers()
     
     proxies = get_proxies()
     log_request_ip(proxies, prefix="[GoodsSync] ")
@@ -187,7 +180,7 @@ def get_task_user_id(task_id):
     finally:
         Session.remove()
 
-def process_category(category, force=False, task_id=None, user_id=None):
+def process_category(category, force=False, task_id=None, profile=None):
     """处理单个分类"""
     cat_id = category['id']
     cat_internal = category['internal_name']
@@ -204,7 +197,7 @@ def process_category(category, force=False, task_id=None, user_id=None):
             return "STOPPED"
 
         try:
-            data = fetch_goods_api(cat_internal, page, user_id)
+            data = fetch_goods_api(cat_internal, page, profile=profile)
             if page == 1:
                 total_pages = data.total_page
                 total_count = data.total_count
@@ -253,10 +246,14 @@ def process_category(category, force=False, task_id=None, user_id=None):
 def run_goods_sync(force=False, task_id=None):
     """运行商品同步任务入口"""
     user_id = get_task_user_id(task_id)
+    # 在任务启动时随机生成一个浏览器指纹并绑定 Cookie
+    profile = BrowserHelper.create_profile(user_id)
+    logger.info(f"🎭 已为商品同步任务分配指纹: {profile.user_agent}")
+    
     categories = get_secondary_categories()
     
     for cat in categories:
-        res = process_category(cat, force=force, task_id=task_id, user_id=user_id)
+        res = process_category(cat, force=force, task_id=task_id, profile=profile)
         if res == "STOPPED": break
         
     logger.info("🏁 所有分类商品同步完成")

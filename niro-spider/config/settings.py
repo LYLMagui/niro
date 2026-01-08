@@ -15,11 +15,12 @@ PROJECT_ROOT = os.path.dirname(SPIDER_DIR)
 # 环境变量路径：优先加载当前目录、Web 目录、根目录
 ENV_PATH_SPIDER = os.path.join(SPIDER_DIR, ".env")
 ENV_PATH_WEB = os.path.join(PROJECT_ROOT, "niro-server", "niro-web", ".env")
+ENV_PATH_SERVER = os.path.join(PROJECT_ROOT, "niro-server", ".env")
 ENV_PATH_ROOT = os.path.join(PROJECT_ROOT, ".env")
 
 # 按优先级尝试加载
 loaded = False
-for path in [ENV_PATH_SPIDER, ENV_PATH_WEB, ENV_PATH_ROOT]:
+for path in [ENV_PATH_SPIDER, ENV_PATH_SERVER, ENV_PATH_WEB, ENV_PATH_ROOT]:
     if os.path.exists(path):
         load_dotenv(path, override=True)
         # print(f"✅ 已加载环境变量: {path}") # 减少日志干扰

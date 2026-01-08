@@ -27,21 +27,11 @@ def verify_cookie(cookie):
     if not cookie:
         return False, "Cookie 为空"
         
+    from utils.browser_helper import BrowserHelper
+    profile = BrowserHelper.create_profile(cookie=cookie)
+    
     url = "https://buff.163.com/api/market/goods?game=csgo&page_num=1&page_size=2"
-    headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-        "cookie": cookie,
-        "accept": "application/json, text/javascript, */*; q=0.01",
-        "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
-        "referer": "https://buff.163.com/market/csgo",
-        "sec-ch-ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-        "sec-ch-ua-mobile": "?0",
-        "sec-ch-ua-platform": '"Windows"',
-        "sec-fetch-dest": "empty",
-        "sec-fetch-mode": "cors",
-        "sec-fetch-site": "same-origin",
-        "x-requested-with": "XMLHttpRequest"
-    }
+    headers = profile.get_headers()
     
     # 获取代理
     from utils.proxy_helper import get_proxies
