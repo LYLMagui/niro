@@ -1,5 +1,19 @@
 # Release Notes
 
+## v1.15.5 (2026-01-10)
+- [修复] **爬虫代理出口 IP 日志显示不准确问题**：
+  - **核心逻辑优化**：重构了 [network_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/network_util.py) 中的 `get_current_ip` 函数。现在该函数在未显式提供代理参数时，会主动从 `settings` 中读取全局 `PROXY_URL` 配置。这确保了 IP 检测请求（如请求 `ipify`）能准确走代理通道，从而获取到真实的代理出口 IP。
+  - **刷新机制增强**：在 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 的 IP 缓存函数中引入了 `force_refresh` 参数，并修复了该文件中的代码重复定义问题。
+  - **全链路同步刷新**：在所有核心爬虫入口（[BuffSpider](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_spider.py)、分类同步、商品同步、印花同步）中，增加了在代理初始化后的强制 IP 刷新逻辑。
+  - **重试自愈机制**：针对 Clash `auto` 模式下的节点自动切换，为所有 API 请求的 `tenacity` 重试逻辑添加了 `before_sleep` 回调。当请求超时或失败触发重试时，系统会自动刷新出口 IP 缓存，确保日志能实时追踪到切换后的新 IP，提升了在不稳定网络环境下的可追溯性。
+  - **循环依赖修复**：通过局部导入和逻辑解耦，彻底消除了 `logger`、`network_util` 与 `proxy_helper` 之间的循环引用风险，提升了系统的健壮性。
+
+## v1.15.4 (2026-01-10)
+- [优化] **系统任务扫描间隔校验逻辑解耦**：
+  - **后端 & 校验**：移除了 `BuffScanTaskParam` 中的 `@Min(15)` 硬性约束。在 `BuffScanTaskServiceImpl` 中引入条件校验逻辑：仅对“炼金扫货”和“站内倒卖”等普通任务强制执行 15 秒最小间隔限制，而对“系统-分类同步”、“系统-商品同步”、“系统-印花同步”等系统任务放开限制（其实际执行频率由环境变量控制）。
+  - **前端交互 (UX)**：同步更新了 [TaskConfig.vue](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/views/TaskConfig.vue)，在创建或编辑系统任务时，扫描间隔输入框不再受 15 秒下限约束。
+  - **提示增强**：为系统任务的间隔输入框新增了专属 Tooltip 提示，明确告知用户“此处设置仅供参考，实际间隔从环境变量获取”，提升了配置逻辑的透明度。
+
 ## v1.15.3 (2026-01-09)
 - [优化] **爬虫日志系统闭环 (Unified Logging)**：
   - **入口对齐**：在所有核心爬虫脚本（分类同步、商品同步、印花同步）的 `if __name__ == "__main__":` 入口中显式调用 `setup_logging()`。

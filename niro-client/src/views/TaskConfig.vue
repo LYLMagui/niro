@@ -301,7 +301,6 @@
               <template #tips>0 表示不限时间</template>
             </t-form-item>
           <t-form-item
-            v-if="formData.taskType < 2"
             label="扫描间隔"
             name="scanInterval"
             class="mb-6"
@@ -309,14 +308,14 @@
             <div class="flex items-center gap-2">
               <t-input-number
                 v-model="uiState.intervalValue"
-                :min="uiState.intervalUnit === 's' ? 15 : 1"
+                :min="formData.taskType < 2 && uiState.intervalUnit === 's' ? 15 : 1"
                 :step="1"
                 theme="column"
                 style="width: 140px"
                 @blur="handleIntervalBlur"
               >
                 <template #suffix>
-                  <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒">
+                  <t-tooltip :content="formData.taskType < 2 ? '扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒' : '系统任务扫描间隔从环境变量获取，此处设置仅供参考'">
                     <t-icon name="help-circle" class="cursor-help text-gray-400" />
                   </t-tooltip>
                 </template>

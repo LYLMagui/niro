@@ -115,8 +115,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
-            // 系统任务不需要校验 goodsId 和 maxPrice
+            // 系统任务不需要校验 goodsId、maxPrice 和 scanInterval 限制
             return;
+        }
+
+        // 普通任务校验
+        if (param.getScanInterval() != null && param.getScanInterval() < 15) {
+            throw new BusinessException("普通扫描任务的间隔不能低于15秒");
         }
 
         if (param.getGoodsId() == null) {

@@ -47,11 +47,20 @@ class BuffGoodsResponse(BaseModel):
 
 # --- 业务逻辑 ---
 
+def before_retry_callback(retry_state):
+    """重试前的回调：强制刷新出口IP缓存，应对 Clash 自动切节点"""
+    from utils.logger import get_current_ip_cached
+    try:
+        new_ip = get_current_ip_cached(force_refresh=True)
+        logger.warning(f"🔄 请求异常，正在准备重试 ({retry_state.attempt_number}/3)... 当前出口IP已刷新为: {new_ip}")
+    except:
+        pass
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type(requests.exceptions.RequestException),
-    before_sleep=before_sleep_log(logger, "WARNING"),
+    before_sleep=before_retry_callback,
     reraise=True
 )
 def fetch_buff_goods_api(params: Dict[str, Any], profile: Any = None) -> BuffGoodsData:
@@ -288,6 +297,10 @@ def get_buff_goods_parent_category(task_id=None, profile=None):
 
 def run_category_sync(task_id=None):
     """运行分类同步任务入口"""
+    # 强制刷新出口IP缓存，确保日志显示准确
+    from utils.logger import get_current_ip_cached
+    get_current_ip_cached(force_refresh=True)
+    
     user_id = get_task_user_id(task_id)
     profile = BrowserHelper.create_profile(user_id)
     logger.info(f"🎭 已为分类同步任务分配指纹: {profile.user_agent}")

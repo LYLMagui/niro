@@ -23,9 +23,15 @@ class BuffSpider:
         self.user_id = user_id
         # 绑定用户上下文，方便日志追踪
         self.logger = logger.bind(user_id=user_id)
+# 1. 代理配置
         self.proxies = get_proxies()
         if self.proxies:
-            self.logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')}")
+            # 强制刷新日志系统中的出口IP缓存，确保后续日志显示的是代理IP
+            from utils.logger import get_current_ip_cached
+            new_ip = get_current_ip_cached(force_refresh=True)
+            self.logger.info(f"🛰️ BuffSpider 已启用代理: {self.proxies.get('http')} | 当前出口IP: {new_ip}")
+        else:
+            self.logger.info("🌐 BuffSpider 未启用代理，将使用本地网络")
         
         # 初始化时随机生成一个浏览器指纹并绑定 Cookie
         self.profile = BrowserHelper.create_profile(self.user_id)

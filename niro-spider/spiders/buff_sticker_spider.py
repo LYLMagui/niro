@@ -56,11 +56,20 @@ class BuffStickerResponse(BaseModel):
 
 # --- 业务逻辑 ---
 
+def before_retry_callback(retry_state):
+    """重试前的回调：强制刷新出口IP缓存，应对 Clash 自动切节点"""
+    from utils.logger import get_current_ip_cached
+    try:
+        new_ip = get_current_ip_cached(force_refresh=True)
+        logger.warning(f"🔄 请求异常，正在准备重试 ({retry_state.attempt_number}/3)... 当前出口IP已刷新为: {new_ip}")
+    except:
+        pass
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type(requests.exceptions.RequestException),
-    before_sleep=before_sleep_log(logger, "WARNING"),
+    before_sleep=before_retry_callback,
     reraise=True
 )
 def fetch_stickers_api(page_num: int = 1, profile: Any = None) -> BuffStickerData:
@@ -135,6 +144,10 @@ def upsert_stickers(stickers: List[BuffStickerItem]):
 
 def run_sticker_sync(user_id: int = 1):
     """执行同步印花主逻辑"""
+    # 强制刷新出口IP缓存
+    from utils.logger import get_current_ip_cached
+    get_current_ip_cached(force_refresh=True)
+    
     logger.info(f"开始执行印花价值同步任务, 用户ID: {user_id}")
     
     try:

@@ -16,12 +16,14 @@ def shanghai_time(*args):
     """
     return pendulum.now('Asia/Shanghai').to_datetime_string()
 
-def get_current_ip_cached():
+def get_current_ip_cached(force_refresh=False):
     """
-    获取当前IP并缓存，避免频繁请求
+    获取当前IP地址 (带缓存)
+    :param force_refresh: 是否强制刷新缓存
     """
-    if not hasattr(get_current_ip_cached, '_cached_ip'):
+    if not hasattr(get_current_ip_cached, '_cached_ip') or force_refresh:
         from utils.network_util import get_current_ip
+        # 此时 get_current_ip 会尝试自动获取全局代理
         get_current_ip_cached._cached_ip = get_current_ip()
     return get_current_ip_cached._cached_ip
 
@@ -93,8 +95,10 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     logger.info(f"📝 文本日志: {os.path.abspath(LOG_FILE)}")
     logger.info(f"📊 JSON日志 (ELK 预备): {os.path.abspath(LOG_FILE_JSON)}")
 
-def get_logger(name):
+def get_logger(name=None):
     """
-    获取带名称标识的 logger
+    获取一个命名的 logger 实例
     """
-    return logger.bind(name=name)
+    if name:
+        return logger.bind(name=name)
+    return logger
