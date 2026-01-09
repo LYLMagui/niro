@@ -179,11 +179,11 @@ def save_categories(categories):
     session = Session()
     try:
         stmt = insert(BuffGoodsCategory).values(categories)
-        # 如果 internal_name 冲突，则更新 name 和 full_internal_name
         stmt = stmt.on_conflict_do_update(
-            index_elements=['internal_name', 'parent_id'],
+            index_elements=['internal_name'],
             set_={
                 'name': stmt.excluded.name,
+                'parent_id': stmt.excluded.parent_id,
                 'full_internal_name': stmt.excluded.full_internal_name
             }
         )
