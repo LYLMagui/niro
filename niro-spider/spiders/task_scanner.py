@@ -198,7 +198,7 @@ class TaskScanner:
         """将任务加入调度器或更新现有调度"""
         task_id = task['id']
         cron_expr = pydash.get(task, 'cron_expression')
-        scan_interval = pydash.get(task, 'scan_interval', 5)
+        scan_interval = pydash.get(task, 'scan_interval', 15)
         
         # 构造一个唯一的配置标识，用于检测配置是否变更
         new_config = {
@@ -356,7 +356,7 @@ class TaskScanner:
         """开始间隔扫描作业"""
         task_id = task['id']
         user_id = task.get('user_id')
-        scan_interval = task.get('scan_interval') or 5
+        scan_interval = task.get('scan_interval') or 15
         job_id = f"active_scan_{task_id}"
         
         # 任务启动，刷新指纹
@@ -522,7 +522,7 @@ class TaskScanner:
         if not match_found:
             task_logger.info(f"😴 [任务:{task_id}] 本轮未发现符合条件的商品")
             
-        scan_interval = task.get('scan_interval', 5)
+        scan_interval = task.get('scan_interval', 15)
         task_logger.info(f"💤 [任务:{task_id}] 扫描完成，休眠 {scan_interval}s 后开始下轮...")
 
     def record_price_history(self, item):
@@ -806,7 +806,7 @@ class TaskScanner:
                 )
             else:
                 # 普通扫货任务通知
-                scan_interval = task.get('scan_interval') or 5
+                scan_interval = task.get('scan_interval') or 15
                 duration = task.get('duration_minutes') or 0
                 buy_count = task.get('buy_count') or 0
                 

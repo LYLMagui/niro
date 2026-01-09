@@ -44,8 +44,8 @@ public class BuffScanTaskParam {
     @Min(value = 0, message = "持续时间不能为负数")
     private Integer durationMinutes;
 
-    @Schema(description = "扫描间隔(秒)", defaultValue = "5")
-    @Min(value = 5, message = "扫描间隔不能低于5秒")
+    @Schema(description = "扫描间隔(秒)", defaultValue = "15")
+    @Min(value = 15, message = "扫描间隔不能低于15秒")
     private Integer scanInterval;
 
     @Schema(description = "任务类型: 0-炼金扫货, 1-站内倒卖", defaultValue = "0")

@@ -23,7 +23,7 @@ loaded = False
 for path in [ENV_PATH_SPIDER, ENV_PATH_SERVER, ENV_PATH_WEB, ENV_PATH_ROOT]:
     if os.path.exists(path):
         load_dotenv(path, override=True)
-        # print(f"✅ 已加载环境变量: {path}") # 减少日志干扰
+        print(f"✅ 已加载环境变量: {path}") # 调试输出
         loaded = True
 
 # 如果没有加载到文件，且关键环境变量也不存在，才发出警告

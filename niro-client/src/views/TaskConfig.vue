@@ -309,14 +309,14 @@
             <div class="flex items-center gap-2">
               <t-input-number
                 v-model="uiState.intervalValue"
-                :min="uiState.intervalUnit === 's' ? 5 : 1"
+                :min="uiState.intervalUnit === 's' ? 15 : 1"
                 :step="1"
                 theme="column"
                 style="width: 140px"
                 @blur="handleIntervalBlur"
               >
                 <template #suffix>
-                  <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，必须大于 5 秒">
+                  <t-tooltip content="扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒">
                     <t-icon name="help-circle" class="cursor-help text-gray-400" />
                   </t-tooltip>
                 </template>
@@ -396,7 +396,7 @@ const cronVisible = ref(false);
 const uiState = reactive({
   durationValue: 0,
   durationUnit: "m" as "m" | "h" | "d",
-  intervalValue: 5,
+  intervalValue: 15,
   intervalUnit: "s" as "s" | "m" | "h" | "d",
 });
 
@@ -514,7 +514,7 @@ const formData = reactive<TaskSaveParam>({
   buyCount: 1,
   cronExpression: "",
   durationMinutes: 0,
-  scanInterval: 5,
+  scanInterval: 15,
   taskType: 0,
   minProfit: 0,
 });
@@ -577,9 +577,9 @@ const rules = {
     {
       validator: (val: number) => {
         if (formData.taskType >= 2) return true;
-        return val >= 5;
+        return val >= 15;
       },
-      message: "扫描间隔不得低于 5 秒",
+      message: "扫描间隔不得低于 15 秒",
       type: "error",
     },
   ],
@@ -603,13 +603,13 @@ const remoteSearchGoods = async (keyword: string) => {
 // --- 方法 ---
 
 const handleIntervalUnitChange = (unit: string) => {
-  if (unit === "s" && uiState.intervalValue < 5) {
-    uiState.intervalValue = 5;
+  if (unit === "s" && uiState.intervalValue < 15) {
+    uiState.intervalValue = 15;
   }
 };
 
 const handleIntervalBlur = () => {
-  const min = uiState.intervalUnit === "s" ? 5 : 1;
+  const min = uiState.intervalUnit === "s" ? 15 : 1;
   if (uiState.intervalValue < min) {
     uiState.intervalValue = min;
   }
@@ -667,14 +667,14 @@ const handleAdd = () => {
   formData.buyCount = 1;
   formData.cronExpression = "";
   formData.durationMinutes = 0;
-  formData.scanInterval = 5;
+  formData.scanInterval = 15;
   formData.taskType = 0;
   formData.minProfit = 0;
 
   // 重置 UI 状态
   uiState.durationValue = 0;
   uiState.durationUnit = "m";
-  uiState.intervalValue = 5;
+  uiState.intervalValue = 15;
   uiState.intervalUnit = "s";
 
   lastModifiedTime.value = new Date().toLocaleString(); // 初始化为当前时间
@@ -693,7 +693,7 @@ const handleEdit = (row: BuffScanTask) => {
     buyCount: row.buyCount,
     cronExpression: row.cronExpression || "", // 确保默认为空字符串
     durationMinutes: row.durationMinutes || 0,
-    scanInterval: row.scanInterval || 5,
+    scanInterval: row.scanInterval || 15,
     taskType: row.taskType || 0,
     minProfit: row.minProfit || 0,
   });
@@ -730,13 +730,13 @@ defineExpose({
       buyCount: 1,
       cronExpression: "",
       durationMinutes: 0,
-      scanInterval: 5,
+      scanInterval: 15,
       taskType: 0,
       minProfit: 0,
     });
     uiState.durationValue = 0;
     uiState.durationUnit = "m";
-    uiState.intervalValue = 5;
+    uiState.intervalValue = 15;
     uiState.intervalUnit = "s";
     goodsOptions.value = [{ goodsId: goods.goodsId, name: goods.name }];
     dialogVisible.value = true;

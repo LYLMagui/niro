@@ -7,7 +7,7 @@ class BuffScanTaskDTO(BaseModel):
     name: str
     status: int
     cron_expression: Optional[str] = None
-    scan_interval: Optional[int] = 5
+    scan_interval: Optional[int] = 15
     duration_minutes: Optional[int] = 0
     task_type: int
     user_id: Optional[int] = None

@@ -13,10 +13,13 @@ import java.util.TimeZone;
 @ComponentScan(basePackages = {"com.niro"})
 public class NiroWebApplication {
 
-    @PostConstruct
+    @jakarta.annotation.Resource
+    private org.springframework.core.env.Environment env;
+
+    @jakarta.annotation.PostConstruct
     public void init() {
         // 设置默认时区为上海 (GMT+8)
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
     }
 
     public static void main(String[] args) {
