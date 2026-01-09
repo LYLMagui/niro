@@ -1,5 +1,17 @@
 # Release Notes
 
+## v1.14.8 (2026-01-09)
+- [功能] **印花价值管理系统全面视觉与功能升级**：
+  - **后端 & 数据库**：
+    - 在 `buff_stickers` 表中新增 `sell_num` (在售数量) 字段，并同步更新 Java 实体类 [BuffSticker.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-web/src/main/java/com/niro/web/entity/BuffSticker.java) 与 DTO [BuffStickerDTO.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-web/src/main/java/com/niro/web/dto/BuffStickerDTO.java)。
+  - **爬虫端**：
+    - 升级了 [buff_sticker_spider.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/buff_sticker_spider.py) 的抓取模型，支持从 BUFF API 实时采集印花的“在售数量”。
+    - 优化了 `upsert` 逻辑，确保价格、图片和在售数量能实现原子级同步更新。
+  - **前端交互 (UX)**：
+    - **视觉风格对齐**：重构了 [StickerList.vue](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/views/StickerList.vue)，参照“商品列表页”的高级样式，引入了带边框的悬浮图片容器。
+    - **交互增强**：新增“图片点击预览”功能，并修复了 `imageUrl` 和 `price` 的字段映射错误。
+    - **数据展示**：补齐了缺失的“在售数量”列，并优化了表头对齐方式，极大提升了印花数据的阅读效率。
+
 ## v1.14.7 (2026-01-09)
 - [优化] **日志系统全局IP地址自动嵌入**：
   - **全局配置优化**：重构了 [logger.py](file:///f:\CodeSpace\niro\niro-spider\utils\logger.py)，利用 `loguru` 的 `patch` 机制和 `extra` 上下文，实现了IP地址的全局自动注入。

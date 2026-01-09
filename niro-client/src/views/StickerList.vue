@@ -26,21 +26,41 @@
         :columns="columns"
         :loading="loading"
         :pagination="pagination"
-        @page-change="onPageChange"
         hover
-        stripe
+        :header-affixed-top="true"
+        class="custom-table"
+        @page-change="onPageChange"
       >
-        <template #iconUrl="{ row }">
-          <t-image :src="row.iconUrl" fit="contain" shape="round" style="width: 48px; height: 48px" />
+        <template #imageUrl="{ row }">
+          <div
+            class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white mx-auto"
+            style="width: 110px; height: 110px"
+            @click="onPreview(row.imageUrl)"
+          >
+            <t-image 
+              :src="row.imageUrl" 
+              fit="contain" 
+              :style="{ width: '100px', height: '100px' }" 
+            />
+          </div>
         </template>
-        <template #sellPrice="{ row }">
-          <span class="font-bold text-orange-600">¥{{ row.sellPrice }}</span>
+        <template #price="{ row }">
+          <span class="font-bold text-orange-600">¥{{ row.price }}</span>
         </template>
         <template #updateTime="{ row }">
           <span class="text-gray-500">{{ formatTime(row.updateTime) }}</span>
         </template>
       </t-table>
     </t-card>
+
+    <!-- 图片预览组件 -->
+    <t-image-viewer
+      :images="[previewImage]"
+      :visible="imageVisible"
+      mode="modal"
+      :close-on-overlay="true"
+      @close="imageVisible = false"
+    />
   </div>
 </template>
 
@@ -53,12 +73,23 @@
 import { stickerApi } from '@/api/sticker';
 import { ADMIN_USER_ID, DEFAULT_PAGE_SIZE } from '@/utils/constants';
 import { onMounted, reactive, ref } from 'vue';
+import { MessagePlugin } from 'tdesign-vue-next';
 
 // 权限控制：使用常量定义的管理员ID
 const currentUserId = ADMIN_USER_ID; 
 
 const loading = ref(false);
 const dataList = ref([]);
+
+// 图片预览状态
+const imageVisible = ref(false);
+const previewImage = ref("");
+
+const onPreview = (url: string) => {
+  if (!url) return;
+  previewImage.value = url;
+  imageVisible.value = true;
+};
 
 const queryParams = reactive({
   keyword: '',
@@ -70,12 +101,13 @@ const pagination = reactive({
   current: 1,
   pageSize: DEFAULT_PAGE_SIZE,
   total: 0,
+  showJumper: true,
 });
 
 const columns = [
-  { colKey: 'iconUrl', title: '图标', width: 80, align: 'center' },
-  { colKey: 'name', title: '印花名称', ellipsis: true },
-  { colKey: 'sellPrice', title: '当前价格', width: 120, align: 'right' },
+  { colKey: 'imageUrl', title: '图标', width: 140, align: 'center' },
+  { colKey: 'name', title: '印花名称', ellipsis: true, minWidth: 200 },
+  { colKey: 'price', title: '当前价格', width: 120, align: 'right' },
   { colKey: 'sellNum', title: '在售数量', width: 100, align: 'right' },
   { colKey: 'updateTime', title: '最后更新', width: 180 },
 ];
@@ -143,5 +175,29 @@ onMounted(() => {
 .sticker-list-container {
   background-color: #f3f4f6;
   min-height: calc(100vh - 64px);
+}
+
+/* 表头样式定制 (参考 GoodsList.vue) */
+:deep(.custom-table .t-table__header tr) {
+  background-color: #fafafa !important;
+}
+
+:deep(.custom-table .t-table__header th) {
+  font-weight: 700 !important;
+  color: #1f2937 !important;
+  background-color: transparent !important;
+  border-bottom: 2px solid #e5e7eb !important;
+  position: relative;
+}
+
+:deep(.custom-table .t-table__header th:not(:last-child)::after) {
+  content: "";
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  height: 50%;
+  width: 1px;
+  background-color: #d1d5db;
 }
 </style>

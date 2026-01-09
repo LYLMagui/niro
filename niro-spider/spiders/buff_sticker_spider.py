@@ -38,6 +38,7 @@ class BuffStickerItem(BaseModel):
     name: str
     image_url: str = Field(validation_alias=AliasPath("goods_info", "icon_url"))
     price: float = Field(alias="sell_min_price")
+    sell_num: int = Field(alias="sell_num")
     # 用于过滤的类型
     item_type: str = Field(validation_alias=AliasPath("goods_info", "info", "tags", "type", "internal_name"))
 
@@ -115,15 +116,17 @@ def upsert_stickers(stickers: List[BuffStickerItem]):
                 sticker_id=item.sticker_id,
                 name=item.name,
                 image_url=item.image_url,
-                price=item.price
+                price=item.price,
+                sell_num=item.sell_num
             )
-            # 如果冲突（sticker_id已存在），则更新价格、名称、图片和更新时间
+            # 如果冲突（sticker_id已存在），则更新价格、名称、图片、在售数量和更新时间
             stmt = stmt.on_conflict_do_update(
                 index_elements=['sticker_id'],
                 set_={
                     'price': stmt.excluded.price,
                     'name': stmt.excluded.name,
                     'image_url': stmt.excluded.image_url,
+                    'sell_num': stmt.excluded.sell_num,
                     'update_time': func.now()
                 }
             )

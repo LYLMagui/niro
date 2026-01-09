@@ -39,6 +39,10 @@ public class BuffSticker {
      */
     private BigDecimal price;
     /**
+     * 在售数量
+     */
+    private Integer sellNum;
+    /**
      * 创建时间
      */
     private LocalDateTime createTime;

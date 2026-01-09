@@ -24,6 +24,7 @@ class BuffSticker(Base):
     name = Column(String(255), nullable=False, default="", comment='印花中文名称')
     image_url = Column(Text, nullable=False, default="", comment='印花图片预览链接')
     price = Column(Numeric(10, 2), nullable=False, default=0.00, comment='印花本体市场底价')
+    sell_num = Column(Integer, nullable=False, default=0, comment='在售数量')
     create_time = Column(DateTime, nullable=False, server_default=func.now(), comment='创建时间')
     update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment='最后更新时间')
 
