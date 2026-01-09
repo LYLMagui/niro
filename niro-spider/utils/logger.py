@@ -16,6 +16,15 @@ def shanghai_time(*args):
     """
     return pendulum.now('Asia/Shanghai').to_datetime_string()
 
+def get_current_ip_cached():
+    """
+    获取当前IP并缓存，避免频繁请求
+    """
+    if not hasattr(get_current_ip_cached, '_cached_ip'):
+        from utils.network_util import get_current_ip
+        get_current_ip_cached._cached_ip = get_current_ip()
+    return get_current_ip_cached._cached_ip
+
 def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     """
     配置全局日志 (使用 Loguru)，支持普通文本和结构化 JSON 两种输出
@@ -35,18 +44,25 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     # 移除默认的 handler
     logger.remove()
 
-    # 关键：先配置 patcher，再添加 handler
+    # 关键：先配置 patcher，每次记录日志时动态获取IP
     # 这样所有后续添加的 handler 都会自动应用这个 patch
     logger.configure(
-        patcher=lambda record: record.update(time=pendulum.now('Asia/Shanghai')),
-        extra={"service": "niro-spider", "env": os.getenv("APP_ENV", "dev")}
+        patcher=lambda record: record.update(
+            time=pendulum.now('Asia/Shanghai'),
+            extra={
+                "service": "niro-spider", 
+                "env": os.getenv("APP_ENV", "dev"),
+                "ip": get_current_ip_cached()
+            }
+        ),
+        extra={"service": "niro-spider", "env": os.getenv("APP_ENV", "dev"), "ip": get_current_ip_cached()}
     )
 
     # 1. 控制台输出 (开发友好，带颜色文本)
     logger.add(
         sys.stdout,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - <level>{message}</level>",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - ip：{extra[ip]} | <level>{message}</level>",
     )
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
@@ -58,7 +74,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         encoding="utf-8",
         enqueue=True,  # 异步写入，线程安全
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - ip：{extra[ip]} | {message}",
     )
 
     # 3. 结构化 JSON 输出 (专为 ELK/Filebeat 设计)

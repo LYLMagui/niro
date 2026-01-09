@@ -256,7 +256,7 @@ def run_goods_sync(force=False, task_id=None):
         res = process_category(cat, force=force, task_id=task_id, profile=profile)
         if res == "STOPPED": break
         
-    logger.info("🏁 所有分类商品同步完成")
+    logger.info(f"🏁 所有分类商品同步完成")
 
 if __name__ == "__main__":
     run_goods_sync()

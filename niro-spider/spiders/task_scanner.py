@@ -497,9 +497,7 @@ class TaskScanner:
         goods_id = task['goods_id']
         
         # 获取当前出口 IP 并创建带 IP 前缀的 logger
-        from utils.network_util import get_current_ip
-        current_ip = get_current_ip(spider.proxies)
-        task_logger = logger.bind(task_id=task_id).patch(lambda r: r.update(message=f"ip：{current_ip} | {r['message']}"))
+        task_logger = logger.bind(task_id=task_id)
         
         type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
         task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")

@@ -1,5 +1,14 @@
 # Release Notes
 
+## v1.14.7 (2026-01-09)
+- [优化] **日志系统全局IP地址自动嵌入**：
+  - **全局配置优化**：重构了 [logger.py](file:///f:\CodeSpace\niro\niro-spider\utils\logger.py)，利用 `loguru` 的 `patch` 机制和 `extra` 上下文，实现了IP地址的全局自动注入。
+  - **缓存机制**：新增 `get_current_ip_cached()` 函数，避免频繁请求IP地址接口，提升性能。
+  - **格式统一**：所有日志输出（控制台、文件、JSON）统一格式为 `时间 | 级别 | 模块:函数:行号 - ip：xxx | 消息`，确保日志可追溯性。
+  - **代码清理**：移除了所有爬虫文件中手动添加IP日志的代码，包括 [task_scanner.py](file:///f:\CodeSpace\niro\niro-spider\spiders\task_scanner.py)、[get_buff_goods.py](file:///f:\CodeSpace\niro\niro-spider\spiders\get_buff_goods.py) 等，实现了日志配置的集中管理。
+- [修复] **修复task_scanner.py中的缩进错误**：
+  - 修正了第119行附近的缩进问题，确保代码结构正确。
+
 ## v1.14.6 (2026-01-09)
 - [优化] **扫描监控日志全链路 IP 追踪**：
   - **全局上下文注入**：利用 `loguru` 的 `patch` 机制，在任务处理生命周期内动态注入当前出口 IP。
