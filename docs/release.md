@@ -1,5 +1,11 @@
 # Release Notes
 
+## v1.15.3 (2026-01-09)
+- [优化] **爬虫日志系统闭环 (Unified Logging)**：
+  - **入口对齐**：在所有核心爬虫脚本（分类同步、商品同步、印花同步）的 `if __name__ == "__main__":` 入口中显式调用 `setup_logging()`。
+  - **格式一致性**：解决了直接运行脚本时日志格式不包含 IP 和 预设样式的 Bug，确保控制台与文件日志输出完全遵循 [logger.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/logger.py) 定义的标准化格式。
+  - **双重 IP 验证**：保留了 `log_request_ip` 的显式调用，配合日志头的出口 IP 打印，实现了“本地 IP + 代理 IP”的双重监测能力。
+
 ## v1.15.2 (2026-01-09)
 - [优化] **分类与商品同步稳定性加固 (Bugfix & Performance)**：
   - **数据库层**：提出了索引优化方案，建议为 `buff_goods_categories.internal_name` 添加唯一索引以支持 `Upsert`，并为 `buff_goods.category_id` 添加查询索引，显著提升分类筛选性能。

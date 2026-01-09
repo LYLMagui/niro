@@ -18,7 +18,7 @@ from storage.database import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func
 from config import settings
-from utils.logger import get_logger
+from utils.logger import get_logger, setup_logging
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
@@ -302,4 +302,9 @@ def run_category_sync(task_id=None):
         raise
 
 if __name__ == "__main__":
+    # 初始化日志配置
+    setup_logging()
+    
+    # 也可以手动指定参数
+    # run_category_sync(force=True)
     run_category_sync()

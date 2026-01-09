@@ -19,7 +19,7 @@ from storage.database import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func
 from config import settings
-from utils.logger import get_logger
+from utils.logger import get_logger, setup_logging
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
@@ -275,4 +275,9 @@ def run_goods_sync(force=False, task_id=None):
     logger.info(f"🏁 所有分类商品同步完成")
 
 if __name__ == "__main__":
+    # 初始化日志配置
+    setup_logging()
+    
+    # 手动指定分类同步（可选参数 force=True 会清除旧数据重新抓取）
+    # run_goods_sync(force=True)
     run_goods_sync()

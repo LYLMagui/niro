@@ -19,7 +19,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from config.constants import GAME_CSGO, CATEGORY_STICKER, TAB_SELLING
 from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
-from utils.logger import get_logger
+from utils.logger import get_logger, setup_logging
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
@@ -172,5 +172,8 @@ def run_sticker_sync(user_id: int = 1):
         raise e
 
 if __name__ == "__main__":
+    # 初始化日志配置
+    setup_logging()
+    
     # 默认使用管理员账户执行
     run_sticker_sync(user_id=1)
