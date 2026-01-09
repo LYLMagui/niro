@@ -34,6 +34,7 @@ class BuffGoodsItem(BaseModel):
     # 使用 AliasPath 提取深度嵌套字段
     localized_name: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "localized_name"))
     internal_name: Optional[str] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags", "type", "internal_name"))
+    tags: Optional[Dict[str, Any]] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags"))
 
 class BuffGoodsData(BaseModel):
     items: List[BuffGoodsItem]
@@ -116,40 +117,160 @@ def get_task_user_id(task_id):
     finally:
         Session.remove()
 
+def reset_category_hierarchy():
+    """重置所有分类的层级关系，防止旧数据干扰"""
+    session = Session()
+    try:
+        session.query(BuffGoodsCategory).update({"parent_id": 0})
+        session.commit()
+        logger.info("🧹 已重置所有分类的层级关系")
+    except Exception as e:
+        session.rollback()
+        logger.error(f"❌ 重置分类层级失败: {e}")
+    finally:
+        Session.remove()
+
+def save_categories(categories):
+    """保存分类到数据库 (支持层级 Upsert)"""
+    if not categories: return
+    session = Session()
+    try:
+        # 1. 第一步：获取所有涉及到的分类名，提前查询已存在的 ID 映射
+        # 这样可以减少数据库往返次数
+        all_internals = set()
+        for cat in categories:
+            all_internals.add(cat["internal_name"])
+            if cat.get("parent_internal_name"):
+                all_internals.add(cat["parent_internal_name"])
+        
+        # 2. 第二步：批量插入/更新基本信息 (此时 parent_id 暂时保持原样或设为 0)
+        db_items = []
+        for cat in categories:
+            db_items.append({
+                "name": cat["name"],
+                "internal_name": cat["internal_name"],
+                "category_type": cat.get("category_type", "type"),
+                "full_internal_name": cat["full_internal_name"],
+                "parent_id": 0 # 初始值，稍后更新
+            })
+            
+        stmt = insert(BuffGoodsCategory).values(db_items)
+        # 注意：这里需要数据库有唯一索引 idx_category_internal_name
+        stmt = stmt.on_conflict_do_update(
+            index_elements=['internal_name'],
+            set_={
+                'name': stmt.excluded.name,
+                'category_type': stmt.excluded.category_type,
+                'full_internal_name': stmt.excluded.full_internal_name
+            }
+        )
+        session.execute(stmt)
+        session.commit()
+
+        # 3. 第三步：重新查询 ID 映射，处理 parent_id
+        existing_cats = session.query(BuffGoodsCategory.id, BuffGoodsCategory.internal_name).filter(
+            BuffGoodsCategory.internal_name.in_(list(all_internals))
+        ).all()
+        name_to_id = {c.internal_name: c.id for c in existing_cats}
+
+        # 4. 第四步：构建更新列表，一次性更新 parent_id
+        update_count = 0
+        for cat in categories:
+            child_internal = cat["internal_name"]
+            parent_internal = cat.get("parent_internal_name")
+            
+            if parent_internal and parent_internal in name_to_id:
+                new_parent_id = name_to_id[parent_internal]
+                child_id = name_to_id.get(child_internal)
+                
+                if child_id:
+                    session.query(BuffGoodsCategory).filter(
+                        BuffGoodsCategory.id == child_id
+                    ).update({"parent_id": new_parent_id})
+                    update_count += 1
+        
+        session.commit()
+        return update_count
+    except Exception as e:
+        session.rollback()
+        logger.error(f"❌ 保存分类失败: {e}")
+        return 0
+    finally:
+        Session.remove()
+
 def get_buff_goods_parent_category(task_id=None, profile=None):
-    """获取一级分类 (Type)"""
-    logger.info("🚀 开始抓取一级分类...")
-    all_categories = []
-    page, total_pages = 1, 1
+    """从商品列表抓取所有层级的分类 (通过 tags 提取层级)"""
+    logger.info("🚀 开始从商品列表抓取多级分类...")
     
-    while page <= total_pages and page <= 20:
+    page, total_pages = 1, 1
+    # 限制页数，因为大部分分类在前面几十页就能全部覆盖
+    max_pages = 50  # 默认最多同步 50 页
+    
+    # 记录本次任务已发现的分类，避免重复保存
+    processed_internals = set()
+    total_saved = 0
+    total_hierarchy = 0
+    
+    while page <= total_pages and page <= max_pages:
         if task_id and not is_task_running(task_id):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已被手动停止")
             return "STOPPED"
-
+            
+        logger.info(f"正在抓取商品列表第 {page}/{min(total_pages, max_pages)} 页以提取分类...")
+        
         params = {"game": "csgo", "page_num": page, "tab": "selling"}
-        logger.info(f"正在抓取一级分类第 {page}/{min(total_pages, 20)} 页...")
         
         try:
             data = fetch_buff_goods_api(params, profile=profile)
             if page == 1:
                 total_pages = data.total_page
-                logger.info(f"📊 检测到共 {total_pages} 页，本次最多同步 20 页")
+                logger.info(f"📊 检测到共 {total_pages} 页，本次最多同步 {max_pages} 页")
 
-            # 直接从 item 中获取已经解析好的分类信息
             items = data.items
+            page_categories_map = {} # 本页发现的新分类
             
             for item in items:
-                if not item.internal_name: continue
-                full_name = item.internal_name
-                cat = {
-                    "parent_id": 0,
-                    "name": item.localized_name or "",
-                    "internal_name": (full_name.split('_')[-1] if full_name else "") or "",
-                    "full_internal_name": full_name or "",
-                }
-                all_categories.append(cat)
+                tags = item.tags or {}
                 
+                # 定义层级顺序: type (一级，如步枪) -> weapon (二级，如AK-47)
+                hierarchy = ["type", "weapon"]
+                prev_internal = None
+                
+                for key in hierarchy:
+                    tag = tags.get(key)
+                    if not tag: continue
+                    
+                    internal = tag.get("internal_name")
+                    if not internal: continue
+                    
+                    name = tag.get("localized_name") or tag.get("name")
+                    if not name: continue
+                    
+                    # 构造分类对象
+                    full_internal = internal if internal.startswith("csgo_") else f"csgo_{internal}"
+                    cat_obj = {
+                        "name": name,
+                        "internal_name": internal,
+                        "category_type": key, # 记录参数类型 (type 或 weapon)
+                        "full_internal_name": full_internal,
+                        "parent_internal_name": prev_internal
+                    }
+                    
+                    # 如果是新发现的分类，或者建立了新的父子关系，则加入保存列表
+                    if internal not in page_categories_map:
+                        page_categories_map[internal] = cat_obj
+                    
+                    prev_internal = internal
+            
+            # 每抓完一页立即保存
+            if page_categories_map:
+                h_count = save_categories(list(page_categories_map.values()))
+                new_count = len([k for k in page_categories_map.keys() if k not in processed_internals])
+                total_saved += new_count
+                total_hierarchy += h_count
+                processed_internals.update(page_categories_map.keys())
+                logger.info(f"📄 第 {page} 页处理完成: 新增/更新 {len(page_categories_map)} 条，当前累计发现 {len(processed_internals)} 条")
+
             wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
             logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
             time.sleep(wait_time)
@@ -161,52 +282,21 @@ def get_buff_goods_parent_category(task_id=None, profile=None):
             logger.error(f"❌ 抓取第 {page} 页失败: {e}")
             page += 1
             continue
-
-    # 去重
-    seen = set()
-    dedup_list = []
-    for cat in reversed(all_categories):
-        key = cat["full_internal_name"]
-        if key not in seen:
-            dedup_list.append(cat)
-            seen.add(key)
-    
-    return dedup_list
-
-def save_categories(categories):
-    """保存分类到数据库 (Upsert)"""
-    if not categories: return
-    session = Session()
-    try:
-        stmt = insert(BuffGoodsCategory).values(categories)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['internal_name'],
-            set_={
-                'name': stmt.excluded.name,
-                'parent_id': stmt.excluded.parent_id,
-                'full_internal_name': stmt.excluded.full_internal_name
-            }
-        )
-        session.execute(stmt)
-        session.commit()
-        logger.info(f"✅ 成功同步 {len(categories)} 条分类数据")
-    except Exception as e:
-        session.rollback()
-        logger.error(f"❌ 保存分类失败: {e}")
-    finally:
-        Session.remove()
+            
+    logger.info(f"✅ 分类同步完成: 累计发现 {len(processed_internals)} 条分类，已建立 {total_hierarchy} 条层级关系")
+    return "SUCCESS"
 
 def run_category_sync(task_id=None):
     """运行分类同步任务入口"""
     user_id = get_task_user_id(task_id)
-    # 在任务启动时随机生成一个浏览器指纹并绑定 Cookie
     profile = BrowserHelper.create_profile(user_id)
     logger.info(f"🎭 已为分类同步任务分配指纹: {profile.user_agent}")
     
     try:
-        categories = get_buff_goods_parent_category(task_id, profile=profile)
-        if categories == "STOPPED": return
-        save_categories(categories)
+        # 移除全局重置逻辑，改为 save_categories 中的原地原子更新，避免同步期间分类树断裂影响业务
+        # 从商品列表页抓取并提取多级分类 (内部会自动调用 save_categories)
+        result = get_buff_goods_parent_category(task_id, profile=profile)
+        if result == "STOPPED": return
     except Exception as e:
         logger.error(f"❌ 分类同步任务异常: {e}")
         raise

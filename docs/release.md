@@ -1,5 +1,28 @@
 # Release Notes
 
+## v1.15.2 (2026-01-09)
+- [优化] **分类与商品同步稳定性加固 (Bugfix & Performance)**：
+  - **数据库层**：提出了索引优化方案，建议为 `buff_goods_categories.internal_name` 添加唯一索引以支持 `Upsert`，并为 `buff_goods.category_id` 添加查询索引，显著提升分类筛选性能。
+  - **分类同步**：重写了 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的 `save_categories` 逻辑，通过批量处理和二次 ID 映射更新，彻底解决了因同步中断可能导致的分类层级断裂（Parent ID 丢失）风险。
+  - **商品同步**：重构了 [get_buff_goods.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods.py) 的 `process_category` 循环，完善了“全量同步”与“增量跳过”的判断机制。新增了对 `force` 参数的精准响应，并增加了异常后的自动休眠重试逻辑，确保高频采集下的数据完整性。
+  - **交互体验**：细化了爬虫控制台日志输出，支持展示每页同步的“生效记录数”，让全量更新进度更透明。
+
+## v1.15.1 (2026-01-09)
+- [优化] **分类与商品抓取一致性加固**：
+  - **参数路由精准化**：在 `buff_goods_categories` 表中引入 `category_type` 字段，并在同步时自动标注为 `type`（对应 API 的 `category` 参数）或 `weapon`（对应 API 的 `weapon` 参数）。
+  - **后端 & 数据库**：同步更新了 Java 实体类 [BuffGoodsCategory.java](file:///e:/CodeSpace/PYTHON/niro/niro-server/niro-web/src/main/java/com/niro/web/entity/BuffGoodsCategory.java) 和 Python 模型 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py)，确保全链路参数类型透明。
+  - **抓取逻辑对齐**：重构了 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py) 的提取算法，确保在抓取分类时能够保留其在 BUFF 官方 API 中的“身份标识”，为后续精确抓取商品数据提供参数支撑。
+
+## v1.15.0 (2026-01-09)
+- [功能] **多级分类同步系统深度优化**：
+  - **分类解析增强**：重构了 [get_buff_goods_category.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/get_buff_goods_category.py)，将分类结构精简为更符合 BUFF 实际业务的二级结构（Type -> Weapon），修复了之前因字段冗余导致的层级倒置问题。
+  - **数据库持久化升级**：
+    - 实现了支持层级关系的 `Upsert` 逻辑：第一步全量同步基础信息，第二步建立 `parent_id` 引用，确保分类树在数据库中结构清晰。
+    - 优化了 `internal_name` 与 `full_internal_name` 的生成规则，自动处理 `csgo_` 前缀，解决数据冗余。
+  - **稳定性加固**：
+    - 提升了单次分类同步的深度（增加至 50 页覆盖率），确保冷门分类也能被有效采集。
+    - 优化了爬虫指纹与休眠策略，在提升同步深度的同时保持低风险。
+
 ## v1.14.9 (2026-01-09)
 - [优化] **任务扫描频率安全加固**：
   - **后端 & 校验**：将 `BuffScanTaskParam` 中的扫描间隔最小值由 5 秒提升至 15 秒，通过 `@Min` 注解强制执行校验，降低因高频扫描导致的风控风险。

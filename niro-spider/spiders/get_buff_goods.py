@@ -190,6 +190,7 @@ def process_category(category, force=False, task_id=None, profile=None):
     
     db_count = get_db_goods_count(cat_id)
     page, total_pages = 1, 1
+    total_saved_count = 0
     
     while page <= total_pages:
         if task_id and not is_task_running(task_id):
@@ -202,16 +203,22 @@ def process_category(category, force=False, task_id=None, profile=None):
                 total_pages = data.total_page
                 total_count = data.total_count
                 logger.info(f"📊 Buff 共 {total_count} 个商品, {total_pages} 页. 库中已存 {db_count} 个")
-                if not force and db_count >= total_count:
-                    logger.info(f"✨ 分类 {cat_name} 已同步，跳过")
+                
+                # 只有在非强制模式下，且数据库数量已经达到或超过 Buff 数量时才跳过
+                # 注意：这只是一个粗略判断，最稳妥的是每天定时 force=True 全量同步一次
+                if not force and db_count >= total_count and total_count > 0:
+                    logger.info(f"✨ 分类 {cat_name} 数量已达标，非强制模式下跳过")
                     break
 
             items = data.items
-            if items:
-                logger.debug(f"🔍 第一个商品校验: {items[0].name}, icon_url: {items[0].icon_url}")
-            
+            if not items:
+                break
+                
             goods_to_save = []
             for item in items:
+                # 提取更加丰富的标签信息，方便后续扩展
+                tags_json = json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
+                
                 goods_to_save.append({
                     "goods_id": item.goods_id,
                     "name": item.name,
@@ -219,28 +226,37 @@ def process_category(category, force=False, task_id=None, profile=None):
                     "original_icon_url": item.original_icon_url or "",
                     "icon_url": item.icon_url or "",
                     "short_name": item.short_name or "",
-                    "internal_name": item.market_hash_name or "", # 暂时用 hash name
-                    "category_id": cat_id or 0,
+                    "internal_name": item.market_hash_name or "", 
+                    "category_id": cat_id,
                     "rarity": item.rarity or "",
                     "exterior": item.exterior or "",
-                    "tags": json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
+                    "tags": tags_json
                 })
             
             saved = save_goods_batch(goods_to_save)
-            logger.info(f"📦 第 {page}/{total_pages} 页: 同步 {len(items)} 个，生效 {saved} 个")
+            total_saved_count += saved
+            logger.info(f"📦 第 {page}/{total_pages} 页: 处理 {len(items)} 个，生效 {saved} 个")
             
+            # 如果这一页没有任何新数据且不是强制模式，可以考虑提前结束（增量同步逻辑）
+            if not force and saved == 0 and page > 1:
+                logger.info(f"💡 连续页无新数据，结束分类 {cat_name} 的同步")
+                break
+
             wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
             logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
             time.sleep(wait_time)
             page += 1
             
         except LoginRequiredError:
+            logger.error("🔑 登录失效，停止抓取")
             raise
         except Exception as e:
             logger.error(f"❌ 抓取第 {page} 页失败: {e}")
             page += 1
+            time.sleep(5) # 出错多歇会儿
             continue
             
+    logger.info(f"✅ 分类 {cat_name} 同步完成，本次生效 {total_saved_count} 条记录")
     return "DONE"
 
 def run_goods_sync(force=False, task_id=None):
