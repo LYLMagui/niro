@@ -39,6 +39,11 @@ public class BuffGoodsCategory {
     private String internalName;
 
     /**
+     * 参数类型: type(对应category参数), weapon(对应weapon参数)
+     */
+    private String categoryType;
+
+    /**
      * 完整内部标识
      */
     private String fullInternalName;

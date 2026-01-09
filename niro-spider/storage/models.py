@@ -11,6 +11,7 @@ class BuffGoodsCategory(Base):
     name = Column(String(255), nullable=False, comment='分类名称')
     parent_id = Column(BigInteger, nullable=False, comment='父分类ID')
     internal_name = Column(String(255), nullable=False, comment='内部标识名称')
+    category_type = Column(String(50), nullable=False, default='type', comment='参数类型: type(对应category参数), weapon(对应weapon参数)')
     full_internal_name = Column(String(255), nullable=False, comment='完整路径标识名称')
     create_time = Column(DateTime, server_default=func.now(), comment='创建时间')
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment='修改时间')
