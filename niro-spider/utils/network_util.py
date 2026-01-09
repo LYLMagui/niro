@@ -8,8 +8,9 @@ logger = get_logger(__name__)
 def get_local_ip():
     """获取本机出口IP (带缓存)"""
     try:
-        resp = requests.get("http://httpbin.org/ip", timeout=5)
-        return resp.json().get("origin", "Unknown")
+        # 使用 HTTPS 确保与业务请求协议一致
+        resp = requests.get("https://api64.ipify.org?format=json", timeout=5)
+        return resp.json().get("ip", "Unknown")
     except:
         return "Unknown"
 
@@ -20,10 +21,25 @@ def get_current_ip(proxies=None):
     :return: IP地址
     """
     try:
-        # 每次都实时获取最新的出口IP，以确保准确性
-        # 如果追求性能，可以增加短时间的缓存
-        resp = requests.get("http://httpbin.org/ip", proxies=proxies, timeout=5)
-        return resp.json().get("origin", "Unknown")
+        # 1. 优先使用 HTTPS 检测源，确保能命中 Clash 的加密流量规则
+        # 2. 备用源以提高可靠性
+        detect_urls = [
+            "https://api64.ipify.org?format=json",
+            "https://httpbin.org/ip"
+        ]
+        
+        for url in detect_urls:
+            try:
+                resp = requests.get(url, proxies=proxies, timeout=5)
+                # ipify 返回 {'ip': '...'}, httpbin 返回 {'origin': '...'}
+                data = resp.json()
+                ip = data.get("ip") or data.get("origin")
+                if ip:
+                    return ip
+            except:
+                continue
+                
+        return "Unknown"
     except Exception as e:
         logger.debug(f"获取当前IP失败: {e}")
         return "Unknown"
