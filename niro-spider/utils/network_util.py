@@ -47,5 +47,4 @@ def get_current_ip(proxies=None):
 def log_request_ip(proxies=None, prefix=""):
     """打印当前请求的IP日志"""
     ip = get_current_ip(proxies)
-    logger.info(f"🌐 {prefix}当前发起请求的IP: {ip}")
     return ip
