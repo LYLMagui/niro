@@ -608,7 +608,7 @@ const handleIntervalUnitChange = (unit: string) => {
 };
 
 const handleIntervalBlur = () => {
-  const min = uiState.intervalUnit === "s" ? 15 : 1;
+  const min = formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
   if (uiState.intervalValue < min) {
     uiState.intervalValue = min;
   }
