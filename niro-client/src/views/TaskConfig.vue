@@ -301,21 +301,37 @@
               <template #tips>0 表示不限时间</template>
             </t-form-item>
           <t-form-item
+            v-if="formData.taskType < 2"
             label="扫描间隔"
             name="scanInterval"
             class="mb-6"
           >
             <div class="flex items-center gap-2">
               <t-input-number
-                v-model="uiState.intervalValue"
+                v-model="uiState.intervalMinValue"
                 :min="formData.taskType < 2 && uiState.intervalUnit === 's' ? 15 : 1"
                 :step="1"
                 theme="column"
-                style="width: 140px"
-                @blur="handleIntervalBlur"
+                style="width: 100px"
+                @blur="handleIntervalMinBlur"
               >
                 <template #suffix>
-                  <t-tooltip :content="formData.taskType < 2 ? '扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒' : '系统任务扫描间隔从环境变量获取，此处设置仅供参考'">
+                  <t-tooltip :content="formData.taskType < 2 ? '最小扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒' : '系统任务扫描间隔从环境变量获取，此处设置仅供参考'">
+                    <t-icon name="help-circle" class="cursor-help text-gray-400" />
+                  </t-tooltip>
+                </template>
+              </t-input-number>
+              <span class="text-gray-400">-</span>
+              <t-input-number
+                v-model="uiState.intervalMaxValue"
+                :min="formData.taskType < 2 && uiState.intervalUnit === 's' ? 15 : 1"
+                :step="1"
+                theme="column"
+                style="width: 100px"
+                @blur="handleIntervalMaxBlur"
+              >
+                <template #suffix>
+                  <t-tooltip :content="formData.taskType < 2 ? '最大扫描间隔' : '系统任务扫描间隔从环境变量获取，此处设置仅供参考'">
                     <t-icon name="help-circle" class="cursor-help text-gray-400" />
                   </t-tooltip>
                 </template>
@@ -395,7 +411,8 @@ const cronVisible = ref(false);
 const uiState = reactive({
   durationValue: 0,
   durationUnit: "m" as "m" | "h" | "d",
-  intervalValue: 15,
+  intervalMinValue: 15,
+  intervalMaxValue: 20,
   intervalUnit: "s" as "s" | "m" | "h" | "d",
 });
 
@@ -433,7 +450,8 @@ const executionSummary = computed(() => {
   const cron = formData.cronExpression?.trim();
   const duration = uiState.durationValue;
   const durationUnit = { m: "分钟", h: "小时", d: "天" }[uiState.durationUnit] || "分钟";
-  const interval = uiState.intervalValue;
+  const intervalMin = uiState.intervalMinValue;
+  const intervalMax = uiState.intervalMaxValue;
   const intervalUnit = { s: "秒", m: "分钟", h: "小时", d: "天" }[uiState.intervalUnit] || "秒";
 
   let summary = "";
@@ -481,7 +499,7 @@ const executionSummary = computed(() => {
 
   const actionDesc = formData.taskType < 2 ? "采集价格" : "同步数据";
   if (formData.taskType < 2) {
-    summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${interval} ${intervalUnit} 进行一次${actionDesc}。`;
+    summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${intervalMin}-${intervalMax} ${intervalUnit} 进行一次${actionDesc}。`;
   } else {
     summary += `启动后将执行一次${actionDesc}。`;
   }
@@ -514,6 +532,8 @@ const formData = reactive<TaskSaveParam>({
   cronExpression: "",
   durationMinutes: 0,
   scanInterval: 15,
+  scanIntervalMin: 15,
+  scanIntervalMax: 20,
   taskType: 0,
   minProfit: 0,
 });
@@ -602,24 +622,42 @@ const remoteSearchGoods = async (keyword: string) => {
 // --- 方法 ---
 
 const handleIntervalUnitChange = (unit: string) => {
-  if (unit === "s" && uiState.intervalValue < 15) {
-    uiState.intervalValue = 15;
+  const min = formData.taskType < 2 && unit === "s" ? 15 : 1;
+  if (uiState.intervalMinValue < min) {
+    uiState.intervalMinValue = min;
+  }
+  if (uiState.intervalMaxValue < min) {
+    uiState.intervalMaxValue = min;
   }
 };
 
-const handleIntervalBlur = () => {
+const handleIntervalMinBlur = () => {
   const min = formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
-  if (uiState.intervalValue < min) {
-    uiState.intervalValue = min;
+  if (uiState.intervalMinValue < min) {
+    uiState.intervalMinValue = min;
+  }
+  if (uiState.intervalMinValue > uiState.intervalMaxValue) {
+    uiState.intervalMaxValue = uiState.intervalMinValue;
+  }
+};
+
+const handleIntervalMaxBlur = () => {
+  const min = formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
+  if (uiState.intervalMaxValue < min) {
+    uiState.intervalMaxValue = min;
+  }
+  if (uiState.intervalMaxValue < uiState.intervalMinValue) {
+    uiState.intervalMinValue = uiState.intervalMaxValue;
   }
 };
 
 // 监听 UI 状态变化，实时同步到 formData 供校验和预览使用
 watch(
-  [() => uiState.intervalValue, () => uiState.intervalUnit, () => uiState.durationValue, () => uiState.durationUnit],
+  [() => uiState.intervalMinValue, () => uiState.intervalMaxValue, () => uiState.intervalUnit, () => uiState.durationValue, () => uiState.durationUnit],
   () => {
     if (formData.taskType < 2) {
-      formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+      formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
+      formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
       formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
     }
   },
@@ -667,13 +705,16 @@ const handleAdd = () => {
   formData.cronExpression = "";
   formData.durationMinutes = 0;
   formData.scanInterval = 15;
+  formData.scanIntervalMin = 15;
+  formData.scanIntervalMax = 20;
   formData.taskType = 0;
   formData.minProfit = 0;
 
   // 重置 UI 状态
   uiState.durationValue = 0;
   uiState.durationUnit = "m";
-  uiState.intervalValue = 15;
+  uiState.intervalMinValue = 15;
+  uiState.intervalMaxValue = 20;
   uiState.intervalUnit = "s";
 
   lastModifiedTime.value = new Date().toLocaleString(); // 初始化为当前时间
@@ -693,6 +734,8 @@ const handleEdit = (row: BuffScanTask) => {
     cronExpression: row.cronExpression || "", // 确保默认为空字符串
     durationMinutes: row.durationMinutes || 0,
     scanInterval: row.scanInterval || 15,
+    scanIntervalMin: row.scanIntervalMin || 15,
+    scanIntervalMax: row.scanIntervalMax || 20,
     taskType: row.taskType || 0,
     minProfit: row.minProfit || 0,
   });
@@ -702,9 +745,11 @@ const handleEdit = (row: BuffScanTask) => {
   uiState.durationValue = durationUi.value;
   uiState.durationUnit = durationUi.unit as any;
 
-  const intervalUi = convertToUi(formData.scanInterval, INTERVAL_FACTORS);
-  uiState.intervalValue = intervalUi.value;
-  uiState.intervalUnit = intervalUi.unit as any;
+  const intervalMinUi = convertToUi(formData.scanIntervalMin, INTERVAL_FACTORS);
+  const intervalMaxUi = convertToUi(formData.scanIntervalMax, INTERVAL_FACTORS);
+  uiState.intervalMinValue = intervalMinUi.value;
+  uiState.intervalMaxValue = intervalMaxUi.value;
+  uiState.intervalUnit = intervalMinUi.unit as any;
 
   // 预填充当前商品到选项中，否则显示ID
   if (row.goodsId && row.name) {
@@ -730,12 +775,15 @@ defineExpose({
       cronExpression: "",
       durationMinutes: 0,
       scanInterval: 15,
+      scanIntervalMin: 15,
+      scanIntervalMax: 20,
       taskType: 0,
       minProfit: 0,
     });
     uiState.durationValue = 0;
     uiState.durationUnit = "m";
-    uiState.intervalValue = 15;
+    uiState.intervalMinValue = 15;
+    uiState.intervalMaxValue = 20;
     uiState.intervalUnit = "s";
     goodsOptions.value = [{ goodsId: goods.goodsId, name: goods.name }];
     dialogVisible.value = true;
@@ -773,11 +821,16 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
   // 提交前进行单位换算
   if (formData.taskType < 2) {
     formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
-    formData.scanInterval = uiState.intervalValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    // 保持scanInterval字段用于向后兼容
+    formData.scanInterval = formData.scanIntervalMin;
   } else {
     // 系统任务默认值 (设置 5s 以绕过后端 @Min(5) 校验，虽然系统任务不使用该字段)
     formData.durationMinutes = 0;
     formData.scanInterval = 5;
+    formData.scanIntervalMin = 5;
+    formData.scanIntervalMax = 5;
   }
 
   if (validateResult !== true) {

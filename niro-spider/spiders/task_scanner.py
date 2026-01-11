@@ -2,6 +2,7 @@ import pendulum
 import pydash
 import time
 import os
+import random
 from datetime import datetime, timedelta
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -198,12 +199,14 @@ class TaskScanner:
         """将任务加入调度器或更新现有调度"""
         task_id = task['id']
         cron_expr = pydash.get(task, 'cron_expression')
-        scan_interval = pydash.get(task, 'scan_interval', 15)
+        scan_interval_min = pydash.get(task, 'scan_interval_min', 15)
+        scan_interval_max = pydash.get(task, 'scan_interval_max', 20)
         
         # 构造一个唯一的配置标识，用于检测配置是否变更
         new_config = {
             'cron': cron_expr,
-            'interval': scan_interval,
+            'interval_min': scan_interval_min,
+            'interval_max': scan_interval_max,
             'type': pydash.get(task, 'task_type')
         }
         
@@ -250,7 +253,8 @@ class TaskScanner:
                     id=job_id
                 )
             else:
-                logger.info(f"🚀 任务启动 (循环扫描): {task['name']} (ID: {task_id}) [间隔: {scan_interval}s]")
+                scan_interval = random.randint(scan_interval_min, scan_interval_max)
+                logger.info(f"🚀 任务启动 (循环扫描): {task['name']} (ID: {task_id}) [间隔范围: {scan_interval_min}-{scan_interval_max}s, 本次: {scan_interval}s]")
                 # 普通任务：开启间隔扫描
                 job_id = self.start_scan_job(task)
             
@@ -356,7 +360,9 @@ class TaskScanner:
         """开始间隔扫描作业"""
         task_id = task['id']
         user_id = task.get('user_id')
-        scan_interval = task.get('scan_interval') or 15
+        scan_interval_min = task.get('scan_interval_min', 15)
+        scan_interval_max = task.get('scan_interval_max', 20)
+        scan_interval = random.randint(scan_interval_min, scan_interval_max)
         job_id = f"active_scan_{task_id}"
         
         # 任务启动，刷新指纹
@@ -373,7 +379,7 @@ class TaskScanner:
             id=job_id,
             replace_existing=True
         )
-        logger.info(f"✅ 激活间隔扫描 [ID:{task_id}] 频率: {scan_interval}s")
+        logger.info(f"✅ 激活间隔扫描 [ID:{task_id}] 范围: {scan_interval_min}-{scan_interval_max}s, 本次: {scan_interval}s")
         
         # 发送启动通知
         self.send_task_start_notification(task)
@@ -522,7 +528,9 @@ class TaskScanner:
         if not match_found:
             task_logger.info(f"😴 [任务:{task_id}] 本轮未发现符合条件的商品")
             
-        scan_interval = task.get('scan_interval', 15)
+        scan_interval_min = task.get('scan_interval_min', 15)
+        scan_interval_max = task.get('scan_interval_max', 20)
+        scan_interval = random.randint(scan_interval_min, scan_interval_max)
         task_logger.info(f"💤 [任务:{task_id}] 扫描完成，休眠 {scan_interval}s 后开始下轮...")
 
     def record_price_history(self, item):
@@ -815,13 +823,16 @@ class TaskScanner:
                     end_time = start_time + timedelta(minutes=duration)
                     end_time_str = end_time.strftime("%Y-%m-%d %H:%M:%S")
                 
+                scan_interval_min = task.get('scan_interval_min', 15)
+                scan_interval_max = task.get('scan_interval_max', 20)
+                
                 content = (
                     f"🚀 任务启动通知\n"
                     f"------------------\n"
                     f"任务名称: {task_name}\n"
                     f"启动时间: {start_time_str}\n"
                     f"预计结束: {end_time_str}\n"
-                    f"扫描间隔: {scan_interval}s\n"
+                    f"扫描间隔: {scan_interval_min}-{scan_interval_max}s\n"
                     f"目标数量: {buy_count}"
                 )
             

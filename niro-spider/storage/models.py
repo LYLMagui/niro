@@ -106,6 +106,8 @@ class BuffScanTask(Base):
     cron_expression = Column(String(100), comment='Cron表达式')
     duration_minutes = Column(Integer, comment='持续时间(分钟)')
     scan_interval = Column(Integer, comment='扫描间隔(秒)')
+    scan_interval_min = Column(Integer, comment='最小扫描间隔(秒)')
+    scan_interval_max = Column(Integer, comment='最大扫描间隔(秒)')
     task_type = Column(Integer, comment='任务类型')
     min_profit = Column(Numeric(10, 2), comment='最小期望利润')
 

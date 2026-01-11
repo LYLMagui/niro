@@ -14,6 +14,8 @@ export interface BuffScanTask {
   cronExpression?: string;
   durationMinutes?: number;
   scanInterval?: number;
+  scanIntervalMin?: number;
+  scanIntervalMax?: number;
   taskType: number;
   minProfit?: number;
   createTime: string;
@@ -37,6 +39,8 @@ export interface TaskSaveParam {
   cronExpression?: string;
   durationMinutes?: number;
   scanInterval?: number;
+  scanIntervalMin?: number;
+  scanIntervalMax?: number;
   taskType: number;
   minProfit?: number;
 }

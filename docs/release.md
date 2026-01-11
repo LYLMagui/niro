@@ -1,5 +1,22 @@
 # Release Notes
 
+## v1.15.6 (2026-01-11)
+- [功能] **扫描间隔时间范围功能**：
+  - **数据库层**：在 `buff_scan_task` 表中新增 `scan_interval_min` 和 `scan_interval_max` 字段，支持设置扫描间隔的时间范围。
+  - **后端 & 校验**：
+    - 同步更新了 Java 实体类 [BuffScanTask.java](file:///e:/CodeSpace/PYTHON/niro/niro-web/src/main/java/com/niro/web/entity/BuffScanTask.java)、DTO [BuffScanTaskDTO.java](file:///e:/CodeSpace/PYTHON/niro/niro-web/src/main/java/com/niro/web/dto/BuffScanTaskDTO.java) 和参数类 [BuffScanTaskParam.java](file:///e:/CodeSpace/PYTHON/niro/niro-web/src/main/java/com/niro/web/dto/param/BuffScanTaskParam.java)。
+    - 在 `BuffScanTaskServiceImpl` 中增强了校验逻辑，确保最小间隔不小于15秒，且最大间隔不小于最小间隔。
+  - **前端交互 (UX)**：
+    - 重构了 [TaskConfig.vue](file:///e:/CodeSpace/PYTHON/niro/niro-client/src/views/TaskConfig.vue)，将单一间隔输入框替换为时间范围输入框（最小值-最大值）。
+    - 新增单位选择功能（秒/分钟/小时/天），支持灵活的时间配置。
+    - 优化了表单验证逻辑，确保范围输入的合法性。
+    - 更新了执行摘要显示，展示时间范围信息。
+  - **爬虫端 (Python)**：
+    - 更新了 [models.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/storage/models.py) 和 [task_dto.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/dto/task_dto.py)，支持时间范围字段。
+    - 重构了 [task_scanner.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/spiders/task_scanner.py)，在每次扫描时从指定范围内随机选择间隔时间，降低被风控的风险。
+    - 优化了日志输出，显示当前使用的间隔时间及范围。
+  - **风控优化**：通过随机间隔机制，有效降低因固定扫描频率被平台风控系统识别的风险。
+
 ## v1.15.5 (2026-01-10)
 - [修复] **爬虫代理出口 IP 日志显示不准确问题**：
   - **核心逻辑优化**：重构了 [network_util.py](file:///e:/CodeSpace/PYTHON/niro/niro-spider/utils/network_util.py) 中的 `get_current_ip` 函数。现在该函数在未显式提供代理参数时，会主动从 `settings` 中读取全局 `PROXY_URL` 配置。这确保了 IP 检测请求（如请求 `ipify`）能准确走代理通道，从而获取到真实的代理出口 IP。

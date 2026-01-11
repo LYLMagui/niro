@@ -120,7 +120,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 普通任务校验
-        if (param.getScanInterval() != null && param.getScanInterval() < 15) {
+        // 如果设置了时间范围，则验证范围
+        if (param.getScanIntervalMin() != null || param.getScanIntervalMax() != null) {
+            if (param.getScanIntervalMin() != null && param.getScanIntervalMin() < 15) {
+                throw new BusinessException("最小扫描间隔不能低于15秒");
+            }
+            if (param.getScanIntervalMax() != null && param.getScanIntervalMin() != null && param.getScanIntervalMax() < param.getScanIntervalMin()) {
+                throw new BusinessException("最大扫描间隔不能小于最小扫描间隔");
+            }
+        } else if (param.getScanInterval() != null && param.getScanInterval() < 15) {
+            // 如果只设置了固定间隔，则验证固定间隔
             throw new BusinessException("普通扫描任务的间隔不能低于15秒");
         }
 

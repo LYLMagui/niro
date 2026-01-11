@@ -61,6 +61,12 @@ public class BuffScanTaskDTO {
     @Schema(description = "扫描间隔(秒)")
     private Integer scanInterval;
 
+    @Schema(description = "最小扫描间隔(秒)")
+    private Integer scanIntervalMin;
+
+    @Schema(description = "最大扫描间隔(秒)")
+    private Integer scanIntervalMax;
+
     @Schema(description = "任务类型: 0-炼金扫货, 1-站内倒卖, 2-系统分类同步, 3-系统商品同步")
     private Integer taskType;
 

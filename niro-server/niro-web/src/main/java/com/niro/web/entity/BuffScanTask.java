@@ -85,6 +85,16 @@ public class BuffScanTask {
     private Integer scanInterval;
 
     /**
+     * 最小扫描间隔(秒)
+     */
+    private Integer scanIntervalMin;
+
+    /**
+     * 最大扫描间隔(秒)
+     */
+    private Integer scanIntervalMax;
+
+    /**
      * 任务类型: 0-炼金扫货, 1-站内倒卖
      */
     private Integer taskType;
