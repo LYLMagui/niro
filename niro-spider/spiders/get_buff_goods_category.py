@@ -33,29 +33,6 @@ BUFF_HOST = "https://buff.163.com"
 # Redis 暂存 Key
 REDIS_TEMP_CATEGORY_KEY = "niro:spider:temp_categories"
 
-# BUFF 核心一级分类 (Type)
-# 注意：由于数据库中 internal_name 与官方 API 传参不一致，此处采用硬编码确保请求成功
-BUFF_PRIMARY_TYPES = [
-    {"internal_name": "knife", "name": "匕首", "param": "category_group"},
-    {"internal_name": "pistol", "name": "手枪", "param": "category_group"},
-    {"internal_name": "rifle", "name": "步枪", "param": "category_group"},
-    {"internal_name": "smg", "name": "微型冲锋枪", "param": "category_group"},
-    {"internal_name": "shotgun", "name": "重型武器", "param": "category_group"},
-    {"internal_name": "machinegun", "name": "机枪", "param": "category_group"},
-    {"internal_name": "hands", "name": "手套", "param": "category_group"},
-    {"internal_name": "sticker", "name": "印花", "param": "category_group"},
-    {"internal_name": "graffiti", "name": "涂鸦", "param": "category_group"},
-    {"internal_name": "collectible", "name": "收藏品", "param": "category_group"},
-    {"internal_name": "csgo_type_weaponcase", "name": "武器箱", "param": "category"},
-    {"internal_name": "asset_tag", "name": "工具", "param": "category_group"},
-    {"internal_name": "type_custom_player", "name": "探员", "param": "category_group"},
-    {"internal_name": "csgo_type_musickit", "name": "音乐盒", "param": "category"},
-    {"internal_name": "pass_ticket", "name": "通行证", "param": "category_group"},
-    {"internal_name": "flair_sticker", "name": "布章", "param": "category_group"},
-    {"internal_name": "unusual_equipment", "name": "装备", "param": "category_group"},
-    {"internal_name": "other", "name": "其它", "param": "category_group"},
-]
-
 # --- Pydantic 模型定义 ---
 
 class BuffGoodsItem(BaseModel):
@@ -161,37 +138,35 @@ def run_category_sync(task_id=None):
     # 清理上次可能残留的 Redis 数据
     redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
 
-    # 1. 首先确保一级分类在数据库中 (作为二级分类的 Parent)
-    primary_cats = []
-    for p_type in BUFF_PRIMARY_TYPES:
-        primary_cats.append({
-            "name": p_type["name"],
-            "internal_name": p_type["internal_name"],
-            "category_type": "type",
-            "full_internal_name": f"csgo_{p_type['internal_name']}",
-            "parent_internal_name": None
-        })
-    save_categories(primary_cats)
-    logger.info(f"✅ 已同步 {len(BUFF_PRIMARY_TYPES)} 个核心一级分类到数据库")
-
     # 2. 循环遍历一级分类，深度抓取二级分类并暂存到 Redis
     total_new_categories = 0
-    for p_type in BUFF_PRIMARY_TYPES:
-        if task_id and not is_task_running(task_id):
-            logger.warning("🛑 任务被手动停止")
-            break
+    
+    # 从数据库获取一级分类 (parent_id = 0)
+    session = Session()
+    try:
+        primary_categories = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id == 0).all()
+        if not primary_categories:
+            logger.error("❌ 数据库中未找到一级分类，请先初始化分类数据")
+            return
+        
+        logger.info(f"📊 从数据库加载了 {len(primary_categories)} 个一级分类")
+        
+        for p_cat in primary_categories:
+            if task_id and not is_task_running(task_id):
+                logger.warning("🛑 任务被手动停止")
+                break
 
-        type_internal = p_type["internal_name"]
-        type_name = p_type["name"]
-        logger.info(f"📂 正在抓取一级分类 [{type_name}] 的二级细分...")
+            type_internal = p_cat.internal_name
+            type_name = p_cat.name
+            logger.info(f"📂 正在抓取 [{type_name}] 的二级分类...")
 
-        processed_in_type = set()
-        for page in range(1, 21): # 每种分类抓取 20 页
-            if task_id and not is_task_running(task_id): break
-            
-            logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
-            param_key = p_type.get("param", "category_group")
-            params = {"game": "csgo", "page_num": page, "tab": "selling", param_key: type_internal}
+            processed_in_type = set()
+            for page in range(1, 21): # 每种分类抓取 20 页
+                if task_id and not is_task_running(task_id): break
+                
+                logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
+                # 一级分类统一使用 category_group 参数
+                params = {"game": "csgo", "page_num": page, "tab": "selling", "category_group": type_internal}
             
             try:
                 data = fetch_buff_goods_api(params, profile=profile)
@@ -215,18 +190,8 @@ def run_category_sync(task_id=None):
                     if normalize(real_parent_internal) != normalize(type_internal):
                         continue
                     
-                    # 确定二级分类 (优先取 category，若无则取 weapon)
-                    # 关键修复：如果当前一级分类本身就是通过 category 参数请求的（如音乐盒），
-                    # 那么二级分类不能再取 category 标签，否则会和父类冲突
-                    # 此时应该尝试取更细分的标签，或者直接跳过（因为音乐盒本身没有细分二级分类）
-                    sub_tag = None
-                    if p_type.get("param") == "category":
-                        # 对于武器箱、音乐盒，其本身就是最细分类，通常没有二级分类
-                        # 此时 processed_in_type 会记录 sub_internal == real_parent_internal 并跳过
-                        sub_tag = tags.get("weapon") or tags.get("category")
-                    else:
-                        sub_tag = tags.get("category") or tags.get("weapon")
-                    
+                    # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数
+                    sub_tag = tags.get("category") or tags.get("weapon")
                     if not sub_tag: continue
                     
                     sub_internal = sub_tag.get("internal_name")
@@ -238,7 +203,7 @@ def run_category_sync(task_id=None):
                     page_categories.append({
                         "name": sub_name,
                         "internal_name": sub_internal,
-                        "category_type": sub_tag.get("category", "category"),
+                        "category_type": "category", # 明确标记为 category
                         "full_internal_name": sub_internal if sub_internal.startswith("csgo_") else f"csgo_{sub_internal}",
                         "parent_internal_name": real_parent_internal
                     })
@@ -273,7 +238,11 @@ def run_category_sync(task_id=None):
         logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
         time.sleep(random.uniform(10, 15))
 
-    logger.info("🎉 全量精准分类同步任务圆满完成！")
+        logger.info("🎉 分类同步任务完成！")
+    except Exception as e:
+        logger.error(f"❌ 分类同步任务出现错误: {e}")
+    finally:
+        Session.remove()
 
 if __name__ == "__main__":
     setup_logging()
