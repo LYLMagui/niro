@@ -22,7 +22,7 @@ from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
 from utils.logger import get_logger, setup_logging
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies
+from utils.proxy_helper import get_proxies, refresh_proxies
 
 logger = get_logger(__name__)
 
@@ -57,13 +57,23 @@ class BuffStickerResponse(BaseModel):
 # --- 业务逻辑 ---
 
 def before_retry_callback(retry_state):
-    """重试前的回调：强制刷新出口IP缓存，应对 Clash 自动切节点"""
-    from utils.logger import get_current_ip_cached
+    """重试前的回调：处理代理失效与节点切换"""
+    attempt = retry_state.attempt_number
+    exception = retry_state.outcome.exception()
+    
+    # 记录错误原因
+    error_msg = str(exception)
+    if "Read timed out" in error_msg:
+        logger.warning(f"⏳ [超时重试] 印花同步请求超时，正在尝试切换代理节点... ({attempt}/3)")
+    elif "429" in error_msg:
+        logger.warning(f"🚫 [限流重试] 触发频率限制 (429)，正在更换 IP 规避... ({attempt}/3)")
+    else:
+        logger.warning(f"🔄 [异常重试] 请求异常: {error_msg}，准备重试... ({attempt}/3)")
+
     try:
-        new_ip = get_current_ip_cached(force_refresh=True)
-        logger.warning(f"🔄 请求异常，正在准备重试 ({retry_state.attempt_number}/3)... 当前出口IP已刷新为: {new_ip}")
-    except:
-        pass
+        refresh_proxies()
+    except Exception as e:
+        logger.error(f"❌ 尝试切换代理节点失败: {e}")
 
 @retry(
     stop=stop_after_attempt(3),

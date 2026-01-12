@@ -78,3 +78,21 @@ PROXY_URL = os.getenv("PROXY_URL", "").strip("`'\" ")
 if not PROXY_URL: PROXY_URL = None
 ENABLE_PROXY = os.getenv("ENABLE_PROXY", "false").lower() == "true"
 
+# Clash 外部控制配置
+# 自动从 PROXY_URL 中提取 Host 映射到 API 地址
+_clash_host = "127.0.0.1"
+if PROXY_URL:
+    try:
+        from urllib.parse import urlparse
+        # 处理可能不带协议头的情况 (如 106.53.11.158:7890)
+        _url_for_parse = PROXY_URL if "://" in PROXY_URL else f"http://{PROXY_URL}"
+        _parsed = urlparse(_url_for_parse)
+        # urlparse 在解析带端口但没协议的字符串时，hostname 可能会在 path 里，这里做下兼容
+        _clash_host = _parsed.hostname or _parsed.netloc.split(':')[0]
+    except:
+        pass
+
+CLASH_API_URL = os.getenv("CLASH_API_URL", f"http://{_clash_host}:9090")
+CLASH_API_SECRET = os.getenv("CLASH_API_SECRET", "Lyl010430.")
+CLASH_GROUP_NAME = os.getenv("CLASH_GROUP_NAME", "Proxies") # 默认代理组名称
+

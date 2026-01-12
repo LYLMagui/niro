@@ -4,18 +4,37 @@ import pendulum
 import pydash
 import requests
 from http.cookies import SimpleCookie
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type, before_sleep_log
 
 from config import settings
 from utils.logger import get_logger
 from utils.exception_handler import handle_api_error, LoginRequiredError
 from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies
+from utils.proxy_helper import get_proxies, refresh_proxies
 from utils.network_util import log_request_ip
 from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
 
 logger = get_logger(__name__)
 
+
+def before_retry_callback(retry_state):
+    """重试前的回调：处理代理失效与节点切换"""
+    attempt = retry_state.attempt_number
+    exception = retry_state.outcome.exception()
+    
+    # 记录错误原因
+    error_msg = str(exception)
+    if "Read timed out" in error_msg:
+        logger.warning(f"⏳ [超时重试] Buff 接口请求超时，正在尝试切换代理节点... ({attempt}/3)")
+    elif "429" in error_msg:
+        logger.warning(f"🚫 [限流重试] 触发 Buff 频率限制 (429)，正在更换 IP 规避... ({attempt}/3)")
+    else:
+        logger.warning(f"🔄 [异常重试] 请求出现异常: {error_msg}，准备重试... ({attempt}/3)")
+
+    try:
+        refresh_proxies()
+    except Exception as e:
+        logger.error(f"❌ 尝试切换代理节点失败: {e}")
 
 class BuffSpider:
     def __init__(self, user_id=None):
@@ -55,8 +74,11 @@ class BuffSpider:
     @handle_api_error(default_return=[])
     @retry(
         stop=stop_after_attempt(3),
-        wait=wait_exponential(multiplier=1, min=2, max=10),
+        # 指数退避 + 随机抖动 (Jitter)
+        # base=2, 2^1=2, 2^2=4, 2^3=8... 在此基础上加入随机偏移
+        wait=wait_random_exponential(multiplier=1, min=2, max=20),
         retry=retry_if_exception_type(requests.exceptions.RequestException),
+        before_sleep=before_retry_callback,
         reraise=True
     )
     def get_goods_list(self, goods_id, page_num=1):
@@ -73,10 +95,11 @@ class BuffSpider:
             "page_num": page_num,
         }
 
-        # self.logger.info(f"正在爬取 goods_id={goods_id}, page={page_num}")
-        # log_request_ip(self.proxies, prefix=f"[GoodsList] ")
+        # 每次请求动态获取代理，确保重试时能切换
+        proxies = get_proxies()
+        
         response = requests.get(
-            self.host + url, headers=self.profile.get_headers(), params=params, proxies=self.proxies, timeout=10
+            self.host + url, headers=self.profile.get_headers(), params=params, proxies=proxies, timeout=10
         )
         
         # 强制设置编码，防止中文乱码
@@ -190,6 +213,13 @@ class BuffSpider:
         return parsed_items
 
     @handle_api_error(default_return=None)
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_random_exponential(multiplier=1, min=2, max=20),
+        retry=retry_if_exception_type(requests.exceptions.RequestException),
+        before_sleep=before_retry_callback,
+        reraise=True
+    )
     def buy(self, goods_id, item_id, price_str, pay_method=44, allow_tradable_cooldown=0):
         """
         下单购买接口
@@ -222,9 +252,12 @@ class BuffSpider:
         })
         
         logger.info(f"🛒 [发起购买] POST {url} | GoodsID={goods_id} | ItemID={item_id} | Price={price_str} | PayMethod={pay_method}")
-        log_request_ip(self.proxies, prefix=f"[BuyOrder] ")
         
-        response = requests.post(self.host + url, headers=headers, json=payload, proxies=self.proxies, timeout=10)
+        # 动态获取代理
+        proxies = get_proxies()
+        log_request_ip(proxies, prefix=f"[BuyOrder] ")
+        
+        response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
         
         if response.status_code != 200:
             logger.error(f"❌ 下单请求失败, HTTP状态码: {response.status_code}, 内容: {response.text}")

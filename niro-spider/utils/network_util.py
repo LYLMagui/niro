@@ -26,11 +26,15 @@ def get_current_ip(proxies=None):
             enable_proxy = getattr(settings, 'ENABLE_PROXY', False)
             proxy_url = getattr(settings, 'PROXY_URL', None)
             if enable_proxy and proxy_url:
+                # 兼容不带协议头的 proxy_url
+                _proxy_url = proxy_url if "://" in proxy_url else f"http://{proxy_url}"
                 proxies = {
-                    "http": proxy_url,
-                    "https": proxy_url
+                    "http": _proxy_url,
+                    "https": _proxy_url
                 }
-        except:
+                # logger.debug(f"🔍 检测 IP 使用代理: {proxies}")
+        except Exception as e:
+            # logger.error(f"❌ 获取代理配置失败: {e}")
             pass
 
     try:

@@ -21,7 +21,7 @@ from sqlalchemy.dialects.postgresql import insert
 from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies
+from utils.proxy_helper import get_proxies, refresh_proxies
 from utils.network_util import log_request_ip
 from utils.notifier import Notifier
 
@@ -62,10 +62,30 @@ def normalize_match_name(name: str) -> str:
 
 # --- 业务逻辑 ---
 
+def before_retry_callback(retry_state):
+    """重试前的回调：处理代理失效与节点切换"""
+    attempt = retry_state.attempt_number
+    exception = retry_state.outcome.exception()
+    
+    # 记录错误原因
+    error_msg = str(exception)
+    if "Read timed out" in error_msg:
+        logger.warning(f"⏳ [超时重试] 分类同步请求超时，正在尝试切换代理节点... ({attempt}/3)")
+    elif "429" in error_msg:
+        logger.warning(f"🚫 [限流重试] 触发频率限制 (429)，正在更换 IP 规避... ({attempt}/3)")
+    else:
+        logger.warning(f"🔄 [异常重试] 请求异常: {error_msg}，准备重试... ({attempt}/3)")
+
+    try:
+        refresh_proxies()
+    except Exception as e:
+        logger.error(f"❌ 尝试切换代理节点失败: {e}")
+
 @retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type(requests.exceptions.RequestException),
+    before_sleep=before_retry_callback,
     reraise=True
 )
 def fetch_buff_goods_api(params: Dict[str, Any], profile: Any = None) -> BuffGoodsData:
