@@ -22,4 +22,4 @@
 - **Redis工具**：`com.niro.core.util.RedisUtil`。封装常用 Redis 操作。
 - **业务异常**：`com.niro.core.exception.BusinessException`。统一业务错误处理。
 - **常量定义**：`com.niro.core.constant.BuffConstant`。存放业务相关的通用常量。
-- **响应封装**：`com.niro.core.result.Result`。所有接口必须通过框架自动封装为此结构。
+- **响应封装**：`com.niro.core.result.Result`。所有接口必须通过框架自动封装为此结构，拦截器已经实现自动封装，只需要返回具体的数据就行！
