@@ -130,11 +130,11 @@ def get_db_goods_count(category_id):
         Session.remove()
 
 def get_sync_categories():
-    """获取所有待同步的分类 (包括一级和二级)"""
+    """获取所有待同步的二级分类"""
     session = Session()
     try:
-        # 排除 parent_id 为 -1 的 (如果有这种逻辑删除标记)
-        query = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id >= 0).order_by(BuffGoodsCategory.id)
+        # 仅获取二级分类 (parent_id > 0)
+        query = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id > 0).order_by(BuffGoodsCategory.id)
         return [{
             "id": c.id, 
             "name": c.name, 
@@ -197,7 +197,7 @@ def get_task_user_id(task_id):
         Session.remove()
 
 def process_category(category, force=False, task_id=None, profile=None):
-    """处理单个分类"""
+    """处理单个分类：抓取全量页数后一次性入库"""
     cat_id = category['id']
     cat_internal = category['internal_name']
     cat_name = category['name']
@@ -207,7 +207,7 @@ def process_category(category, force=False, task_id=None, profile=None):
     
     db_count = get_db_goods_count(cat_id)
     page, total_pages = 1, 1
-    total_saved_count = 0
+    category_goods_list = [] # 暂存该分类下的所有商品
     
     while page <= total_pages:
         if task_id and not is_task_running(task_id):
@@ -222,7 +222,6 @@ def process_category(category, force=False, task_id=None, profile=None):
                 logger.info(f"📊 Buff 共 {total_count} 个商品, {total_pages} 页. 库中已存 {db_count} 个")
                 
                 # 只有在非强制模式下，且数据库数量已经达到或超过 Buff 数量时才跳过
-                # 注意：这只是一个粗略判断，最稳妥的是每天定时 force=True 全量同步一次
                 if not force and db_count >= total_count and total_count > 0:
                     logger.info(f"✨ 分类 {cat_name} 数量已达标，非强制模式下跳过")
                     break
@@ -231,12 +230,11 @@ def process_category(category, force=False, task_id=None, profile=None):
             if not items:
                 break
                 
-            goods_to_save = []
             for item in items:
                 # 提取更加丰富的标签信息，方便后续扩展
                 tags_json = json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
                 
-                goods_to_save.append({
+                category_goods_list.append({
                     "goods_id": item.goods_id,
                     "name": item.name,
                     "market_hash_name": item.market_hash_name or "",
@@ -250,15 +248,9 @@ def process_category(category, force=False, task_id=None, profile=None):
                     "tags": tags_json
                 })
             
-            saved = save_goods_batch(goods_to_save)
-            total_saved_count += saved
-            logger.info(f"📦 第 {page}/{total_pages} 页: 处理 {len(items)} 个，生效 {saved} 个")
+            logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品 (当前分类累计: {len(category_goods_list)})")
             
-            # 如果这一页没有任何新数据且不是强制模式，可以考虑提前结束（增量同步逻辑）
-            if not force and saved == 0 and page > 1:
-                logger.info(f"💡 连续页无新数据，结束分类 {cat_name} 的同步")
-                break
-
+            # 分页抓取间隔
             wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
             logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
             time.sleep(wait_time)
@@ -270,10 +262,17 @@ def process_category(category, force=False, task_id=None, profile=None):
         except Exception as e:
             logger.error(f"❌ 抓取第 {page} 页失败: {e}")
             page += 1
-            time.sleep(5) # 出错多歇会儿
+            time.sleep(5) 
             continue
             
-    logger.info(f"✅ 分类 {cat_name} 同步完成，本次生效 {total_saved_count} 条记录")
+    # 全部分类页抓取完成后，统一入库
+    if category_goods_list:
+        logger.info(f"💾 正在将分类 [{cat_name}] 的 {len(category_goods_list)} 个商品保存到数据库...")
+        saved_count = save_goods_batch(category_goods_list)
+        logger.info(f"✅ 分类 {cat_name} 同步完成，库中生效 {saved_count} 条记录")
+    else:
+        logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
+        
     return "DONE"
 
 def run_goods_sync(force=False, task_id=None):
