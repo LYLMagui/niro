@@ -169,6 +169,7 @@ def run_category_sync(task_id=None):
             logger.info(f"📂 正在抓取 [{type_name}] 的二级分类...")
 
             processed_in_type = set()
+            empty_pages_count = 0  # 连续无新数据页面计数器
             for page in range(1, 21): # 每种分类抓取 20 页
                 if task_id and not is_task_running(task_id): break
                 
@@ -223,28 +224,36 @@ def run_category_sync(task_id=None):
                             redis_client.rpush(REDIS_TEMP_CATEGORY_KEY, json.dumps(cat, ensure_ascii=False))
                         total_new_categories += len(page_categories)
                         logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis (当前累计: {total_new_categories})")
+                        empty_pages_count = 0  # 重置计数器
+                    else:
+                        empty_pages_count += 1
+                        logger.info(f"  ℹ️ 本页未发现新二级分类 (连续 {empty_pages_count} 页)")
+
+                    if empty_pages_count >= 3:
+                        logger.info(f"  🏁 连续 {empty_pages_count} 页无新数据，判定 [{type_name}] 已抓取完毕")
+                        break
 
                     if data.total_page < page: break
                     time.sleep(random.uniform(8, 12))
                 except Exception as e:
                     logger.error(f"  ❌ 抓取出错: {e}")
                     break
-        
-        # 2.1 抓取完一个一级分类后，立即从 Redis 读取并保存到数据库
-        type_temp_count = redis_client.llen(REDIS_TEMP_CATEGORY_KEY)
-        if type_temp_count > 0:
-            logger.info(f"🚀 一级分类 [{type_name}] 抓取完成，正在从 Redis 读取 {type_temp_count} 条数据并保存到数据库...")
-            all_temp_data = redis_client.lrange(REDIS_TEMP_CATEGORY_KEY, 0, -1)
-            all_categories = [json.loads(d) for d in all_temp_data]
             
-            save_categories(all_categories)
-            logger.info(f"✅ 成功将 [{type_name}] 的 {len(all_categories)} 条二级分类数据保存到数据库")
+            # 2.1 抓取完一个一级分类后，立即从 Redis 读取并保存到数据库
+            type_temp_count = redis_client.llen(REDIS_TEMP_CATEGORY_KEY)
+            if type_temp_count > 0:
+                logger.info(f"🚀 一级分类 [{type_name}] 抓取完成，正在从 Redis 读取 {type_temp_count} 条数据并保存到数据库...")
+                all_temp_data = redis_client.lrange(REDIS_TEMP_CATEGORY_KEY, 0, -1)
+                all_categories = [json.loads(d) for d in all_temp_data]
+                
+                save_categories(all_categories)
+                logger.info(f"✅ 成功将 [{type_name}] 的 {len(all_categories)} 条二级分类数据保存到数据库")
+                
+                # 保存完成后清理 Redis，为下一个一级分类腾出空间
+                redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
             
-            # 保存完成后清理 Redis，为下一个一级分类腾出空间
-            redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
-        
-        logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
-        time.sleep(random.uniform(10, 15))
+            logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
+            time.sleep(random.uniform(10, 15))
 
         logger.info("🎉 分类同步任务完成！")
     except Exception as e:

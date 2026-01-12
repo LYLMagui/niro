@@ -73,15 +73,16 @@ def before_retry_callback(retry_state):
     before_sleep=before_retry_callback,
     reraise=True
 )
-def fetch_goods_api(category_internal_name: str, page_num: int = 1, profile: Any = None) -> BuffGoodsData:
+def fetch_goods_api(category_internal_name: str, category_type: str = "category", page_num: int = 1, profile: Any = None) -> BuffGoodsData:
     """使用 Tenacity 重试的商品列表 API 请求"""
     url = f"{BUFF_HOST}/api/market/goods"
     params = {
         "game": "csgo",
-        "category": category_internal_name,
         "page_num": page_num,
         "tab": "selling"
     }
+    # 根据分类类型动态设置参数名 (category 或 category_group)
+    params[category_type] = category_internal_name
     
     if not profile or not profile.cookie:
         raise Exception(f"无法获取有效 Profile 或 Cookie")
@@ -128,12 +129,18 @@ def get_db_goods_count(category_id):
     finally:
         Session.remove()
 
-def get_secondary_categories():
-    """获取所有二级分类"""
+def get_sync_categories():
+    """获取所有待同步的分类 (包括一级和二级)"""
     session = Session()
     try:
-        query = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id > 0).order_by(BuffGoodsCategory.id)
-        return [{"id": c.id, "name": c.name, "internal_name": c.internal_name} for c in query.all()]
+        # 排除 parent_id 为 -1 的 (如果有这种逻辑删除标记)
+        query = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id >= 0).order_by(BuffGoodsCategory.id)
+        return [{
+            "id": c.id, 
+            "name": c.name, 
+            "internal_name": c.internal_name,
+            "category_type": c.category_type or "category"
+        } for c in query.all()]
     finally:
         Session.remove()
 
@@ -194,8 +201,9 @@ def process_category(category, force=False, task_id=None, profile=None):
     cat_id = category['id']
     cat_internal = category['internal_name']
     cat_name = category['name']
+    cat_type = category['category_type']
     
-    logger.info(f"🚀 开始处理分类: {cat_name} ({cat_internal})")
+    logger.info(f"🚀 开始处理分类: {cat_name} ({cat_internal}, type: {cat_type})")
     
     db_count = get_db_goods_count(cat_id)
     page, total_pages = 1, 1
@@ -207,7 +215,7 @@ def process_category(category, force=False, task_id=None, profile=None):
             return "STOPPED"
 
         try:
-            data = fetch_goods_api(cat_internal, page, profile=profile)
+            data = fetch_goods_api(cat_internal, category_type=cat_type, page_num=page, profile=profile)
             if page == 1:
                 total_pages = data.total_page
                 total_count = data.total_count
@@ -279,11 +287,15 @@ def run_goods_sync(force=False, task_id=None):
     profile = BrowserHelper.create_profile(user_id)
     logger.info(f"🎭 已为商品同步任务分配指纹: {profile.user_agent}")
     
-    categories = get_secondary_categories()
+    categories = get_sync_categories()
     
     for cat in categories:
-        res = process_category(cat, force=force, task_id=task_id, profile=profile)
-        if res == "STOPPED": break
+        try:
+            res = process_category(cat, force=force, task_id=task_id, profile=profile)
+            if res == "STOPPED": break
+        except Exception as e:
+            logger.error(f"❌ 处理分类 {cat.get('name')} 时出现严重错误: {e}")
+            continue
         
     logger.info(f"🏁 所有分类商品同步完成")
 
