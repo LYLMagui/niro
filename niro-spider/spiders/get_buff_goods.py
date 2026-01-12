@@ -23,11 +23,9 @@ from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
-from utils.notifier import Notifier
 from storage.redis_pool import redis_client
 
 logger = get_logger(__name__)
-notifier = Notifier()
 
 BUFF_HOST = "https://buff.163.com"
 
@@ -340,7 +338,6 @@ def process_category(category, force=False, task_id=None, profile=None):
 
 def run_goods_sync(force=False, task_id=None):
     """运行商品同步任务入口"""
-    start_time = time.time()
     # 强制刷新出口IP缓存，确保日志显示准确
     get_current_ip_cached(force_refresh=True)
     
@@ -356,49 +353,13 @@ def run_goods_sync(force=False, task_id=None):
     for cat in categories:
         try:
             res = process_category(cat, force=force, task_id=task_id, profile=profile)
-            if res == "STOPPED": 
+            if res == "STOPPED":
                 break
-            if res == "DONE":
-                updated_count += 1
-            else:
-                skipped_count += 1
         except Exception as e:
             logger.error(f"❌ 处理分类 {cat.get('name', 'Unknown')} 时出现严重错误: {e}")
             continue
-    
-    # 计算耗时
-    duration = time.time() - start_time
-    hours, rem = divmod(duration, 3600)
-    minutes, seconds = divmod(rem, 60)
-    duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s" if hours > 0 else f"{int(minutes)}m {int(seconds)}s"
-    
-    # 获取任务信息，计算下次执行时间
-    next_run_str = "未配置"
-    if task_id:
-        session = Session()
-        try:
-            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
-            if task and task.scan_interval:
-                # 粗略计算下次执行时间
-                next_run_ts = time.time() + task.scan_interval
-                next_run_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(next_run_ts))
-        finally:
-            Session.remove()
-
-    # 发送通知
-    msg = (
-        f"✅ 【商品同步任务完成】\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"⏱️ 任务耗时：{duration_str}\n"
-        f"📂 更新分类：{updated_count} 个\n"
-        f"⏭️ 下次执行：{next_run_str}\n"
-        f"👤 操作用户：{user_id if user_id else '系统'}\n"
-        f"━━━━━━━━━━━━━━━\n"
-        f"数据已全部同步至数据库。"
-    )
-    notifier.send_text(msg, user_id=user_id)
-    
-    logger.info(f"🏁 所有分类商品同步完成，总耗时: {duration_str}")
+        
+    logger.info(f"🏁 所有分类商品同步完成")
 
 if __name__ == "__main__":
     # 初始化日志配置

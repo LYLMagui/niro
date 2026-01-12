@@ -23,8 +23,10 @@ from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
+from utils.notifier import Notifier
 
 logger = get_logger(__name__)
+notifier = Notifier()
 
 BUFF_HOST = "https://buff.163.com"
 
@@ -140,6 +142,7 @@ def save_categories(categories: List[Dict]):
     finally: Session.remove()
 
 def run_category_sync(task_id=None):
+    start_time = time.time()
     get_current_ip_cached(force_refresh=True)
     
     user_id = get_task_user_id(task_id)
@@ -151,6 +154,7 @@ def run_category_sync(task_id=None):
 
     # 2. 循环遍历一级分类，深度抓取二级分类并暂存到 Redis
     total_new_categories = 0
+    primary_cat_count = 0
     
     # 从数据库获取一级分类 (parent_id = 0)
     session = Session()
@@ -160,7 +164,8 @@ def run_category_sync(task_id=None):
             logger.error("❌ 数据库中未找到一级分类，请先初始化分类数据")
             return
         
-        logger.info(f"📊 从数据库加载了 {len(primary_categories)} 个一级分类")
+        primary_cat_count = len(primary_categories)
+        logger.info(f"📊 从数据库加载了 {primary_cat_count} 个一级分类")
         
         for p_cat in primary_categories:
             if task_id and not is_task_running(task_id):
@@ -221,8 +226,7 @@ def run_category_sync(task_id=None):
                         # 暂存到 Redis
                         for cat in page_categories:
                             redis_client.rpush(REDIS_TEMP_CATEGORY_KEY, json.dumps(cat, ensure_ascii=False))
-                        total_new_categories += len(page_categories)
-                        logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis (当前累计: {total_new_categories})")
+                        logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis")
                         empty_pages_count = 0  # 重置计数器
                     else:
                         empty_pages_count += 1
@@ -246,6 +250,7 @@ def run_category_sync(task_id=None):
                 all_categories = [json.loads(d) for d in all_temp_data]
                 
                 save_categories(all_categories)
+                total_new_categories += len(all_categories)
                 logger.info(f"✅ 成功将 [{type_name}] 的 {len(all_categories)} 条二级分类数据保存到数据库")
                 
                 # 保存完成后清理 Redis，为下一个一级分类腾出空间
@@ -254,7 +259,35 @@ def run_category_sync(task_id=None):
             logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
             time.sleep(random.uniform(10, 15))
 
-        logger.info("🎉 分类同步任务完成！")
+        # 计算耗时
+        duration = time.time() - start_time
+        hours, rem = divmod(duration, 3600)
+        minutes, seconds = divmod(rem, 60)
+        duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s" if hours > 0 else f"{int(minutes)}m {int(seconds)}s"
+
+        # 获取任务信息，计算下次执行时间
+        next_run_str = "未配置"
+        if task_id:
+            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
+            if task and task.scan_interval:
+                next_run_ts = time.time() + task.scan_interval
+                next_run_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(next_run_ts))
+
+        # 发送通知
+        msg = (
+            f"✅ 【分类树同步任务完成】\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"⏱️ 任务耗时：{duration_str}\n"
+            f"📂 一级分类：{primary_cat_count} 个\n"
+            f"🌿 二级分类：{total_new_categories} 个\n"
+            f"⏭️ 下次执行：{next_run_str}\n"
+            f"👤 操作用户：{user_id if user_id else '系统'}\n"
+            f"━━━━━━━━━━━━━━━\n"
+            f"商品分类树已同步至数据库。"
+        )
+        notifier.send_text(msg, user_id=user_id)
+
+        logger.info(f"🎉 分类同步任务完成，总耗时: {duration_str}")
     except Exception as e:
         logger.error(f"❌ 分类同步任务出现错误: {e}")
     finally:
