@@ -198,11 +198,20 @@ def run_category_sync(task_id=None):
                 page_categories = []
                 for item in data.items:
                     tags = item.tags or {}
+                    
+                    # 1. 确定真实的父级分类 (Type)
+                    # 优先从数据本身的 type 标签获取，防止错位
+                    parent_tag = tags.get("type")
+                    real_parent_internal = parent_tag.get("internal_name") if parent_tag else type_internal
+                    
+                    # 2. 确定二级分类 (Category/Weapon)
                     sub_tag = tags.get("category") or tags.get("weapon")
                     if not sub_tag: continue
                     
                     sub_internal = sub_tag.get("internal_name")
-                    if not sub_internal or sub_internal in processed_in_type: continue
+                    # 如果二级分类和父级分类一样，或者已经处理过，则跳过
+                    if not sub_internal or sub_internal == real_parent_internal or sub_internal in processed_in_type: 
+                        continue
                     
                     sub_name = sub_tag.get("localized_name") or sub_tag.get("name")
                     page_categories.append({
@@ -210,7 +219,7 @@ def run_category_sync(task_id=None):
                         "internal_name": sub_internal,
                         "category_type": sub_tag.get("category", "category"),
                         "full_internal_name": sub_internal if sub_internal.startswith("csgo_") else f"csgo_{sub_internal}",
-                        "parent_internal_name": type_internal
+                        "parent_internal_name": real_parent_internal
                     })
                     processed_in_type.add(sub_internal)
 
