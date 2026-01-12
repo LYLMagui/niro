@@ -93,6 +93,6 @@ if PROXY_URL:
         pass
 
 CLASH_API_URL = os.getenv("CLASH_API_URL", f"http://{_clash_host}:9090")
-CLASH_API_SECRET = os.getenv("CLASH_API_SECRET", "Lyl010430.")
+CLASH_API_SECRET = os.getenv("CLASH_API_SECRET", "passwd")
 CLASH_GROUP_NAME = os.getenv("CLASH_GROUP_NAME", "Proxies") # 默认代理组名称
 
