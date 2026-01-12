@@ -6,7 +6,7 @@ import time
 import json
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field, AliasPath
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # 修复模块导入路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,8 +18,7 @@ from storage.models import BuffGoodsCategory, BuffScanTask
 from storage.database import Session
 from storage.redis_pool import redis_client
 from sqlalchemy.dialects.postgresql import insert
-from config import settings
-from utils.logger import get_logger, setup_logging
+from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
@@ -46,6 +45,18 @@ class BuffGoodsResponse(BaseModel):
     code: str
     data: Optional[BuffGoodsData] = None
     msg: Optional[str] = None
+
+# --- 辅助函数 ---
+
+def normalize_internal_name(name: str) -> str:
+    """规范化 internal_name，去掉前缀以便匹配"""
+    if not name: return ""
+    return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").strip()
+
+def normalize_match_name(name: str) -> str:
+    """更彻底的规范化，用于模糊匹配"""
+    if not name: return ""
+    return normalize_internal_name(name).replace("_", "").lower()
 
 # --- 业务逻辑 ---
 
@@ -91,10 +102,6 @@ def save_categories(categories: List[Dict]):
     if not categories: return
     session = Session()
     try:
-        def normalize_internal_name(name):
-            """规范化 internal_name，去掉前缀以便匹配"""
-            return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").strip()
-        
         db_items = []
         for cat in categories:
             db_items.append({
@@ -117,10 +124,7 @@ def save_categories(categories: List[Dict]):
         session.commit()
 
         existing_cats = session.query(BuffGoodsCategory.id, BuffGoodsCategory.internal_name).all()
-        name_to_id = {}
-        for c in existing_cats:
-            normalized = normalize_internal_name(c.internal_name)
-            name_to_id[normalized] = c.id
+        name_to_id = {normalize_internal_name(c.internal_name): c.id for c in existing_cats}
         
         for cat in categories:
             parent_normalized = normalize_internal_name(cat.get("parent_internal_name", ""))
@@ -136,7 +140,6 @@ def save_categories(categories: List[Dict]):
     finally: Session.remove()
 
 def run_category_sync(task_id=None):
-    from utils.logger import get_current_ip_cached
     get_current_ip_cached(force_refresh=True)
     
     user_id = get_task_user_id(task_id)
@@ -192,11 +195,7 @@ def run_category_sync(task_id=None):
                         real_parent_internal = parent_tag.get("internal_name")
                         
                         # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
-                        # 这里的逻辑是：去掉 csgo_type_ 或 type_ 前缀，再去掉下划线后进行匹配
-                        def normalize(name):
-                            return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").replace("_", "")
-
-                        if normalize(real_parent_internal) != normalize(type_internal):
+                        if normalize_match_name(real_parent_internal) != normalize_match_name(type_internal):
                             continue
                         
                         # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数

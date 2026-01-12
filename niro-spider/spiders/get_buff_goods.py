@@ -6,7 +6,7 @@ import requests
 import time
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field, AliasPath
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
 
 # 修复模块导入路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -18,12 +18,11 @@ from storage.models import BuffGoods, BuffGoodsCategory, BuffScanTask
 from storage.database import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func
-from config import settings
-from utils.logger import get_logger, setup_logging
+from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip, get_current_ip_cached
+from utils.network_util import log_request_ip
 from storage.redis_pool import redis_client
 
 logger = get_logger(__name__)
@@ -31,6 +30,8 @@ logger = get_logger(__name__)
 BUFF_HOST = "https://buff.163.com"
 
 REDIS_TEMP_GOODS_KEY = "niro:temp:goods:sync"
+# 存储每个分类的状态：{cat_id: {"total_count": x, "total_page": y}}
+REDIS_CATEGORY_STATE_PREFIX = "niro:spider:cat_state:"
 
 # --- Pydantic 模型定义 ---
 
@@ -62,7 +63,6 @@ class BuffGoodsResponse(BaseModel):
 
 def before_retry_callback(retry_state):
     """重试前的回调：强制刷新出口IP缓存，应对 Clash 自动切节点"""
-    from utils.logger import get_current_ip_cached
     try:
         new_ip = get_current_ip_cached(force_refresh=True)
         logger.warning(f"🔄 请求异常，正在准备重试 ({retry_state.attempt_number}/3)... 当前出口IP已刷新为: {new_ip}")
@@ -88,7 +88,7 @@ def fetch_goods_api(category_internal_name: str, category_type: str = "category"
     params[category_type] = category_internal_name
     
     if not profile or not profile.cookie:
-        raise Exception(f"无法获取有效 Profile 或 Cookie")
+        raise Exception("无法获取有效 Profile 或 Cookie")
 
     headers = profile.get_headers()
     
@@ -103,17 +103,15 @@ def fetch_goods_api(category_internal_name: str, category_type: str = "category"
         raise LoginRequiredError("Buff Login Required (403)")
     
     if response.status_code == 429:
-        raise requests.exceptions.RequestException(f"Rate limited (429)", response=response)
+        raise requests.exceptions.RequestException("Rate limited (429)", response=response)
 
     response.raise_for_status()
     
-    # 使用 json() 解析更安全，或者确保 model_validate_json 接收的是正确编码的字符串
     try:
         resp_json = response.json()
         resp = BuffGoodsResponse.model_validate(resp_json)
     except Exception as e:
         logger.error(f"解析 API 响应失败: {e}")
-        # 如果 json 解析失败，尝试原始文本
         resp = BuffGoodsResponse.model_validate_json(response.text)
     
     if resp.code == "Login Required":
@@ -129,6 +127,21 @@ def get_db_goods_count(category_id):
     session = Session()
     try:
         return session.query(func.count(BuffGoods.id)).filter(BuffGoods.category_id == category_id).scalar() or 0
+    finally:
+        Session.remove()
+
+def delete_category_goods(category_id):
+    """删除某个分类下的所有商品"""
+    session = Session()
+    try:
+        count = session.query(BuffGoods).filter(BuffGoods.category_id == category_id).delete()
+        session.commit()
+        logger.info(f"🗑️ 已清空分类 [ID:{category_id}] 的旧数据，共删除 {count} 条记录")
+        return count
+    except Exception as e:
+        session.rollback()
+        logger.error(f"❌ 清空分类数据失败: {e}")
+        return 0
     finally:
         Session.remove()
 
@@ -208,8 +221,12 @@ def process_category(category, force=False, task_id=None, profile=None):
     
     logger.info(f"🚀 开始处理分类: {cat_name} ({cat_internal}, type: {cat_type})")
     
-    db_count = get_db_goods_count(cat_id)
-    page, total_pages = 1, 1
+    # 1. 获取 Redis 中记录的上次同步状态
+    state_key = f"{REDIS_CATEGORY_STATE_PREFIX}{cat_id}"
+    stored_state_raw = redis_client.get(state_key)
+    stored_state = json.loads(stored_state_raw) if stored_state_raw else None
+    
+    page, total_pages, total_count = 1, 1, 0
     
     # 确保开始前清理 Redis 缓存
     redis_client.delete(REDIS_TEMP_GOODS_KEY)
@@ -224,12 +241,23 @@ def process_category(category, force=False, task_id=None, profile=None):
             if page == 1:
                 total_pages = data.total_page
                 total_count = data.total_count
-                logger.info(f"📊 Buff 共 {total_count} 个商品, {total_pages} 页. 库中已存 {db_count} 个")
+                logger.info(f"📊 Buff 当前: {total_count} 个商品, {total_pages} 页")
                 
-                # 只有在非强制模式下，且数据库数量已经达到或超过 Buff 数量时才跳过
-                if not force and db_count >= total_count and total_count > 0:
-                    logger.info(f"✨ 分类 {cat_name} 数量已达标，非强制模式下跳过")
-                    break
+                # 状态对比逻辑
+                if stored_state:
+                    prev_count = stored_state.get("total_count", 0)
+                    prev_page = stored_state.get("total_page", 0)
+                    
+                    if not force and total_count == prev_count and total_pages == prev_page:
+                        logger.info(f"✨ 分类 {cat_name} 商品数量与上次同步一致 ({total_count}个)，跳过同步")
+                        return "DONE"
+                    elif total_count < prev_count:
+                        logger.warning(f"📉 分类 {cat_name} 商品减少 ({prev_count} -> {total_count})，将清空旧数据并全量重刷")
+                        delete_category_goods(cat_id)
+                    else:
+                        logger.info(f"📈 分类 {cat_name} 商品有新增 ({prev_count} -> {total_count})，继续增量同步")
+                else:
+                    logger.info(f"🆕 分类 {cat_name} 首次同步或状态已失效，开始全量拉取")
 
             items = data.items
             if not items:
@@ -287,6 +315,11 @@ def process_category(category, force=False, task_id=None, profile=None):
         # 保存完成后清理 Redis
         redis_client.delete(REDIS_TEMP_GOODS_KEY)
         
+        # 4. 更新分类同步状态到 Redis (永久存储，直到下次更新)
+        new_state = {"total_count": total_count, "total_page": total_pages}
+        redis_client.set(state_key, json.dumps(new_state))
+        logger.info(f"📝 已更新分类 [{cat_name}] 的同步状态: {new_state}")
+        
         # 每抓完一个分类，保存完后随机暂停 12-16 秒，并刷新 IP
         cat_wait_time = random.uniform(12, 16)
         logger.info(f"😴 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
@@ -308,7 +341,6 @@ def process_category(category, force=False, task_id=None, profile=None):
 def run_goods_sync(force=False, task_id=None):
     """运行商品同步任务入口"""
     # 强制刷新出口IP缓存，确保日志显示准确
-    from utils.logger import get_current_ip_cached
     get_current_ip_cached(force_refresh=True)
     
     user_id = get_task_user_id(task_id)
@@ -321,9 +353,10 @@ def run_goods_sync(force=False, task_id=None):
     for cat in categories:
         try:
             res = process_category(cat, force=force, task_id=task_id, profile=profile)
-            if res == "STOPPED": break
+            if res == "STOPPED":
+                break
         except Exception as e:
-            logger.error(f"❌ 处理分类 {cat.get('name')} 时出现严重错误: {e}")
+            logger.error(f"❌ 处理分类 {cat.get('name', 'Unknown')} 时出现严重错误: {e}")
             continue
         
     logger.info(f"🏁 所有分类商品同步完成")
