@@ -2,20 +2,31 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/niro/*.json # 修改为 docker-compose 中挂载的路径
-  json.keys_under_root: true
-  json.overwrite_keys: true
-  json.add_error_key: true
-  fields:
-    service: niro-spider
+    - /var/log/niro/*.json
+  # 不在 Input 层直接解开 keys_under_root，交给下面的 processor 统一处理
 
 processors:
+  # 1. 解析 JSON 内容
+  - decode_json_fields:
+      fields: ["message"]
+      target: ""
+      overwrite_keys: true
+      add_error_key: true
+
+  # 2. 核心修复：将 Loguru 的真实时间 repr (字符串) 转换为 ES 的 @timestamp
   - timestamp:
-      field: record.time.timestamp
+      field: record.time.repr
       layouts:
-        - 'unix'
+        - '2006-01-02 15:04:05.999999' # 匹配 6 位微秒
+        - '2006-01-02 15:04:05.999'    # 匹配 3 位毫秒
+        - '2006-01-02 15:04:05'        # 匹配整数秒
+      timezone: 'Asia/Shanghai'      # 显式指定日志的时区
+      ignore_failure: false          # 如果解析失败，在日志中报错以便调试
+
+  # 3. 清理多余字段，节省 2G 内存服务器的磁盘空间
   - drop_fields:
-      fields: ["message"] # 既然已经在 input 层解析了 JSON，可以删掉原始的 message 字符串省空间
+      fields: ["message", "log", "input", "agent", "ecs"]
+      ignore_missing: true
 
 output.elasticsearch:
   hosts: ["elasticsearch:9200"]
@@ -25,14 +36,11 @@ setup.template.name: "niro-spider"
 setup.template.pattern: "niro-spider-*"
 setup.ilm.enabled: false
 
-# 队列配置
 queue.mem:
   events: 4096
   flush.min_events: 512
   flush.timeout: 5s
 
-# 日志配置：在容器环境下，建议直接输出到标准输出，由 Docker 接管日志
-# 这样可以避免 "read-only file system" 错误
 logging.level: info
 logging.to_files: false
 logging.to_stderr: true
