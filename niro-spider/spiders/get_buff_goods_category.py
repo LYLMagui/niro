@@ -189,7 +189,7 @@ def run_category_sync(task_id=None):
             if task_id and not is_task_running(task_id): break
             
             logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
-            params = {"game": "csgo", "page_num": page, "tab": "selling", "category": type_internal}
+            params = {"game": "csgo", "page_num": page, "tab": "selling", "category_group": type_internal}
             
             try:
                 data = fetch_buff_goods_api(params, profile=profile)
