@@ -21,7 +21,7 @@ from sqlalchemy import func
 from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies, refresh_proxies
+from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
 from storage.redis_pool import redis_client
 
@@ -320,19 +320,17 @@ def process_category(category, force=False, task_id=None, profile=None):
         redis_client.set(state_key, json.dumps(new_state))
         logger.info(f"📝 已更新分类 [{cat_name}] 的同步状态: {new_state}")
         
-        # 每抓完一个分类，保存完后随机暂停 12-16 秒，并刷新 IP
+        # 每抓完一个分类，保存完后随机暂停 12-16 秒，并观察 IP
         cat_wait_time = random.uniform(12, 16)
         logger.info(f"😴 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
         time.sleep(cat_wait_time)
         
-        # 刷新代理 IP
+        # 刷新出口 IP 显示
         try:
-            logger.info("🔄 正在刷新代理 IP...")
-            refresh_proxies()
             new_ip = get_current_ip_cached(force_refresh=True)
-            logger.info(f"✨ IP 刷新成功，当前出口 IP: {new_ip}")
+            logger.info(f"✨ 当前出口 IP: {new_ip}")
         except Exception as e:
-            logger.warning(f"⚠️ IP 刷新失败: {e}，将继续尝试同步")
+            logger.warning(f"⚠️ 获取出口 IP 失败: {e}，将继续尝试同步")
     else:
         logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
         
