@@ -1,5 +1,12 @@
 # Release Notes
 
+## v1.16.1 (2026-01-12)
+- [功能] **分类抓取逻辑深度优化与 Redis 暂存机制实现**：
+  - **全维度标签提取**：重构了 [get_buff_goods_category.py](file:///f:/CodeSpace/niro/niro-spider/spiders/get_buff_goods_category.py)，突破原有 `type/weapon` 限制，新增对 `category`（如印花胶囊）、`rarity`、`quality` 等全维度标签的解析，解决了分类抓取不全的问题。
+  - **Redis 暂存机制 (Staging)**：引入 Redis `List` 作为抓取过程中的中间缓冲区，实现翻页抓取时的实时 `rpush` 暂存，降低了爬取期间对数据库的直接压力。
+  - **最终批量持久化 (Final Commit)**：实现全量抓取后的统一入库逻辑，在所有分类扫描完毕后从 Redis 一次性读取并批量保存到 PostgreSQL，显著提升了入库效率。
+  - **探测工具**：新增 [test_api_tags.py](file:///f:/CodeSpace/niro/niro-spider/spiders/test_api_tags.py)，支持对 BUFF 接口标签结构的实时探测与原始请求详情输出（含敏感信息脱敏记录）。
+
 ## v1.16.0 (2026-01-12)
 - [功能] **ELK 日志采集与监控系统集成 (MVP)**：
   - **Docker 编排**：
