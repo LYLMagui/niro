@@ -17,6 +17,9 @@
 - **校验**：JSR303 (`@Valid`)。
 - **异常**：`@RestControllerAdvice` 全局捕获，业务中禁止滥用 `try-catch`。
 
-## 4. 注释与日志
-- **Javadoc**：类/接口/方法/字段必填（含作者、日期、参数说明）。
-- **日志**：SLF4J `{}` 占位符，禁止字符串拼接。按等级划分：`INFO` 流程, `ERROR` 异常。
+## 5. 公共组件与工具 (可复用)
+- **断言工具**：`com.niro.core.util.Assert`。用于业务校验，抛出 `BusinessException`。
+- **Redis工具**：`com.niro.core.util.RedisUtil`。封装常用 Redis 操作。
+- **业务异常**：`com.niro.core.exception.BusinessException`。统一业务错误处理。
+- **常量定义**：`com.niro.core.constant.BuffConstant`。存放业务相关的通用常量。
+- **响应封装**：`com.niro.core.result.Result`。所有接口必须通过框架自动封装为此结构。

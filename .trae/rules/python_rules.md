@@ -10,7 +10,10 @@
 - **导入**：禁止只导不用。关键启动点建议打印 `__file__` 验证路径。
 - **模式**：把第三方库当做不可修改黑箱，只编写最小必要的胶水代码。
 
-## 3. 业务规范
-- **模型**：`models` 必须加注释说明字段含义。
-- **输出**：代码中需标注哪些能力来自外部依赖。
-- **结构**：参考企业级项目结构（config, spiders, storage, utils）。
+## 4. 公共工具 (可复用)
+- **日志记录**：`utils.logger`。支持文本与 JSON 双输出，自动注入 IP。
+- **网络工具**：`utils.network_util`。提供出口 IP 检测 (`get_current_ip`) 及请求封装。
+- **异常处理**：`utils.exception_handler`。装饰器模式，统一捕获并记录业务异常。
+- **数据存储**：`storage.database` (PG) 与 `storage.redis_pool` (Redis)。统一连接池管理。
+- **通知系统**：`utils.notifier`。支持多平台（如企业微信）消息推送。
+- **饰品计算**：`utils.premium_calculator`。内置印花溢价等电商领域特定算法。
