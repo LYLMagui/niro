@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.16.5 (2026-01-12)
+- [修复] **分类抓取 parent_id 关联失败问题**
+  - **问题定位**：在 `save_categories` 函数中，二级分类的 `parent_id` 字段始终为 0，导致分类层级混乱。经排查发现，API 返回的 `parent_internal_name` 带有 `csgo_type_` 或 `type_` 前缀（如 `csgo_type_knife`），而数据库中的一级分类 `internal_name` 为纯名称（如 `knife`），导致名称匹配失败。
+  - **修复方案**：在 `get_buff_goods_category.py` 中新增 `normalize_internal_name` 规范化函数，在构建映射表时自动去掉 `csgo_type_`、`type_`、`csgo_` 等前缀，确保父子分类能正确关联。
+
 ## v1.16.4 (2026-01-12)
 - [优化] **分类抓取架构升级与鲁棒性加固**
   - **动态数据源**：将一级分类数据源由硬编码重构为数据库动态加载，支持通过数据库直接扩展同步大类。
