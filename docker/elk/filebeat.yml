@@ -9,6 +9,14 @@ filebeat.inputs:
   fields:
     service: niro-spider
 
+processors:
+  - timestamp:
+      field: record.time.timestamp
+      layouts:
+        - 'unix'
+  - drop_fields:
+      fields: ["message"] # 既然已经在 input 层解析了 JSON，可以删掉原始的 message 字符串省空间
+
 output.elasticsearch:
   hosts: ["elasticsearch:9200"]
   index: "niro-spider-%{+yyyy.MM.dd}"
