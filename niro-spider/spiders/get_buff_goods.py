@@ -250,9 +250,9 @@ def process_category(category, force=False, task_id=None, profile=None):
             
             logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品 (当前分类累计: {len(category_goods_list)})")
             
-            # 分页抓取间隔
-            wait_time = random.uniform(settings.CRAWL_INTERVAL_MIN, settings.CRAWL_INTERVAL_MAX)
-            logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续...")
+            # 分页抓取间隔：每抓完一页暂停 7-12 秒
+            wait_time = random.uniform(7, 12)
+            logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续抓取下一页...")
             time.sleep(wait_time)
             page += 1
             
@@ -270,6 +270,11 @@ def process_category(category, force=False, task_id=None, profile=None):
         logger.info(f"💾 正在将分类 [{cat_name}] 的 {len(category_goods_list)} 个商品保存到数据库...")
         saved_count = save_goods_batch(category_goods_list)
         logger.info(f"✅ 分类 {cat_name} 同步完成，库中生效 {saved_count} 条记录")
+        
+        # 每抓完一个分类，保存完后随机暂停 12-16 秒
+        cat_wait_time = random.uniform(12, 16)
+        logger.info(f"😴 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
+        time.sleep(cat_wait_time)
     else:
         logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
         
