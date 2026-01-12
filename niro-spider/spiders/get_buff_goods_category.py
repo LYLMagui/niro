@@ -91,6 +91,10 @@ def save_categories(categories: List[Dict]):
     if not categories: return
     session = Session()
     try:
+        def normalize_internal_name(name):
+            """规范化 internal_name，去掉前缀以便匹配"""
+            return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").strip()
+        
         db_items = []
         for cat in categories:
             db_items.append({
@@ -112,13 +116,17 @@ def save_categories(categories: List[Dict]):
         session.execute(stmt)
         session.commit()
 
-        # 处理 parent_id 关联
         existing_cats = session.query(BuffGoodsCategory.id, BuffGoodsCategory.internal_name).all()
-        name_to_id = {c.internal_name: c.id for c in existing_cats}
+        name_to_id = {}
+        for c in existing_cats:
+            normalized = normalize_internal_name(c.internal_name)
+            name_to_id[normalized] = c.id
+        
         for cat in categories:
-            if cat.get("parent_internal_name") and cat["parent_internal_name"] in name_to_id:
-                p_id = name_to_id[cat["parent_internal_name"]]
-                c_id = name_to_id.get(cat["internal_name"])
+            parent_normalized = normalize_internal_name(cat.get("parent_internal_name", ""))
+            if parent_normalized and parent_normalized in name_to_id:
+                p_id = name_to_id[parent_normalized]
+                c_id = name_to_id.get(normalize_internal_name(cat["internal_name"]))
                 if c_id:
                     session.query(BuffGoodsCategory).filter(BuffGoodsCategory.id == c_id).update({"parent_id": p_id})
         session.commit()
@@ -168,59 +176,59 @@ def run_category_sync(task_id=None):
                 # 一级分类统一使用 category_group 参数
                 params = {"game": "csgo", "page_num": page, "tab": "selling", "category_group": type_internal}
             
-            try:
-                data = fetch_buff_goods_api(params, profile=profile)
-                if not data.items: break
-                
-                page_categories = []
-                for item in data.items:
-                    tags = item.tags or {}
+                try:
+                    data = fetch_buff_goods_api(params, profile=profile)
+                    if not data.items: break
                     
-                    # 1. 确定真实的父级分类 (Type)
-                    parent_tag = tags.get("type")
-                    if not parent_tag: continue
-                    
-                    real_parent_internal = parent_tag.get("internal_name")
-                    
-                    # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
-                    # 这里的逻辑是：去掉 csgo_type_ 或 type_ 前缀，再去掉下划线后进行匹配
-                    def normalize(name):
-                        return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").replace("_", "")
+                    page_categories = []
+                    for item in data.items:
+                        tags = item.tags or {}
+                        
+                        # 1. 确定真实的父级分类 (Type)
+                        parent_tag = tags.get("type")
+                        if not parent_tag: continue
+                        
+                        real_parent_internal = parent_tag.get("internal_name")
+                        
+                        # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
+                        # 这里的逻辑是：去掉 csgo_type_ 或 type_ 前缀，再去掉下划线后进行匹配
+                        def normalize(name):
+                            return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").replace("_", "")
 
-                    if normalize(real_parent_internal) != normalize(type_internal):
-                        continue
-                    
-                    # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数
-                    sub_tag = tags.get("category") or tags.get("weapon")
-                    if not sub_tag: continue
-                    
-                    sub_internal = sub_tag.get("internal_name")
-                    # 如果二级分类和父级分类一样（魔法值或数据异常），或者已经处理过，则跳过
-                    if not sub_internal or sub_internal == real_parent_internal or sub_internal in processed_in_type: 
-                        continue
-                    
-                    sub_name = sub_tag.get("localized_name") or sub_tag.get("name")
-                    page_categories.append({
-                        "name": sub_name,
-                        "internal_name": sub_internal,
-                        "category_type": "category", # 明确标记为 category
-                        "full_internal_name": sub_internal if sub_internal.startswith("csgo_") else f"csgo_{sub_internal}",
-                        "parent_internal_name": real_parent_internal
-                    })
-                    processed_in_type.add(sub_internal)
+                        if normalize(real_parent_internal) != normalize(type_internal):
+                            continue
+                        
+                        # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数
+                        sub_tag = tags.get("category") or tags.get("weapon")
+                        if not sub_tag: continue
+                        
+                        sub_internal = sub_tag.get("internal_name")
+                        # 如果二级分类和父级分类一样（魔法值或数据异常），或者已经处理过，则跳过
+                        if not sub_internal or sub_internal == real_parent_internal or sub_internal in processed_in_type: 
+                            continue
+                        
+                        sub_name = sub_tag.get("localized_name") or sub_tag.get("name")
+                        page_categories.append({
+                            "name": sub_name,
+                            "internal_name": sub_internal,
+                            "category_type": "category", # 明确标记为 category
+                            "full_internal_name": sub_internal if sub_internal.startswith("csgo_") else f"csgo_{sub_internal}",
+                            "parent_internal_name": real_parent_internal
+                        })
+                        processed_in_type.add(sub_internal)
 
-                if page_categories:
-                    # 暂存到 Redis
-                    for cat in page_categories:
-                        redis_client.rpush(REDIS_TEMP_CATEGORY_KEY, json.dumps(cat, ensure_ascii=False))
-                    total_new_categories += len(page_categories)
-                    logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis (当前累计: {total_new_categories})")
+                    if page_categories:
+                        # 暂存到 Redis
+                        for cat in page_categories:
+                            redis_client.rpush(REDIS_TEMP_CATEGORY_KEY, json.dumps(cat, ensure_ascii=False))
+                        total_new_categories += len(page_categories)
+                        logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis (当前累计: {total_new_categories})")
 
-                if data.total_page < page: break
-                time.sleep(random.uniform(8, 12))
-            except Exception as e:
-                logger.error(f"  ❌ 抓取出错: {e}")
-                break
+                    if data.total_page < page: break
+                    time.sleep(random.uniform(8, 12))
+                except Exception as e:
+                    logger.error(f"  ❌ 抓取出错: {e}")
+                    break
         
         # 2.1 抓取完一个一级分类后，立即从 Redis 读取并保存到数据库
         type_temp_count = redis_client.llen(REDIS_TEMP_CATEGORY_KEY)
