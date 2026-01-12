@@ -1,0 +1,101 @@
+services:
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.15.0
+    container_name: niro-elasticsearch
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    environment:
+      - node.name=elasticsearch
+      - discovery.type=single-node
+      - bootstrap.memory_lock=true
+      - "ES_JAVA_OPTS=-Xms256m -Xmx256m" # 极度压缩：堆内存仅给 256MB
+      - xpack.security.enabled=false     # 禁用安全插件以省内存（仅限内网/开发）
+      - xpack.ml.enabled=false           # 必须关闭机器学习，非常耗内存
+      - xpack.graph.enabled=false
+      - xpack.watcher.enabled=false
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    ports:
+      - "9200:9200"
+    deploy:
+      resources:
+        limits:
+          memory: 1g # 容器总内存限制 1G
+    networks:
+      - niro-elk-net
+
+  kibana:
+    image: kibana:8.15.0
+    container_name: niro-kibana
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    depends_on:
+      - elasticsearch
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+      - I18N_LOCALE=zh-CN # 设置中文界面
+      - NODE_OPTIONS=--max-old-space-size=512 # 压缩 Node.js 内存占用
+      # --- 核心安全配置 ---
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+    
+      # --- 禁用报错的 AI 和 监控插件 (重点) ---
+      - xpack.observability.aiAssistant.enabled=false
+      - xpack.securitySolution.aiAssistant.enabled=false
+      - xpack.ml.enabled=false
+      - xpack.reporting.enabled=false
+      - xpack.fleet.enabled=false
+      - xpack.apm.enabled=false
+    
+      # --- 解决 400 Bad Request 的环境配置 ---
+      - SERVER_PUBLICBASEURL=http://106.53.11.158:5601  # 明确告知 Kibana 它的公网访问地址
+      - CSP_STRICT=false                                # 在某些复杂网络环境下防止 CSRF 误判
+    ports:
+      - "5601:5601"
+    deploy:
+      resources:
+        limits:
+          memory: 512m
+    networks:
+      - niro-elk-net
+
+  filebeat:
+    image: elastic/filebeat:8.15.0
+    container_name: niro-filebeat
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "50m"
+        max-file: "3"
+    user: root
+    depends_on:
+      - elasticsearch
+    volumes:
+      - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
+      - niro_shared_logs_test:/var/log/niro:ro # 确保这里与 volumes 定义一致
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    networks:
+      - niro-elk-net
+
+networks:
+  niro-elk-net:
+    name: niro-elk-net
+    driver: bridge
+
+volumes:
+  es_data:
+    name: es_data
+  niro_shared_logs_test:
+    external: true # 引用主业务中的日志卷

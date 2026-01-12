@@ -1,5 +1,23 @@
 # Release Notes
 
+## v1.16.0 (2026-01-12)
+- [功能] **ELK 日志采集与监控系统集成 (MVP)**：
+  - **Docker 编排**：
+    - 新增 [docker-compose.yml](file:///f:/CodeSpace/niro/docker/elk/docker-compose.yml)，针对 2G 内存环境进行了深度调优。
+    - 禁用了 ES 和 Kibana 的 AI Assistant、机器学习 (ML)、Fleet、APM 等高耗能插件。
+    - 限制了 Elasticsearch 的堆内存为 256MB，Kibana 的 Node.js 内存为 512MB。
+    - 配置了容器层面的日志滚动策略（50MB/文件，保留3个），防止 Docker 日志撑爆磁盘。
+  - **Filebeat 数据链路**：
+    - 新增 [filebeat.yml](file:///f:/CodeSpace/niro/docker/elk/filebeat.yml)，实现了对 `niro-spider` JSON 日志的自动采集。
+    - 修复了内存队列配置冲突（`flush.min_events` 必须小于 `events`）的问题。
+    - 解决了只读文件系统导致的日志写入失败问题，将日志输出重定向至 `stderr`。
+  - **日志格式标准化**：
+    - 验证并对接了 Python 端的 Loguru 双输出模式（文本用于人肉排查，JSON 用于 ELK 结构化检索）。
+    - 确保日志包含精确的模块、函数、行号及全局出口 IP，支持全链路追踪。
+  - **访问与安全**：
+    - 提供了 SSH 隧道及直连访问方案，确保在内网环境下安全访问 Kibana 控制台。
+    - 优化了公网访问配置 `SERVER_PUBLICBASEURL`，解决 400 Bad Request 异常。
+
 ## v1.15.6 (2026-01-11)
 - [功能] **扫描间隔时间范围功能**：
   - **数据库层**：在 `buff_scan_task` 表中新增 `scan_interval_min` 和 `scan_interval_max` 字段，支持设置扫描间隔的时间范围。

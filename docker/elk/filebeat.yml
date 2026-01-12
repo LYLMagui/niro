@@ -1,0 +1,30 @@
+filebeat.inputs:
+- type: log
+  enabled: true
+  paths:
+    - /var/log/niro/*.json # 修改为 docker-compose 中挂载的路径
+  json.keys_under_root: true
+  json.overwrite_keys: true
+  json.add_error_key: true
+  fields:
+    service: niro-spider
+
+output.elasticsearch:
+  hosts: ["elasticsearch:9200"]
+  index: "niro-spider-%{+yyyy.MM.dd}"
+
+setup.template.name: "niro-spider"
+setup.template.pattern: "niro-spider-*"
+setup.ilm.enabled: false
+
+# 队列配置
+queue.mem:
+  events: 4096
+  flush.min_events: 512
+  flush.timeout: 5s
+
+# 日志配置：在容器环境下，建议直接输出到标准输出，由 Docker 接管日志
+# 这样可以避免 "read-only file system" 错误
+logging.level: info
+logging.to_files: false
+logging.to_stderr: true
