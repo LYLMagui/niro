@@ -200,16 +200,22 @@ def run_category_sync(task_id=None):
                     tags = item.tags or {}
                     
                     # 1. 确定真实的父级分类 (Type)
-                    # 优先从数据本身的 type 标签获取，防止错位
                     parent_tag = tags.get("type")
-                    real_parent_internal = parent_tag.get("internal_name") if parent_tag else type_internal
+                    if not parent_tag: continue
                     
-                    # 2. 确定二级分类 (Category/Weapon)
+                    real_parent_internal = parent_tag.get("internal_name")
+                    
+                    # 关键修复：必须严格匹配当前正在抓取的一级分类，防止跨分类数据污染（如抓匕首时抓到广告位的其他武器）
+                    if real_parent_internal != type_internal:
+                        continue
+                    
+                    # 2. 确定二级分类 (优先取 category，若无则取 weapon)
+                    # 对于 CSGO，category 通常是具体的武器型号，weapon 有时也是，两者互补
                     sub_tag = tags.get("category") or tags.get("weapon")
                     if not sub_tag: continue
                     
                     sub_internal = sub_tag.get("internal_name")
-                    # 如果二级分类和父级分类一样，或者已经处理过，则跳过
+                    # 如果二级分类和父级分类一样（魔法值或数据异常），或者已经处理过，则跳过
                     if not sub_internal or sub_internal == real_parent_internal or sub_internal in processed_in_type: 
                         continue
                     
