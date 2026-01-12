@@ -236,22 +236,21 @@ def run_category_sync(task_id=None):
                 logger.error(f"  ❌ 抓取出错: {e}")
                 break
         
-        logger.info(f"✅ 一级分类 [{type_name}] 扫描完毕")
+        # 2.1 抓取完一个一级分类后，立即从 Redis 读取并保存到数据库
+        type_temp_count = redis_client.llen(REDIS_TEMP_CATEGORY_KEY)
+        if type_temp_count > 0:
+            logger.info(f"🚀 一级分类 [{type_name}] 抓取完成，正在从 Redis 读取 {type_temp_count} 条数据并保存到数据库...")
+            all_temp_data = redis_client.lrange(REDIS_TEMP_CATEGORY_KEY, 0, -1)
+            all_categories = [json.loads(d) for d in all_temp_data]
+            
+            save_categories(all_categories)
+            logger.info(f"✅ 成功将 [{type_name}] 的 {len(all_categories)} 条二级分类数据保存到数据库")
+            
+            # 保存完成后清理 Redis，为下一个一级分类腾出空间
+            redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
+        
+        logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
         time.sleep(random.uniform(10, 15))
-
-    # 3. 全部抓取完成后，从 Redis 读取并统一保存到 PostgreSQL
-    if total_new_categories > 0:
-        logger.info(f"🚀 抓取任务完成，正在从 Redis 读取 {total_new_categories} 条数据并保存到数据库...")
-        all_temp_data = redis_client.lrange(REDIS_TEMP_CATEGORY_KEY, 0, -1)
-        all_categories = [json.loads(d) for d in all_temp_data]
-        
-        save_categories(all_categories)
-        logger.info(f"✅ 成功将 {len(all_categories)} 条二级分类数据保存到数据库")
-        
-        # 保存完成后清理 Redis
-        redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
-    else:
-        logger.info("ℹ️ 未发现新的二级分类，无需更新数据库")
 
     logger.info("🎉 全量精准分类同步任务圆满完成！")
 
