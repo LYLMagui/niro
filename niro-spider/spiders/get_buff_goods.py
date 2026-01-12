@@ -178,9 +178,19 @@ def get_sync_categories():
 def save_goods_batch(goods_list):
     """批量保存商品数据 (UPSERT)"""
     if not goods_list: return 0
+    
+    # 1. 对 goods_list 进行去重处理 (基于 goods_id)
+    # PostgreSQL 的 ON CONFLICT DO UPDATE 不允许在同一次批量操作中对同一行进行多次更新
+    unique_goods = {}
+    for g in goods_list:
+        # 如果有重复的 goods_id，保留最后一次出现的记录 (通常是较新的)
+        unique_goods[g['goods_id']] = g
+    
+    final_goods_list = list(unique_goods.values())
+    
     session = Session()
     try:
-        stmt = insert(BuffGoods).values(goods_list)
+        stmt = insert(BuffGoods).values(final_goods_list)
         upsert_stmt = stmt.on_conflict_do_update(
             index_elements=['goods_id'],
             set_={

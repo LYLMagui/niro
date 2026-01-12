@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.16.25 (2026-01-13)
+- [修复] **解决商品批量保存时的数据库冲突错误**
+  - **去重逻辑优化**：修复了在 `save_goods_batch` 过程中，由于 Buff API 返回重复商品导致 PostgreSQL 触发 `CardinalityViolation` 错误的问题。
+  - **内存级去重**：在执行 `UPSERT` 操作前，通过 Python 字典对 `goods_id` 进行内存级去重，确保每个原子操作中同一行只被更新一次。
+
 ## v1.16.24 (2026-01-13)
 - [整理] **规范化测试代码结构**
   - 创建了 `niro-spider/tests/` 目录，并将 `test_clash.py` 从 `utils/` 迁移至该目录，保持工具类目录的纯净。
