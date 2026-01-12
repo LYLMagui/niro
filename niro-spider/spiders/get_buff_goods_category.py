@@ -34,25 +34,26 @@ BUFF_HOST = "https://buff.163.com"
 REDIS_TEMP_CATEGORY_KEY = "niro:spider:temp_categories"
 
 # BUFF 核心一级分类 (Type)
+# 注意：由于数据库中 internal_name 与官方 API 传参不一致，此处采用硬编码确保请求成功
 BUFF_PRIMARY_TYPES = [
-    {"internal_name": "knife", "name": "匕首"},
-    {"internal_name": "pistol", "name": "手枪"},
-    {"internal_name": "rifle", "name": "步枪"},
-    {"internal_name": "smg", "name": "微型冲锋枪"},
-    {"internal_name": "shotgun", "name": "重型武器"},
-    {"internal_name": "machinegun", "name": "机枪"},
-    {"internal_name": "hands", "name": "手套"},
-    {"internal_name": "sticker", "name": "印花"},
-    {"internal_name": "graffiti", "name": "涂鸦"},
-    {"internal_name": "collectible", "name": "收藏品"},
-    {"internal_name": "container", "name": "礼物/箱子"},
-    {"internal_name": "asset_tag", "name": "工具"},
-    {"internal_name": "type_custom_player", "name": "探员"},
-    {"internal_name": "music_kit", "name": "音乐盒"},
-    {"internal_name": "pass_ticket", "name": "通行证"},
-    {"internal_name": "flair_sticker", "name": "布章"},
-    {"internal_name": "unusual_equipment", "name": "装备"},
-    {"internal_name": "other", "name": "其它"},
+    {"internal_name": "knife", "name": "匕首", "param": "category_group"},
+    {"internal_name": "pistol", "name": "手枪", "param": "category_group"},
+    {"internal_name": "rifle", "name": "步枪", "param": "category_group"},
+    {"internal_name": "smg", "name": "微型冲锋枪", "param": "category_group"},
+    {"internal_name": "shotgun", "name": "重型武器", "param": "category_group"},
+    {"internal_name": "machinegun", "name": "机枪", "param": "category_group"},
+    {"internal_name": "hands", "name": "手套", "param": "category_group"},
+    {"internal_name": "sticker", "name": "印花", "param": "category_group"},
+    {"internal_name": "graffiti", "name": "涂鸦", "param": "category_group"},
+    {"internal_name": "collectible", "name": "收藏品", "param": "category_group"},
+    {"internal_name": "csgo_type_weaponcase", "name": "武器箱", "param": "category"},
+    {"internal_name": "asset_tag", "name": "工具", "param": "category_group"},
+    {"internal_name": "type_custom_player", "name": "探员", "param": "category_group"},
+    {"internal_name": "csgo_type_musickit", "name": "音乐盒", "param": "category"},
+    {"internal_name": "pass_ticket", "name": "通行证", "param": "category_group"},
+    {"internal_name": "flair_sticker", "name": "布章", "param": "category_group"},
+    {"internal_name": "unusual_equipment", "name": "装备", "param": "category_group"},
+    {"internal_name": "other", "name": "其它", "param": "category_group"},
 ]
 
 # --- Pydantic 模型定义 ---
@@ -189,7 +190,8 @@ def run_category_sync(task_id=None):
             if task_id and not is_task_running(task_id): break
             
             logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
-            params = {"game": "csgo", "page_num": page, "tab": "selling", "category_group": type_internal}
+            param_key = p_type.get("param", "category_group")
+            params = {"game": "csgo", "page_num": page, "tab": "selling", param_key: type_internal}
             
             try:
                 data = fetch_buff_goods_api(params, profile=profile)
@@ -205,13 +207,26 @@ def run_category_sync(task_id=None):
                     
                     real_parent_internal = parent_tag.get("internal_name")
                     
-                    # 关键修复：必须严格匹配当前正在抓取的一级分类，防止跨分类数据污染（如抓匕首时抓到广告位的其他武器）
-                    if real_parent_internal != type_internal:
+                    # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
+                    # 这里的逻辑是：去掉 csgo_type_ 或 type_ 前缀，再去掉下划线后进行匹配
+                    def normalize(name):
+                        return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").replace("_", "")
+
+                    if normalize(real_parent_internal) != normalize(type_internal):
                         continue
                     
-                    # 2. 确定二级分类 (优先取 category，若无则取 weapon)
-                    # 对于 CSGO，category 通常是具体的武器型号，weapon 有时也是，两者互补
-                    sub_tag = tags.get("category") or tags.get("weapon")
+                    # 确定二级分类 (优先取 category，若无则取 weapon)
+                    # 关键修复：如果当前一级分类本身就是通过 category 参数请求的（如音乐盒），
+                    # 那么二级分类不能再取 category 标签，否则会和父类冲突
+                    # 此时应该尝试取更细分的标签，或者直接跳过（因为音乐盒本身没有细分二级分类）
+                    sub_tag = None
+                    if p_type.get("param") == "category":
+                        # 对于武器箱、音乐盒，其本身就是最细分类，通常没有二级分类
+                        # 此时 processed_in_type 会记录 sub_internal == real_parent_internal 并跳过
+                        sub_tag = tags.get("weapon") or tags.get("category")
+                    else:
+                        sub_tag = tags.get("category") or tags.get("weapon")
+                    
                     if not sub_tag: continue
                     
                     sub_internal = sub_tag.get("internal_name")
