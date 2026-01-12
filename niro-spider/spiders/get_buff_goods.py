@@ -24,8 +24,10 @@ from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies
 from utils.network_util import log_request_ip
 from storage.redis_pool import redis_client
+from utils.notifier import Notifier
 
 logger = get_logger(__name__)
+notifier = Notifier()
 
 BUFF_HOST = "https://buff.163.com"
 
@@ -250,7 +252,7 @@ def process_category(category, force=False, task_id=None, profile=None):
                     
                     if not force and total_count == prev_count and total_pages == prev_page:
                         logger.info(f"✨ 分类 {cat_name} 商品数量与上次同步一致 ({total_count}个)，跳过同步")
-                        return "DONE"
+                        return 0
                     elif total_count < prev_count:
                         logger.warning(f"📉 分类 {cat_name} 商品减少 ({prev_count} -> {total_count})，将清空旧数据并全量重刷")
                         delete_category_goods(cat_id)
@@ -331,13 +333,15 @@ def process_category(category, force=False, task_id=None, profile=None):
             logger.info(f"✨ 当前出口 IP: {new_ip}")
         except Exception as e:
             logger.warning(f"⚠️ 获取出口 IP 失败: {e}，将继续尝试同步")
+        
+        return saved_count
     else:
         logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
-        
-    return "DONE"
+        return 0
 
 def run_goods_sync(force=False, task_id=None):
     """运行商品同步任务入口"""
+    start_time = time.time()
     # 强制刷新出口IP缓存，确保日志显示准确
     get_current_ip_cached(force_refresh=True)
     
@@ -347,19 +351,45 @@ def run_goods_sync(force=False, task_id=None):
     logger.info(f"🎭 已为商品同步任务分配指纹: {profile.user_agent}")
     
     categories = get_sync_categories()
-    updated_count = 0
-    skipped_count = 0
+    total_categories = len(categories)
+    processed_count = 0
+    total_saved_goods = 0
     
     for cat in categories:
         try:
             res = process_category(cat, force=force, task_id=task_id, profile=profile)
             if res == "STOPPED":
+                logger.warning(f"🛑 任务被手动停止，已同步 {processed_count}/{total_categories} 个分类")
                 break
+            
+            if isinstance(res, int):
+                total_saved_goods += res
+            
+            processed_count += 1
         except Exception as e:
             logger.error(f"❌ 处理分类 {cat.get('name', 'Unknown')} 时出现严重错误: {e}")
             continue
         
-    logger.info(f"🏁 所有分类商品同步完成")
+    # 计算耗时
+    duration = time.time() - start_time
+    hours, rem = divmod(duration, 3600)
+    minutes, seconds = divmod(rem, 60)
+    duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s" if hours > 0 else f"{int(minutes)}m {int(seconds)}s"
+
+    # 发送通知
+    msg = (
+        f"✅ 【商品全量同步任务完成】\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"⏱️ 任务耗时：{duration_str}\n"
+        f"📂 处理分类：{processed_count} / {total_categories}\n"
+        f"📦 生效商品：{total_saved_goods} 条\n"
+        f"👤 操作用户：{user_id if user_id else '系统控制'}\n"
+        f"━━━━━━━━━━━━━━━\n"
+        f"所有分类商品数据已同步至数据库。"
+    )
+    notifier.send_text(msg, user_id=user_id)
+
+    logger.info(f"🏁 所有分类商品同步完成，总耗时: {duration_str}, 共更新 {total_saved_goods} 条数据")
 
 if __name__ == "__main__":
     # 初始化日志配置
