@@ -24,10 +24,13 @@ from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
 from utils.network_util import log_request_ip, get_current_ip_cached
+from storage.redis_pool import redis_client
 
 logger = get_logger(__name__)
 
 BUFF_HOST = "https://buff.163.com"
+
+REDIS_TEMP_GOODS_KEY = "niro:temp:goods:sync"
 
 # --- Pydantic 模型定义 ---
 
@@ -207,7 +210,9 @@ def process_category(category, force=False, task_id=None, profile=None):
     
     db_count = get_db_goods_count(cat_id)
     page, total_pages = 1, 1
-    category_goods_list = [] # 暂存该分类下的所有商品
+    
+    # 确保开始前清理 Redis 缓存
+    redis_client.delete(REDIS_TEMP_GOODS_KEY)
     
     while page <= total_pages:
         if task_id and not is_task_running(task_id):
@@ -230,11 +235,12 @@ def process_category(category, force=False, task_id=None, profile=None):
             if not items:
                 break
                 
+            page_goods_list = []
             for item in items:
                 # 提取更加丰富的标签信息，方便后续扩展
                 tags_json = json.dumps(item.tags_dict, ensure_ascii=False) if item.tags_dict else None
                 
-                category_goods_list.append({
+                page_goods_list.append(json.dumps({
                     "goods_id": item.goods_id,
                     "name": item.name,
                     "market_hash_name": item.market_hash_name or "",
@@ -246,9 +252,12 @@ def process_category(category, force=False, task_id=None, profile=None):
                     "rarity": item.rarity or "",
                     "exterior": item.exterior or "",
                     "tags": tags_json
-                })
+                }, ensure_ascii=False))
             
-            logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品 (当前分类累计: {len(category_goods_list)})")
+            # 每抓完一页，立即存入 Redis
+            if page_goods_list:
+                redis_client.rpush(REDIS_TEMP_GOODS_KEY, *page_goods_list)
+                logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品并暂存至 Redis (当前分类累计: {redis_client.llen(REDIS_TEMP_GOODS_KEY)})")
             
             # 分页抓取间隔：每抓完一页暂停 7-12 秒
             wait_time = random.uniform(7, 12)
@@ -265,11 +274,18 @@ def process_category(category, force=False, task_id=None, profile=None):
             time.sleep(5) 
             continue
             
-    # 全部分类页抓取完成后，统一入库
-    if category_goods_list:
-        logger.info(f"💾 正在将分类 [{cat_name}] 的 {len(category_goods_list)} 个商品保存到数据库...")
+    # 从 Redis 中取出所有暂存的商品数据
+    temp_count = redis_client.llen(REDIS_TEMP_GOODS_KEY)
+    if temp_count > 0:
+        logger.info(f"💾 正在从 Redis 读取分类 [{cat_name}] 的 {temp_count} 个商品并保存到数据库...")
+        all_temp_data = redis_client.lrange(REDIS_TEMP_GOODS_KEY, 0, -1)
+        category_goods_list = [json.loads(d) for d in all_temp_data]
+        
         saved_count = save_goods_batch(category_goods_list)
         logger.info(f"✅ 分类 {cat_name} 同步完成，库中生效 {saved_count} 条记录")
+        
+        # 保存完成后清理 Redis
+        redis_client.delete(REDIS_TEMP_GOODS_KEY)
         
         # 每抓完一个分类，保存完后随机暂停 12-16 秒，并刷新 IP
         cat_wait_time = random.uniform(12, 16)
