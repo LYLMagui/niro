@@ -22,7 +22,7 @@ from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip
+from utils.network_util import log_request_ip, smart_sleep, coffee_break
 from utils.notifier import Notifier
 
 logger = get_logger(__name__)
@@ -204,6 +204,9 @@ def run_category_sync(task_id=None):
             for page in range(1, 21): # 每种分类抓取 20 页
                 if task_id and not is_task_running(task_id): break
                 
+                # 1. 智能延迟：分类同步频率可以稍微快一点，但仍需正态分布抖动
+                smart_sleep(mu=4.0, sigma=1.0, min_wait=2.0)
+
                 logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
                 # 一级分类统一使用 category_group 参数
                 params = {

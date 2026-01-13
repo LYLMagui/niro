@@ -1,7 +1,39 @@
 import requests
 import functools
+import time
+import random
+import numpy as np
+from typing import Optional
 
 # 注意：此处不导入 logger 避免循环引用
+
+def smart_sleep(mu: float = 2.0, sigma: float = 0.5, min_wait: float = 1.0):
+    """
+    基于正态分布的智能延迟 (高斯分布)
+    模拟人类行为：延迟时间集中在均值附近，极少数情况出现长/短延迟。
+    
+    :param mu: 均值 (期望等待时间)
+    :param sigma: 标准差 (波动程度)
+    :param min_wait: 最小等待时间
+    """
+    wait_time = np.random.normal(mu, sigma)
+    wait_time = max(wait_time, min_wait)
+    time.sleep(wait_time)
+
+def coffee_break(page_count: int, interval: int = 100, min_minutes: int = 5, max_minutes: int = 10):
+    """
+    长时休眠 (喝咖啡模式)
+    
+    :param page_count: 当前已采集的页数
+    :param interval: 每隔多少页触发一次
+    :param min_minutes: 最小休眠分钟数
+    :param max_minutes: 最大休眠分钟数
+    """
+    if page_count > 0 and page_count % interval == 0:
+        sleep_minutes = random.randint(min_minutes, max_minutes)
+        # 此处如果需要打印日志，建议由调用方根据返回值处理，或者使用回调
+        return sleep_minutes
+    return 0
 
 @functools.lru_cache(maxsize=1)
 def get_local_ip():

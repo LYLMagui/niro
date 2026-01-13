@@ -22,7 +22,7 @@ from utils.logger import get_logger, setup_logging, get_current_ip_cached
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip
+from utils.network_util import log_request_ip, smart_sleep, coffee_break
 from storage.redis_pool import redis_client
 from utils.notifier import Notifier
 
@@ -264,7 +264,24 @@ def process_category(category, force=False, task_id=None, profile=None):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已停止")
             return "STOPPED"
 
-        try:
+            # 1. 智能延迟与长时休眠 (高级风控对抗)
+            # 长时休眠 (喝咖啡模式)：每采集 50 页，进入一个长达 3-7 分钟的深度休眠
+            break_minutes = coffee_break(page, interval=50, min_minutes=3, max_minutes=7)
+            if break_minutes > 0:
+                logger.info(f"☕ [喝咖啡模式] 已连续采集 {page} 页，触发长时休眠 {break_minutes} 分钟，模拟真人休息...")
+                time.sleep(break_minutes * 60)
+                # 休眠结束后刷新一次代理，确保 IP 鲜活
+                refresh_proxies()
+
+            # 2. 分段延迟 (Segmented Delay)：翻页与首页获取采用不同的延迟策略
+            if page == 1:
+                # 首页请求 (Metadata) 稍微快一点
+                smart_sleep(mu=3.0, sigma=0.8, min_wait=1.5)
+            else:
+                # 翻页请求 (Data) 使用更像人类的正态分布随机延迟
+                # mu=15.0, sigma=3.0 表示平均延迟 15s，波动在 12s-18s 之间
+                smart_sleep(mu=15.0, sigma=3.0, min_wait=10.0)
+
             data = fetch_goods_api(cat_internal, category_type=cat_type, page_num=page, profile=profile)
             if page == 1:
                 total_pages = data.total_page
@@ -315,10 +332,7 @@ def process_category(category, force=False, task_id=None, profile=None):
                 redis_client.rpush(REDIS_TEMP_GOODS_KEY, *page_goods_list)
                 logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品并暂存至 Redis (当前分类累计: {redis_client.llen(REDIS_TEMP_GOODS_KEY)})")
             
-            # 分页抓取间隔：每抓完一页暂停 7-12 秒
-            wait_time = random.uniform(13, 19)
-            logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续抓取下一页...")
-            time.sleep(wait_time)
+            # 分页抓取已集成在循环顶部的 smart_sleep 中
             page += 1
             
         except LoginRequiredError:
