@@ -42,6 +42,7 @@ class BuffGoodsItem(BaseModel):
 class BuffGoodsData(BaseModel):
     items: List[BuffGoodsItem]
     total_page: int
+    total_count: int
 
 class BuffGoodsResponse(BaseModel):
     code: str
