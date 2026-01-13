@@ -257,7 +257,7 @@ def run_category_sync(task_id=None):
                         break
 
                     if data.total_page < page: break
-                    time.sleep(random.uniform(8, 12))
+                    time.sleep(random.uniform(15, 20))
                 except Exception as e:
                     logger.error(f"  ❌ 抓取出错: {e}")
                     break

@@ -133,6 +133,7 @@ def fetch_goods_api(category_internal_name: str, category_type: str = "category"
         raise LoginRequiredError("Buff Login Required")
         
     if resp.code != "OK" or not resp.data:
+        logger.error(f"响应报错: {resp}")
         raise Exception(f"API 业务错误: {resp.msg}")
         
     return resp.data
