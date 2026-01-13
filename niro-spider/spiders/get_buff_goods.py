@@ -126,14 +126,15 @@ def fetch_goods_api(category_internal_name: str, category_type: str = "category"
         resp_json = response.json()
         resp = BuffGoodsResponse.model_validate(resp_json)
     except Exception as e:
-        logger.error(f"解析 API 响应失败: {e}")
+        logger.error(f"解析 API 响应失败: {e}，响应内容: {response.text}")
         resp = BuffGoodsResponse.model_validate_json(response.text)
     
     if resp.code == "Login Required":
+        logger.error(f"响应报错: {response.text}")
         raise LoginRequiredError("Buff Login Required")
         
     if resp.code != "OK" or not resp.data:
-        logger.error(f"响应报错: {resp}")
+        logger.error(f"响应报错: {response.text}")
         raise Exception(f"API 业务错误: {resp.msg}")
         
     return resp.data
@@ -320,7 +321,7 @@ def process_category(category, force=False, task_id=None, profile=None):
             page += 1
             
         except LoginRequiredError:
-            logger.error("🔑 登录失效，停止抓取")
+            logger.error(f"🔑 登录失效，停止抓取")
             raise
         except Exception as e:
             logger.error(f"❌ 抓取第 {page} 页失败: {e}")
