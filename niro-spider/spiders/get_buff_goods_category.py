@@ -37,6 +37,8 @@ REDIS_TEMP_CATEGORY_KEY = "niro:spider:temp_categories"
 # --- Pydantic 模型定义 ---
 
 class BuffGoodsItem(BaseModel):
+    id: int
+    name: Optional[str] = None
     tags: Optional[Dict[str, Any]] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags"))
 
 class BuffGoodsData(BaseModel):
@@ -204,7 +206,13 @@ def run_category_sync(task_id=None):
                 
                 logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
                 # 一级分类统一使用 category_group 参数
-                params = {"game": "csgo", "page_num": page, "tab": "selling", "category_group": type_internal}
+                params = {
+                    "game": "csgo", 
+                    "page_num": page, 
+                    "tab": "selling", 
+                    "category_group": type_internal,
+                    "sort_by": "price.asc"
+                }
             
                 try:
                     data = fetch_buff_goods_api(params, profile=profile)

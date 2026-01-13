@@ -97,7 +97,8 @@ def fetch_goods_api(category_internal_name: str, category_type: str = "category"
     params = {
         "game": "csgo",
         "page_num": page_num,
-        "tab": "selling"
+        "tab": "selling",
+        "sort_by": "price.asc"
     }
     # 根据分类类型动态设置参数名 (category 或 category_group)
     params[category_type] = category_internal_name

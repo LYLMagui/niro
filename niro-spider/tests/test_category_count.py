@@ -14,59 +14,73 @@ from spiders.get_buff_goods_category import fetch_buff_goods_api
 from utils.logger import logger
 from utils.browser_helper import BrowserHelper
 
-def test_category_goods_count_consistency(category_internal: str = "weapon_sport_gloves"):
-    """
-    测试指定二级分类下的商品数量一致性
-    逻辑：
-    1. 请求第一页，获取接口返回的 total_count
-    2. 遍历所有页数，累加实际返回的商品数量
-    3. 对比 实际累加值 与 接口返回的 total_count 是否一致
-    """
-    logger.info(f"🧪 开始测试分类 [{category_internal}] 的商品数量一致性...")
+def run_crawl(category_internal: str, sort_by: str = None, profile: Any = None):
+    """执行一次抓取并返回去重后的商品 ID 集合和商品名称映射"""
+    logger.info(f"🚀 开始抓取 [sort_by={sort_by or 'default'}]...")
+    unique_ids = set()
+    goods_names = {}
     
-    profile = BrowserHelper.create_profile(None)
-    actual_total = 0
-    total_count_from_api = 0
     total_pages = 1
     current_page = 1
     
-    try:
-        while current_page <= total_pages:
-            params = {
-                "game": "csgo",
-                "page_num": current_page,
-                "tab": "selling",
-                "category": category_internal
-            }
+    while current_page <= total_pages:
+        params = {
+            "game": "csgo",
+            "page_num": current_page,
+            "tab": "selling",
+            "category": category_internal
+        }
+        if sort_by:
+            params["sort_by"] = sort_by
             
-            logger.info(f"  -> 正在抓取第 {current_page}/{total_pages} 页...")
+        try:
             data = fetch_buff_goods_api(params, profile=profile)
-            
             if current_page == 1:
                 total_pages = data.total_page
-                total_count_from_api = data.total_count
-                logger.info(f"📊 接口报告总页数: {total_pages}, 总商品数: {total_count_from_api}")
-
+                
             items = data.items or []
-            page_item_count = len(items)
-            
-            # 累加实际商品数量
-            actual_total += page_item_count
-            
-            logger.info(f"  ✅ 第 {current_page} 页返回商品数: {page_item_count}")
+            for item in items:
+                unique_ids.add(item.id)
+                goods_names[item.id] = item.name
             
             current_page += 1
             if current_page <= total_pages:
-                # 适当延迟避免风控
-                time.sleep(random.uniform(2, 4))
+                time.sleep(random.uniform(1.5, 3))
+        except Exception as e:
+            logger.error(f"❌ 抓取失败: {e}")
+            break
+            
+    return unique_ids, goods_names
 
-        logger.info(f"📈 实际累计商品总数: {actual_total}")
-        logger.info(f"📉 接口报告总商品数: {total_count_from_api}")
+def test_category_goods_count_consistency(category_internal: str = "weapon_sport_gloves"):
+    """对比不同排序下的结果差异"""
+    try:
+        logger.info(f"🧪 开始对比分类 [{category_internal}] 在不同排序下的差异...")
+        profile = BrowserHelper.create_profile(None)
         
-        if actual_total == total_count_from_api:
-            logger.info("✨ 验证通过：实际抓取总数与接口返回总数完全一致！")
+        # 1. 默认排序抓取
+        default_ids, default_names = run_crawl(category_internal, sort_by=None, profile=profile)
+        logger.info(f"✅ 默认排序抓取完成，去重总数: {len(default_ids)}")
+        
+        # 2. 价格升序抓取
+        price_ids, price_names = run_crawl(category_internal, sort_by="price.asc", profile=profile)
+        logger.info(f"✅ 价格升序抓取完成，去重总数: {len(price_ids)}")
+        
+        # 3. 找出差异
+        missing_in_default = price_ids - default_ids
+        extra_in_default = default_ids - price_ids
+        
+        if missing_in_default:
+            logger.warning(f"🚨 默认排序遗漏了以下 {len(missing_in_default)} 个商品:")
+            for gid in missing_in_default:
+                logger.warning(f"   - [{price_names[gid]}] (ID: {gid})")
         else:
-            logger.error(f"❌ 验证失败：数量不一致！差异值: {actual_total - total_count_from_api}")
+            logger.info("✨ 默认排序没有遗漏价格升序中的商品")
+            
+        if extra_in_default:
+            logger.info(f"ℹ️ 默认排序多出了以下 {len(extra_in_default)} 个商品 (可能在价格升序的分页外):")
+            for gid in extra_in_default:
+                logger.info(f"   - [{default_names[gid]}] (ID: {gid})")
 
     except Exception as e:
         logger.error(f"❌ 测试过程中发生错误: {e}")
