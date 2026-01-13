@@ -214,10 +214,11 @@ def run_category_sync(task_id=None):
                         tags = item.tags or {}
                         
                         # 1. 确定真实的父级分类 (Type)
-                        if type_internal == "other":
-                            # 特殊处理：当请求的是 'other' (其他) 分类组时，BUFF API 返回的商品 type 各异
-                            # 此时我们强制将父级归类为 'other'
-                            real_parent_internal = "other"
+                        if type_internal in ["other", "sticker"]:
+                            # 特殊处理：当请求的是 'other' 或 'sticker' 分类组时
+                            # BUFF API 返回的商品 type 可能与传入参数不完全一致
+                            # 我们强制将父级归类为当前抓取的一级分类标识
+                            real_parent_internal = type_internal
                         else:
                             parent_tag = tags.get("type")
                             if not parent_tag: continue

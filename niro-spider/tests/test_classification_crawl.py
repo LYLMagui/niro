@@ -12,15 +12,14 @@ from spiders.get_buff_goods_category import fetch_buff_goods_api, normalize_matc
 from utils.logger import logger
 from utils.browser_helper import BrowserHelper
 
-def test_other_category_logic():
+def test_category_logic(cat_group: str = "other"):
     """
-    专门测试 'other' 分类组的解析逻辑
-    验证当请求参数为 'other' 时，二级分类是否能正确关联到 'other' 父级
+    专门测试分类组的解析逻辑
     """
-    logger.info("🧪 开始测试 'other' 分类解析逻辑...")
+    logger.info(f"🧪 开始测试 [{cat_group}] 分类解析逻辑...")
     
     # 1. 模拟环境
-    type_internal = "other" # 模拟当前正在抓取 'other' 分类组
+    type_internal = cat_group 
     profile = BrowserHelper.create_profile(None)
     
     params = {
@@ -42,14 +41,13 @@ def test_other_category_logic():
         extracted_results = []
         processed_in_type = set()
 
-        # 3. 执行 get_buff_goods_category.py 中的核心解析逻辑 (L216-L242)
+        # 3. 执行解析逻辑
         for item in data.items:
             tags = item.tags or {}
             
-            # --- 核心逻辑开始 ---
-            if type_internal == "other":
-                # 特殊处理：当请求的是 'other' 分类组时，强制将父级归类为 'other'
-                real_parent_internal = "other"
+            # --- 模拟逻辑开始 ---
+            if type_internal in ["other", "sticker"]:
+                real_parent_internal = type_internal
             else:
                 parent_tag = tags.get("type")
                 if not parent_tag: continue
@@ -67,13 +65,12 @@ def test_other_category_logic():
             
             sub_name = sub_tag.get("localized_name") or sub_tag.get("name")
             
-            # 构造结果
             res = {
                 "name": sub_name,
                 "internal_name": sub_internal,
                 "parent_internal_name": real_parent_internal
             }
-            # --- 核心逻辑结束 ---
+            # --- 模拟逻辑结束 ---
             
             extracted_results.append(res)
             processed_in_type.add(sub_internal)
@@ -83,11 +80,6 @@ def test_other_category_logic():
             logger.info(f"🎊 解析成功！共提取到 {len(extracted_results)} 个二级分类:")
             for r in extracted_results:
                 print(f"   - [{r['name']}] (internal: {r['internal_name']}) -> 父级: {r['parent_internal_name']}")
-            
-            # 特别检查是否包含音乐盒等杂项
-            has_music = any("music" in r['internal_name'].lower() for r in extracted_results)
-            if has_music:
-                logger.info("✨ 验证通过：已成功捕获并正确关联音乐盒等杂项分类！")
         else:
             logger.warning("❌ 未能提取到任何分类，请检查 API 返回的 tags 结构")
 
@@ -95,4 +87,5 @@ def test_other_category_logic():
         logger.error(f"❌ 测试过程中发生错误: {e}")
 
 if __name__ == "__main__":
-    test_other_category_logic()
+    # test_category_logic("other")
+    test_category_logic("sticker")
