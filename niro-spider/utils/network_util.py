@@ -2,7 +2,6 @@ import requests
 import functools
 import time
 import random
-import numpy as np
 from typing import Optional
 
 # 注意：此处不导入 logger 避免循环引用
@@ -16,7 +15,8 @@ def smart_sleep(mu: float = 2.0, sigma: float = 0.5, min_wait: float = 1.0):
     :param sigma: 标准差 (波动程度)
     :param min_wait: 最小等待时间
     """
-    wait_time = np.random.normal(mu, sigma)
+    # 使用 Python 标准库 random.gauss 替代 numpy.random.normal 减少依赖
+    wait_time = random.gauss(mu, sigma)
     wait_time = max(wait_time, min_wait)
     time.sleep(wait_time)
 

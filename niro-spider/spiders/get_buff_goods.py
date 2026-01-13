@@ -264,6 +264,7 @@ def process_category(category, force=False, task_id=None, profile=None):
             logger.warning(f"🛑 任务 [ID:{task_id}] 已停止")
             return "STOPPED"
 
+        try:
             # 1. 智能延迟与长时休眠 (高级风控对抗)
             # 长时休眠 (喝咖啡模式)：每采集 50 页，进入一个长达 3-7 分钟的深度休眠
             break_minutes = coffee_break(page, interval=50, min_minutes=3, max_minutes=7)
@@ -291,9 +292,8 @@ def process_category(category, force=False, task_id=None, profile=None):
                 # 状态对比逻辑
                 if stored_state:
                     prev_count = stored_state.get("total_count", 0)
-                    prev_page = stored_state.get("total_page", 0)
                     
-                    if not force and total_count == prev_count and total_pages == prev_page:
+                    if not force and total_count == prev_count:
                         logger.info(f"✨ 分类 {cat_name} 商品数量与上次同步一致 ({total_count}个)，跳过同步")
                         return 0
                     elif total_count < prev_count:
@@ -357,10 +357,13 @@ def process_category(category, force=False, task_id=None, profile=None):
         # 保存完成后清理 Redis
         redis_client.delete(REDIS_TEMP_GOODS_KEY)
         
-        # 4. 更新分类同步状态到 Redis (永久存储，直到下次更新)
-        new_state = {"total_count": total_count, "total_page": total_pages}
+        # 4. 更新分类同步状态到 Redis
+        # 重要：此处不再直接拿接口的 total_count，而是查询数据库中实际保存的数量
+        db_count = get_db_goods_count(cat_id)
+        new_state = {"total_count": db_count}
+        
         redis_client.set(state_key, json.dumps(new_state))
-        logger.info(f"📝 已更新分类 [{cat_name}] 的同步状态: {new_state}")
+        logger.info(f"📝 已更新分类 [{cat_name}] 的同步状态 (DB实存): {new_state}")
         
         # 每抓完一个分类，保存完后随机暂停 12-16 秒，并观察 IP
         cat_wait_time = random.uniform(20, 25)
