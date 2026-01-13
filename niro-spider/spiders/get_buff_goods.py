@@ -315,7 +315,7 @@ def process_category(category, force=False, task_id=None, profile=None):
                 logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品并暂存至 Redis (当前分类累计: {redis_client.llen(REDIS_TEMP_GOODS_KEY)})")
             
             # 分页抓取间隔：每抓完一页暂停 7-12 秒
-            wait_time = random.uniform(7, 12)
+            wait_time = random.uniform(13, 19)
             logger.info(f"💤 暂停 {wait_time:.2f} 秒后继续抓取下一页...")
             time.sleep(wait_time)
             page += 1
@@ -348,7 +348,7 @@ def process_category(category, force=False, task_id=None, profile=None):
         logger.info(f"📝 已更新分类 [{cat_name}] 的同步状态: {new_state}")
         
         # 每抓完一个分类，保存完后随机暂停 12-16 秒，并观察 IP
-        cat_wait_time = random.uniform(12, 16)
+        cat_wait_time = random.uniform(20, 25)
         logger.info(f"😴 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
         time.sleep(cat_wait_time)
         
