@@ -66,6 +66,7 @@
           <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
           <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
           <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">印花同步</t-tag>
+          <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">分类商品同步</t-tag>
           <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
         </template>
 

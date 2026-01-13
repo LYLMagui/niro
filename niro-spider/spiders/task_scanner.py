@@ -349,12 +349,28 @@ class TaskScanner:
     )
     def _execute_system_task_with_retry(self, task_id, task_type):
         """核心系统任务逻辑，由 tenacity 负责重试"""
-        if task_type == BuffTaskType.SYNC_CATEGORY:
-            run_category_sync(task_id=task_id)
-        elif task_type == BuffTaskType.SYNC_GOODS:
-            run_goods_sync(force=False, task_id=task_id)
-        elif task_type == BuffTaskType.SYNC_STICKER:
-            run_sticker_sync(user_id=1)
+        session = Session()
+        try:
+            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
+            if not task:
+                logger.error(f"❌ 任务 [ID:{task_id}] 已不存在")
+                return
+            
+            if task_type == BuffTaskType.SYNC_CATEGORY:
+                run_category_sync(task_id=task_id)
+            elif task_type == BuffTaskType.SYNC_GOODS:
+                run_goods_sync(force=False, task_id=task_id)
+            elif task_type == BuffTaskType.SYNC_STICKER:
+                run_sticker_sync(user_id=1)
+            elif task_type == BuffTaskType.SYNC_CATEGORY_GOODS:
+                # 借用 goods_id 字段作为 category_id
+                category_id = task.goods_id
+                if not category_id:
+                    logger.error(f"❌ 分类同步任务 [ID:{task_id}] 缺失分类 ID")
+                    return
+                run_goods_sync(force=False, task_id=task_id, category_id=category_id)
+        finally:
+            Session.remove()
 
     def start_scan_job(self, task):
         """开始间隔扫描作业"""

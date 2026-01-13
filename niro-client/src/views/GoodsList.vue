@@ -68,6 +68,15 @@
                 <template #icon><refresh-icon /></template>
                 重置
               </t-button>
+              <t-button
+                theme="warning"
+                variant="base"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                @click="syncDialogVisible = true"
+              >
+                <template #icon><cloud-download-icon /></template>
+                分类同步
+              </t-button>
             </div>
           </t-form-item>
         </t-form>
@@ -176,6 +185,33 @@
 
     <!-- 任务配置弹窗组件 (隐藏主体只用弹窗) -->
     <task-config ref="taskConfigRef" dialog-only />
+
+    <!-- 分类同步弹窗 -->
+    <t-dialog
+      v-model:visible="syncDialogVisible"
+      header="分类商品同步"
+      :confirm-btn="syncLoading ? { content: '同步中...', loading: true } : '开始同步'"
+      :on-confirm="handleSync"
+      width="450px"
+    >
+      <div class="py-4">
+        <div class="mb-4 text-sm text-gray-500">
+          请选择一个二级分类进行商品数据同步。系统将创建一个一次性同步任务，并在后台由爬虫执行。
+        </div>
+        <t-form :data="syncForm" label-align="top">
+          <t-form-item label="选择二级分类" name="categoryId">
+            <t-cascader
+              v-model="syncForm.categoryId"
+              :options="categoryOptions"
+              placeholder="请选择具体分类 (如: 自动步枪 -> AK-47)"
+              filterable
+              clearable
+              class="w-full"
+            />
+          </t-form-item>
+        </t-form>
+      </div>
+    </t-dialog>
   </div>
 </template>
 
@@ -184,7 +220,7 @@ import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import TaskConfig from "@/views/TaskConfig.vue";
 import type { Goods, GoodsPageQuery, GoodsSimple } from "@/types/goods";
-import { LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
+import { CloudDownloadIcon, LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
 import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
 import { onMounted, reactive, ref } from "vue";
@@ -222,6 +258,33 @@ const searchForm = reactive<{
 // 全量商品选项
 const goodsOptions = ref<{ label: string; value: number }[]>([]);
 const searchLoading = ref(false);
+
+// 分类同步状态
+const syncDialogVisible = ref(false);
+const syncLoading = ref(false);
+const syncForm = reactive({
+  categoryId: undefined,
+});
+
+const handleSync = async () => {
+  if (!syncForm.categoryId) {
+    MessagePlugin.warning("请选择分类");
+    return;
+  }
+
+  syncLoading.value = true;
+  try {
+    await goodsApi.syncCategory(syncForm.categoryId);
+    MessagePlugin.success("同步任务已创建，请在任务管理中查看进度");
+    syncDialogVisible.value = false;
+    syncForm.categoryId = undefined;
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error("同步任务创建失败");
+  } finally {
+    syncLoading.value = false;
+  }
+};
 
 // 分类选项
 const categoryOptions = ref<CategoryNode[]>([]);

@@ -382,7 +382,7 @@ def process_category(category, force=False, task_id=None, profile=None):
         logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
         return 0
 
-def run_goods_sync(force=False, task_id=None):
+def run_goods_sync(force=False, task_id=None, category_id=None):
     """运行商品同步任务入口"""
     start_time = time.time()
     # 强制刷新出口IP缓存，确保日志显示准确
@@ -393,7 +393,25 @@ def run_goods_sync(force=False, task_id=None):
     profile = BrowserHelper.create_profile(user_id)
     logger.info(f"🎭 已为商品同步任务分配指纹: {profile.user_agent}")
     
-    categories = get_sync_categories()
+    if category_id:
+        # 如果指定了分类ID，则只同步该分类
+        session = Session()
+        try:
+            cat_obj = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.id == category_id).first()
+            if not cat_obj:
+                logger.error(f"❌ 未找到分类 ID: {category_id}")
+                return
+            categories = [{
+                "id": cat_obj.id, 
+                "name": cat_obj.name, 
+                "internal_name": cat_obj.internal_name,
+                "category_type": cat_obj.category_type or "category"
+            }]
+        finally:
+            Session.remove()
+    else:
+        categories = get_sync_categories()
+        
     total_categories = len(categories)
     processed_count = 0
     total_saved_goods = 0
@@ -420,19 +438,22 @@ def run_goods_sync(force=False, task_id=None):
     duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s" if hours > 0 else f"{int(minutes)}m {int(seconds)}s"
 
     # 发送通知
+    title = "【分类商品同步完成】" if category_id else "【商品全量同步任务完成】"
+    cat_info = f"📂 同步分类：{categories[0]['name']}\n" if category_id else f"📂 处理分类：{processed_count} / {total_categories}\n"
+    
     msg = (
-        f"✅ 【商品全量同步任务完成】\n"
+        f"✅ {title}\n"
         f"━━━━━━━━━━━━━━━\n"
         f"⏱️ 任务耗时：{duration_str}\n"
-        f"📂 处理分类：{processed_count} / {total_categories}\n"
+        f"{cat_info}"
         f"📦 生效商品：{total_saved_goods} 条\n"
         f"👤 操作用户：{user_id if user_id else '系统控制'}\n"
         f"━━━━━━━━━━━━━━━\n"
-        f"所有分类商品数据已同步至数据库。"
+        f"商品数据同步已完成。"
     )
     notifier.send_text(msg, user_id=user_id)
 
-    logger.info(f"🏁 所有分类商品同步完成，总耗时: {duration_str}, 共更新 {total_saved_goods} 条数据")
+    logger.info(f"🏁 商品同步完成，总耗时: {duration_str}, 共更新 {total_saved_goods} 条数据")
 
 if __name__ == "__main__":
     # 初始化日志配置

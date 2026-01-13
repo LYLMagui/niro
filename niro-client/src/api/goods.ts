@@ -21,4 +21,11 @@ export const goodsApi = {
       params,
     });
   },
+
+  /**
+   * 触发分类同步
+   */
+  syncCategory(categoryId: number) {
+    return request.post(`/goods/sync-category/${categoryId}`);
+  },
 };

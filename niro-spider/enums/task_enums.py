@@ -11,6 +11,7 @@ class BuffTaskType(IntEnum):
     SYNC_CATEGORY = 2
     SYNC_GOODS = 3
     SYNC_STICKER = 4
+    SYNC_CATEGORY_GOODS = 5
 
     @classmethod
     def is_system_task(cls, task_type: int) -> bool:
