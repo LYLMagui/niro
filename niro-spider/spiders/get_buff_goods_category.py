@@ -214,14 +214,19 @@ def run_category_sync(task_id=None):
                         tags = item.tags or {}
                         
                         # 1. 确定真实的父级分类 (Type)
-                        parent_tag = tags.get("type")
-                        if not parent_tag: continue
-                        
-                        real_parent_internal = parent_tag.get("internal_name")
-                        
-                        # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
-                        if normalize_match_name(real_parent_internal) != normalize_match_name(type_internal):
-                            continue
+                        if type_internal == "other":
+                            # 特殊处理：当请求的是 'other' (其他) 分类组时，BUFF API 返回的商品 type 各异
+                            # 此时我们强制将父级归类为 'other'
+                            real_parent_internal = "other"
+                        else:
+                            parent_tag = tags.get("type")
+                            if not parent_tag: continue
+                            
+                            real_parent_internal = parent_tag.get("internal_name")
+                            
+                            # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
+                            if normalize_match_name(real_parent_internal) != normalize_match_name(type_internal):
+                                continue
                         
                         # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数
                         sub_tag = tags.get("category") or tags.get("weapon")
