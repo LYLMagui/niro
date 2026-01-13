@@ -147,9 +147,9 @@
             <t-radio-group v-model="formData.taskType">
               <t-radio :value="0">炼金扫货</t-radio>
               <t-radio :value="1">站内倒卖</t-radio>
-              <t-radio :value="2">系统-分类同步</t-radio>
-              <t-radio :value="3">系统-商品同步</t-radio>
-              <t-radio :value="4">系统-印花同步</t-radio>
+              <t-radio v-if="isAdmin" :value="2">系统-分类同步</t-radio>
+              <t-radio v-if="isAdmin" :value="3">系统-商品同步</t-radio>
+              <t-radio v-if="isAdmin" :value="4">系统-印花同步</t-radio>
             </t-radio-group>
           </t-form-item>
 
@@ -382,6 +382,15 @@ import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
 import cronParser from "cron-parser";
 import { MessagePlugin } from "tdesign-vue-next";
 import { computed, onMounted, reactive, ref, watch } from "vue";
+
+// 获取当前用户信息
+const userInfo = computed(() => {
+  const info = localStorage.getItem("niro-user-info");
+  return info ? JSON.parse(info) : null;
+});
+
+// 是否是管理员 (BuffConstant.ADMIN_USER_ID = 1)
+const isAdmin = computed(() => userInfo.value?.id === 1);
 
 const props = defineProps({
   dialogOnly: {

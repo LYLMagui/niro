@@ -7,6 +7,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.util.Assert;
+import com.niro.core.constant.BuffConstant;
 import com.niro.web.dto.BuffScanTaskDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
@@ -42,9 +43,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     @Transactional(rollbackFor = Exception.class)
     public void saveTask(BuffScanTaskParam param) {
         validateParam(param);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
         BuffScanTask task = BeanUtil.copyProperties(param, BuffScanTask.class);
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+            // 权限校验：仅管理员可创建系统任务
+            if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+                throw new BusinessException("权限不足：仅管理员可创建系统任务");
+            }
             // 系统任务唯一性校验：禁止创建多个相同类型的系统任务
             long count = this.lambdaQuery()
                     .eq(BuffScanTask::getTaskType, param.getTaskType())
@@ -67,7 +73,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 默认停止
         task.setStatus(0);
         task.setSuccessCount(0);
-        task.setUserId(StpUtil.getLoginIdAsLong());
+        task.setUserId(currentUserId);
 
         this.save(task);
     }
@@ -77,8 +83,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     public void updateTask(BuffScanTaskParam param) {
         Assert.validateNull(param.getId(), "任务ID不能为空");
         validateParam(param);
+        Long currentUserId = StpUtil.getLoginIdAsLong();
         BuffScanTask task = this.getById(param.getId());
         Assert.validateNull(task, "任务不存在");
+
+        // 权限校验：非管理员只能修改自己的任务
+        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+            throw new BusinessException("权限不足：无法修改他人的任务");
+        }
 
         // 仅允许修改配置字段，不允许修改 goodsId
         task.setMaxPrice(param.getMaxPrice());
@@ -92,6 +104,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 如果修改了任务类型，且改为系统任务，需要校验唯一性
         if (param.getTaskType() != null && !param.getTaskType().equals(task.getTaskType())) {
             if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
+                // 仅管理员可修改为系统任务
+                if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+                    throw new BusinessException("权限不足：仅管理员可操作系统任务");
+                }
                 long count = this.lambdaQuery()
                         .eq(BuffScanTask::getTaskType, param.getTaskType())
                         .ne(BuffScanTask::getId, task.getId())
@@ -150,20 +166,29 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
     @Override
     public void updateStatus(Long id, Integer status) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
         BuffScanTask task = this.getById(id);
         Assert.validateNull(task, "任务不存在");
+
+        // 权限校验：非管理员只能操作自己的任务
+        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+            throw new BusinessException("权限不足：无法操作他人的任务");
+        }
+
         task.setStatus(status);
         this.updateById(task);
     }
 
     @Override
     public Page<BuffScanTaskDTO> pageTask(TaskQueryParam param) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
         Page<BuffScanTask> page = new Page<>(param.getPage(), param.getPageSize());
         
-        // 查询任务
+        // 查询任务：普通用户仅查看自己的任务，管理员查看所有
         Page<BuffScanTask> taskPage = this.lambdaQuery()
+                .eq(!BuffConstant.ADMIN_USER_ID.equals(currentUserId), BuffScanTask::getUserId, currentUserId)
                 .eq(param.getStatus() != null, BuffScanTask::getStatus, param.getStatus())
-                .like(StrUtil.isNotBlank(param.getKeyword()), BuffScanTask::getName, param.getKeyword())
+                .like(cn.hutool.core.util.StrUtil.isNotBlank(param.getKeyword()), BuffScanTask::getName, param.getKeyword())
                 .orderByDesc(BuffScanTask::getCreateTime)
                 .page(page);
         
@@ -202,8 +227,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteTask(Long id) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
         BuffScanTask task = this.getById(id);
         Assert.validateNull(task, "任务不存在");
+
+        // 权限校验：非管理员只能删除自己的任务
+        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+            throw new BusinessException("权限不足：无法删除他人的任务");
+        }
 
         if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
             throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(task.getTaskType()) + "】禁止删除");

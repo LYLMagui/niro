@@ -112,6 +112,9 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
           localStorage.setItem("niro-web-token", res.token);
         }
 
+        // 存储用户信息
+        localStorage.setItem("niro-user-info", JSON.stringify(res));
+
         MessagePlugin.success("登录成功");
 
         // 记住我逻辑
