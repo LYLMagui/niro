@@ -46,4 +46,10 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
      * @param id 任务ID
      */
     void deleteTask(Long id);
+
+    /**
+     * 同步分类商品数据 (创建一次性同步任务)
+     * @param categoryId 分类ID
+     */
+    void syncCategoryGoods(Long categoryId);
 }

@@ -16,8 +16,9 @@ public enum TaskTypeEnum {
     SNIPING(0, "炼金扫货"),
     FLIPPING(1, "站内倒卖"),
     SYNC_CATEGORY(2, "系统-分类同步"),
-    SYNC_GOODS(3, "系统-商品同步"),
-    SYNC_STICKER(4, "系统-印花同步");
+    SYNC_GOODS(3, "系统-商品全量同步"),
+    SYNC_STICKER(4, "系统-印花同步"),
+    SYNC_CATEGORY_GOODS(5, "系统-分类商品同步");
 
     private final Integer code;
     private final String desc;

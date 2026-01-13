@@ -6,14 +6,12 @@ import com.niro.web.dto.BuffGoodsSimpleDTO;
 import com.niro.web.dto.param.GoodsQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.service.BuffGoodsService;
+import com.niro.web.service.BuffScanTaskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RequestParam;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
@@ -32,9 +30,14 @@ import java.util.List;
 public class BuffGoodsController {
 
     private final BuffGoodsService buffGoodsService;
-    
+    private final BuffScanTaskService buffScanTaskService;
 
-// ...
+    @PostMapping("/sync-category/{categoryId}")
+    @Operation(summary = "触发指定分类的商品同步")
+    public void syncCategoryGoods(@PathVariable("categoryId") Long categoryId) {
+        buffScanTaskService.syncCategoryGoods(categoryId);
+    }
+    
 
     @GetMapping("/page")
     @Operation(summary = "分页查询商品列表")

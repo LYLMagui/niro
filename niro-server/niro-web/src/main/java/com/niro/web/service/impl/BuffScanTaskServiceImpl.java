@@ -1,31 +1,33 @@
 package com.niro.web.service.impl;
 
-import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.niro.core.util.Assert;
 import com.niro.core.constant.BuffConstant;
+import com.niro.core.exception.BusinessException;
+import com.niro.core.util.Assert;
 import com.niro.web.dto.BuffScanTaskDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
-import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.enums.TaskTypeEnum;
+import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffGoodsService;
-import com.niro.core.exception.BusinessException;
+import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffScanTaskService;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
+import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import lombok.RequiredArgsConstructor;
 
 /**
  * 扫货任务服务实现类
@@ -38,6 +40,7 @@ import java.util.stream.Collectors;
 public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, BuffScanTask> implements BuffScanTaskService {
 
     private final BuffGoodsService buffGoodsService;
+    private final BuffGoodsCategoryService buffGoodsCategoryService;
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -241,5 +244,41 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         this.removeById(id);
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncCategoryGoods(Long categoryId) {
+        Long currentUserId = StpUtil.getLoginIdAsLong();
+        // 权限校验：仅管理员可触发同步
+        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+            throw new BusinessException("权限不足：仅管理员可触发同步任务");
+        }
+
+        // 校验分类是否存在
+        com.niro.web.entity.BuffGoodsCategory category = buffGoodsCategoryService.getById(categoryId);
+        Assert.validateNull(category, "分类不存在");
+
+        // 检查是否已有该分类的同步任务
+        BuffScanTask existingTask = this.lambdaQuery()
+                .eq(BuffScanTask::getTaskType, TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode())
+                .eq(BuffScanTask::getGoodsId, categoryId)
+                .one();
+
+        if (existingTask != null) {
+            // 如果任务存在，将其状态设置为运行中
+            existingTask.setStatus(1);
+            this.updateById(existingTask);
+        } else {
+            // 创建新任务
+            BuffScanTask task = new BuffScanTask();
+            task.setName("同步分类: " + category.getName());
+            task.setTaskType(TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode());
+            task.setGoodsId(categoryId); // 使用 goodsId 存储 categoryId
+            task.setUserId(currentUserId);
+            task.setStatus(1); // 立即运行
+            task.setSuccessCount(0);
+            this.save(task);
+        }
     }
 }
