@@ -83,19 +83,25 @@ def test_get_buff_item(goods_id: int, min_wear: float = None, max_wear: float = 
             import time
             time.sleep(sleep_time)
             
-            logger.info(f"🛒 [发起下单] ID: {item_id} | 支付方式: {pay_method}")
+            logger.info(f"🛒 [发起下单] ID: {item_id} | 支付方式: {pay_method} | 模式: BatchBuy(V3)")
             
-            result = spider.buy(
+            # 使用更安全的 buy_v3 批量下单接口
+            result = spider.buy_v3(
                 goods_id=goods_id,
-                item_id=item_id,
-                price_str=str(price),
+                sell_order_ids=[item_id],
                 pay_method=pay_method
             )
             
-            if result and isinstance(result, dict) and (result.get('id') or result.get('code') == 'OK'):
-                logger.info(f"✨ 下单请求成功! 订单详情: {result}")
+            # result 为字典，如果成功通常包含 id 或 code=='OK'
+            if result and (result.get('code') == 'OK' or 'id' in result):
+                order_id = result.get('id')
+                state = result.get('state_text') or result.get('state')
+                logger.info(f"✨ 下单成功! 最终订单号: {order_id} | 状态: {state}")
+            elif result and 'pay_url' in str(result):
+                # 如果返回的结果中包含支付链接（虽然 buy_v3 内部会打印，这里做双重保证）
+                logger.info(f"⚠️ 请点击以下链接完成支付: {result.get('pay_url')}")
             else:
-                logger.error(f"❌ 下单请求失败")
+                logger.error(f"❌ 下单失败: {result}")
         
         if items:
             logger.info("✅ 测试流程执行完毕。")
