@@ -281,7 +281,7 @@ def process_category(category, force=False, task_id=None, profile=None):
             else:
                 # 翻页请求 (Data) 使用更像人类的正态分布随机延迟
                 # mu=15.0, sigma=3.0 表示平均延迟 15s，波动在 12s-18s 之间
-                smart_sleep(mu=15.0, sigma=3.0, min_wait=10.0)
+                smart_sleep(mu=18, sigma=4, min_wait=14.0)
 
             data = fetch_goods_api(cat_internal, category_type=cat_type, page_num=page, profile=profile)
             if page == 1:
