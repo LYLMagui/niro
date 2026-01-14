@@ -33,6 +33,7 @@ class BuffSellOrderItem(BaseModel):
     user_id: str
     created_at: int
     asset_info: BuffAssetInfo
+    supported_pay_methods: List[int] = Field(default_factory=list)
 
 class BuffSellOrderData(BaseModel):
     items: List[BuffSellOrderItem]
@@ -62,3 +63,4 @@ class ParsedBuffItemDTO(BaseModel):
     rarity: Optional[str] = None
     exterior: Optional[str] = None
     stickers: List[BuffStickerInfo] = Field(default_factory=list)
+    supported_pay_methods: List[int] = Field(default_factory=list)

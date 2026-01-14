@@ -1,18 +1,25 @@
+from http.cookies import SimpleCookie
 import json
 import os
+
 import pendulum
 import pydash
 import requests
-from http.cookies import SimpleCookie
-from tenacity import retry, stop_after_attempt, wait_random_exponential, retry_if_exception_type, before_sleep_log
+from tenacity import (
+    before_sleep_log,
+    retry,
+    retry_if_exception_type,
+    stop_after_attempt,
+    wait_random_exponential,
+)
 
 from config import settings
-from utils.logger import get_logger
-from utils.exception_handler import handle_api_error, LoginRequiredError
-from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip
 from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
+from utils.browser_helper import BrowserHelper
+from utils.exception_handler import LoginRequiredError, handle_api_error
+from utils.logger import get_logger
+from utils.network_util import log_request_ip
+from utils.proxy_helper import get_proxies, refresh_proxies
 
 logger = get_logger(__name__)
 
@@ -81,11 +88,15 @@ class BuffSpider:
         before_sleep=before_retry_callback,
         reraise=True
     )
-    def get_goods_list(self, goods_id, page_num=1):
+    def get_goods_list(self, goods_id, page_num=1, min_paintwear=None, max_paintwear=None, max_price=None, sort_by="price.asc"):
         """
         获取饰品列表
         :param goods_id: 饰品ID
         :param page_num: 页码
+        :param min_paintwear: 最小磨损
+        :param max_paintwear: 最大磨损
+        :param max_price: 最大价格
+        :param sort_by: 排序方式，默认价格正序 (price.asc)
         :return: 解析后的数据列表
         """
         url = "/api/market/goods/sell_order"
@@ -93,10 +104,21 @@ class BuffSpider:
             "game": "csgo",
             "goods_id": goods_id,
             "page_num": page_num,
+            "sort_by": sort_by,
         }
+
+        # 可选过滤参数
+        if min_paintwear is not None:
+            params["min_paintwear"] = min_paintwear
+        if max_paintwear is not None:
+            params["max_paintwear"] = max_paintwear
+        if max_price is not None:
+            params["max_price"] = max_price
 
         # 每次请求动态获取代理，确保重试时能切换
         proxies = get_proxies()
+        
+        self.logger.debug(f"🔍 [Request] GET {url} | Params: {params}")
         
         response = requests.get(
             self.host + url, headers=self.profile.get_headers(), params=params, proxies=proxies, timeout=10
@@ -111,13 +133,34 @@ class BuffSpider:
             # 优先使用 json() 解析更安全
             resp_json = response.json()
             resp_data = BuffSellOrderResponse.model_validate(resp_json)
-            return self._parse_data_v2(resp_data)
+            parsed_items = self._parse_data_v2(resp_data)
+            
+            # 简介打印前五条数据
+            if parsed_items:
+                top_5 = parsed_items[:5]
+                self.logger.info(f"📊 [GoodsList] 已获取 {len(parsed_items)} 条数据，前 5 条：")
+                for idx, item in enumerate(top_5, 1):
+                    self.logger.info(f"  {idx}. {item['name']} | 价格: {item['price_buff']} | 磨损: {item['paintwear']}")
+            
+            return parsed_items
+        except LoginRequiredError as e:
+            raise e
         except Exception as e:
             self.logger.error(f"解析 Buff 响应失败: {e}")
             # 如果 json 解析失败，尝试原始文本
             try:
                 resp_data = BuffSellOrderResponse.model_validate_json(response.text)
-                return self._parse_data_v2(resp_data)
+                parsed_items = self._parse_data_v2(resp_data)
+                
+                if parsed_items:
+                    top_5 = parsed_items[:5]
+                    self.logger.info(f"📊 [GoodsList] 已获取 {len(parsed_items)} 条数据，前 5 条：")
+                    for idx, item in enumerate(top_5, 1):
+                        self.logger.info(f"  {idx}. {item['name']} | 价格: {item['price_buff']} | 磨损: {item['paintwear']}")
+                
+                return parsed_items
+            except LoginRequiredError as e:
+                raise e
             except Exception as e2:
                 self.logger.error(f"解析 Buff 响应最终失败: {e2}")
                 return []
@@ -157,58 +200,10 @@ class BuffSpider:
                 crawled_at=pendulum.now().to_datetime_string(),
                 rarity=item.asset_info.rarity,
                 exterior=item.asset_info.exterior,
-                stickers=item.asset_info.stickers
+                stickers=item.asset_info.stickers,
+                supported_pay_methods=item.supported_pay_methods
             )
             parsed_items.append(parsed_item.model_dump())
-
-        return parsed_items
-
-    def _parse_data(self, data):
-        """保留旧版解析方法以防万一，但建议使用 _parse_data_v2"""
-        if not data:
-            return []
-            
-        code = pydash.get(data, "code")
-        if code == "Login Required":
-            self.logger.error("🔑 Cookie 已失效或未登录")
-            raise LoginRequiredError("Buff Login Required")
-            
-        if code != "OK" or "data" not in data:
-            self.logger.warning(f"响应数据异常: {json.dumps(data, ensure_ascii=False)}")
-            return []
-
-        data_content = data["data"]
-        goods_list = pydash.get(data_content, "items", [])
-        goods_infos = pydash.get(data_content, "goods_infos", {})
-        user_infos = pydash.get(data_content, "user_infos", {})
-
-        parsed_items = []
-        for item in goods_list:
-            goods_id = item.get("goods_id", 0)
-            goods_info = goods_infos.get(str(goods_id), {})
-            asset_info = item.get("asset_info", {})
-            user_id = item.get("user_id", 0)
-            user_info = user_infos.get(str(user_id), {})
-            
-            created_at = pendulum.from_timestamp(item.get("created_at", 0))
-
-            parsed_item = {
-                "id": item.get("id", 0),
-                "goods_id": goods_id,
-                "name": goods_info.get("name", ""),
-                "price_usd": goods_info.get("steam_price", ""),
-                "price_cny": goods_info.get("steam_price_cny", ""),
-                "paintwear": asset_info.get("paintwear"),
-                "price_buff": item.get("price"),
-                "sell_min_price": goods_info.get("sell_min_price", 0),
-                "buy_max_price": goods_info.get("buy_max_price", 0),
-                "sell_num": goods_info.get("sell_num", 0),
-                "user_id": user_id,
-                "user_nickname": user_info.get("nickname", ""),
-                "created_at": created_at.to_datetime_string(),
-                "crawled_at": pendulum.now().to_datetime_string(),
-            }
-            parsed_items.append(parsed_item)
 
         return parsed_items
 
