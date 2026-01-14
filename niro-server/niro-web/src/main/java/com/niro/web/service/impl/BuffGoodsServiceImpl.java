@@ -26,24 +26,14 @@ import com.niro.web.service.BuffGoodsService;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 
-// ...
-
 import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.mapper.BuffScanTaskMapper;
-import com.niro.web.entity.BuffScanTask;
-import com.niro.web.entity.BuffGoodsCategory;
-import com.niro.web.enums.TaskTypeEnum;
-import com.niro.core.constant.BuffConstant;
-import cn.dev33.satoken.stp.StpUtil;
 import lombok.RequiredArgsConstructor;
-import com.niro.core.exception.BusinessException;
 
 @Service
 @RequiredArgsConstructor
 public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods> implements BuffGoodsService {
 
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final BuffScanTaskMapper buffScanTaskMapper;
 
     @Override
     public Page<BuffGoodsDTO> queryGoodsPage(Page<BuffGoods> page, GoodsQueryParam param) {
@@ -90,41 +80,5 @@ public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods
                 .list();
         return BeanUtil.copyToList(goodsList, BuffGoodsSimpleDTO.class);
                 
-    }
-
-    @Override
-    public void syncCategoryGoods(Long categoryId) {
-        Long currentUserId = StpUtil.getLoginIdAsLong();
-        // 权限校验：仅管理员可触发
-        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
-            throw new BusinessException("仅管理员可触发分类同步任务");
-        }
-
-        BuffGoodsCategory category = buffGoodsCategoryService.getById(categoryId);
-        if (category == null) {
-            throw new BusinessException("分类不存在");
-        }
-
-        // 检查是否已有该分类的同步任务正在运行
-        boolean isRunning = buffScanTaskMapper.selectCount(
-                new com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper<BuffScanTask>()
-                        .eq(BuffScanTask::getTaskType, TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode())
-                        .eq(BuffScanTask::getGoodsId, categoryId)
-                        .eq(BuffScanTask::getStatus, 4) // 执行中
-        ) > 0;
-
-        if (isRunning) {
-            throw new BusinessException("该分类的同步任务正在执行中，请勿重复触发");
-        }
-
-        // 创建系统任务
-        BuffScanTask task = new BuffScanTask();
-        task.setName("同步分类-" + category.getName());
-        task.setUserId(currentUserId);
-        task.setGoodsId(categoryId); // 借用 goodsId 存放 categoryId
-        task.setTaskType(TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode());
-        task.setStatus(1); // 待运行，由扫描器接管
-        
-        buffScanTaskMapper.insert(task);
     }
 }

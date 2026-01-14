@@ -1,5 +1,10 @@
 # Release Notes
 
+## v1.16.35 (2026-01-14)
+- [修复] **修复 `BuffGoodsServiceImpl` 编译错误**
+  - **代码清理**：移除了 `BuffGoodsServiceImpl` 中冗余的 `syncCategoryGoods` 方法实现，该方法已正确迁移至 `BuffScanTaskServiceImpl`。
+  - **解耦冗余依赖**：清理了 `BuffGoodsServiceImpl` 中因冗余逻辑引入的 `BuffScanTaskMapper` 注入及相关未使用的 import 包，严格遵守最小修改原则。
+
 ## v1.16.34 (2026-01-14)
 - [功能] **新增分类商品即时同步功能**
   - **后端增强**：扩展系统任务类型，新增 `SYNC_CATEGORY_GOODS (5)` 类型，支持指定分类的商品全量同步。
