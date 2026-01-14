@@ -1,5 +1,26 @@
 # Release Notes
 
+## v1.16.38 (2026-01-14)
+- [功能] **扫货逻辑真实化与支付增强**
+  - **支付方式识别**：在 `buff_dto.py` 中新增 `supported_pay_methods` 字段，支持精准识别挂单支持的支付方式（如余额、支付宝、网易支付等）。
+  - **真实下单能力**：在 `buff_spider.py` 中封装 `buy` 下单方法，支持真实的 Buff 饰品购买流程。
+  - **安全验证机制**：
+    - **真人模拟**：在下单前引入随机延迟（1.5s - 3.5s），模拟真人操作路径。
+    - **自动过滤**：下单脚本支持根据指定支付方式自动筛选最优挂单，规避支付方式不匹配导致的下单失败。
+  - **稳定性增强**：
+    - **登录失效保护**：`task_scanner.py` 捕获 `LoginRequiredError` 异常，检测到 Cookie 过期时自动关停任务。
+    - **调试日志优化**：爬虫日志新增请求参数追踪及商品列表 Top 5 摘要打印，便于实时监控抓取质量。
+
+## v1.16.37 (2026-01-14)
+- [优化] **增强 Buff 商品列表抓取功能**
+  - **接口升级**：`BuffSpider.get_goods_list` 支持磨损范围 (`min_paintwear`, `max_paintwear`)、最大价格 (`max_price`) 及排序方式 (`sort_by`) 过滤。
+  - **测试工具完善**：`tests/test_get_buff_item.py` 引入 `argparse`，支持通过命令行参数进行多维度数据过滤测试，默认按价格正序排列。
+
+## v1.16.36 (2026-01-14)
+- [功能] **新增指定商品 Buff 数据抓取测试工具**
+  - **测试支持**：新增 `tests/test_get_buff_item.py` 脚本，支持通过 `goods_id` 快速验证指定饰品的挂单列表抓取逻辑。
+  - **逻辑验证**：集成 `BuffSpider` 调用流程，支持自动指纹分配与 Cookie 加载，并对返回的挂单数据进行格式化输出验证。
+
 ## v1.16.35 (2026-01-14)
 - [修复] **修复 `BuffGoodsServiceImpl` 编译错误**
   - **代码清理**：移除了 `BuffGoodsServiceImpl` 中冗余的 `syncCategoryGoods` 方法实现，该方法已正确迁移至 `BuffScanTaskServiceImpl`。
