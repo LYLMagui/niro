@@ -32,9 +32,9 @@
               <div :class="['radio-item-wrapper', { active: second.type === 'range' }]">
                 <t-radio value="range">
                   <span class="mr-1">周期从</span>
-                  <t-input-number v-model="second.rangeStart" :min="0" :max="second.rangeEnd - 1" size="small" class="mx-1" />
+                  <t-input-number v-model="second.rangeStart" :min="0" :max="(second.rangeEnd as number) - 1" size="small" class="mx-1" />
                   <span class="mx-1">-</span>
-                  <t-input-number v-model="second.rangeEnd" :min="second.rangeStart + 1" :max="59" size="small" class="mx-1" />
+                  <t-input-number v-model="second.rangeEnd" :min="(second.rangeStart as number) + 1" :max="59" size="small" class="mx-1" />
                   <span class="ml-1">秒</span>
                 </t-radio>
               </div>
@@ -76,9 +76,9 @@
               <div :class="['radio-item-wrapper', { active: minute.type === 'range' }]">
                 <t-radio value="range">
                   <span class="mr-1">周期从</span>
-                  <t-input-number v-model="minute.rangeStart" :min="0" :max="minute.rangeEnd - 1" size="small" class="mx-1" />
+                  <t-input-number v-model="minute.rangeStart" :min="0" :max="(minute.rangeEnd as number) - 1" size="small" class="mx-1" />
                   <span class="mx-1">-</span>
-                  <t-input-number v-model="minute.rangeEnd" :min="minute.rangeStart + 1" :max="59" size="small" class="mx-1" />
+                  <t-input-number v-model="minute.rangeEnd" :min="(minute.rangeStart as number) + 1" :max="59" size="small" class="mx-1" />
                   <span class="ml-1">分</span>
                 </t-radio>
               </div>
@@ -120,9 +120,9 @@
               <div :class="['radio-item-wrapper', { active: hour.type === 'range' }]">
                 <t-radio value="range">
                   <span class="mr-1">周期从</span>
-                  <t-input-number v-model="hour.rangeStart" :min="0" :max="hour.rangeEnd - 1" size="small" class="mx-1" />
+                  <t-input-number v-model="hour.rangeStart" :min="0" :max="(hour.rangeEnd as number) - 1" size="small" class="mx-1" />
                   <span class="mx-1">-</span>
-                  <t-input-number v-model="hour.rangeEnd" :min="hour.rangeStart + 1" :max="23" size="small" class="mx-1" />
+                  <t-input-number v-model="hour.rangeEnd" :min="(hour.rangeStart as number) + 1" :max="23" size="small" class="mx-1" />
                   <span class="ml-1">时</span>
                 </t-radio>
               </div>
@@ -164,9 +164,9 @@
               <div :class="['radio-item-wrapper', { active: day.type === 'range' }]">
                 <t-radio value="range">
                   <span class="mr-1">周期从</span>
-                  <t-input-number v-model="day.rangeStart" :min="1" :max="day.rangeEnd - 1" size="small" class="mx-1" />
+                  <t-input-number v-model="day.rangeStart" :min="1" :max="(day.rangeEnd as number) - 1" size="small" class="mx-1" />
                   <span class="mx-1">-</span>
-                  <t-input-number v-model="day.rangeEnd" :min="day.rangeStart + 1" :max="31" size="small" class="mx-1" />
+                  <t-input-number v-model="day.rangeEnd" :min="(day.rangeStart as number) + 1" :max="31" size="small" class="mx-1" />
                   <span class="ml-1">日</span>
                 </t-radio>
               </div>
@@ -214,9 +214,9 @@
               <div :class="['radio-item-wrapper', { active: month.type === 'range' }]">
                 <t-radio value="range">
                   <span class="mr-1">周期从</span>
-                  <t-input-number v-model="month.rangeStart" :min="1" :max="month.rangeEnd - 1" size="small" class="mx-1" />
+                  <t-input-number v-model="month.rangeStart" :min="1" :max="(month.rangeEnd as number) - 1" size="small" class="mx-1" />
                   <span class="mx-1">-</span>
-                  <t-input-number v-model="month.rangeEnd" :min="month.rangeStart + 1" :max="12" size="small" class="mx-1" />
+                  <t-input-number v-model="month.rangeEnd" :min="(month.rangeStart as number) + 1" :max="12" size="small" class="mx-1" />
                   <span class="ml-1">月</span>
                 </t-radio>
               </div>
@@ -384,11 +384,21 @@ const weekOptions = [
   { label: '周六', value: 'sat' },
 ];
 
-const createInitialState = (unit: string) => {
+interface CronState {
+  type: string;
+  startAt: string | number;
+  rangeStart: string | number;
+  rangeEnd: string | number;
+  stepValue: number;
+  specific: any[];
+  lastValue: string | number;
+}
+
+const createInitialState = (unit: string): CronState => {
   const isWeek = unit === 'week';
   const isTime = unit === 'second' || unit === 'minute' || unit === 'hour';
   const isDayOrMonth = unit === 'day' || unit === 'month';
-  
+
   return {
     type: isTime ? 'every' : (isWeek ? 'none' : 'every'),
     startAt: isWeek ? 'mon' : (isDayOrMonth ? 1 : 0),
@@ -400,12 +410,12 @@ const createInitialState = (unit: string) => {
   };
 };
 
-const second = reactive(createInitialState('second'));
-const minute = reactive(createInitialState('minute'));
-const hour = reactive(createInitialState('hour'));
-const day = reactive(createInitialState('day'));
-const month = reactive(createInitialState('month'));
-const week = reactive(createInitialState('week'));
+const second = reactive<CronState>(createInitialState('second'));
+const minute = reactive<CronState>(createInitialState('minute'));
+const hour = reactive<CronState>(createInitialState('hour'));
+const day = reactive<CronState>(createInitialState('day'));
+const month = reactive<CronState>(createInitialState('month'));
+const week = reactive<CronState>(createInitialState('week'));
 
 
 
@@ -557,13 +567,13 @@ const units = [
 
 units.forEach((unit) => {
   watch(() => unit.ref.rangeStart, (newStart) => {
-    if (unit.ref.type === 'range' && newStart >= unit.ref.rangeEnd) {
-      unit.ref.rangeEnd = Math.min(newStart + 1, unit.max);
+    if (unit.ref.type === 'range' && (newStart as number) >= (unit.ref.rangeEnd as number)) {
+      unit.ref.rangeEnd = Math.min((newStart as number) + 1, unit.max);
     }
   });
   watch(() => unit.ref.rangeEnd, (newEnd) => {
-    if (unit.ref.type === 'range' && newEnd <= unit.ref.rangeStart) {
-      unit.ref.rangeStart = Math.max(newEnd - 1, unit.min);
+    if (unit.ref.type === 'range' && (newEnd as number) <= (unit.ref.rangeStart as number)) {
+      unit.ref.rangeStart = Math.max((newEnd as number) - 1, unit.min);
     }
   });
 });
@@ -572,8 +582,8 @@ units.forEach((unit) => {
 watch([() => week.rangeStart, () => week.rangeEnd], ([start, end]) => {
   if (week.type !== 'range') return;
   const weekValues = weekOptions.map(o => o.value);
-  const startIndex = weekValues.indexOf(start);
-  const endIndex = weekValues.indexOf(end);
+  const startIndex = weekValues.indexOf(start as string);
+  const endIndex = weekValues.indexOf(end as string);
   if (startIndex >= endIndex) {
     if (startIndex < 6) {
       week.rangeEnd = weekValues[startIndex + 1];

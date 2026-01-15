@@ -15,12 +15,6 @@ import lombok.Data;
 public class UserBuffSettingsParam {
 
     /**
-     * Buff平台Cookie
-     */
-    @NotBlank(message = "Cookie不能为空")
-    private String buffCookie;
-
-    /**
      * 支付方式
      */
     @NotNull(message = "支付方式不能为空")

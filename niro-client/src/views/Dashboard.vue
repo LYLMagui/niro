@@ -23,8 +23,24 @@
         </div>
         <div class="mt-4">
           <!-- 控制按钮 -->
-          <t-button v-if="!isRunning" theme="primary" @click="startTask">启动任务</t-button>
-          <t-button v-else theme="danger" @click="stopTask">停止任务</t-button>
+          <t-button
+            v-if="!isRunning"
+            theme="primary"
+            size="medium"
+            @click="startTask"
+            class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+          >
+            启动任务
+          </t-button>
+          <t-button
+            v-else
+            theme="danger"
+            size="medium"
+            @click="stopTask"
+            class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+          >
+            停止任务
+          </t-button>
         </div>
       </t-card>
 
@@ -36,13 +52,23 @@
     </div>
 
     <!-- 底部表格：最新商品动态 -->
-    <t-card title="最新商品动态" :bordered="false">
+    <t-card :bordered="false" class="shadow-sm embedded-card">
+      <template #title>
+        <div class="flex items-center">
+          <t-icon name="chart-bubble" class="mr-2 text-blue-600" />
+          <span class="text-lg font-bold text-gray-800">最新商品动态</span>
+        </div>
+      </template>
       <t-table
         :data="data"
         :columns="columns"
         row-key="id"
         :pagination="{ total: 100, current: 1, pageSize: 10 }"
+        class="embedded-table w-full"
       >
+        <template #empty>
+          <t-empty icon="info-circle" description="暂无动态数据" />
+        </template>
         <!-- 自定义状态列渲染 -->
         <template #status="{ row }">
           <t-tag v-if="row.status === 'success'" theme="success" variant="light">成功</t-tag>
@@ -101,3 +127,53 @@ const data = ref([
   },
 ]);
 </script>
+
+<style scoped>
+/* 嵌入式卡片布局优化 */
+.embedded-card :deep(.t-card__body) {
+  padding: 0 !important;
+}
+
+.embedded-card :deep(.t-card__header) {
+  padding: 16px 24px !important;
+}
+
+/* 嵌入式表格深度定制 */
+:deep(.embedded-table) {
+  border: none !important;
+}
+
+/* 表头背景色与标题栏衔接 */
+:deep(.embedded-table .t-table__header tr) {
+  background-color: #f8fafc !important;
+}
+
+:deep(.embedded-table .t-table__header th) {
+  font-weight: 700 !important;
+  color: #334155 !important;
+  background-color: transparent !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important;
+  height: 48px;
+}
+
+:deep(.embedded-table .t-table__body td) {
+  padding: 16px 16px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* 第一列和最后一列的 24px 边距对齐 */
+:deep(.embedded-table th:first-child),
+:deep(.embedded-table td:first-child) {
+  padding-left: 24px !important;
+}
+
+:deep(.embedded-table th:last-child),
+:deep(.embedded-table td:last-child) {
+  padding-right: 24px !important;
+}
+
+:deep(.embedded-table .t-table__row--hover) {
+  background-color: #f8fafc !important;
+}
+</style>

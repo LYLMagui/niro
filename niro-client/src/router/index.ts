@@ -78,7 +78,7 @@ const router = createRouter({
 const whiteList = ["/login"];
 
 // 全局前置守卫
-router.beforeEach((to, from, next) => {
+router.beforeEach((to, _from, next) => {
   // 开启进度条
   NProgress.start();
 

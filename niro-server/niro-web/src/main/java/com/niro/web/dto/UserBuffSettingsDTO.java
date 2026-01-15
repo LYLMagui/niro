@@ -23,11 +23,6 @@ public class UserBuffSettingsDTO {
     private Long userId;
 
     /**
-     * Buff平台Cookie (脱敏或完整返回视需求而定，此处暂完整返回以便回显)
-     */
-    private String buffCookie;
-
-    /**
      * 支付方式
      */
     private PaymentMethodEnum paymentMethod;

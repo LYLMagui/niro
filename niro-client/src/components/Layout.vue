@@ -114,7 +114,7 @@ import {
   AssignmentIcon,
 } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
-import { MessagePlugin } from "tdesign-vue-next";
+import { MessagePlugin, type DropdownOption } from "tdesign-vue-next";
 
 const route = useRoute();
 const router = useRouter();
@@ -135,7 +135,7 @@ const dropdownOptions = [
   { content: "退出登录", value: "logout", prefixIcon: () => h(PoweroffIcon) },
 ];
 
-const handleDropdownClick = async (data: { value: string }) => {
+const handleDropdownClick = async (data: DropdownOption) => {
   if (data.value === "logout") {
     await handleLogout();
   }

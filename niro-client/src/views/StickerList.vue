@@ -1,23 +1,42 @@
 <template>
   <div class="sticker-list-container p-6">
-    <t-card :bordered="false" class="shadow-sm">
-      <div class="flex justify-between items-center mb-6">
+    <t-card :bordered="false" class="shadow-sm embedded-card">
+      <template #title>
         <div class="flex items-center">
-          <h2 class="text-lg font-bold mr-4">印花价值管理</h2>
-          <t-tag theme="primary" variant="light">数据同步频率：由任务配置管理</t-tag>
+          <t-icon name="view-module" class="mr-2 text-blue-600" />
+          <span class="text-lg font-bold text-gray-800">印花价值管理</span>
+          <t-tag theme="primary" variant="light" class="ml-4">数据同步频率：由任务配置管理</t-tag>
         </div>
-      </div>
+      </template>
 
       <!-- 搜索栏 -->
-      <t-form :data="queryParams" layout="inline" class="mb-6" @submit="handleSearch">
-        <t-form-item label="搜索名称" name="keyword">
-          <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable />
-        </t-form-item>
-        <t-form-item>
-          <t-button theme="primary" type="submit">查询</t-button>
-          <t-button variant="outline" class="ml-2" @click="handleReset">重置</t-button>
-        </t-form-item>
-      </t-form>
+      <div class="p-6 border-b border-gray-100">
+        <t-form :data="queryParams" layout="inline" @submit="handleSearch">
+          <t-form-item label="搜索名称" name="keyword">
+            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable />
+          </t-form-item>
+          <t-form-item>
+            <div class="flex gap-4">
+              <t-button
+                theme="primary"
+                type="submit"
+                size="medium"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              >
+                查询
+              </t-button>
+              <t-button
+                variant="outline"
+                size="medium"
+                @click="handleReset"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              >
+                重置
+              </t-button>
+            </div>
+          </t-form-item>
+        </t-form>
+      </div>
 
       <!-- 表格 -->
       <t-table
@@ -28,9 +47,12 @@
         :pagination="pagination"
         hover
         :header-affixed-top="true"
-        class="custom-table"
+        class="embedded-table w-full"
         @page-change="onPageChange"
       >
+        <template #empty>
+          <t-empty icon="view-module" description="暂无印花数据" />
+        </template>
         <template #imageUrl="{ row }">
           <div
             class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white mx-auto"
@@ -71,15 +93,12 @@
  * 功能简述: 印花价值列表展示与同步管理
  */
 import { stickerApi } from '@/api/sticker';
-import { ADMIN_USER_ID, DEFAULT_PAGE_SIZE } from '@/utils/constants';
+import { DEFAULT_PAGE_SIZE } from '@/utils/constants';
 import { onMounted, reactive, ref } from 'vue';
-import { MessagePlugin } from 'tdesign-vue-next';
-
-// 权限控制：使用常量定义的管理员ID
-const currentUserId = ADMIN_USER_ID; 
+import { type PrimaryTableCol } from 'tdesign-vue-next';
 
 const loading = ref(false);
-const dataList = ref([]);
+const dataList = ref<any[]>([]);
 
 // 图片预览状态
 const imageVisible = ref(false);
@@ -104,7 +123,7 @@ const pagination = reactive({
   showJumper: true,
 });
 
-const columns = [
+const columns: PrimaryTableCol<any>[] = [
   { colKey: 'imageUrl', title: '图标', width: 140, align: 'center' },
   { colKey: 'name', title: '印花名称', ellipsis: true, minWidth: 200 },
   { colKey: 'price', title: '当前价格', width: 120, align: 'right' },
@@ -177,27 +196,51 @@ onMounted(() => {
   min-height: calc(100vh - 64px);
 }
 
-/* 表头样式定制 (参考 GoodsList.vue) */
-:deep(.custom-table .t-table__header tr) {
-  background-color: #fafafa !important;
+/* 嵌入式卡片布局优化 */
+.embedded-card :deep(.t-card__body) {
+  padding: 0 !important;
 }
 
-:deep(.custom-table .t-table__header th) {
+.embedded-card :deep(.t-card__header) {
+  padding: 16px 24px !important;
+}
+
+/* 嵌入式表格深度定制 */
+:deep(.embedded-table) {
+  border: none !important;
+}
+
+/* 表头背景色与标题栏衔接 */
+:deep(.embedded-table .t-table__header tr) {
+  background-color: #f8fafc !important;
+}
+
+:deep(.embedded-table .t-table__header th) {
   font-weight: 700 !important;
-  color: #1f2937 !important;
+  color: #334155 !important;
   background-color: transparent !important;
-  border-bottom: 2px solid #e5e7eb !important;
-  position: relative;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important;
+  height: 48px;
 }
 
-:deep(.custom-table .t-table__header th:not(:last-child)::after) {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 50%;
-  width: 1px;
-  background-color: #d1d5db;
+:deep(.embedded-table .t-table__body td) {
+  padding: 16px 16px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* 第一列和最后一列的 24px 边距对齐 */
+:deep(.embedded-table th:first-child),
+:deep(.embedded-table td:first-child) {
+  padding-left: 24px !important;
+}
+
+:deep(.embedded-table th:last-child),
+:deep(.embedded-table td:last-child) {
+  padding-right: 24px !important;
+}
+
+:deep(.embedded-table .t-table__row--hover) {
+  background-color: #f8fafc !important;
 }
 </style>

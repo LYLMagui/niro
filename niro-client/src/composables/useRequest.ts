@@ -7,15 +7,15 @@ interface UseRequestOptions<T> {
   onError?: (error: unknown) => void;
 }
 
-export function useRequest<T = unknown>(
-  apiFn: (...args: unknown[]) => Promise<T>,
+export function useRequest<T = unknown, A extends any[] = any[]>(
+  apiFn: (...args: A) => Promise<T>,
   options: UseRequestOptions<T> = {}
 ) {
   const loading = ref(false);
   const data = ref(options.initialData || null) as Ref<T | null>;
   const error = ref<unknown>(null);
 
-  const run = async (...args: unknown[]) => {
+  const run = async (...args: A) => {
     loading.value = true;
     error.value = null;
     try {
@@ -37,7 +37,7 @@ export function useRequest<T = unknown>(
   };
 
   if (options.immediate) {
-    run();
+    (run as any)();
   }
 
   return { loading, data, error, run };

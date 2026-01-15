@@ -1,9 +1,16 @@
 <template>
   <div class="space-y-4">
     <!-- 合并后的商品列表卡片 -->
-    <t-card :bordered="false" title="商品列表" class="transition-shadow duration-300 hover:shadow">
-      <!-- 搜索栏 -->
-      <div class="mb-6 border-b border-gray-100 pb-6">
+    <t-card :bordered="false" class="transition-shadow duration-300 hover:shadow embedded-card">
+      <template #title>
+        <div class="flex items-center">
+          <t-icon name="view-list" class="mr-2 text-blue-600" />
+          <span class="text-lg font-bold text-gray-800">商品列表</span>
+        </div>
+      </template>
+
+      <!-- 搜索栏 (在 embedded-card 下需要手动控制 padding) -->
+      <div class="p-6 border-b border-gray-100">
         <t-form
           ref="form"
           :data="searchForm"
@@ -54,6 +61,7 @@
               <t-button
                 theme="primary"
                 type="submit"
+                size="medium"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 <template #icon><search-icon /></template>
@@ -63,6 +71,7 @@
                 theme="default"
                 variant="base"
                 type="reset"
+                size="medium"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 <template #icon><refresh-icon /></template>
@@ -71,6 +80,7 @@
               <t-button
                 theme="warning"
                 variant="base"
+                size="medium"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="syncDialogVisible = true"
               >
@@ -91,10 +101,14 @@
         :pagination="pagination"
         hover
         :header-affixed-top="true"
-        class="custom-table"
+        class="embedded-table w-full"
         :pagination-affixed-bottom="true"
         @page-change="onPageChange"
       >
+        <template #empty>
+          <t-empty icon="queue" description="未搜索到相关商品" />
+        </template>
+
         <!-- 图片列自定义渲染 -->
         <template #iconUrl="{ row }">
           <div
@@ -219,12 +233,17 @@
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import TaskConfig from "@/views/TaskConfig.vue";
-import type { Goods, GoodsPageQuery, GoodsSimple } from "@/types/goods";
+import type {
+  Goods,
+  GoodsPageQuery,
+  GoodsSimple,
+  PageResult,
+} from "@/types/goods";
 import { CloudDownloadIcon, LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
 import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
 import { onMounted, reactive, ref } from "vue";
-import { debounce } from "lodash";
+import { debounce } from "lodash-es";
 
 import { ExteriorColorMap, ExteriorMap, ExteriorOptions } from "@/enums/ExteriorEnum";
 import { RarityColorMap, RarityMap } from "@/enums/RarityEnum";
@@ -306,7 +325,7 @@ const pagination = reactive({
 });
 
 // 表格列定义
-const columns: PrimaryTableCol<Goods>[] = [
+const columns: PrimaryTableCol[] = [
   { colKey: "iconUrl", title: "图片", width: 140, align: "center" },
   { colKey: "name", title: "商品名称", minWidth: 250 },
   { colKey: "goodsId", title: "Goods ID", width: 100 },
@@ -407,33 +426,59 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 表头样式定制 */
-:deep(.custom-table .t-table__header tr) {
-  background-color: #fafafa !important;
+/* 嵌入式卡片布局优化 */
+.embedded-card :deep(.t-card__body) {
+  padding: 0 !important;
 }
 
-:deep(.custom-table .t-table__header th) {
+.embedded-card :deep(.t-card__header) {
+  padding: 16px 24px !important;
+}
+
+/* 嵌入式表格深度定制 */
+:deep(.embedded-table) {
+  border: none !important;
+}
+
+/* 表头背景色与标题栏衔接 */
+:deep(.embedded-table .t-table__header tr) {
+  background-color: #f8fafc !important;
+}
+
+:deep(.embedded-table .t-table__header th) {
   font-weight: 700 !important;
-  color: #1f2937 !important;
+  color: #334155 !important;
   background-color: transparent !important;
-  border-bottom: 2px solid #e5e7eb !important;
-  position: relative; /* 为伪元素定位 */
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important;
+  height: 48px;
 }
 
-/* 悬浮时略微加深 */
-:deep(.custom-table .t-table__header th:hover) {
-  background-color: transparent !important;
+:deep(.embedded-table .t-table__body td) {
+  padding: 16px 16px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
 }
 
-/* 列分割短竖线 (使用伪元素实现) */
-:deep(.custom-table .t-table__header th:not(:last-child)::after) {
-  content: "";
-  position: absolute;
-  right: 0;
-  top: 50%;
-  transform: translateY(-50%);
-  height: 50%; /* 高度为表头的一半 */
-  width: 1px;
-  background-color: #d1d5db; /* 比背景深一点的灰色 */
+/* 第一列和最后一列的 24px 边距对齐 */
+:deep(.embedded-table th:first-child),
+:deep(.embedded-table td:first-child) {
+  padding-left: 24px !important;
+}
+
+:deep(.embedded-table th:last-child),
+:deep(.embedded-table td:last-child) {
+  padding-right: 24px !important;
+}
+
+:deep(.embedded-table .t-table__row--hover) {
+  background-color: #f8fafc !important;
+}
+
+/* 图片预览样式保持 */
+.goods-img-container {
+  transition: transform 0.2s;
+}
+.goods-img-container:hover {
+  transform: scale(1.05);
 }
 </style>

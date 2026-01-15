@@ -30,11 +30,6 @@ public class UserBuffSettings {
     private Long userId;
 
     /**
-     * Buff平台Cookie
-     */
-    private String buffCookie;
-
-    /**
      * 支付方式
      */
     private PaymentMethodEnum paymentMethod;

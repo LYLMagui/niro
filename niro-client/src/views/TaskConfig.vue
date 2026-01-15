@@ -1,8 +1,16 @@
 <template>
-  <div :class="{ 'p-4': !dialogOnly }">
-    <t-card v-if="!dialogOnly" :bordered="false" title="扫货任务管理">
+  <div :class="{ 'p-6': !dialogOnly }">
+    <t-card v-if="!dialogOnly" :bordered="false" class="shadow-sm embedded-card">
+      <template #title>
+        <div class="flex items-center">
+          <t-icon name="task-1" class="mr-2 text-blue-600" />
+          <span class="text-lg font-bold text-gray-800">扫货任务管理</span>
+        </div>
+      </template>
+
       <!-- 搜索栏 -->
-      <t-row :gutter="16" class="mb-4">
+      <div class="p-6 border-b border-gray-100">
+        <t-row :gutter="16">
         <t-col :span="3">
           <t-input
             v-model="queryParams.name"
@@ -25,13 +33,38 @@
           </t-select>
         </t-col>
         <t-col :span="2">
-          <t-button theme="primary" @click="fetchData">查询</t-button>
-          <t-button theme="default" variant="base" class="ml-2" @click="resetQuery">重置</t-button>
+          <div class="flex gap-4">
+            <t-button
+              theme="primary"
+              size="medium"
+              class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              @click="fetchData"
+            >
+              查询
+            </t-button>
+            <t-button
+              theme="default"
+              variant="base"
+              size="medium"
+              class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              @click="resetQuery"
+            >
+              重置
+            </t-button>
+          </div>
         </t-col>
         <t-col :span="5" class="text-right">
-          <t-button theme="primary" @click="handleAdd">新增任务</t-button>
+          <t-button
+            theme="primary"
+            size="medium"
+            class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+            @click="handleAdd"
+          >
+            新增任务
+          </t-button>
         </t-col>
-      </t-row>
+        </t-row>
+      </div>
 
       <!-- 数据表格 -->
       <t-table
@@ -40,8 +73,12 @@
         :columns="columns"
         :loading="loading"
         :pagination="pagination"
+        class="embedded-table w-full"
         @page-change="onPageChange"
       >
+        <template #empty>
+          <t-empty icon="task-1" description="暂无扫货任务，点击右侧“新增任务”开启自动化扫货" />
+        </template>
         <template #goods="{ row }">
           <div class="flex items-center">
             <t-image
@@ -131,7 +168,7 @@
       :confirm-btn="{ content: '提交', loading: submitLoading }"
       width="600px"
       class="task-edit-dialog"
-      :footer="null"
+      :footer="false"
     >
       <div class="form-container py-4">
         <t-form
@@ -269,7 +306,8 @@
                     <template #content>
                       <div class="cron-popup-container">
                         <cron-editor
-                          v-model="formData.cronExpression"
+                          :model-value="formData.cronExpression || ''"
+                          @update:model-value="formData.cronExpression = $event"
                           @confirm="cronVisible = false"
                           @cancel="cronVisible = false"
                         />
@@ -381,7 +419,7 @@ import CronEditor from "@/components/CronEditor.vue";
 import type { GoodsSimple } from "@/types/goods";
 import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
 import cronParser from "cron-parser";
-import { MessagePlugin } from "tdesign-vue-next";
+import { MessagePlugin, type FormRules, type SelectValue, type PrimaryTableCol } from "tdesign-vue-next";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 // 获取当前用户信息
@@ -517,7 +555,7 @@ const executionSummary = computed(() => {
   return summary;
 });
 
-const columns = [
+const columns: PrimaryTableCol[] = [
   { colKey: "id", title: "ID", width: 80 },
   { colKey: "goods", title: "商品信息", width: 250, cell: "goods" },
   { colKey: "taskType", title: "模式", width: 100, cell: "taskType" },
@@ -548,11 +586,11 @@ const formData = reactive<TaskSaveParam>({
   minProfit: 0,
 });
 
-const rules = {
+const rules: FormRules<TaskSaveParam> = {
   goodsId: [
     {
       required: true,
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType < 2) return !!val;
         return true;
       },
@@ -563,7 +601,7 @@ const rules = {
   maxPrice: [
     {
       required: true,
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType === 0) return !!val;
         return true;
       },
@@ -574,7 +612,7 @@ const rules = {
   minProfit: [
     {
       required: true,
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType === 1) return val !== undefined && val !== null;
         return true;
       },
@@ -585,7 +623,7 @@ const rules = {
   buyCount: [
     {
       required: true,
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType < 2) return !!val;
         return true;
       },
@@ -596,7 +634,7 @@ const rules = {
   scanInterval: [
     {
       required: true,
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType >= 2) return true;
         return !!val;
       },
@@ -604,7 +642,7 @@ const rules = {
       type: "error",
     },
     {
-      validator: (val: number) => {
+      validator: (val: any) => {
         if (formData.taskType >= 2) return true;
         return val >= 15;
       },
@@ -631,8 +669,9 @@ const remoteSearchGoods = async (keyword: string) => {
 
 // --- 方法 ---
 
-const handleIntervalUnitChange = (unit: string) => {
-  const min = formData.taskType < 2 && unit === "s" ? 15 : 1;
+const handleIntervalUnitChange = (unit: SelectValue) => {
+  const unitStr = unit as string;
+  const min = formData.taskType < 2 && unitStr === "s" ? 15 : 1;
   if (uiState.intervalMinValue < min) {
     uiState.intervalMinValue = min;
   }
@@ -751,12 +790,12 @@ const handleEdit = (row: BuffScanTask) => {
   });
 
   // 初始化 UI 状态
-  const durationUi = convertToUi(formData.durationMinutes, DURATION_FACTORS);
+  const durationUi = convertToUi(formData.durationMinutes || 0, DURATION_FACTORS);
   uiState.durationValue = durationUi.value;
   uiState.durationUnit = durationUi.unit as any;
 
-  const intervalMinUi = convertToUi(formData.scanIntervalMin, INTERVAL_FACTORS);
-  const intervalMaxUi = convertToUi(formData.scanIntervalMax, INTERVAL_FACTORS);
+  const intervalMinUi = convertToUi(formData.scanIntervalMin || 15, INTERVAL_FACTORS);
+  const intervalMaxUi = convertToUi(formData.scanIntervalMax || 20, INTERVAL_FACTORS);
   uiState.intervalMinValue = intervalMinUi.value;
   uiState.intervalMaxValue = intervalMaxUi.value;
   uiState.intervalUnit = intervalMinUi.unit as any;
@@ -924,5 +963,53 @@ onMounted(() => {
   background: #fff;
   border-radius: 8px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+}
+
+/* 嵌入式卡片布局优化 */
+.embedded-card :deep(.t-card__body) {
+  padding: 0 !important;
+}
+
+.embedded-card :deep(.t-card__header) {
+  padding: 16px 24px !important;
+}
+
+/* 嵌入式表格深度定制 */
+:deep(.embedded-table) {
+  border: none !important;
+}
+
+/* 表头背景色与标题栏衔接 */
+:deep(.embedded-table .t-table__header tr) {
+  background-color: #f8fafc !important;
+}
+
+:deep(.embedded-table .t-table__header th) {
+  font-weight: 700 !important;
+  color: #334155 !important;
+  background-color: transparent !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+  padding: 12px 16px !important;
+  height: 48px;
+}
+
+:deep(.embedded-table .t-table__body td) {
+  padding: 16px 16px !important;
+  border-bottom: 1px solid #f1f5f9 !important;
+}
+
+/* 第一列和最后一列的 24px 边距对齐 */
+:deep(.embedded-table th:first-child),
+:deep(.embedded-table td:first-child) {
+  padding-left: 24px !important;
+}
+
+:deep(.embedded-table th:last-child),
+:deep(.embedded-table td:last-child) {
+  padding-right: 24px !important;
+}
+
+:deep(.embedded-table .t-table__row--hover) {
+  background-color: #f8fafc !important;
 }
 </style>

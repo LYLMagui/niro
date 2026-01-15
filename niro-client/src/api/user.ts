@@ -1,6 +1,5 @@
 import request from "@/utils/request";
 import type { UserDTO, UserLoginParam } from "@/types/user";
-import type { Result } from "@/types/http";
 
 /**
  * 用户相关接口
@@ -12,7 +11,7 @@ export const userApi = {
    * @returns 用户信息
    */
   login: (params: UserLoginParam) => {
-    return request.post<Result<UserDTO>, UserDTO>("/user/login", params);
+    return request.post<UserDTO>("/user/login", params);
   },
 
   /**

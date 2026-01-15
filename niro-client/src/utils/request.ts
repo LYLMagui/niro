@@ -31,14 +31,14 @@ export interface RequestInstance {
 
 const request: RequestInstance = {
   get: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.get<Result<T>, T>(url, config),
+    service.get<any, T>(url, config),
   post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.post<Result<T>, T>(url, data, config),
+    service.post<any, T>(url, data, config),
   put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.put<Result<T>, T>(url, data, config),
+    service.put<any, T>(url, data, config),
   delete: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.delete<Result<T>, T>(url, config),
-  request: <T = unknown>(config: AxiosRequestConfig) => service.request<Result<T>, T>(config),
+    service.delete<any, T>(url, config),
+  request: <T = unknown>(config: AxiosRequestConfig) => service.request<any, T>(config),
 };
 
 // 请求拦截器
@@ -65,7 +65,7 @@ service.interceptors.request.use(
 
 // 响应拦截器
 service.interceptors.response.use(
-  (response: AxiosResponse<Result>) => {
+  (response: AxiosResponse<Result<any>>) => {
     // 计算耗时
     const metadata = (response.config as any).metadata;
     const duration = new Date().getTime() - metadata.startTime.getTime();
@@ -94,7 +94,7 @@ service.interceptors.response.use(
       }
       return Promise.reject(new Error(res.message || "Error"));
     } else {
-      return res.data;
+      return res.data as any;
     }
   },
   (error: AxiosError) => {

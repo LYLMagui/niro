@@ -107,13 +107,13 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
     try {
       const res = await userApi.login(accountFormData);
       if (res) {
+        // 存储用户信息
+        localStorage.setItem("niro-user-info", JSON.stringify(res));
+
         // 登录成功后，将 token 存储到 localStorage
         if (res.token) {
           localStorage.setItem("niro-web-token", res.token);
         }
-
-        // 存储用户信息
-        localStorage.setItem("niro-user-info", JSON.stringify(res));
 
         MessagePlugin.success("登录成功");
 
