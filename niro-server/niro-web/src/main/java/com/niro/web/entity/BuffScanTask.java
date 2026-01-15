@@ -65,7 +65,7 @@ public class BuffScanTask {
     private Integer successCount;
 
     /**
-     * 任务状态: 0-停止, 1-运行中, 2-已完成, 3-异常
+     * 任务状态: 0-停止, 1-运行中, 2-已完成, 3-异常, 4-系统任务运行中
      */
     private Integer status;
 
@@ -95,7 +95,7 @@ public class BuffScanTask {
     private Integer scanIntervalMax;
 
     /**
-     * 任务类型: 0-炼金扫货, 1-站内倒卖
+     * 任务类型: 0-炼金扫货, 1-站内倒卖, 2-同步印花, 3-同步分类, 4-同步商品
      */
     private Integer taskType;
 
@@ -103,6 +103,11 @@ public class BuffScanTask {
      * 站内倒卖任务的最小预期利润
      */
     private BigDecimal minProfit;
+
+    /**
+     * 最后一次操作的 TraceId
+     */
+    private String traceId;
 
     /**
      * 创建时间

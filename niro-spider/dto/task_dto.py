@@ -19,6 +19,7 @@ class BuffScanTaskDTO(BaseModel):
     min_paintwear: Optional[float] = None
     max_paintwear: Optional[float] = None
     min_profit: Optional[float] = None
+    trace_id: Optional[str] = None
     buy_count: Optional[int] = 0
     success_count: Optional[int] = 0
 

@@ -2,39 +2,55 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/niro/*.json
-  # 不在 Input 层直接解开 keys_under_root，交给下面的 processor 统一处理
+    - /var/log/niro/spider/*.json
+  tags: ["spider"]
+  json.keys_under_root: true
+  json.add_error_key: true
+
+- type: log
+  enabled: true
+  paths:
+    - /var/log/niro/java/*.json
+  tags: ["backend"]
+  json.keys_under_root: true
+  json.add_error_key: true
 
 processors:
-  # 1. 解析 JSON 内容
-  - decode_json_fields:
-      fields: ["message"]
-      target: ""
-      overwrite_keys: true
-      add_error_key: true
-
-  # 2. 核心修复：将 Loguru 的真实时间 repr (字符串) 转换为 ES 的 @timestamp
+  # 1. 核心修复：将 Loguru 的真实时间 repr (字符串) 转换为 ES 的 @timestamp
   - timestamp:
+      if: contains(tags, "spider")
       field: record.time.repr
       layouts:
-        - '2006-01-02 15:04:05.999999-07:00'  # 匹配 +00:00
-        - '2006-01-02 15:04:05.999999Z07:00'    # 匹配 +0000
-        - '2006-01-02 15:04:05.999999'          # 兜底：不带时区
-      timezone: 'Asia/Shanghai'      # 显式指定日志的时区
-      ignore_failure: false          # 如果解析失败，在日志中报错以便调试
+        - '2006-01-02 15:04:05.999999-07:00'
+        - '2006-01-02 15:04:05.999999'
+      timezone: 'Asia/Shanghai'
 
-  # 3. 清理多余字段，节省 2G 内存服务器的磁盘空间
+  # 2. 将 Java 日志的 timestamp 转换为 @timestamp
+  - timestamp:
+      if: contains(tags, "backend")
+      field: timestamp
+      layouts:
+        - '2006-01-02T15:04:05.999Z'
+        - '2006-01-02 15:04:05.999'
+      timezone: 'Asia/Shanghai'
+
+  # 3. 清理多余字段，节省磁盘空间
   - drop_fields:
-      fields: ["message", "log", "input", "agent", "ecs"]
+      fields: ["log", "input", "agent", "ecs", "host"]
       ignore_missing: true
 
 output.elasticsearch:
   hosts: ["elasticsearch:9200"]
-  index: "niro-spider-%{+yyyy.MM.dd}"
+  indices:
+    - index: "niro-spider-%{+yyyy.MM.dd}"
+      when.contains:
+        tags: "spider"
+    - index: "niro-backend-%{+yyyy.MM.dd}"
+      when.contains:
+        tags: "backend"
 
-setup.template.name: "niro-spider"
-setup.template.pattern: "niro-spider-*"
 setup.ilm.enabled: false
+setup.template.enabled: false
 
 queue.mem:
   events: 4096

@@ -2,18 +2,23 @@ package com.niro.web.controller;
 
 import cn.hutool.core.io.FileUtil;
 import cn.hutool.core.io.file.Tailer;
+import com.niro.web.service.LogService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.File;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -27,10 +32,22 @@ import java.util.concurrent.Executors;
 @RestController
 @RequestMapping("/log")
 @Slf4j
+@RequiredArgsConstructor
 public class LogController {
+
+    private final LogService logService;
 
     @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
     private String logPath;
+
+    /**
+     * 根据 TraceID 查询日志
+     */
+    @GetMapping("/search")
+    @Operation(summary = "全链路日志查询")
+    public List<Map<String, Object>> searchLogs(@RequestParam String traceId) {
+        return logService.queryLogsByTraceId(traceId);
+    }
 
     /**
      * 尝试在不同可能的相对路径下寻找日志文件

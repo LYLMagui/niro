@@ -64,7 +64,7 @@ services:
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
       - SPIDER_LOG_PATH=/app/logs/spider/niro_spider.log
     volumes:
-      - niro_shared_logs_test:/app/logs/spider
+      - niro_shared_logs_test:/app/logs
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
     healthcheck:
@@ -100,6 +100,7 @@ services:
       - REDIS_HOST=niro-redis-test
       - REDIS_PORT=6379
       - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+      - LOG_DIR=/app/logs/spider
     extra_hosts:
       - "host.docker.internal:host-gateway"
     volumes:

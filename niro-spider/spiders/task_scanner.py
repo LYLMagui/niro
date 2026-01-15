@@ -306,7 +306,12 @@ class TaskScanner:
         if hasattr(self, 'running_tasks'):
             self.running_tasks[task_id] = True
 
-        logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
+        task_logger = logger.bind(
+            task_id=task_id, 
+            task_name=task_name,
+            traceId=task.get('trace_id', '')
+        )
+        task_logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
         self.send_task_start_notification(task)
 
         try:
@@ -316,21 +321,21 @@ class TaskScanner:
             # 执行成功后的处理
             is_running = task_id in self.running_tasks if hasattr(self, 'running_tasks') else True
             if is_running:
-                logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
+                task_logger.info(f"✅ 系统任务执行完成 [ID:{task_id}]")
                 cron_expr = task.get('cron_expression')
                 if cron_expr:
                     self.update_task_status(task_id, 1)
                 else:
                     self.stop_task_in_db(task_id)
             else:
-                logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 在运行过程中已被停止")
+                task_logger.warning(f"⚠️ 系统任务 [ID:{task_id}] 在运行过程中已被停止")
 
         except LoginRequiredError:
-            logger.critical(f"🛑 系统任务 [ID:{task_id}] 登录失效且重试耗尽，正在停止任务...")
+            task_logger.critical(f"🛑 系统任务 [ID:{task_id}] 登录失效且重试耗尽，正在停止任务...")
             self.set_task_error(task_id)
             self.send_task_stop_notification(task, "Cookie 连续失效，请更新全局 BUFF_COOKIE")
         except Exception as e:
-            logger.error(f"🛑 系统任务 [ID:{task_id}] 执行异常且重试耗尽: {e}")
+            task_logger.error(f"🛑 系统任务 [ID:{task_id}] 执行异常且重试耗尽: {e}")
             self.set_task_error(task_id)
             self.send_task_stop_notification(task, f"同步失败: {e}")
         finally:
@@ -447,7 +452,12 @@ class TaskScanner:
             user_id = task_dict.get('user_id')
 
             # 为当前扫描循环绑定上下文，方便 ELK 检索
-            task_logger = logger.bind(task_id=task_id, user_id=user_id, task_name=task_dict.get('name'))
+            task_logger = logger.bind(
+                task_id=task_id, 
+                user_id=user_id, 
+                task_name=task_dict.get('name'),
+                traceId=task_dict.get('trace_id', '')
+            )
 
             # 2. 持续时间检查
             duration = pydash.get(task_dict, 'duration_minutes', 0)
@@ -522,9 +532,10 @@ class TaskScanner:
         task_name = task.get('name')
         task_type = task.get('task_type', 0)
         goods_id = task['goods_id']
+        trace_id = task.get('trace_id', '')
 
-        # 获取当前出口 IP 并创建带 IP 前缀的 logger
-        task_logger = logger.bind(task_id=task_id)
+        # 获取当前出口 IP 并创建带 IP 和 TraceID 的 logger
+        task_logger = logger.bind(task_id=task_id, traceId=trace_id)
 
         type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
         task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")

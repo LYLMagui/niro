@@ -5,7 +5,7 @@ import pendulum
 from loguru import logger
 
 # 定义日志目录和文件
-LOG_DIR = "logs"
+LOG_DIR = os.getenv("LOG_DIR", "logs")
 LOG_FILE = os.path.join(LOG_DIR, "niro_spider.log")
 # 为 ELK 准备的结构化 JSON 日志文件
 LOG_FILE_JSON = os.path.join(LOG_DIR, "niro_spider.json")
@@ -54,17 +54,23 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
             extra={
                 "service": "niro-spider", 
                 "env": os.getenv("APP_ENV", "dev"),
-                "ip": get_current_ip_cached()
+                "ip": get_current_ip_cached(),
+                "traceId": os.getenv("TRACE_ID", "")
             }
         ),
-        extra={"service": "niro-spider", "env": os.getenv("APP_ENV", "dev"), "ip": get_current_ip_cached()}
+        extra={
+            "service": "niro-spider", 
+            "env": os.getenv("APP_ENV", "dev"), 
+            "ip": get_current_ip_cached(),
+            "traceId": os.getenv("TRACE_ID", "")
+        }
     )
 
     # 1. 控制台输出 (开发友好，带颜色文本)
     logger.add(
         sys.stdout,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - ip：{extra[ip]} | <level>{message}</level>",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | ip：{extra[ip]} | <level>{message}</level>",
     )
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
@@ -76,7 +82,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         encoding="utf-8",
         enqueue=True,  # 异步写入，线程安全
-        format="{time:YYYY-MM-DD HH:mm:ss} | {level: <8} | {name}:{function}:{line} - ip：{extra[ip]} | {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip：{extra[ip]} | {message}",
     )
 
     # 3. 结构化 JSON 输出 (专为 ELK/Filebeat 设计)

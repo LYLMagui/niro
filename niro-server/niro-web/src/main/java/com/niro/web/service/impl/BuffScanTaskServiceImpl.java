@@ -28,6 +28,7 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import lombok.RequiredArgsConstructor;
+import org.slf4j.MDC;
 
 /**
  * 扫货任务服务实现类
@@ -77,6 +78,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setStatus(0);
         task.setSuccessCount(0);
         task.setUserId(currentUserId);
+        task.setTraceId(MDC.get("traceId"));
 
         this.save(task);
     }
@@ -124,6 +126,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
         
         task.setMinProfit(param.getMinProfit());
+        task.setTraceId(MDC.get("traceId"));
         
         this.updateById(task);
     }

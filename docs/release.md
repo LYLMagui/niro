@@ -1,5 +1,12 @@
 # Release Notes
 
+## 2026-01-16 (v1.22.0)
+- **全链路日志与监控闭环重构**：
+  - **Java 后端结构化改造**：引入 `logstash-logback-encoder`，实现 JSON 格式日志输出；集成全局 `TraceIdInterceptor`，在请求入口生成 UUID 并通过 MDC 传递，响应 Header 返回 `X-Niro-Trace-Id`。
+  - **爬虫端全链路对齐**：支持从数据库任务中读取 `traceId` 并注入 Loguru 结构化日志；对齐时区与时间戳格式，确保 EFK 采集精准。
+  - **EFK 采集链路优化**：重构 `filebeat.yml` 监控路径与动态索引命名（`niro-spider-*`/`niro-backend-*`），优化 `docker-compose` 卷挂载以共享日志文件。
+  - **前端搜索增强与可视化**：重载 `Logs.vue` 日志页面，实现基于 `traceId` 的全链路日志搜索组件；引入日志视觉聚合机制，使用“成交绿” (#2ba471) 高亮下单成功日志，SSE 降级为轻量级心跳推送。
+
 ## 2026-01-15 (v1.21.0)
 - **个人配置中心 UI/UX 深度演进**：
   - **布局固化与自适应**：重构为响应式 Grid 布局（7:3），引入 Aside 动态高度自适应机制，解决大屏换行与冗余滚动条问题。

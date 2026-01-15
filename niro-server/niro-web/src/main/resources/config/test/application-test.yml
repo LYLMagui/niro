@@ -24,6 +24,8 @@ spring:
         ping-connection-interval: 30000
       # 移除 Lettuce 相关配置，Redisson 会自动接管连接池
 
+  elasticsearch:
+    uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
 
 # 日志配置
 logging:
