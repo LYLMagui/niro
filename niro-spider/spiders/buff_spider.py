@@ -15,6 +15,7 @@ from tenacity import (
 
 from config import settings
 from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
+from enums.buff_enums import BuffGameType, BuffPaymentMethod, BuffSortStrategy
 from utils.browser_helper import BrowserHelper
 from utils.exception_handler import LoginRequiredError, handle_api_error
 from utils.logger import get_logger
@@ -88,7 +89,7 @@ class BuffSpider:
         before_sleep=before_retry_callback,
         reraise=True
     )
-    def get_goods_list(self, goods_id, page_num=1, min_paintwear=None, max_paintwear=None, max_price=None, sort_by="price.asc"):
+    def get_goods_list(self, goods_id, page_num=1, min_paintwear=None, max_paintwear=None, max_price=None, sort_by=BuffSortStrategy.PRICE_ASC.value):
         """
         获取饰品列表
         :param goods_id: 饰品ID
@@ -96,12 +97,12 @@ class BuffSpider:
         :param min_paintwear: 最小磨损
         :param max_paintwear: 最大磨损
         :param max_price: 最大价格
-        :param sort_by: 排序方式，默认价格正序 (price.asc)
+        :param sort_by: 排序方式，默认价格正序
         :return: 解析后的数据列表
         """
         url = "/api/market/goods/sell_order"
         params = {
-            "game": "csgo",
+            "game": BuffGameType.CSGO.value,
             "goods_id": goods_id,
             "page_num": page_num,
             "sort_by": sort_by,
@@ -215,7 +216,7 @@ class BuffSpider:
         before_sleep=before_retry_callback,
         reraise=True
     )
-    def buy(self, goods_id, item_id, price_str, pay_method=44, allow_tradable_cooldown=0):
+    def buy(self, goods_id, item_id, price_str, pay_method=BuffPaymentMethod.BALANCE, allow_tradable_cooldown=0):
         """
         下单购买接口
         :param goods_id: 饰品ID (如 33852)
@@ -230,7 +231,7 @@ class BuffSpider:
         sell_order_id = str(item_id)
         
         payload = {
-            "game": "csgo",
+            "game": BuffGameType.CSGO.value,
             "goods_id": int(goods_id),
             "sell_order_id": sell_order_id,
             "price": float(price_str),
@@ -292,7 +293,7 @@ class BuffSpider:
         """
         url = "/api/market/goods/batch_buy/preview"
         payload = {
-            "game": "csgo",
+            "game": BuffGameType.CSGO.value,
             "goods_id": int(goods_id),
             "sell_orders": sell_order_ids,
             "select_epay": 1,
@@ -338,7 +339,7 @@ class BuffSpider:
         """
         url = "/api/market/goods/batch_buy/create"
         payload = {
-            "game": "csgo",
+            "game": BuffGameType.CSGO.value,
             "goods_id": int(goods_id),
             "pay_method": int(pay_method),
             "frozen_amount": float(total_price),
@@ -408,7 +409,7 @@ class BuffSpider:
         
         return response.json()
 
-    def buy_v3(self, goods_id, sell_order_ids: list, pay_method=44):
+    def buy_v3(self, goods_id, sell_order_ids: list, pay_method=BuffPaymentMethod.BALANCE):
         """
         高度模拟真人的批量下单完整流程 (推荐使用)
         :param goods_id: 饰品ID
@@ -422,7 +423,7 @@ class BuffSpider:
             if not preview_data: return None
             
             # 模拟官网逻辑：从 preview 响应中找到选中的支付方式的价格
-            selected_method = next((m for m in preview_data.get("pay_methods", []) if m.get("value") == pay_method), None)
+            selected_method = next((m for m in preview_data.get("pay_methods", []) if m.get("value") == int(pay_method)), None)
             if not selected_method:
                 self.logger.error(f"❌ 预览失败: 不支持支付方式 {pay_method}")
                 return None
@@ -453,7 +454,7 @@ class BuffSpider:
                 if epay_url:
                     self.logger.info(f"🔗 [批量下单] 支付链接 (请手动支付): {epay_url}")
                     # 如果是非余额支付，我们需要返回支付链接供用户操作
-                    if pay_method != 44:
+                    if int(pay_method) != BuffPaymentMethod.BALANCE:
                         self.logger.info("⏳ 检测到非余额支付，请在浏览器中完成支付后，脚本将继续轮询状态...")
                     
                     headers = self.profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
@@ -499,7 +500,7 @@ class BuffSpider:
             })
 
             payload = {
-                "game": "csgo",
+                "game": BuffGameType.CSGO.value,
                 "goods_id": int(goods_id),
                 "sell_order_id": sell_order_id,
                 "price": str(total_price),
