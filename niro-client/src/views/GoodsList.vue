@@ -1,7 +1,7 @@
 <template>
-  <div class="space-y-4">
+  <div class="p-6">
     <!-- 合并后的商品列表卡片 -->
-    <t-card :bordered="false" class="transition-shadow duration-300 hover:shadow embedded-card">
+    <t-card :bordered="false" class="shadow-sm embedded-card">
       <template #title>
         <div class="flex items-center">
           <t-icon name="view-list" class="mr-2 text-blue-600" />
@@ -102,7 +102,6 @@
         hover
         :header-affixed-top="true"
         class="embedded-table w-full"
-        :pagination-affixed-bottom="true"
         @page-change="onPageChange"
       >
         <template #empty>
@@ -165,26 +164,28 @@
 
         <!-- 操作列 -->
         <template #operation="{ row }">
-          <t-button
-            variant="text"
-            theme="primary"
-            size="small"
-            class="transition-all hover:font-bold"
-            @click="openBuffGoods(row.goodsId)"
-          >
-            <template #icon><link-icon /></template>
-            详情
-          </t-button>
-          <t-button
-            variant="text"
-            theme="warning"
-            size="small"
-            class="ml-2 transition-all hover:font-bold"
-            @click="openCreateTaskDialog(row)"
-          >
-            <template #icon><shop-icon /></template>
-            扫货
-          </t-button>
+          <div class="flex items-center justify-center space-x-2">
+            <t-button
+              variant="text"
+              theme="primary"
+              size="small"
+              class="transition-all hover:font-bold"
+              @click="openBuffGoods(row.goodsId)"
+            >
+              <template #icon><link-icon /></template>
+              详情
+            </t-button>
+            <t-button
+              variant="text"
+              theme="warning"
+              size="small"
+              class="transition-all hover:font-bold"
+              @click="openCreateTaskDialog(row)"
+            >
+              <template #icon><shop-icon /></template>
+              扫货
+            </t-button>
+          </div>
         </template>
       </t-table>
     </t-card>
@@ -327,11 +328,11 @@ const pagination = reactive({
 // 表格列定义
 const columns: PrimaryTableCol[] = [
   { colKey: "iconUrl", title: "图片", width: 140, align: "center" },
-  { colKey: "name", title: "商品名称", minWidth: 250 },
-  { colKey: "goodsId", title: "Goods ID", width: 100 },
-  { colKey: "exterior", title: "外观", width: 120 },
-  { colKey: "rarity", title: "稀有度", width: 120 },
-  { colKey: "operation", title: "操作", width: 100, fixed: "right" },
+  { colKey: "name", title: "商品名称", minWidth: 250, align: "left" },
+  { colKey: "goodsId", title: "Goods ID", width: 100, align: "left" },
+  { colKey: "exterior", title: "外观", width: 120, align: "left" },
+  { colKey: "rarity", title: "稀有度", width: 120, align: "left" },
+  { colKey: "operation", title: "操作", width: 160, fixed: "right", align: "center" },
 ];
 
 // 加载数据
@@ -426,54 +427,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-/* 嵌入式卡片布局优化 */
-.embedded-card :deep(.t-card__body) {
-  padding: 0 !important;
-}
-
-.embedded-card :deep(.t-card__header) {
-  padding: 16px 24px !important;
-}
-
-/* 嵌入式表格深度定制 */
-:deep(.embedded-table) {
-  border: none !important;
-}
-
-/* 表头背景色与标题栏衔接 */
-:deep(.embedded-table .t-table__header tr) {
-  background-color: #f8fafc !important;
-}
-
-:deep(.embedded-table .t-table__header th) {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important;
-  height: 48px;
-}
-
-:deep(.embedded-table .t-table__body td) {
-  padding: 16px 16px !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-/* 第一列和最后一列的 24px 边距对齐 */
-:deep(.embedded-table th:first-child),
-:deep(.embedded-table td:first-child) {
-  padding-left: 24px !important;
-}
-
-:deep(.embedded-table th:last-child),
-:deep(.embedded-table td:last-child) {
-  padding-right: 24px !important;
-}
-
-:deep(.embedded-table .t-table__row--hover) {
-  background-color: #f8fafc !important;
-}
-
 /* 图片预览样式保持 */
 .goods-img-container {
   transition: transform 0.2s;

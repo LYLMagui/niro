@@ -42,6 +42,8 @@ public class BuffAccountDTO {
 
     private String warningMsg;
 
+    private Boolean checking;
+
     private Integer todayScanCount;
 
     private Integer tradeSuccessCount;

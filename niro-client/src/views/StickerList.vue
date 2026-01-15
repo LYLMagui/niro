@@ -13,7 +13,7 @@
       <div class="p-6 border-b border-gray-100">
         <t-form :data="queryParams" layout="inline" @submit="handleSearch">
           <t-form-item label="搜索名称" name="keyword">
-            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable />
+            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable @blur="(v: string) => handleInputTrim(v, queryParams, 'keyword')" />
           </t-form-item>
           <t-form-item>
             <div class="flex gap-4">
@@ -100,6 +100,15 @@ import { type PrimaryTableCol } from 'tdesign-vue-next';
 const loading = ref(false);
 const dataList = ref<any[]>([]);
 
+/**
+ * 自动清除换行符和首尾空格
+ */
+const handleInputTrim = (val: string, target: any, key: string) => {
+  if (typeof val === 'string') {
+    target[key] = val.replace(/[\r\n]/g, '').trim();
+  }
+};
+
 // 图片预览状态
 const imageVisible = ref(false);
 const previewImage = ref("");
@@ -125,10 +134,10 @@ const pagination = reactive({
 
 const columns: PrimaryTableCol<any>[] = [
   { colKey: 'imageUrl', title: '图标', width: 140, align: 'center' },
-  { colKey: 'name', title: '印花名称', ellipsis: true, minWidth: 200 },
+  { colKey: 'name', title: '印花名称', ellipsis: true, minWidth: 200, align: 'left' },
   { colKey: 'price', title: '当前价格', width: 120, align: 'right' },
   { colKey: 'sellNum', title: '在售数量', width: 100, align: 'right' },
-  { colKey: 'updateTime', title: '最后更新', width: 180 },
+  { colKey: 'updateTime', title: '最后更新', width: 180, align: 'left' },
 ];
 
 // 获取列表数据
@@ -191,56 +200,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.sticker-list-container {
-  background-color: #f3f4f6;
-  min-height: calc(100vh - 64px);
-}
-
-/* 嵌入式卡片布局优化 */
-.embedded-card :deep(.t-card__body) {
-  padding: 0 !important;
-}
-
-.embedded-card :deep(.t-card__header) {
-  padding: 16px 24px !important;
-}
-
-/* 嵌入式表格深度定制 */
-:deep(.embedded-table) {
-  border: none !important;
-}
-
-/* 表头背景色与标题栏衔接 */
-:deep(.embedded-table .t-table__header tr) {
-  background-color: #f8fafc !important;
-}
-
-:deep(.embedded-table .t-table__header th) {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important;
-  height: 48px;
-}
-
-:deep(.embedded-table .t-table__body td) {
-  padding: 16px 16px !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-/* 第一列和最后一列的 24px 边距对齐 */
-:deep(.embedded-table th:first-child),
-:deep(.embedded-table td:first-child) {
-  padding-left: 24px !important;
-}
-
-:deep(.embedded-table th:last-child),
-:deep(.embedded-table td:last-child) {
-  padding-right: 24px !important;
-}
-
-:deep(.embedded-table .t-table__row--hover) {
-  background-color: #f8fafc !important;
-}
+/* 图片预览样式保持 */
 </style>

@@ -1,58 +1,37 @@
 <template>
-  <div class="settings-container p-6 bg-gray-50 min-h-screen">
-    <!-- 顶部标题栏 -->
-    <div class="mb-6 flex items-center justify-between">
-      <div class="flex items-center space-x-3">
-        <t-icon name="user-setting" size="24px" class="text-blue-600" />
-        <h2 class="text-xl font-bold text-gray-800">个人配置中心</h2>
-      </div>
-      <t-breadcrumb>
-        <t-breadcrumb-item>控制台</t-breadcrumb-item>
-        <t-breadcrumb-item>个人配置</t-breadcrumb-item>
-      </t-breadcrumb>
-    </div>
-
-    <t-row :gutter="[24, 24]">
-      <!-- 账号管理 (占据全部宽度，侧边设置改为抽屉) -->
-      <t-col :span="24">
-        <t-card :bordered="false" class="shadow-sm h-full embedded-card">
+  <div class="p-6">
+    <div class="grid grid-cols-1 lg:grid-cols-[72%_1fr] gap-6 items-start">
+      <!-- 左侧：Content (72%) -->
+      <div class="min-w-0">
+        <!-- 账号列表 -->
+        <t-card :bordered="false" class="shadow-sm embedded-card h-full">
           <template #title>
             <div class="flex items-center">
-              <t-icon name="user-circle" class="mr-2 text-blue-600" />
-              <span class="text-lg font-bold text-gray-800">账号列表</span>
+              <t-icon name="user-setting" class="mr-2 text-blue-600" />
+              <span class="text-lg font-bold text-gray-800">BUFF 账号管理</span>
             </div>
           </template>
           <template #actions>
-            <t-space size="16px">
+            <t-space size="8px">
               <t-button
                 variant="outline"
                 theme="default"
-                size="medium"
+                size="small"
                 @click="onCheckAll"
                 :loading="checkingAll"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                class="rounded transition-all duration-300 !text-gray-600 !border-gray-200"
               >
                 <template #icon><t-icon name="refresh" /></template>
                 一键检测
               </t-button>
               <t-button
                 theme="primary"
-                size="medium"
+                size="small"
                 @click="onAddAccount"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                class="rounded transition-all duration-300"
               >
                 <template #icon><t-icon name="add" /></template>
                 新增账号
-              </t-button>
-              <t-button
-                variant="outline"
-                theme="default"
-                size="medium"
-                shape="square"
-                @click="drawerVisible = true"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none text-gray-400"
-              >
-                <template #icon><t-icon name="setting" /></template>
               </t-button>
             </t-space>
           </template>
@@ -62,105 +41,113 @@
             :columns="accountColumns"
             row-key="id"
             :loading="accountsLoading"
-            size="medium"
             hover
+            :header-affixed-top="true"
             class="embedded-table w-full"
             :bordered="false"
           >
-            <!-- 空状态 -->
+            <!-- 空状态 (保持原样) -->
             <template #empty>
               <t-empty icon="component-breadcrumb" description="暂无账号配置，请点击上方“新增账号”开始使用" />
             </template>
 
-            <!-- 账号名称列增加图标标识 -->
+            <!-- 账号名称列增加图标标识 (保持原样) -->
             <template #accountName="{ row }">
               <div class="flex items-center space-x-2">
                 <t-icon name="user-circle" class="text-blue-500" size="18px" />
-                <span class="font-medium text-gray-800">{{ row.accountName }}</span>
+                <span class="font-semibold text-[#1d2129]">{{ row.accountName }}</span>
               </div>
             </template>
 
-            <!-- 角色标签美化 -->
+            <!-- 角色标签美化 (保持原样) -->
             <template #role="{ row }">
-              <t-tag :theme="getRoleTheme(row.role)" variant="light" shape="round" class="px-3 font-bold">
+              <t-tag 
+                variant="outline" 
+                shape="round" 
+                size="small"
+                :class="['px-2 font-bold compact-tag transition-all duration-300', getGhostTagClass(row.role)]"
+              >
                 <template #icon>
-                  <t-icon :name="row.role === 'SCAN' ? 'search' : row.role === 'TRADE' ? 'target' : 'component-dropdown'" />
+                  <t-icon :name="row.role === 'SCAN' ? 'search' : row.role === 'TRADE' ? 'cart' : 'view-module'" />
                 </template>
                 {{ getRoleLabel(row.role) }}
               </t-tag>
             </template>
 
-            <!-- 状态呼吸灯与动效 -->
+            <!-- 状态呼吸灯与动效 (保持原样) -->
             <template #status="{ row }">
-              <div class="flex items-center">
-                <span :class="['w-2 h-2 rounded-full inline-block relative', getStatusTheme(row.status), (row.status === 'SCANNING' || row.status === 'COOLING_DOWN') ? 'breathing' : '']"></span>
+              <div v-if="row.checking" class="flex items-center text-blue-600">
+                <t-loading size="small" text="检测中" inherit-color />
+              </div>
+              <div v-else class="flex items-center">
+                <span :class="['w-2 h-2 rounded-full inline-block relative', getStatusTheme(row.status), (row.status === 'SCANNING' || row.status === 'COOLING_DOWN') ? 'breathing' : '', row.status === 'NORMAL' ? 'status-dot-online' : '']"></span>
                 <div class="ml-2 flex flex-col">
                   <div class="flex items-center">
-                    <span :class="['text-xs font-bold', getStatusTextColor(row.status)]">{{ getStatusLabel(row.status) }}</span>
+                    <span :class="['text-[13px] font-semibold', getStatusTextColor(row.status)]">{{ getStatusLabel(row.status) }}</span>
                     <t-tooltip :content="row.warningMsg" v-if="row.warningMsg">
                       <t-icon name="error-circle" class="ml-1 text-red-500" />
                     </t-tooltip>
-                  </div>
-                  <!-- 风控倒计时预警 -->
-                  <div v-if="row.status === 'MARKET_RESTRICTED'" class="text-[10px] text-orange-500 font-mono font-bold">
-                    恢复中: 14:59
                   </div>
                 </div>
               </div>
             </template>
 
-            <!-- 统计列美化 -->
+            <!-- 统计列美化 (保持原样) -->
             <template #stats="{ row }">
-              <div class="flex flex-col space-y-1 py-1">
-                <div class="flex justify-between text-[11px] text-gray-500">
-                  <span>今日扫描</span>
-                  <span class="font-mono font-bold text-blue-600">{{ row.todayScanCount || 0 }}</span>
+              <div class="flex flex-col justify-center gap-1 py-1 h-full min-h-[44px]">
+                <div class="flex items-center leading-tight">
+                  <span class="text-[12px] text-[#86909c] mr-2 shrink-0">扫描:</span>
+                  <span class="text-[13px] font-bold text-blue-600 font-numeric">
+                    {{ (row.todayScanCount || 0).toLocaleString() }}
+                  </span>
                 </div>
-                <div class="flex justify-between text-[11px] text-gray-500">
-                  <span>下单成功率</span>
-                  <span class="font-mono font-bold" :class="getRateColor(row.tradeSuccessRate)">
+                <div class="flex items-center leading-tight">
+                  <span class="text-[12px] text-[#86909c] mr-2 shrink-0">成功:</span>
+                  <span class="text-[13px] font-bold text-green-600 font-numeric">
                     {{ ((row.tradeSuccessRate || 0) * 100).toFixed(1) }}%
                   </span>
                 </div>
               </div>
             </template>
 
-            <!-- 余额显示/隐藏 -->
+            <!-- 余额显示/隐藏 (保持原样) -->
             <template #balance="{ row }">
-              <div class="flex items-center justify-between group">
-                <div class="font-mono font-bold text-orange-600">
-                  <span class="text-xs mr-0.5">¥</span>
+              <div 
+                class="flex items-center justify-end cursor-pointer select-none group"
+                @click="balanceVisible = !balanceVisible"
+              >
+                <div :class="['font-numeric font-bold text-sm transition-all duration-300', getBalanceClass(row), (row.balance || 0) > 1000 ? 'high-value-shadow' : '']">
+                  <span class="text-[10px] mr-0.5 opacity-60">¥</span>
                   <span v-if="balanceVisible">{{ row.balance?.toFixed(2) }}</span>
                   <span v-else>****</span>
                 </div>
-                <t-button variant="text" shape="square" size="small" class="opacity-0 group-hover:opacity-100 transition-opacity" @click="balanceVisible = !balanceVisible">
-                  <template #icon><t-icon :name="balanceVisible ? 'browse' : 'browse-off'" size="14px" /></template>
-                </t-button>
               </div>
             </template>
 
-            <!-- 最后检测时间 -->
+            <!-- 最后检测时间 (保持原样) -->
             <template #lastCheckTime="{ row }">
-              <div class="text-[11px] text-gray-400">
-                {{ row.lastCheckTime ? row.lastCheckTime.replace('T', ' ').substring(5, 16) : '-' }}
+              <div class="flex items-center space-x-2">
+                <div class="text-[12px] text-[#86909c] font-numeric font-medium">
+                  {{ row.lastCheckTime ? row.lastCheckTime.replace('T', ' ').substring(5, 16) : '等待检测' }}
+                </div>
               </div>
             </template>
 
-            <!-- 操作列 -->
+            <!-- 操作列 (保持原样) -->
             <template #operation="{ row }">
-              <div class="flex items-center space-x-3">
+              <div class="flex items-center justify-center space-x-3">
                 <t-tooltip content="编辑">
-                  <t-link theme="primary" @click="onEditAccount(row)">
+                  <t-link theme="default" @click="onEditAccount(row)" :disabled="row.checking" class="!text-gray-400 hover:!text-blue-600 transition-colors">
                     <t-icon name="edit" />
                   </t-link>
                 </t-tooltip>
                 <t-tooltip content="检测">
-                  <t-link theme="primary" @click="onCheckAccount(row)" :loading="checkingIds.includes(row.id)">
-                    <t-icon name="refresh" />
+                  <t-link theme="default" @click="onCheckAccount(row)" :disabled="row.checking" class="!text-gray-400 hover:!text-blue-600 transition-colors">
+                    <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
                   </t-link>
                 </t-tooltip>
                 <t-popconfirm content="确定删除该账号吗？" @confirm="onDeleteAccount(row)">
-                  <t-link theme="danger">
+                  <t-link theme="default" :disabled="row.checking" class="!text-gray-400 hover:!text-red-500 transition-colors">
                     <t-icon name="delete" />
                   </t-link>
                 </t-popconfirm>
@@ -168,102 +155,131 @@
             </template>
           </t-table>
         </t-card>
-      </t-col>
-    </t-row>
+      </div>
 
-    <!-- 全局配置与监控抽屉 -->
-    <t-drawer
-      v-model:visible="drawerVisible"
-      header="全局配置与监控"
-      size="400px"
-      :footer="false"
-      destroy-on-close
-    >
-      <div class="drawer-content space-y-6">
-        <!-- 系统监控卡片 (移动至抽屉顶部) -->
-        <t-card title="系统监控" :bordered="false" class="bg-gray-50 border border-gray-100">
-          <div class="grid grid-cols-2 gap-4">
-            <div class="p-4 bg-white rounded-xl shadow-sm border border-blue-100">
-              <div class="text-xs text-blue-500 font-bold mb-1 uppercase tracking-wider">活跃账号</div>
-              <div class="text-2xl font-black text-blue-900">{{ accounts.filter(a => a.status === 'NORMAL').length }}<span class="text-sm text-gray-400 font-normal ml-1">/ {{ accounts.length }}</span></div>
+      <!-- 右侧：Aside 整体化 (30%) -->
+      <div class="lg:sticky lg:top-6 flex flex-col h-fit">
+        <t-card :bordered="false" class="shadow-sm overflow-hidden">
+          <template #title>
+            <div class="flex items-center">
+              <t-icon name="setting" class="mr-2 text-gray-500" size="20px" />
+              <span class="text-base font-bold text-gray-800">控制面板</span>
             </div>
-            <div class="p-4 bg-white rounded-xl shadow-sm border border-orange-100">
-              <div class="text-xs text-orange-500 font-bold mb-1 uppercase tracking-wider">总余额</div>
-              <div class="text-2xl font-black text-orange-900">
-                <span v-if="balanceVisible">¥{{ totalBalance.toFixed(0) }}</span>
-                <span v-else>****</span>
+          </template>
+          
+          <div class="px-4 py-2 space-y-6">
+            <!-- 统计板块 -->
+            <section>
+              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+                <span class="mr-2">实时统计</span>
+                <div class="h-[1px] bg-gray-100 flex-1"></div>
               </div>
-            </div>
-          </div>
-        </t-card>
-
-        <!-- 交易全局设置 -->
-        <t-card title="交易全局设置" :bordered="false" class="bg-gray-50 border border-gray-100">
-          <t-form :data="formData" label-align="top" @submit="onSubmit">
-            <t-form-item label="默认支付方式" name="paymentMethod">
-              <t-radio-group v-model="formData.paymentMethod" variant="default-filled" size="small" class="w-full">
-                <t-radio-button value="BALANCE">
-                  <template #default><t-icon name="wallet" class="mr-1" />余额</template>
-                </t-radio-button>
-                <t-radio-button value="ALIPAY">
-                  <template #default><t-icon name="logo-alipay" class="mr-1" />支付宝</template>
-                </t-radio-button>
-                <t-radio-button value="WECHAT">
-                  <template #default><t-icon name="logo-wechat" class="mr-1" />微信</template>
-                </t-radio-button>
-              </t-radio-group>
-            </t-form-item>
-            
-            <div class="mt-6 pt-4 border-t border-gray-200">
-              <div class="flex items-center justify-between mb-4">
-                <h4 class="text-sm font-bold text-gray-700 flex items-center">
-                  <t-icon name="chat" class="mr-2 text-green-600" />
-                  企业微信通知
-                </h4>
-                <t-switch v-model="wecomEnabled" size="small" />
-              </div>
-              
-              <div v-show="wecomEnabled" class="space-y-4 transition-all duration-300">
-                <t-form-item label="企业ID (CorpID)" name="wecomCorpid">
-                  <t-input v-model="formData.wecomCorpid" placeholder="ww..." />
-                </t-form-item>
-                <t-form-item label="应用Secret" name="wecomCorpsecret">
-                  <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="******" />
-                </t-form-item>
-                <div class="grid grid-cols-2 gap-4">
-                  <t-form-item label="AgentID" name="wecomAgentid">
-                    <t-input v-model="formData.wecomAgentid" placeholder="1000..." />
-                  </t-form-item>
-                  <t-form-item label="接收人" name="wecomTouser">
-                    <t-input v-model="formData.wecomTouser" placeholder="@all" />
-                  </t-form-item>
+              <div class="grid grid-cols-2 gap-3">
+                <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-3 transition-all hover:bg-blue-50">
+                  <div class="text-[12px] text-[#86909c] mb-1">活跃账号</div>
+                  <div class="flex items-baseline gap-1">
+                    <span class="text-xl font-bold text-[#0052d9] font-numeric">{{ accounts.filter(a => a.status === 'NORMAL').length }}</span>
+                    <span class="text-[11px] text-[#86909c]">/ {{ accounts.length }}</span>
+                  </div>
+                </div>
+                <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-3 transition-all hover:bg-orange-50">
+                  <div class="text-[12px] text-[#86909c] mb-1">总余额</div>
+                  <div class="flex items-baseline gap-0.5">
+                    <span v-if="balanceVisible" class="text-[12px] font-bold text-[#d97706]">¥</span>
+                    <span class="text-xl font-bold text-[#d97706] font-numeric">
+                      {{ balanceVisible ? totalBalance.toFixed(2) : '****' }}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div class="mt-8">
-              <t-button
-                theme="primary"
-                type="submit"
-                block
-                :loading="loading"
-                size="large"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
-              >
-                保存全局配置
-              </t-button>
-            </div>
-          </t-form>
+            <!-- 交易配置 -->
+            <section>
+              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+                <span class="mr-2">交易配置</span>
+                <div class="h-[1px] bg-gray-100 flex-1"></div>
+              </div>
+              <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
+                <t-form-item label="默认支付方式" name="paymentMethod">
+                  <template #label>
+                    <span class="text-[#86909c]">默认支付方式</span>
+                  </template>
+                  <t-radio-group v-model="formData.paymentMethod" variant="default-filled" size="small" class="w-full">
+                    <t-radio-button value="BALANCE">余额</t-radio-button>
+                    <t-radio-button value="ALIPAY">支付宝</t-radio-button>
+                    <t-radio-button value="WECHAT">微信</t-radio-button>
+                  </t-radio-group>
+                </t-form-item>
+                
+                <div class="mt-4 flex items-center justify-between">
+                  <span class="text-[13px] text-[#86909c]">企业微信通知</span>
+                  <t-switch v-model="wecomEnabled" size="small" />
+                </div>
+              </t-form>
+            </section>
+
+            <!-- 参数详情 (折叠) -->
+            <section v-if="wecomEnabled">
+              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+                <span class="mr-2">通知参数</span>
+                <div class="h-[1px] bg-gray-100 flex-1"></div>
+              </div>
+              <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
+                <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
+                  <t-collapse-panel value="wecom" class="!bg-transparent">
+                    <template #header>
+                      <span class="text-[13px] text-[#86909c]">企业微信凭据</span>
+                    </template>
+                    <div class="space-y-3 pt-2">
+                      <t-form-item label="CorpID" name="wecomCorpid">
+                        <template #label><span class="text-[#86909c]">CorpID</span></template>
+                        <t-input v-model="formData.wecomCorpid" placeholder="ww..." @blur="(v: string) => handleInputTrim(v, formData, 'wecomCorpid')" />
+                      </t-form-item>
+                      <t-form-item label="CorpSecret" name="wecomCorpsecret">
+                        <template #label><span class="text-[#86909c]">CorpSecret</span></template>
+                        <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="******" @blur="(v: string) => handleInputTrim(v, formData, 'wecomCorpsecret')" />
+                      </t-form-item>
+                      <div class="grid grid-cols-2 gap-3">
+                        <t-form-item label="AgentID" name="wecomAgentid">
+                          <template #label><span class="text-[#86909c]">AgentID</span></template>
+                          <t-input v-model="formData.wecomAgentid" placeholder="1000..." @blur="(v: string) => handleInputTrim(v, formData, 'wecomAgentid')" />
+                        </t-form-item>
+                        <t-form-item label="接收人" name="wecomTouser">
+                          <template #label><span class="text-[#86909c]">接收人</span></template>
+                          <t-input v-model="formData.wecomTouser" placeholder="@all" @blur="(v: string) => handleInputTrim(v, formData, 'wecomTouser')" />
+                        </t-form-item>
+                      </div>
+                    </div>
+                  </t-collapse-panel>
+                </t-collapse>
+              </t-form>
+            </section>
+          </div>
+
+          <!-- 底部固定保存按钮 -->
+          <div class="p-4 bg-white border-t border-gray-50 mt-4">
+            <t-button
+              theme="primary"
+              type="submit"
+              block
+              :loading="loading"
+              size="small"
+              class="rounded shadow-sm h-9"
+              @click="onSubmit({ validateResult: true } as any)"
+            >
+              保存全局配置
+            </t-button>
+          </div>
         </t-card>
       </div>
-    </t-drawer>
-
+    </div>
     <!-- 账号编辑弹窗 (保持原样) -->
     <t-dialog
       v-model:visible="accountDialogVisible"
       :header="accountDialogTitle"
       :footer="false"
-      width="600px"
+      width="520px"
     >
       <t-form
         ref="accountFormRef"
@@ -271,42 +287,50 @@
         :rules="accountRules"
         label-align="top"
         @submit="onAccountSubmit"
+        class="overflow-x-hidden p-1"
       >
-        <t-form-item label="账号名称" name="accountName">
-          <t-input v-model="accountFormData.accountName" placeholder="如：扫描账号01" />
-        </t-form-item>
-        <t-form-item label="Cookie (buff_cookie)" name="buffCookie">
-          <t-textarea
-            v-model="accountFormData.buffCookie"
-            placeholder="请粘贴 Cookie 字符串..."
-            :autosize="{ minRows: 3, maxRows: 5 }"
-          />
-        </t-form-item>
-        <div class="grid grid-cols-2 gap-4">
-          <t-form-item label="角色" name="role">
-            <t-select v-model="accountFormData.role">
-              <t-option label="扫描 (仅扫描)" value="SCAN" />
-              <t-option label="下单 (仅下单)" value="TRADE" />
-              <t-option label="全能 (扫描+下单)" value="BOTH" />
-            </t-select>
+        <div class="flex gap-6">
+          <t-form-item label="账号名称" name="accountName" class="flex-[1.5] min-w-0">
+            <t-input v-model="accountFormData.accountName" placeholder="如：扫描账号01" @blur="(v: string) => handleInputTrim(v, accountFormData, 'accountName')" />
           </t-form-item>
-          <t-form-item label="权重 (1-10)" name="weight">
+          <t-form-item label="权重 (1-10)" name="weight" class="w-[140px] shrink-0">
             <t-input-number
               v-model="accountFormData.weight"
               :min="1"
               :max="10"
               class="w-full"
+              auto-width
             />
           </t-form-item>
         </div>
-        <t-form-item label="备注" name="remark">
-          <t-input v-model="accountFormData.remark" placeholder="可选备注信息" />
+
+        <t-form-item label="Cookie (buff_cookie)" name="buffCookie">
+          <t-textarea
+            v-model="accountFormData.buffCookie"
+            placeholder="请粘贴 Cookie 字符串..."
+            :autosize="{ minRows: 3, maxRows: 5 }"
+            @blur="(v: string) => handleInputTrim(v, accountFormData, 'buffCookie')"
+            class="custom-textarea"
+          />
         </t-form-item>
-        <div class="mt-6 flex justify-end space-x-4">
+
+        <t-form-item label="角色" name="role">
+          <t-select v-model="accountFormData.role">
+            <t-option label="扫描 (仅扫描)" value="SCAN" />
+            <t-option label="下单 (仅下单)" value="TRADE" />
+            <t-option label="全能 (扫描+下单)" value="BOTH" />
+          </t-select>
+        </t-form-item>
+
+        <t-form-item label="备注" name="remark">
+          <t-input v-model="accountFormData.remark" placeholder="可选备注信息" @blur="(v: string) => handleInputTrim(v, accountFormData, 'remark')" />
+        </t-form-item>
+
+        <div class="mt-8 flex justify-end gap-3">
           <t-button
             variant="outline"
             @click="accountDialogVisible = false"
-            class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+            class="rounded-md transition-all duration-300"
           >
             取消
           </t-button>
@@ -314,7 +338,7 @@
             theme="primary"
             type="submit"
             :loading="accountSubmitLoading"
-            class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+            class="rounded-md transition-all duration-300 px-8"
           >
             确定
           </t-button>
@@ -332,8 +356,24 @@ import { computed, onMounted, reactive, ref } from "vue";
 // --- 通用配置部分 ---
 const loading = ref(false);
 const wecomEnabled = ref(true);
-const drawerVisible = ref(false);
 const balanceVisible = ref(true);
+
+// 模拟 SSE 日志数据
+const scanLogs = ref([
+  { time: '10:24:05', type: 'info', content: '系统初始化完成，等待任务调度...' },
+  { time: '10:24:10', type: 'success', content: '账号 [扫描号01] 登录状态校验成功' },
+  { time: '10:24:12', type: 'info', content: '正在扫描 [AK-47 | 二西莫夫] 市场数据...' },
+  { time: '10:24:15', type: 'info', content: '发现 5 个符合条件的饰品，正在进行磨损比对...' },
+]);
+
+/**
+ * 自动清除换行符和首尾空格
+ */
+const handleInputTrim = (val: string, target: any, key: string) => {
+  if (typeof val === 'string') {
+    target[key] = val.replace(/[\r\n]/g, '').trim();
+  }
+};
 
 const formData = reactive<UserBuffSettings>({
   paymentMethod: "BALANCE",
@@ -362,7 +402,6 @@ const onSubmit = async (context: SubmitContext) => {
     try {
       await settingsApi.saveSettings(formData);
       MessagePlugin.success("全局配置已同步");
-      drawerVisible.value = false;
     } finally {
       loading.value = false;
     }
@@ -373,7 +412,6 @@ const onSubmit = async (context: SubmitContext) => {
 const accounts = ref<BuffAccount[]>([]);
 const accountsLoading = ref(false);
 const checkingAll = ref(false);
-const checkingIds = ref<number[]>([]);
 const accountDialogVisible = ref(false);
 const accountDialogTitle = ref("新增账号");
 const accountSubmitLoading = ref(false);
@@ -398,13 +436,13 @@ const accountRules: Record<string, FormRule[]> = {
 };
 
 const accountColumns: PrimaryTableCol<TableRowData>[] = [
-  { colKey: "accountName", title: "账号", width: 140, ellipsis: true, cell: "accountName" },
-  { colKey: "role", title: "角色", width: 110, cell: "role" },
-  { colKey: "status", title: "状态", width: 120, cell: "status" },
-  { colKey: "stats", title: "实时统计", width: 160, cell: "stats" },
-  { colKey: "balance", title: "余额", width: 110, cell: "balance" },
-  { colKey: "lastCheckTime", title: "最后检测", width: 110, cell: "lastCheckTime" },
-  { colKey: "operation", title: "操作", width: 130, fixed: "right", cell: "operation" },
+  { colKey: "accountName", title: "账号", width: 140, ellipsis: true, cell: "accountName", align: "left" },
+  { colKey: "role", title: "角色", width: 100, cell: "role", align: "left" },
+  { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
+  { colKey: "stats", title: "实时统计", width: 150, cell: "stats", align: "left" },
+  { colKey: "balance", title: "余额", width: 110, cell: "balance", align: "right" },
+  { colKey: "lastCheckTime", title: "最后检测", width: 140, cell: "lastCheckTime", align: "left" },
+  { colKey: "operation", title: "操作", width: 130, fixed: "right", cell: "operation", align: "center" },
 ];
 
 const fetchAccounts = async () => {
@@ -466,23 +504,29 @@ const onDeleteAccount = async (row: BuffAccount) => {
 
 const onCheckAccount = async (row: BuffAccount) => {
   if (!row.id) return;
-  checkingIds.value.push(row.id);
+  row.checking = true;
   try {
     await settingsApi.checkBuffAccount(row.id);
-    MessagePlugin.success(`${row.accountName} 检测任务已启动`);
-    // 模拟 SSE 更新延迟
-    setTimeout(fetchAccounts, 1500);
+    MessagePlugin.success(`账号 [${row.accountName}] 检测完成`);
+    fetchAccounts();
+  } catch (e) {
+    console.error(e);
   } finally {
-    checkingIds.value = checkingIds.value.filter(id => id !== row.id);
+    row.checking = false;
   }
 };
 
 const onCheckAll = async () => {
+  if (accounts.value.length === 0) return;
   checkingAll.value = true;
+  // 给所有账号设置检测状态
+  accounts.value.forEach(a => a.checking = true);
   try {
     await settingsApi.checkAllBuffAccounts();
-    MessagePlugin.success("全局检测指令已下发，请留意状态变化");
-    setTimeout(fetchAccounts, 2000);
+    MessagePlugin.success("全局账号检测完成");
+    fetchAccounts();
+  } catch (e) {
+    console.error(e);
   } finally {
     checkingAll.value = false;
   }
@@ -491,6 +535,15 @@ const onCheckAll = async () => {
 const getRoleLabel = (role: BuffAccountRole) => {
   const map: Record<BuffAccountRole, string> = { SCAN: "扫描号", TRADE: "下单号", BOTH: "全能号" };
   return map[role] || role;
+};
+
+const getGhostTagClass = (role: BuffAccountRole) => {
+  const map: Record<BuffAccountRole, string> = {
+    SCAN: "tag-ghost-blue",
+    TRADE: "tag-ghost-purple",
+    BOTH: "tag-ghost-green",
+  };
+  return map[role] || "";
 };
 
 const getRoleTheme = (role: BuffAccountRole) => {
@@ -548,6 +601,14 @@ const getRateColor = (rate?: number) => {
   return "text-red-500";
 };
 
+const getBalanceClass = (row: BuffAccount) => {
+  // “射手”账号（下单/全能）使用金库金，普通账号使用精致橙
+  if (row.role === "TRADE" || row.role === "BOTH") {
+    return "text-vault-gold";
+  }
+  return "text-refined-orange";
+};
+
 onMounted(() => {
   fetchSettings();
   fetchAccounts();
@@ -575,61 +636,22 @@ onMounted(() => {
   100% { transform: scale(1); opacity: 0.6; }
 }
 
-/* 嵌入式卡片布局优化 */
-.embedded-card :deep(.t-card__body) {
-  padding: 0 !important;
-}
-
-.embedded-card :deep(.t-card__header) {
+/* 弹窗样式优化 */
+:deep(.t-dialog__body) {
+  overflow-x: hidden;
   padding: 16px 24px !important;
 }
 
-/* 嵌入式表格深度定制 */
-:deep(.embedded-table) {
-  border: none !important;
+:deep(.custom-textarea) {
+  background-color: #f9fafb !important;
+  border: 1px solid #dcdfe6 !important;
+  border-radius: 4px !important;
+  transition: all 0.2s cubic-bezier(0.38, 0, 0.24, 1);
 }
 
-/* 表头背景色与标题栏衔接 */
-:deep(.embedded-table .t-table__header tr) {
-  background-color: #f8fafc !important;
-}
-
-:deep(.embedded-table .t-table__header th) {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important;
-  height: 48px;
-}
-
-:deep(.embedded-table .t-table__body td) {
-  padding: 16px 16px !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-/* 第一列和最后一列的 24px 边距对齐 */
-:deep(.embedded-table th:first-child),
-:deep(.embedded-table td:first-child) {
-  padding-left: 24px !important;
-}
-
-:deep(.embedded-table th:last-child),
-:deep(.embedded-table td:last-child) {
-  padding-right: 24px !important;
-}
-
-:deep(.embedded-table .t-table__row--hover) {
-  background-color: #f8fafc !important;
-}
-
-/* 抽屉内表单优化 */
-.drawer-content :deep(.t-form__item) {
-  margin-bottom: 20px;
-}
-
-.drawer-content :deep(.t-card) {
-  border-radius: 12px;
-  overflow: hidden;
+:deep(.custom-textarea:focus) {
+  border-color: #0052d9 !important;
+  box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1);
+  background-color: #fff !important;
 }
 </style>

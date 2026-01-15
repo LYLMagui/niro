@@ -44,7 +44,7 @@ public class BuffAccountController {
 
     @Operation(summary = "删除账号")
     @DeleteMapping("/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
+    public Result<Void> delete(@PathVariable("id") Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
         buffAccountService.deleteAccount(userId, id);
         return Result.success();
@@ -52,7 +52,7 @@ public class BuffAccountController {
 
     @Operation(summary = "单账号Cookie检测")
     @PostMapping("/check/{id}")
-    public Result<Void> check(@PathVariable Long id) {
+    public Result<Void> check(@PathVariable("id") Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
         buffAccountService.checkCookie(userId, id);
         return Result.success();

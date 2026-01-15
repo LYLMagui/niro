@@ -3,6 +3,7 @@ package com.niro.web.service.impl;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -77,9 +78,25 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             entity.setStatus(BuffAccountStatusEnum.NORMAL);
             entity.setFailCount(0);
             entity.setWeight(dto.getWeight() == null ? 1 : dto.getWeight());
+            entity.setLastCheckTime(LocalDateTime.now());
         }
 
         saveOrUpdate(entity);
+
+        // 新增账号后异步触发一次健康检测
+        if (dto.getId() == null) {
+            final Long finalUserId = userId;
+            final Long finalAccountId = entity.getId();
+            CompletableFuture.runAsync(() -> {
+                try {
+                    // 延迟一小会儿确保事务提交（如果是在事务中）
+                    Thread.sleep(500);
+                    checkCookie(finalUserId, finalAccountId);
+                } catch (Exception e) {
+                    log.error("异步初始化检测失败, id: {}", finalAccountId, e);
+                }
+            });
+        }
     }
 
     @Override
@@ -127,8 +144,36 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 JSONObject data = json.getJSONObject("data");
                 if (data != null && data.getJSONArray("items") != null && !data.getJSONArray("items").isEmpty()) {
                     JSONObject item = data.getJSONArray("items").getJSONObject(0);
-                    // 可以在这里更新一些额外信息，如头像、SteamID等
-                    // account.setAccountName(item.getStr("personaname")); 
+                    
+                    // 权限校验逻辑: 若 trade_url_state 不为 0 或 api_key_state 不为 2，强制降级
+                    Integer tradeUrlState = item.getInt("trade_url_state");
+                    Integer apiKeyState = item.getInt("api_key_state");
+                    
+                    if ((tradeUrlState != null && tradeUrlState != 0) || (apiKeyState != null && apiKeyState != 2)) {
+                        String reason = (tradeUrlState != null && tradeUrlState != 0) 
+                            ? "交易链接失效 (" + item.getStr("trade_url_state_desc", "状态异常") + ")" 
+                            : "API Key 状态异常 (" + item.getStr("api_key_state_text", "无效") + ")";
+                        log.warn("BUFF 账号权限校验未通过, id: {}, reason: {}", account.getId(), reason);
+                        
+                        // 强制降级为 SCAN
+                        if (account.getRole() != BuffAccountRoleEnum.SCAN) {
+                            account.setRole(BuffAccountRoleEnum.SCAN);
+                            account.setWarningMsg("【安全降级】检测到" + reason + "，已自动切换为扫描模式以确保安全。");
+                        } else {
+                            account.setWarningMsg("检测到" + reason + "，请及时处理以免影响使用。");
+                        }
+                    } else if (tradeUrlState == null || apiKeyState == null) {
+                        log.warn("BUFF 账号权限校验数据缺失, id: {}, json: {}", account.getId(), item.toString());
+                        account.setWarningMsg("检测到权限校验数据不完整，请检查 Buff 账号状态。");
+                    } else {
+                        // 校验通过，如果是之前自动设置的警告，可以清除
+                        if (account.getWarningMsg() != null && account.getWarningMsg().contains("【安全降级】")) {
+                            account.setWarningMsg("");
+                        }
+                    }
+                    
+                    // 更新基本信息
+                    account.setAccountName(item.getStr("personaname"));
                 }
                 
                 // 如果之前是失效状态，恢复为正常

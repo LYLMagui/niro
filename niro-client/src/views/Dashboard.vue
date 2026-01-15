@@ -1,5 +1,5 @@
 <template>
-  <div class="space-y-6">
+  <div class="p-6 space-y-6">
     <!-- 顶部数据卡片区域，使用 Grid 布局 -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
       <!-- 卡片：今日爬取数量 -->
@@ -64,15 +64,33 @@
         :columns="columns"
         row-key="id"
         :pagination="{ total: 100, current: 1, pageSize: 10 }"
+        hover
+        :header-affixed-top="true"
         class="embedded-table w-full"
       >
         <template #empty>
           <t-empty icon="info-circle" description="暂无动态数据" />
         </template>
+        <!-- 自定义 ID 列 -->
+        <template #id="{ row }">
+          <span class="font-semibold text-[#1d2129]">{{ row.id }}</span>
+        </template>
+        <!-- 自定义价格列 -->
+        <template #price="{ row }">
+          <span class="font-numeric text-transaction-green font-bold">¥{{ row.price }}</span>
+        </template>
+        <!-- 自定义磨损列 -->
+        <template #float="{ row }">
+          <span class="font-numeric text-gray-600">{{ row.float }}</span>
+        </template>
+        <!-- 自定义时间列 -->
+        <template #time="{ row }">
+          <span class="font-numeric text-gray-500 text-xs">{{ row.time }}</span>
+        </template>
         <!-- 自定义状态列渲染 -->
         <template #status="{ row }">
-          <t-tag v-if="row.status === 'success'" theme="success" variant="light">成功</t-tag>
-          <t-tag v-else theme="warning" variant="light">处理中</t-tag>
+          <t-tag v-if="row.status === 'success'" theme="success" variant="light" class="compact-tag">成功</t-tag>
+          <t-tag v-else theme="warning" variant="light" class="compact-tag">处理中</t-tag>
         </template>
       </t-table>
     </t-card>
@@ -91,12 +109,12 @@ const { startTask, stopTask } = taskStore;
 
 // 表格列配置
 const columns = [
-  { colKey: "id", title: "ID", width: 100 },
-  { colKey: "name", title: "商品名称", ellipsis: true },
-  { colKey: "price", title: "价格 (CNY)", width: 120 },
-  { colKey: "float", title: "磨损", width: 100 },
-  { colKey: "time", title: "捕获时间", width: 180 },
-  { colKey: "status", title: "状态", width: 100 },
+  { colKey: "id", title: "ID", width: 80, cell: "id", align: "left" },
+  { colKey: "name", title: "商品名称", ellipsis: true, align: "left" },
+  { colKey: "price", title: "价格 (CNY)", width: 120, cell: "price", align: "right" },
+  { colKey: "float", title: "磨损", width: 100, cell: "float", align: "left" },
+  { colKey: "time", title: "捕获时间", width: 180, cell: "time", align: "left" },
+  { colKey: "status", title: "状态", width: 100, cell: "status", align: "left" },
 ];
 
 // 模拟表格数据
@@ -129,51 +147,4 @@ const data = ref([
 </script>
 
 <style scoped>
-/* 嵌入式卡片布局优化 */
-.embedded-card :deep(.t-card__body) {
-  padding: 0 !important;
-}
-
-.embedded-card :deep(.t-card__header) {
-  padding: 16px 24px !important;
-}
-
-/* 嵌入式表格深度定制 */
-:deep(.embedded-table) {
-  border: none !important;
-}
-
-/* 表头背景色与标题栏衔接 */
-:deep(.embedded-table .t-table__header tr) {
-  background-color: #f8fafc !important;
-}
-
-:deep(.embedded-table .t-table__header th) {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important;
-  height: 48px;
-}
-
-:deep(.embedded-table .t-table__body td) {
-  padding: 16px 16px !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-/* 第一列和最后一列的 24px 边距对齐 */
-:deep(.embedded-table th:first-child),
-:deep(.embedded-table td:first-child) {
-  padding-left: 24px !important;
-}
-
-:deep(.embedded-table th:last-child),
-:deep(.embedded-table td:last-child) {
-  padding-right: 24px !important;
-}
-
-:deep(.embedded-table .t-table__row--hover) {
-  background-color: #f8fafc !important;
-}
 </style>

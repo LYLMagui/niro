@@ -17,6 +17,7 @@
             placeholder="搜索商品名称"
             clearable
             @enter="fetchData"
+            @blur="(v: string) => handleInputTrim(v, queryParams, 'name')"
           />
         </t-col>
         <t-col :span="2">
@@ -73,6 +74,8 @@
         :columns="columns"
         :loading="loading"
         :pagination="pagination"
+        hover
+        :header-affixed-top="true"
         class="embedded-table w-full"
         @page-change="onPageChange"
       >
@@ -135,28 +138,30 @@
         </template>
 
         <template #op="{ row }">
-          <t-link theme="primary" class="mr-2" @click="handleEdit(row)">编辑</t-link>
-          <t-popconfirm
-            v-if="[0, 2, 3].includes(row.status)"
-            content="确定要启动任务吗？"
-            @confirm="handleStatus(row, 1)"
-          >
-            <t-link theme="success" class="mr-2">启动</t-link>
-          </t-popconfirm>
-          <t-popconfirm
-            v-if="[1, 4].includes(row.status)"
-            content="确定要停止任务吗？"
-            @confirm="handleStatus(row, 0)"
-          >
-            <t-link theme="warning" class="mr-2">停止</t-link>
-          </t-popconfirm>
-          <t-popconfirm 
-            v-if="![2, 3, 4].includes(row.taskType)" 
-            content="确定要删除任务吗？" 
-            @confirm="handleDelete(row)"
-          >
-            <t-link theme="danger">删除</t-link>
-          </t-popconfirm>
+          <div class="flex items-center justify-center space-x-2">
+            <t-link theme="primary" @click="handleEdit(row)">编辑</t-link>
+            <t-popconfirm
+              v-if="[0, 2, 3].includes(row.status)"
+              content="确定要启动任务吗？"
+              @confirm="handleStatus(row, 1)"
+            >
+              <t-link theme="success">启动</t-link>
+            </t-popconfirm>
+            <t-popconfirm
+              v-if="[1, 4].includes(row.status)"
+              content="确定要停止任务吗？"
+              @confirm="handleStatus(row, 0)"
+            >
+              <t-link theme="warning">停止</t-link>
+            </t-popconfirm>
+            <t-popconfirm 
+              v-if="![2, 3, 4].includes(row.taskType)" 
+              content="确定要删除任务吗？" 
+              @confirm="handleDelete(row)"
+            >
+              <t-link theme="danger">删除</t-link>
+            </t-popconfirm>
+          </div>
         </template>
       </t-table>
     </t-card>
@@ -291,6 +296,7 @@
                 placeholder="立即启动 (留空即可)"
                 clearable
                 style="width: 320px"
+                @blur="(v: string) => handleInputTrim(v, formData, 'cronExpression')"
               >
                 <template #suffix>
                   <t-popup
@@ -455,6 +461,15 @@ const pagination = reactive({
 
 const cronVisible = ref(false);
 
+/**
+ * 自动清除换行符和首尾空格
+ */
+const handleInputTrim = (val: string, target: any, key: string) => {
+  if (typeof val === 'string') {
+    target[key] = val.replace(/[\r\n]/g, '').trim();
+  }
+};
+
 // --- 表单 UI 状态 (用于单位换算) ---
 const uiState = reactive({
   durationValue: 0,
@@ -556,13 +571,13 @@ const executionSummary = computed(() => {
 });
 
 const columns: PrimaryTableCol[] = [
-  { colKey: "id", title: "ID", width: 80 },
-  { colKey: "goods", title: "商品信息", width: 250, cell: "goods" },
-  { colKey: "taskType", title: "模式", width: 100, cell: "taskType" },
-  { colKey: "target", title: "目标配置", width: 150, cell: "target" },
-  { colKey: "progress", title: "进度", width: 100, cell: "progress" },
-  { colKey: "status", title: "状态", width: 100, cell: "status" },
-  { colKey: "op", title: "操作", width: 200, cell: "op", fixed: "right" },
+  { colKey: "id", title: "ID", width: 80, align: "left" },
+  { colKey: "goods", title: "商品信息", width: 250, cell: "goods", align: "left" },
+  { colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" },
+  { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
+  { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
+  { colKey: "status", title: "状态", width: 100, cell: "status", align: "left" },
+  { colKey: "op", title: "操作", width: 200, cell: "op", fixed: "right", align: "center" },
 ];
 
 // --- 表单数据 ---
@@ -965,51 +980,4 @@ onMounted(() => {
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
 }
 
-/* 嵌入式卡片布局优化 */
-.embedded-card :deep(.t-card__body) {
-  padding: 0 !important;
-}
-
-.embedded-card :deep(.t-card__header) {
-  padding: 16px 24px !important;
-}
-
-/* 嵌入式表格深度定制 */
-:deep(.embedded-table) {
-  border: none !important;
-}
-
-/* 表头背景色与标题栏衔接 */
-:deep(.embedded-table .t-table__header tr) {
-  background-color: #f8fafc !important;
-}
-
-:deep(.embedded-table .t-table__header th) {
-  font-weight: 700 !important;
-  color: #334155 !important;
-  background-color: transparent !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-  padding: 12px 16px !important;
-  height: 48px;
-}
-
-:deep(.embedded-table .t-table__body td) {
-  padding: 16px 16px !important;
-  border-bottom: 1px solid #f1f5f9 !important;
-}
-
-/* 第一列和最后一列的 24px 边距对齐 */
-:deep(.embedded-table th:first-child),
-:deep(.embedded-table td:first-child) {
-  padding-left: 24px !important;
-}
-
-:deep(.embedded-table th:last-child),
-:deep(.embedded-table td:last-child) {
-  padding-right: 24px !important;
-}
-
-:deep(.embedded-table .t-table__row--hover) {
-  background-color: #f8fafc !important;
-}
 </style>
