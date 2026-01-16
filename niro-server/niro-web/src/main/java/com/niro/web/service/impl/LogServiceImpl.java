@@ -41,7 +41,7 @@ public class LogServiceImpl implements LogService {
                     .size(1000), Map.class);
 
             return response.hits().hits().stream()
-                    .map(Hit::source)
+                    .map(hit -> (Map<String, Object>) hit.source())
                     .collect(Collectors.toList());
         } catch (IOException e) {
             log.error("查询 ES 日志失败, traceId: {}", traceId, e);

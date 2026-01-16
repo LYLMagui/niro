@@ -1,5 +1,10 @@
 # Release Notes
 
+## 2026-01-16 (v1.22.1)
+- **后端编译与稳定性修复**：
+  - **依赖版本规范化**：修复 `niro-server` 中 Elasticsearch 和 AMQP 依赖版本缺失问题，确保 Maven 构建稳定性。
+  - **JDK 21 兼容性适配**：修复 `LogServiceImpl` 中 Stream 类型推导错误，适配 JDK 21 编译环境。
+
 ## 2026-01-16 (v1.22.0)
 - **全链路日志与监控闭环重构**：
   - **Java 后端结构化改造**：引入 `logstash-logback-encoder`，实现 JSON 格式日志输出；集成全局 `TraceIdInterceptor`，在请求入口生成 UUID 并通过 MDC 传递，响应 Header 返回 `X-Niro-Trace-Id`。
