@@ -299,6 +299,8 @@ class TaskScanner:
 
     def run_system_task(self, task):
         """执行单次系统同步任务 (带自动重试机制)"""
+        import uuid
+        from utils.logger import trace_id_var
         task_id = task['id']
         task_type = task.get('task_type')
         task_name = task.get('name', '系统同步任务')
@@ -306,15 +308,19 @@ class TaskScanner:
         if hasattr(self, 'running_tasks'):
             self.running_tasks[task_id] = True
 
-        task_logger = logger.bind(
-            task_id=task_id, 
-            task_name=task_name,
-            traceId=task.get('trace_id', '')
-        )
-        task_logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
-        self.send_task_start_notification(task)
-
+        # 任务执行链路追踪标识 (非持久化)
+        trace_id = str(uuid.uuid4()).replace('-', '')
+        token = trace_id_var.set(trace_id)
+        
         try:
+            task_logger = logger.bind(
+                task_id=task_id, 
+                task_name=task_name,
+                traceId=trace_id
+            )
+            task_logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
+            self.send_task_start_notification(task)
+
             # 使用内部带重试的方法执行核心逻辑
             self._execute_system_task_with_retry(task_id, task_type)
 
@@ -339,6 +345,7 @@ class TaskScanner:
             self.set_task_error(task_id)
             self.send_task_stop_notification(task, f"同步失败: {e}")
         finally:
+            trace_id_var.reset(token)
             self.last_finished_tasks[task_id] = time.time()
             if hasattr(self, 'running_tasks') and task_id in self.running_tasks:
                 del self.running_tasks[task_id]
@@ -528,42 +535,50 @@ class TaskScanner:
 
     def process_task(self, task, spider):
         """处理单个扫描任务"""
+        import uuid
+        from utils.logger import trace_id_var
         task_id = task.get('id')
         task_name = task.get('name')
         task_type = task.get('task_type', 0)
         goods_id = task['goods_id']
-        trace_id = task.get('trace_id', '')
+        
+        # 任务执行链路追踪标识 (非持久化)
+        trace_id = str(uuid.uuid4()).replace('-', '')
+        token = trace_id_var.set(trace_id)
 
-        # 获取当前出口 IP 并创建带 IP 和 TraceID 的 logger
-        task_logger = logger.bind(task_id=task_id, traceId=trace_id)
+        try:
+            # 获取当前出口 IP 并创建带 IP 和 TraceID 的 logger
+            task_logger = logger.bind(task_id=task_id, traceId=trace_id)
+            
+            type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
+            task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")
 
-        type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
-        task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")
+            # 获取饰品列表
+            items = spider.get_goods_list(goods_id)
+            if not items:
+                task_logger.warning(f"⚠️ [任务:{task_id}] 未获取到商品列表，跳过本次循环")
+                return
 
-        # 获取饰品列表
-        items = spider.get_goods_list(goods_id)
-        if not items:
-            task_logger.warning(f"⚠️ [任务:{task_id}] 未获取到商品列表，跳过本次循环")
-            return
+            # 记录价格历史 (取第一项的元数据即可)
+            self.record_price_history(items[0])
 
-        # 记录价格历史 (取第一项的元数据即可)
-        self.record_price_history(items[0])
+            match_found = False
+            if task_type == BuffTaskType.FLIPPING:
+                # 站内倒卖模式
+                match_found = self.process_flipping_logic(task, items, spider, task_logger)
+            elif task_type == BuffTaskType.SNIPING:
+                # 炼金扫货模式
+                match_found = self.process_sniping_logic(task, items, spider, task_logger)
 
-        match_found = False
-        if task_type == BuffTaskType.FLIPPING:
-            # 站内倒卖模式
-            match_found = self.process_flipping_logic(task, items, spider, task_logger)
-        elif task_type == BuffTaskType.SNIPING:
-            # 炼金扫货模式
-            match_found = self.process_sniping_logic(task, items, spider, task_logger)
+            if not match_found:
+                task_logger.info(f"😴 [任务:{task_id}] 本轮未发现符合条件的商品")
 
-        if not match_found:
-            task_logger.info(f"😴 [任务:{task_id}] 本轮未发现符合条件的商品")
-
-        scan_interval_min = task.get('scan_interval_min', 15)
-        scan_interval_max = task.get('scan_interval_max', 20)
-        scan_interval = random.randint(scan_interval_min, scan_interval_max)
-        task_logger.info(f"💤 [任务:{task_id}] 扫描完成，休眠 {scan_interval}s 后开始下轮...")
+            scan_interval_min = task.get('scan_interval_min', 15)
+            scan_interval_max = task.get('scan_interval_max', 20)
+            scan_interval = random.randint(scan_interval_min, scan_interval_max)
+            task_logger.info(f"💤 [任务:{task_id}] 扫描完成，休眠 {scan_interval}s 后开始下轮...")
+        finally:
+            trace_id_var.reset(token)
 
     def record_price_history(self, item):
         """记录价格历史"""

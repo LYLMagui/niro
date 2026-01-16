@@ -57,6 +57,7 @@
     "cron-parser": "^5.4.0",
     "cronstrue": "^3.9.0",
     "crypto-js": "^4.2.0",
+    "dayjs": "^1.11.19",
     "lodash": "^4.17.21",
     "lodash-es": "^4.17.21",
     "nprogress": "^0.2.0",

@@ -1,8 +1,10 @@
 package com.niro.core.result;
 
+import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
+import org.slf4j.MDC;
 
 import java.io.Serializable;
 
@@ -14,6 +16,7 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @Accessors(chain = true)
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class Result<T> implements Serializable {
     // 状态码
     private int code;
@@ -23,6 +26,9 @@ public class Result<T> implements Serializable {
 
     // 返回数据
     private T data;
+
+    // 追踪ID
+    private String traceId;
 
 
     /**
@@ -51,7 +57,10 @@ public class Result<T> implements Serializable {
      * @param <T>
      */
     public static <T> Result<T> failure(){
-        return new Result<T>().setCode(StatusCode.FAIL_CODE).setMessage(GlobalMessageConstant.FAILURE);
+        return new Result<T>()
+                .setCode(StatusCode.FAIL_CODE)
+                .setMessage(GlobalMessageConstant.FAILURE)
+                .setTraceId(MDC.get("traceId"));
     }
 
     /**
@@ -61,7 +70,10 @@ public class Result<T> implements Serializable {
      * @param <T>
      */
     public static <T> Result<T> failure(String message){
-        return new Result<T>().setCode(StatusCode.FAIL_CODE).setMessage(message);
+        return new Result<T>()
+                .setCode(StatusCode.FAIL_CODE)
+                .setMessage(message)
+                .setTraceId(MDC.get("traceId"));
     }
 
     /**
@@ -71,7 +83,10 @@ public class Result<T> implements Serializable {
      * @param <T>
      */
     public static <T> Result<T> failure(int code,String message){
-        return new Result<T>().setCode(code).setMessage(message);
+        return new Result<T>()
+                .setCode(code)
+                .setMessage(message)
+                .setTraceId(MDC.get("traceId"));
     }
 
 

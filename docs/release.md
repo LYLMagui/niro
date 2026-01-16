@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-01-16 (v1.22.2)
+- **全链路追踪系统重构与去持久化**：
+  - **TraceId 去持久化**：彻底移除数据库与实体类（Java/Python）中的 `traceId` 字段，确保业务逻辑与监控逻辑完全解耦。
+  - **基于 Filter 的追踪实现**：引入 `TraceIdFilter` 替代拦截器，利用 Slf4j MDC 实现日志追踪，并强制在响应头注入 `X-Niro-Trace-Id`，确保异常情况下追踪 ID 不丢失。
+  - **响应结构优化**：更新 `Result` 包装类，仅在接口报错时返回 `traceId` 供排查，成功请求仅通过响应头透传。
+  - **Python 爬虫端同步**：利用 `ContextVar` 实现 Python 异步环境下的日志追踪 ID 自动流转。
+  - **CORS 增强**：配置 `X-Niro-Trace-Id` 为暴露响应头，确保前端可正常读取。
+
 ## 2026-01-16 (v1.22.1)
 - **后端编译与稳定性修复**：
   - **依赖版本规范化**：修复 `niro-server` 中 Elasticsearch 和 AMQP 依赖版本缺失问题，确保 Maven 构建稳定性。

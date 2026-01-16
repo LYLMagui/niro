@@ -110,7 +110,6 @@ class BuffScanTask(Base):
     scan_interval_max = Column(Integer, comment='最大扫描间隔(秒)')
     task_type = Column(Integer, comment='任务类型')
     min_profit = Column(Numeric(10, 2), comment='最小期望利润')
-    trace_id = Column(String(64), comment='全链路追踪ID')
 
 class User(Base):
     """系统用户模型"""

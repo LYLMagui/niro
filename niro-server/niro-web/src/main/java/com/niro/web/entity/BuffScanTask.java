@@ -105,11 +105,6 @@ public class BuffScanTask {
     private BigDecimal minProfit;
 
     /**
-     * 最后一次操作的 TraceId
-     */
-    private String traceId;
-
-    /**
      * 创建时间
      */
     private LocalDateTime createTime;

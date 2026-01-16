@@ -11,6 +11,7 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseBodyAdvice;
 
 import cn.dev33.satoken.stp.StpUtil;
 import jakarta.servlet.http.HttpServletResponse;
+import org.slf4j.MDC;
 
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 

@@ -78,8 +78,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setStatus(0);
         task.setSuccessCount(0);
         task.setUserId(currentUserId);
-        task.setTraceId(MDC.get("traceId"));
-
+        
         this.save(task);
     }
 
@@ -126,7 +125,6 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
         
         task.setMinProfit(param.getMinProfit());
-        task.setTraceId(MDC.get("traceId"));
         
         this.updateById(task);
     }

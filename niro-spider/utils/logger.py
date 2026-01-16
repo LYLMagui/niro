@@ -3,6 +3,10 @@ import sys
 import json
 import pendulum
 from loguru import logger
+from contextvars import ContextVar
+
+# 定义全链路追踪 ContextVar (类似 Java MDC)
+trace_id_var = ContextVar("trace_id", default="")
 
 # 定义日志目录和文件
 LOG_DIR = os.getenv("LOG_DIR", "logs")
@@ -46,23 +50,24 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     # 移除默认的 handler
     logger.remove()
 
-    # 关键：先配置 patcher，每次记录日志时动态获取IP
+    # 关键：先配置 patcher，每次记录日志时动态获取IP和TraceId
     # 这样所有后续添加的 handler 都会自动应用这个 patch
     logger.configure(
         patcher=lambda record: record.update(
             time=pendulum.now('Asia/Shanghai'),
             extra={
+                **record["extra"],
                 "service": "niro-spider", 
                 "env": os.getenv("APP_ENV", "dev"),
                 "ip": get_current_ip_cached(),
-                "traceId": os.getenv("TRACE_ID", "")
+                "traceId": trace_id_var.get() or os.getenv("TRACE_ID", "")
             }
         ),
         extra={
             "service": "niro-spider", 
             "env": os.getenv("APP_ENV", "dev"), 
             "ip": get_current_ip_cached(),
-            "traceId": os.getenv("TRACE_ID", "")
+            "traceId": ""
         }
     )
 
