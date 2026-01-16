@@ -23,6 +23,9 @@
           # 每 30 秒进行一次连接可用性探测 (PING)
           ping-connection-interval: 30000
   
+    elasticsearch:
+      uris: ${ELASTICSEARCH_URIS:http://106.53.11.158:9200}
+
   
   # 日志配置
   logging:
