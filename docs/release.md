@@ -1,5 +1,9 @@
 # Release Notes
 
+## 2026-01-19 (v2.4.2)
+- **后端任务分页查询修复**:
+  - **Redis 序列化异常修复**: 修复了 `/task/page` 接口在补充任务实时统计信息（Stats）时，因直接读取 Python 写入的 JSON 字符串导致 Jackson 报错 `missing type id property '@class'` 的问题。统一使用 `RedisUtil.getToString` 进行无损读取，确保跨语言数据交互的稳定性。
+
 ## 2026-01-19 (v2.4.1)
 - **爬虫数据同步健壮性修复**:
   - **SQLAlchemy 导入修复**: 修复了 `get_buff_goods_category.py` 中缺失 `sqlalchemy.func` 导入的问题，解决了分类同步任务在执行 UPSERT 操作（更新 `update_time`）时因 `NameError` 导致的任务中断。
