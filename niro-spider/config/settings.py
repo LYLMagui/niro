@@ -37,9 +37,6 @@ LOG_DIR = os.path.join(SPIDER_DIR, "logs")
 
 # 爬虫配置文件
 
-# Buff Cookies (建议使用环境变量或外部文件加载，避免硬编码)
-BUFF_COOKIE = os.getenv("BUFF_COOKIE", "Device-Id=50omZWVdzKwfAiqZlPmm; hb_MA-B480-7AA0C2ACD2CD_source=buff.163.com; P_INFO=17369636359|1767632934|1|netease_buff|00&99|null&null&null#fuj&350100#10#0|&0|null|17369636359; remember_me=U1090370748|zPBaqwhQvQrPnS7XSknyAWgCoFArOkoQ; session=1-1WQb7Zdwllnf5oKU29tpHwpnaLq0vzhWLMYq69jj3FgB2016617444; Locale-Supported=zh-Hans; game=csgo; csrf_token=IjYyOWFiYWNiOWViM2E4ZDBhMTg1YWQ4OWE0MzkzNTRhNTgxYWQzZDki.aV6ZwQ.Cw8eSOo3XTnzKF0DmaSYbHaYV5Y")
-
 # 爬取间隔 (秒)
 CRAWL_INTERVAL_MIN = float(os.getenv("CRAWL_INTERVAL_MIN", 8))
 CRAWL_INTERVAL_MAX = float(os.getenv("CRAWL_INTERVAL_MAX", 12))
@@ -95,4 +92,7 @@ if PROXY_URL:
 CLASH_API_URL = os.getenv("CLASH_API_URL", f"http://{_clash_host}:9090")
 CLASH_API_SECRET = os.getenv("CLASH_API_SECRET", "passwd")
 CLASH_GROUP_NAME = os.getenv("CLASH_GROUP_NAME", "Proxies") # 默认代理组名称
+
+# BUFF Cookie 配置 (用于部分需要主账号 Cookie 的场景)
+BUFF_COOKIE = os.getenv("BUFF_COOKIE", "")
 

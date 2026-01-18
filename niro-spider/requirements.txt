@@ -9,6 +9,8 @@ loguru
 pydantic
 tenacity
 pendulum
+httpx
+async-timeout
 boltons
 more-itertools
 pydash

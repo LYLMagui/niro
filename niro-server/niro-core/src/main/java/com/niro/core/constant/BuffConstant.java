@@ -32,4 +32,23 @@ public class BuffConstant {
      */
     public static final String GAME_CSGO = "csgo";
 
+    /**
+     * Redis 任务队列前缀
+     */
+    public static final String REDIS_TASK_QUEUE_PREFIX = "niro:task:queue:";
+
+    /**
+     * Redis 任务信息 Hash Key
+     */
+    public static final String REDIS_TASK_INFO_HASH = "niro:task:info";
+
+    /**
+     * Redis 任务心跳 Hash Key
+     */
+    public static final String REDIS_TASK_HEARTBEAT_HASH = "niro:task:heartbeat";
+
+    /**
+     * Redis 账号信息 Hash Key
+     */
+    public static final String REDIS_ACCOUNT_INFO_HASH = "niro:account:info";
 }

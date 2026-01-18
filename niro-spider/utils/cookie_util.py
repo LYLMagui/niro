@@ -8,7 +8,6 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
 from storage.database import Session
-from storage.models import UserBuffSettings
 from config import settings
 from utils.logger import get_logger
 
@@ -57,24 +56,22 @@ def verify_cookie(cookie):
 
 def get_latest_cookie(user_id=None):
     """
-    从数据库获取指定用户或最新的 Buff Cookie
-    :param user_id: 用户 ID，如果不指定则获取最新的一条
-    :return: Cookie 字符串，如果数据库没有则返回 settings 中的默认值
+    从数据库获取指定用户的 Buff Cookie (已废弃，建议使用 TaskMessage 中的账号上下文)
+    :param user_id: 用户 ID
+    :return: Cookie 字符串
     """
+    if not user_id:
+        return None
+        
     session = Session()
     try:
-        query = session.query(UserBuffSettings)
-        if user_id:
-            setting = query.filter(UserBuffSettings.user_id == user_id).first()
-        else:
-            setting = query.order_by(UserBuffSettings.update_time.desc()).first()
-            
-        if setting and setting.buff_cookie:
-            return setting.buff_cookie
+        from storage.models import BuffAccount
+        account = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
+        if account:
+            return account.buff_cookie
     except Exception as e:
-        logger.error(f"❌ 获取数据库 Cookie 失败: {e}")
+        logger.error(f"❌ 获取数据库账号 Cookie 失败: {e}")
     finally:
         Session.remove()
     
-    # 兜底使用配置文件的 Cookie
-    return settings.BUFF_COOKIE
+    return None

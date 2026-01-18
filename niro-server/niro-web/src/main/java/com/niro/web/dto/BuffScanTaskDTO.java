@@ -5,6 +5,7 @@ import lombok.Data;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
 
 /**
  * 扫货任务 DTO
@@ -75,4 +76,13 @@ public class BuffScanTaskDTO {
 
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
+
+    @Schema(description = "绑定的账号ID列表")
+    private List<Long> accountIds;
+
+    @Schema(description = "绑定的账号名称列表")
+    private List<String> accountNames;
+
+    @Schema(description = "任务实时统计数据 (JSON)")
+    private Object stats;
 }

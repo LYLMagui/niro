@@ -52,4 +52,9 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
      * @param categoryId 分类ID
      */
     void syncCategoryGoods(Long categoryId);
+
+    /**
+     * 重新推送所有运行中的任务到队列 (自愈机制)
+     */
+    void reEnqueueRunningTasks();
 }

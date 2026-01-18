@@ -2,6 +2,7 @@ package com.niro.web.dto;
 
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -38,6 +39,10 @@ public class BuffAccountDTO {
 
     private String userAgent;
 
+    private String proxy;
+
+    private Double frequency;
+
     private String remark;
 
     private String warningMsg;
@@ -49,6 +54,12 @@ public class BuffAccountDTO {
     private Integer tradeSuccessCount;
 
     private Integer tradeTotalCount;
+
+    @Schema(description = "当前绑定的任务ID (若有)")
+    private Long boundTaskId;
+
+    @Schema(description = "当前绑定的任务名称 (若有)")
+    private String boundTaskName;
 
     /**
      * 下单成功率 (成功数 / 总数)

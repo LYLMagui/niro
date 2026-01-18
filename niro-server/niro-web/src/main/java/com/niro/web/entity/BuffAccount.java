@@ -100,6 +100,18 @@ public class BuffAccount {
     private Integer tradeTotalCount;
 
     /**
+     * 代理服务器 (host:port)
+     */
+    @TableField(exist = false)
+    private String proxy;
+
+    /**
+     * 抓取频率限制 (QPS)
+     */
+    @TableField(exist = false)
+    private Double frequency;
+
+    /**
      * 逻辑删除标记：0-未删除, 1-已删除
      */
     @TableLogic

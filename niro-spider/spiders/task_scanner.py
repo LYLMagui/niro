@@ -12,11 +12,12 @@ from spiders.get_buff_goods import run_goods_sync
 from spiders.get_buff_goods_category import run_category_sync
 from spiders.buff_sticker_spider import run_sticker_sync
 from enums.task_enums import BuffTaskType
-from storage.models import BuffScanTask, BuffPriceHistory
+from storage.models import BuffScanTask, BuffPriceHistory, BuffScanTaskAccount, BuffAccount
 from storage.database import Session
+from storage.redis_pool import redis_client
 from sqlalchemy import select, update, func, insert
 from sqlalchemy.dialects.postgresql import insert as pg_insert
-from utils.logger import get_logger
+from utils.logger import get_logger, account_name_var, account_id_var, task_id_var
 from utils.notifier import notifier
 from utils.exception_handler import LoginRequiredError
 from dto.task_dto import BuffScanTaskDTO
@@ -297,6 +298,42 @@ class TaskScanner:
         finally:
             Session.remove()
 
+    def get_task_account_info(self, task_id):
+        """获取任务绑定的账号信息 (支持多账号轮询)"""
+        if not task_id: return None, "System"
+        session = Session()
+        try:
+            # 获取该任务关联的所有有效账号
+            accounts = session.query(BuffAccount).join(
+                BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
+            ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
+            
+            if not accounts:
+                return None, "System"
+            
+            if len(accounts) == 1:
+                return accounts[0].id, accounts[0].account_name
+                
+            # 多账号轮询逻辑 (Round Robin)
+            redis_key = f"niro:task:account_index:{task_id}"
+            current_index = redis_client.get(redis_key)
+            current_index = int(current_index) if current_index else 0
+            
+            # 确保索引不越界 (可能中途删除了账号)
+            if current_index >= len(accounts):
+                current_index = 0
+                
+            target_acc = accounts[current_index]
+            
+            # 更新下一个索引到 Redis
+            next_index = (current_index + 1) % len(accounts)
+            redis_client.set(redis_key, next_index)
+            
+            logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
+            
+            return target_acc.id, target_acc.account_name
+        finally: Session.remove()
+
     def run_system_task(self, task):
         """执行单次系统同步任务 (带自动重试机制)"""
         import uuid
@@ -311,12 +348,19 @@ class TaskScanner:
         # 任务执行链路追踪标识 (非持久化)
         trace_id = str(uuid.uuid4()).replace('-', '')
         token = trace_id_var.set(trace_id)
+        task_id_var.set(task_id)
+        
+        # 设置账号上下文
+        acc_id, acc_name = self.get_task_account_info(task_id)
+        account_id_var.set(acc_id)
+        account_name_var.set(acc_name)
         
         try:
             task_logger = logger.bind(
                 task_id=task_id, 
                 task_name=task_name,
-                traceId=trace_id
+                traceId=trace_id,
+                accountName=acc_name
             )
             task_logger.info(f"🚀 开始执行系统任务 [ID:{task_id}]: {task_name}")
             self.send_task_start_notification(task)
@@ -373,7 +417,7 @@ class TaskScanner:
             elif task_type == BuffTaskType.SYNC_GOODS:
                 run_goods_sync(force=False, task_id=task_id)
             elif task_type == BuffTaskType.SYNC_STICKER:
-                run_sticker_sync(user_id=1)
+                run_sticker_sync(user_id=task.user_id if task.user_id else 1, task_id=task_id)
             elif task_type == BuffTaskType.SYNC_CATEGORY_GOODS:
                 # 借用 goods_id 字段作为 category_id
                 category_id = task.goods_id
@@ -459,11 +503,16 @@ class TaskScanner:
             user_id = task_dict.get('user_id')
 
             # 为当前扫描循环绑定上下文，方便 ELK 检索
+            acc_id, acc_name = self.get_task_account_info(task_id)
+            account_id_var.set(acc_id)
+            account_name_var.set(acc_name)
+
             task_logger = logger.bind(
                 task_id=task_id, 
                 user_id=user_id, 
                 task_name=task_dict.get('name'),
-                traceId=task_dict.get('trace_id', '')
+                traceId=task_dict.get('trace_id', ''),
+                accountName=acc_name
             )
 
             # 2. 持续时间检查
@@ -548,7 +597,15 @@ class TaskScanner:
 
         try:
             # 获取当前出口 IP 并创建带 IP 和 TraceID 的 logger
-            task_logger = logger.bind(task_id=task_id, traceId=trace_id)
+            acc_id, acc_name = self.get_task_account_info(task_id)
+            account_id_var.set(acc_id)
+            account_name_var.set(acc_name)
+
+            task_logger = logger.bind(
+                task_id=task_id, 
+                traceId=trace_id,
+                accountName=acc_name
+            )
             
             type_text = "炼金扫货" if task_type == BuffTaskType.SNIPING else "站内倒卖"
             task_logger.info(f"🔍 [任务:{task_id}] 正在执行任务 | 类型:{type_text}")

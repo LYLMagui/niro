@@ -13,7 +13,7 @@
       <div class="p-6 border-b border-gray-100">
         <t-form :data="queryParams" layout="inline" @submit="handleSearch">
           <t-form-item label="搜索名称" name="keyword">
-            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable @blur="(v: string) => handleInputTrim(v, queryParams, 'keyword')" />
+            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable @blur="(v: any) => handleInputTrim(v, queryParams, 'keyword')" />
           </t-form-item>
           <t-form-item>
             <div class="flex gap-4">
@@ -103,7 +103,7 @@ const dataList = ref<any[]>([]);
 /**
  * 自动清除换行符和首尾空格
  */
-const handleInputTrim = (val: string, target: any, key: string) => {
+const handleInputTrim = (val: any, target: any, key: string) => {
   if (typeof val === 'string') {
     target[key] = val.replace(/[\r\n]/g, '').trim();
   }

@@ -10,12 +10,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.web.dto.BuffAccountDTO;
 import com.niro.web.entity.BuffAccount;
+import com.niro.web.entity.BuffScanTask;
+import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.mapper.BuffAccountMapper;
+import com.niro.web.mapper.BuffScanTaskAccountMapper;
+import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
 
 import cn.hutool.core.bean.BeanUtil;
@@ -39,6 +44,8 @@ import lombok.extern.slf4j.Slf4j;
 public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffAccount> implements BuffAccountService {
 
     private static final int MAX_ACCOUNT_COUNT = 10;
+    private final BuffScanTaskAccountMapper buffScanTaskAccountMapper;
+    private final BuffScanTaskMapper buffScanTaskMapper;
 
     @Override
     public List<BuffAccountDTO> listByUserId(Long userId) {
@@ -46,8 +53,61 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 .eq(BuffAccount::getUserId, userId)
                 .orderByDesc(BuffAccount::getCreateTime)
                 .list();
+        
+        if (CollUtil.isEmpty(list)) {
+            return CollUtil.newArrayList();
+        }
+
+        // 查询账号绑定的任务信息
+        List<Long> accountIds = list.stream().map(BuffAccount::getId).collect(Collectors.toList());
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountMapper.selectList(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+                        .in(BuffScanTaskAccount::getAccountId, accountIds)
+        );
+
+        java.util.Map<Long, Long> accountTaskMap = new java.util.HashMap<>();
+        java.util.Map<Long, String> taskNameMap = new java.util.HashMap<>();
+
+        if (CollUtil.isNotEmpty(rels)) {
+            // 提取有效的 taskId
+            List<Long> taskIds = rels.stream()
+                    .map(BuffScanTaskAccount::getTaskId)
+                    .filter(java.util.Objects::nonNull)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            if (CollUtil.isNotEmpty(taskIds)) {
+                List<BuffScanTask> tasks = buffScanTaskMapper.selectBatchIds(taskIds);
+                if (CollUtil.isNotEmpty(tasks)) {
+                    tasks.forEach(t -> {
+                        if (t != null && t.getId() != null && t.getName() != null) {
+                            taskNameMap.put(t.getId(), t.getName());
+                        }
+                    });
+                }
+            }
+
+            rels.forEach(rel -> {
+                if (rel.getAccountId() != null && rel.getTaskId() != null) {
+                    accountTaskMap.put(rel.getAccountId(), rel.getTaskId());
+                }
+            });
+        }
+
+        final java.util.Map<Long, Long> finalAccountTaskMap = accountTaskMap;
+        final java.util.Map<Long, String> finalTaskNameMap = taskNameMap;
+
         return list.stream()
-                .map(item -> BeanUtil.copyProperties(item, BuffAccountDTO.class))
+                .map(item -> {
+                    BuffAccountDTO dto = new BuffAccountDTO();
+                    BeanUtil.copyProperties(item, dto);
+                    Long taskId = finalAccountTaskMap.get(item.getId());
+                    if (taskId != null) {
+                        dto.setBoundTaskId(taskId);
+                        dto.setBoundTaskName(finalTaskNameMap.get(taskId));
+                    }
+                    return dto;
+                })
                 .collect(Collectors.toList());
     }
 
@@ -70,7 +130,8 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             Assert.isNull(existingSniper, "已存在下单角色账号，请先修改现有账号角色");
         }
 
-        BuffAccount entity = BeanUtil.copyProperties(dto, BuffAccount.class);
+        BuffAccount entity = new BuffAccount();
+        BeanUtil.copyProperties(dto, entity);
         entity.setUserId(userId);
         
         // 如果是新增，初始化一些字段
@@ -107,6 +168,15 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 .eq(BuffAccount::getId, id)
                 .one();
         Assert.notNull(account, "账号不存在");
+
+        // 需求：如果账号被绑定，则删除账号要报错
+        long bindCount = buffScanTaskAccountMapper.selectCount(
+                com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+                        .eq(BuffScanTaskAccount::getAccountId, id)
+        );
+        if (bindCount > 0) {
+            throw new BusinessException("该账号已绑定任务，请先移除任务绑定或停止并删除任务后再试");
+        }
         
         boolean removed = removeById(id);
         Assert.isTrue(removed, "删除失败");
@@ -214,6 +284,16 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             // 简单处理，实际生产环境建议异步或批量
             checkCookie(userId, account.getId());
         }
+    }
+
+    @Override
+    public void updateAccountStatus(Long id, BuffAccountStatusEnum status, String warningMsg) {
+        this.lambdaUpdate()
+                .set(BuffAccount::getStatus, status)
+                .set(BuffAccount::getWarningMsg, warningMsg)
+                .set(BuffAccount::getLastCheckTime, LocalDateTime.now())
+                .eq(BuffAccount::getId, id)
+                .update();
     }
 
     /**

@@ -18,6 +18,22 @@ export interface BuffScanTask {
   scanIntervalMax?: number;
   taskType: number;
   minProfit?: number;
+  accountIds?: number[];
+  accountNames?: string[];
+  stats?: {
+    total: number;
+    finished: number;
+    percentage: number;
+    tps: number;
+    update_time: number;
+    pending_categories: number[];
+    account_stats?: Record<string, {
+      total: number;
+      finished: number;
+      percentage: number;
+      tps: number;
+    }>;
+  };
   createTime: string;
   updateTime: string;
 }
@@ -43,4 +59,5 @@ export interface TaskSaveParam {
   scanIntervalMax?: number;
   taskType: number;
   minProfit?: number;
+  accountIds?: number[];
 }

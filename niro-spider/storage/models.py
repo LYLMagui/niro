@@ -16,6 +16,38 @@ class BuffGoodsCategory(Base):
     create_time = Column(DateTime, server_default=func.now(), comment='创建时间')
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment='修改时间')
 
+class BuffAccount(Base):
+    """BUFF 账号配置模型"""
+    __tablename__ = 'buff_account'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment='主键ID')
+    user_id = Column(BigInteger, nullable=False, comment='系统用户ID')
+    account_name = Column(String(255), nullable=False, comment='账号备注名')
+    buff_cookie = Column(Text, nullable=False, comment='BUFF 登录凭证')
+    role = Column(String(50), nullable=False, comment='账号角色')
+    status = Column(String(50), nullable=False, comment='账号状态')
+    weight = Column(Integer, default=1, comment='调度权重')
+    balance = Column(Numeric(10, 2), default=0.00, comment='账号余额')
+    fail_count = Column(Integer, default=0, comment='连续请求失败计数')
+    last_check_time = Column(DateTime, comment='最后有效性检测时间')
+    user_agent = Column(Text, comment='关联的浏览器指纹')
+    remark = Column(Text, comment='用户自定义备注信息')
+    warning_msg = Column(Text, comment='异常说明')
+    today_scan_count = Column(Integer, default=0, comment='今日扫货总数')
+    trade_success_count = Column(Integer, default=0, comment='下单成功总数')
+    trade_total_count = Column(Integer, default=0, comment='下单总数')
+    create_time = Column(DateTime, server_default=func.now(), comment='创建时间')
+    update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment='修改时间')
+
+class BuffScanTaskAccount(Base):
+    """任务与账号关联模型"""
+    __tablename__ = 'buff_scan_task_account'
+    
+    id = Column(BigInteger, primary_key=True, autoincrement=True, comment='主键ID')
+    task_id = Column(BigInteger, nullable=False, comment='任务ID')
+    account_id = Column(BigInteger, nullable=False, comment='账号ID')
+    create_time = Column(DateTime, server_default=func.now(), comment='创建时间')
+
 class BuffSticker(Base):
     """BUFF印花元数据及价值模型"""
     __tablename__ = 'buff_stickers'
@@ -132,7 +164,6 @@ class UserBuffSettings(Base):
     
     id = Column(BigInteger, primary_key=True, autoincrement=True, comment='主键ID')
     user_id = Column(BigInteger, nullable=False, comment='所属用户ID')
-    buff_cookie = Column(Text, comment='BUFF Cookie内容')
     payment_method = Column(String(100), comment='支付方式')
     wecom_corpid = Column(String(255), comment='企微企业ID')
     wecom_corpsecret = Column(String(255), comment='企微应用密钥')

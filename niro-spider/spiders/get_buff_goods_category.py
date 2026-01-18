@@ -18,11 +18,12 @@ from storage.models import BuffGoodsCategory, BuffScanTask
 from storage.database import Session
 from storage.redis_pool import redis_client
 from sqlalchemy.dialects.postgresql import insert
-from utils.logger import get_logger, setup_logging, get_current_ip_cached
+from sqlalchemy import func
+from utils.logger import get_logger, setup_logging, get_current_ip_cached, account_name_var, account_id_var
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip, smart_sleep, coffee_break
+from utils.network_util import log_request_ip, coffee_break
 from utils.notifier import Notifier
 
 logger = get_logger(__name__)
@@ -123,54 +124,122 @@ def get_task_user_id(task_id):
         return task.user_id if task else None
     finally: Session.remove()
 
-def save_categories(categories: List[Dict]):
+def save_categories(categories: List[Dict], parent_id: int = 0):
     if not categories: return
+    
+    # 分布式状态锁：以 parent_id 为键，避免多个账号同时在更新同一个分类节点
+    lock_key = f"niro:lock:category_sync:{parent_id}"
     session = Session()
     try:
+        # 尝试获取 Redis 锁，有效期 30 秒
+        if not redis_client.set(lock_key, "locked", ex=30, nx=True):
+            logger.warning(f"⏳ 另一个账号正在执行分类 [ParentID:{parent_id}] 保存，跳过本次写入")
+            return
+
+        # 0. 预处理分类数据
         db_items = []
         for cat in categories:
+            internal = cat['internal_name']
             db_items.append({
                 "name": cat["name"],
-                "internal_name": cat["internal_name"],
-                "category_type": cat.get("category_type", "type"),
-                "full_internal_name": cat["full_internal_name"],
-                "parent_id": 0
+                "internal_name": internal,
+                "category_type": cat.get("category_type", "category"),
+                "full_internal_name": cat.get('full_internal_name') or (internal if internal.startswith("csgo_") else f"csgo_{internal}"),
+                "parent_id": cat.get("parent_id", 0)
             })
+
+        # 1. 批量插入/更新分类 (UPSERT)
         stmt = insert(BuffGoodsCategory).values(db_items)
         stmt = stmt.on_conflict_do_update(
             index_elements=['internal_name'],
             set_={
                 'name': stmt.excluded.name,
                 'category_type': stmt.excluded.category_type,
-                'full_internal_name': stmt.excluded.full_internal_name
+                'full_internal_name': stmt.excluded.full_internal_name,
+                'parent_id': stmt.excluded.parent_id,
+                'update_time': func.now()
             }
         )
         session.execute(stmt)
         session.commit()
 
+        # 2. 如果提供了 parent_internal_name，则需要根据名称二次关联 (向后兼容)
         existing_cats = session.query(BuffGoodsCategory.id, BuffGoodsCategory.internal_name).all()
         name_to_id = {normalize_internal_name(c.internal_name): c.id for c in existing_cats}
         
+        needs_update = False
         for cat in categories:
-            parent_normalized = normalize_internal_name(cat.get("parent_internal_name", ""))
-            if parent_normalized and parent_normalized in name_to_id:
-                p_id = name_to_id[parent_normalized]
-                c_id = name_to_id.get(normalize_internal_name(cat["internal_name"]))
-                if c_id:
-                    session.query(BuffGoodsCategory).filter(BuffGoodsCategory.id == c_id).update({"parent_id": p_id})
-        session.commit()
+            if "parent_id" not in cat or cat["parent_id" ] == 0:
+                parent_normalized = normalize_internal_name(cat.get("parent_internal_name", ""))
+                if parent_normalized and parent_normalized in name_to_id:
+                    p_id = name_to_id[parent_normalized]
+                    c_id = name_to_id.get(normalize_internal_name(cat["internal_name"]))
+                    if c_id:
+                        session.query(BuffGoodsCategory).filter(BuffGoodsCategory.id == c_id).update({"parent_id": p_id})
+                        needs_update = True
+        
+        if needs_update:
+            session.commit()
     except Exception as e:
         session.rollback()
         logger.error(f"❌ 保存分类失败: {e}")
+    finally:
+        redis_client.delete(lock_key)
+        Session.remove()
+
+def get_task_account_info(task_id):
+    """获取任务绑定的账号信息 (支持多账号轮询)"""
+    if not task_id: return None, "System"
+    session = Session()
+    try:
+        from storage.models import BuffScanTaskAccount, BuffAccount
+        # 获取该任务关联的所有有效账号
+        accounts = session.query(BuffAccount).join(
+            BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
+        ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
+        
+        if not accounts:
+            return None, "System"
+        
+        if len(accounts) == 1:
+            return accounts[0].id, accounts[0].account_name
+        
+        # 多账号轮询逻辑 (Round Robin)
+        redis_key = f"niro:task:account_index:{task_id}"
+        current_index = redis_client.get(redis_key)
+        current_index = int(current_index) if current_index else 0
+        
+        # 确保索引不越界 (可能中途删除了账号)
+        if current_index >= len(accounts):
+            current_index = 0
+        
+        target_acc = accounts[current_index]
+        
+        # 更新下一个索引到 Redis
+        next_index = (current_index + 1) % len(accounts)
+        redis_client.set(redis_key, next_index)
+        
+        logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
+        
+        return target_acc.id, target_acc.account_name
     finally: Session.remove()
 
 def run_category_sync(task_id=None):
     start_time = time.time()
     get_current_ip_cached(force_refresh=True)
     
+    # 设置账号上下文
+    acc_id = account_id_var.get()
+    acc_name = account_name_var.get()
+    
+    if not acc_id:
+        acc_id, acc_name = get_task_account_info(task_id)
+        account_id_var.set(acc_id)
+        account_name_var.set(acc_name)
+
     user_id = get_task_user_id(task_id)
     profile = BrowserHelper.create_profile(user_id)
-    logger.info(f"🎭 已启动精准分类同步，使用指纹: {profile.user_agent}")
+    logger.info(f"🎭 已启动精准分类同步，使用账号: {acc_name}，指纹: {profile.user_agent}")
 
     # 清理上次可能残留的 Redis 数据
     redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
@@ -192,12 +261,12 @@ def run_category_sync(task_id=None):
         
         for p_cat in primary_categories:
             if task_id and not is_task_running(task_id):
-                logger.warning("🛑 任务被手动停止")
+                logger.warning(f"🛑 [账号:{acc_name}] 任务被手动停止")
                 break
 
             type_internal = p_cat.internal_name
             type_name = p_cat.name
-            logger.info(f"📂 正在抓取 [{type_name}] 的二级分类...")
+            logger.info(f"📂 [账号:{acc_name}] 正在抓取 [{type_name}] 的二级分类...")
 
             processed_in_type = set()
             empty_pages_count = 0  # 连续无新数据页面计数器
@@ -205,9 +274,12 @@ def run_category_sync(task_id=None):
                 if task_id and not is_task_running(task_id): break
                 
                 # 1. 智能延迟：分类同步频率可以稍微快一点，但仍需正态分布抖动
-                smart_sleep(mu=4.0, sigma=1.0, min_wait=2.0)
+                wait_time = random.gauss(4.0, 1.0)
+                wait_time = max(wait_time, 2.0)
+                logger.info(f"💤 [账号:{acc_name}] 请求前随机休眠 {wait_time:.2f}s...")
+                time.sleep(wait_time)
 
-                logger.info(f"  -> 正在处理 [{type_name}] 第 {page}/20 页...")
+                logger.info(f"  -> [账号:{acc_name}] 正在处理 [{type_name}] 第 {page}/20 页...")
                 # 一级分类统一使用 category_group 参数
                 params = {
                     "game": "csgo", 
@@ -275,7 +347,9 @@ def run_category_sync(task_id=None):
                         break
 
                     if data.total_page < page: break
-                    time.sleep(random.uniform(15, 20))
+                    wait_time = random.uniform(15, 20)
+                    logger.info(f"💤 翻页后休眠 {wait_time:.2f}s...")
+                    time.sleep(wait_time)
                 except Exception as e:
                     logger.error(f"  ❌ 抓取出错: {e}")
                     break
@@ -295,7 +369,9 @@ def run_category_sync(task_id=None):
                 redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
             
             logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
-            time.sleep(random.uniform(10, 15))
+            wait_time = random.uniform(10, 15)
+            logger.info(f"💤 切换一级分类休眠 {wait_time:.2f}s...")
+            time.sleep(wait_time)
 
         # 计算耗时
         duration = time.time() - start_time

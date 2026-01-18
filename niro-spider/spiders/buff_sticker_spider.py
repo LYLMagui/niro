@@ -19,7 +19,7 @@ from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from config.constants import GAME_CSGO, CATEGORY_STICKER, TAB_SELLING
 from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
-from utils.logger import get_logger, setup_logging
+from utils.logger import get_logger, setup_logging, account_name_var, account_id_var, task_id_var
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
@@ -152,18 +152,79 @@ def upsert_stickers(stickers: List[BuffStickerItem]):
             session.execute(stmt)
         session.commit()
 
-def run_sticker_sync(user_id: int = 1):
+def get_task_account_info(task_id):
+    """获取任务绑定的账号信息 (支持多账号轮询)"""
+    if not task_id: return None, "System"
+    session = Session()
+    try:
+        from storage.models import BuffScanTaskAccount, BuffAccount
+        # 获取该任务关联的所有有效账号
+        accounts = session.query(BuffAccount).join(
+            BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
+        ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
+        
+        if not accounts:
+            return None, "System"
+        
+        if len(accounts) == 1:
+            return accounts[0].id, accounts[0].account_name
+        
+        from storage.redis_pool import redis_client
+        # 多账号轮询逻辑 (Round Robin)
+        redis_key = f"niro:task:account_index:{task_id}"
+        current_index = redis_client.get(redis_key)
+        current_index = int(current_index) if current_index else 0
+        
+        # 确保索引不越界 (可能中途删除了账号)
+        if current_index >= len(accounts):
+            current_index = 0
+        
+        target_acc = accounts[current_index]
+        
+        # 更新下一个索引到 Redis
+        next_index = (current_index + 1) % len(accounts)
+        redis_client.set(redis_key, next_index)
+        
+        logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
+        
+        return target_acc.id, target_acc.account_name
+    finally: Session.remove()
+
+def run_sticker_sync(user_id: int = 1, task_id: int = None):
     """执行同步印花主逻辑"""
+    start_time = time.time()
+    
+    # 设置上下文
+    if task_id:
+        task_id_var.set(task_id)
+        
+    acc_id = account_id_var.get()
+    acc_name = account_name_var.get()
+    
+    if not acc_id:
+        if task_id:
+            acc_id, acc_name = get_task_account_info(task_id)
+        else:
+            # 兼容旧逻辑或手动执行
+            session = Session()
+            from storage.models import BuffAccount
+            acc = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
+            acc_id, acc_name = (acc.id, acc.account_name) if acc else (None, "System")
+            session.close()
+        
+        account_id_var.set(acc_id)
+        account_name_var.set(acc_name)
+
     # 强制刷新出口IP缓存
     from utils.logger import get_current_ip_cached
     get_current_ip_cached(force_refresh=True)
     
-    logger.info(f"开始执行印花价值同步任务, 用户ID: {user_id}")
+    logger.info(f"🚀 [账号:{acc_name}] 开始执行印花价值同步任务")
     
     try:
         # 1. 获取用户 Profile (包含 Cookie 和浏览器指纹)
         profile = BrowserHelper.create_profile(user_id)
-        logger.info(f"🎭 已为印花同步任务分配指纹: {profile.user_agent}")
+        logger.info(f"🎭 [账号:{acc_name}] 已分配指纹: {profile.user_agent}")
         
         if not profile:
             logger.error(f"未找到用户 {user_id} 的配置信息")
@@ -172,23 +233,25 @@ def run_sticker_sync(user_id: int = 1):
         # 2. 抓取第一页获取总页数
         first_page_data = fetch_stickers_api(page_num=1, profile=profile)
         total_page = first_page_data.total_page
-        logger.info(f"成功获取印花数据，共 {total_page} 页, {first_page_data.total_count} 个印花")
+        logger.info(f"📊 [账号:{acc_name}] 成功获取印花数据，共 {total_page} 页, {first_page_data.total_count} 个印花")
         
         # 处理第一页
         upsert_stickers(first_page_data.items)
         
         # 3. 循环处理后续页面
         for page in range(2, total_page + 1):
-            logger.info(f"正在同步第 {page}/{total_page} 页...")
+            logger.info(f"正在同步 [账号:{acc_name}] 第 {page}/{total_page} 页...")
             
-            # 随机休眠，避免风控
-            time.sleep(random.uniform(CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX))
+            # 智能延迟：印花同步数据量大，延迟需要更稳健
+            wait_time = random.uniform(CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX)
+            logger.info(f"💤 [账号:{acc_name}] 抓取第 {page} 页前休眠 {wait_time:.2f}s...")
+            time.sleep(wait_time)
             
             page_data = fetch_stickers_api(page_num=page, profile=profile)
             if page_data and page_data.items:
                 upsert_stickers(page_data.items)
             
-        logger.info("印花价值同步任务执行完成！")
+        logger.info(f"✅ [账号:{acc_name}] 印花价值同步任务执行完成！")
         
     except Exception as e:
         logger.error("印花价值同步任务失败: {}", e, exc_info=True)

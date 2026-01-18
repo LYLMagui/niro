@@ -18,7 +18,7 @@ from dto.buff_dto import BuffSellOrderResponse, ParsedBuffItemDTO
 from enums.buff_enums import BuffGameType, BuffPaymentMethod, BuffSortStrategy
 from utils.browser_helper import BrowserHelper
 from utils.exception_handler import LoginRequiredError, handle_api_error
-from utils.logger import get_logger
+from utils.logger import get_logger, account_name_var, account_id_var
 from utils.network_util import log_request_ip
 from utils.proxy_helper import get_proxies, refresh_proxies
 
@@ -48,8 +48,17 @@ class BuffSpider:
     def __init__(self, user_id=None):
         self.host = "https://buff.163.com"
         self.user_id = user_id
-        # 绑定用户上下文，方便日志追踪
-        self.logger = logger.bind(user_id=user_id)
+        
+        # 优先使用上下文中已存在的账号信息，否则再初始化
+        acc_id = account_id_var.get()
+        acc_name = account_name_var.get()
+        
+        if not acc_id:
+            acc_id, acc_name = self.get_account_info(user_id)
+            account_id_var.set(acc_id)
+            account_name_var.set(acc_name)
+        
+        self.logger = logger.bind(user_id=user_id, accountName=acc_name)
 # 1. 代理配置
         self.proxies = get_proxies()
         if self.proxies:
@@ -63,6 +72,20 @@ class BuffSpider:
         # 初始化时随机生成一个浏览器指纹并绑定 Cookie
         self.profile = BrowserHelper.create_profile(self.user_id)
         self.logger.info(f"🎭 已为当前任务分配指纹: {self.profile.user_agent}")
+
+    def get_account_info(self, user_id):
+        """获取账号信息"""
+        if not user_id: return None, "System"
+        from storage.database import Session
+        from storage.models import BuffAccount
+        session = Session()
+        try:
+            acc = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
+            if acc:
+                return acc.id, acc.account_name
+            return None, "System"
+        finally:
+            Session.remove()
 
     def refresh_cookie(self):
         """从数据库刷新指定用户的有效 Cookie"""

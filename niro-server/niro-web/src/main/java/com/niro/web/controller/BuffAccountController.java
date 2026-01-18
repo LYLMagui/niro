@@ -3,6 +3,7 @@ package com.niro.web.controller;
 import cn.dev33.satoken.stp.StpUtil;
 import com.niro.core.result.Result;
 import com.niro.web.dto.BuffAccountDTO;
+import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.service.BuffAccountService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -63,6 +64,15 @@ public class BuffAccountController {
     public Result<Void> checkAll() {
         Long userId = StpUtil.getLoginIdAsLong();
         buffAccountService.checkAllCookies(userId);
+        return Result.success();
+    }
+
+    @Operation(summary = "更新账号状态 (爬虫反馈)")
+    @PostMapping("/report/status")
+    public Result<Void> reportStatus(@RequestBody BuffAccountDTO dto) {
+        log.info("📥 收到账号状态反馈: id={}, status={}, msg={}", dto.getId(), dto.getStatus(), dto.getWarningMsg());
+        // 此接口通常由爬虫或内部服务调用，此处简单放行，实际可增加签名校验
+        buffAccountService.updateAccountStatus(dto.getId(), dto.getStatus(), dto.getWarningMsg());
         return Result.success();
     }
 }

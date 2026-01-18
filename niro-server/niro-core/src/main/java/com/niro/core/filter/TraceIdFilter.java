@@ -19,6 +19,7 @@ import java.io.IOException;
 public class TraceIdFilter implements Filter {
 
     private static final String TRACE_ID = "traceId";
+    private static final String USER_ID = "userId";
     private static final String TRACE_ID_HEADER = "X-Niro-Trace-Id";
 
     @Override
@@ -29,6 +30,9 @@ public class TraceIdFilter implements Filter {
             String traceId = IdUtil.fastSimpleUUID();
             MDC.put(TRACE_ID, traceId);
             
+            // 尝试获取当前登录用户 ID (通过反射避免直接依赖 satoken 引起核心包过大，或者直接导入)
+            // 这里我们已经在 niro-core 引入了 sa-token 吗？查看 pom.xml
+            
             // 设置响应头
             if (response instanceof HttpServletResponse httpResponse) {
                 httpResponse.setHeader(TRACE_ID_HEADER, traceId);
@@ -38,6 +42,7 @@ public class TraceIdFilter implements Filter {
         } finally {
             // 请求结束后清理，防止线程池污染
             MDC.remove(TRACE_ID);
+            MDC.remove(USER_ID);
         }
     }
 }

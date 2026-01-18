@@ -22,6 +22,7 @@ import java.util.concurrent.TimeUnit;
 public class RedisUtil {
 
     private final RedisTemplate<String, Object> redisTemplate;
+    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
 
     /** -------------------key相关操作--------------------- */
 
@@ -207,11 +208,7 @@ public class RedisUtil {
      * @return
      */
     public String getToString(String key) {
-        Object obj = redisTemplate.opsForValue().get(key);
-        if (obj == null) {
-            return null;
-        }
-        return String.valueOf(obj);
+        return stringRedisTemplate.opsForValue().get(key);
     }
 
     /**

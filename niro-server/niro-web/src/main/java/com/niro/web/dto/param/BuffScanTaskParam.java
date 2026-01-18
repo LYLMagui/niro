@@ -1,12 +1,11 @@
 package com.niro.web.dto.param;
 
-import io.swagger.v3.oas.annotations.media.Schema;
-import jakarta.validation.constraints.DecimalMin;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
-import lombok.Data;
-
 import java.math.BigDecimal;
+import java.util.List;
+
+import io.swagger.v3.oas.annotations.media.Schema;
+import jakarta.validation.constraints.Min;
+import lombok.Data;
 
 /**
  * 扫货任务创建/更新参数
@@ -58,4 +57,7 @@ public class BuffScanTaskParam {
 
     @Schema(description = "最小预期利润 (仅倒卖任务有效)")
     private BigDecimal minProfit;
+
+    @Schema(description = "绑定的账号ID列表")
+    private List<Long> accountIds;
 }

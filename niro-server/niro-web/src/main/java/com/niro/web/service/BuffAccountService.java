@@ -3,6 +3,7 @@ package com.niro.web.service;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.niro.web.dto.BuffAccountDTO;
 import com.niro.web.entity.BuffAccount;
+import com.niro.web.enums.BuffAccountStatusEnum;
 
 import java.util.List;
 
@@ -52,4 +53,13 @@ public interface BuffAccountService extends IService<BuffAccount> {
      * @param userId 用户ID
      */
     void checkAllCookies(Long userId);
+
+    /**
+     * 内部接口：更新账号状态（供爬虫反馈或系统自检）
+     *
+     * @param id 账号ID
+     * @param status 状态
+     * @param warningMsg 异常说明
+     */
+    void updateAccountStatus(Long id, BuffAccountStatusEnum status, String warningMsg);
 }

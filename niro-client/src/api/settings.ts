@@ -31,6 +31,9 @@ export interface BuffAccount {
   tradeSuccessCount?: number;
   tradeTotalCount?: number;
   tradeSuccessRate?: number;
+  checking?: boolean;
+  boundTaskId?: number;
+  boundTaskName?: string;
   createTime?: string;
   updateTime?: string;
 }

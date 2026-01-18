@@ -18,11 +18,11 @@ from storage.models import BuffGoods, BuffGoodsCategory, BuffScanTask
 from storage.database import Session
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy import func
-from utils.logger import get_logger, setup_logging, get_current_ip_cached
+from utils.logger import get_logger, setup_logging, get_current_ip_cached, account_name_var, account_id_var
 from utils.exception_handler import LoginRequiredError
 from utils.browser_helper import BrowserHelper
 from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip, smart_sleep, coffee_break
+from utils.network_util import log_request_ip, coffee_break
 from storage.redis_pool import redis_client
 from utils.notifier import Notifier
 
@@ -178,15 +178,21 @@ def get_sync_categories():
     finally:
         Session.remove()
 
-def save_goods_batch(goods_list):
+def save_goods_batch(goods_list, category_id: int = 0):
     """批量保存商品数据 (UPSERT)"""
     if not goods_list: return 0
     
+    # 分布式状态锁：以 category_id 为键，避免多个账号同时在更新同一个分类下的商品
+    lock_key = f"niro:lock:goods_sync:{category_id}"
+    
+    # 尝试获取 Redis 锁，有效期 60 秒
+    if not redis_client.set(lock_key, "locked", ex=60, nx=True):
+        logger.warning(f"⏳ 另一个账号正在执行分类 [ID:{category_id}] 商品保存，跳过本次写入")
+        return 0
+    
     # 1. 对 goods_list 进行去重处理 (基于 goods_id)
-    # PostgreSQL 的 ON CONFLICT DO UPDATE 不允许在同一次批量操作中对同一行进行多次更新
     unique_goods = {}
     for g in goods_list:
-        # 如果有重复的 goods_id，保留最后一次出现的记录 (通常是较新的)
         unique_goods[g['goods_id']] = g
     
     final_goods_list = list(unique_goods.values())
@@ -199,13 +205,13 @@ def save_goods_batch(goods_list):
             set_={
                 "name": stmt.excluded.name,
                 "short_name": stmt.excluded.short_name,
-                "internal_name": stmt.excluded.internal_name,
-                "category_id": stmt.excluded.category_id,
-                "rarity": stmt.excluded.rarity,
-                "exterior": stmt.excluded.exterior,
                 "market_hash_name": stmt.excluded.market_hash_name,
                 "icon_url": stmt.excluded.icon_url,
                 "original_icon_url": stmt.excluded.original_icon_url,
+                "rarity": stmt.excluded.rarity,
+                "exterior": stmt.excluded.exterior,
+                "type": stmt.excluded.type,
+                "category_id": stmt.excluded.category_id,
                 "tags": stmt.excluded.tags,
                 "update_time": func.now()
             }
@@ -218,6 +224,7 @@ def save_goods_batch(goods_list):
         logger.error(f"❌ 批量保存失败: {e}")
         return 0
     finally:
+        redis_client.delete(lock_key)
         Session.remove()
 
 def is_task_running(task_id):
@@ -247,7 +254,9 @@ def process_category(category, force=False, task_id=None, profile=None):
     cat_name = category['name']
     cat_type = category['category_type']
     
-    logger.info(f"🚀 开始处理分类: {cat_name} ({cat_internal}, type: {cat_type})")
+    # 获取当前执行账号名称
+    acc_name = account_name_var.get() or "System"
+    logger.info(f"🚀 [账号:{acc_name}] 开始处理分类: {cat_name} ({cat_internal}, type: {cat_type})")
     
     # 1. 获取 Redis 中记录的上次同步状态
     state_key = f"{REDIS_CATEGORY_STATE_PREFIX}{cat_id}"
@@ -275,13 +284,19 @@ def process_category(category, force=False, task_id=None, profile=None):
                 refresh_proxies()
 
             # 2. 分段延迟 (Segmented Delay)：翻页与首页获取采用不同的延迟策略
+            # 分段延迟：针对首页与后续翻页采用不同的等待策略，提高仿真度
             if page == 1:
-                # 首页请求 (Metadata) 稍微快一点
-                smart_sleep(mu=3.0, sigma=0.8, min_wait=1.5)
+                # 1. 智能延迟：模拟人类首次加载行为
+                wait_time = random.gauss(3.0, 0.8)
+                wait_time = max(wait_time, 1.5)
+                logger.info(f"💤 [账号:{acc_name}] 抓取第 {page} 页前随机休眠 {wait_time:.2f}s...")
+                time.sleep(wait_time)
             else:
                 # 翻页请求 (Data) 使用更像人类的正态分布随机延迟
-                # mu=15.0, sigma=3.0 表示平均延迟 15s，波动在 12s-18s 之间
-                smart_sleep(mu=18, sigma=4, min_wait=14.0)
+                wait_time = random.gauss(18, 4)
+                wait_time = max(wait_time, 14.0)
+                logger.info(f"💤 [账号:{acc_name}] 翻页请求前随机休眠 {wait_time:.2f}s...")
+                time.sleep(wait_time)
 
             data = fetch_goods_api(cat_internal, category_type=cat_type, page_num=page, profile=profile)
             if page == 1:
@@ -332,7 +347,10 @@ def process_category(category, force=False, task_id=None, profile=None):
                 redis_client.rpush(REDIS_TEMP_GOODS_KEY, *page_goods_list)
                 logger.info(f"📦 第 {page}/{total_pages} 页: 采集到 {len(items)} 个商品并暂存至 Redis (当前分类累计: {redis_client.llen(REDIS_TEMP_GOODS_KEY)})")
             
-            # 分页抓取已集成在循环顶部的 smart_sleep 中
+            # 每页处理完随机休眠，防止被封
+            wait_time = random.uniform(10, 15)
+            logger.info(f"💤 [账号:{acc_name}] 翻页后休眠 {wait_time:.2f}s...")
+            time.sleep(wait_time)
             page += 1
             
         except LoginRequiredError:
@@ -367,7 +385,7 @@ def process_category(category, force=False, task_id=None, profile=None):
         
         # 每抓完一个分类，保存完后随机暂停 12-16 秒，并观察 IP
         cat_wait_time = random.uniform(20, 25)
-        logger.info(f"😴 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
+        logger.info(f"😴 [账号:{acc_name}] 分类 [{cat_name}] 处理完毕，休息 {cat_wait_time:.2f} 秒后处理下一个分类...")
         time.sleep(cat_wait_time)
         
         # 刷新出口 IP 显示
@@ -382,16 +400,60 @@ def process_category(category, force=False, task_id=None, profile=None):
         logger.info(f"💡 分类 {cat_name} 未发现新数据或已跳过")
         return 0
 
+def get_task_account_info(task_id):
+    """获取任务绑定的账号信息 (支持多账号轮询)"""
+    if not task_id: return None, "System"
+    session = Session()
+    try:
+        from storage.models import BuffScanTaskAccount, BuffAccount
+        # 获取该任务关联的所有有效账号
+        accounts = session.query(BuffAccount).join(
+            BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
+        ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
+        
+        if not accounts:
+            return None, "System"
+        
+        if len(accounts) == 1:
+            return accounts[0].id, accounts[0].account_name
+        
+        # 多账号轮询逻辑 (Round Robin)
+        redis_key = f"niro:task:account_index:{task_id}"
+        current_index = redis_client.get(redis_key)
+        current_index = int(current_index) if current_index else 0
+        
+        # 确保索引不越界 (可能中途删除了账号)
+        if current_index >= len(accounts):
+            current_index = 0
+        
+        target_acc = accounts[current_index]
+        
+        # 更新下一个索引到 Redis
+        next_index = (current_index + 1) % len(accounts)
+        redis_client.set(redis_key, next_index)
+        
+        logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
+        
+        return target_acc.id, target_acc.account_name
+    finally: Session.remove()
+
 def run_goods_sync(force=False, task_id=None, category_id=None):
     """运行商品同步任务入口"""
     start_time = time.time()
-    # 强制刷新出口IP缓存，确保日志显示准确
     get_current_ip_cached(force_refresh=True)
+
+    # 设置账号上下文
+    acc_id = account_id_var.get()
+    acc_name = account_name_var.get()
     
+    if not acc_id:
+        acc_id, acc_name = get_task_account_info(task_id)
+        account_id_var.set(acc_id)
+        account_name_var.set(acc_name)
+
     user_id = get_task_user_id(task_id)
-    # 在任务启动时随机生成一个浏览器指纹并绑定 Cookie
     profile = BrowserHelper.create_profile(user_id)
-    logger.info(f"🎭 已为商品同步任务分配指纹: {profile.user_agent}")
+    logger.info(f"🎭 已启动商品库同步，使用账号: {acc_name}，指纹: {profile.user_agent}")
     
     if category_id:
         # 如果指定了分类ID，则只同步该分类

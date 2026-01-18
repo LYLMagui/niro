@@ -5,8 +5,8 @@ import pendulum
 from loguru import logger
 from contextvars import ContextVar
 
-# 定义全链路追踪 ContextVar (类似 Java MDC)
-trace_id_var = ContextVar("trace_id", default="")
+# 此时导入 engine.context 会引起循环依赖，因此我们直接在 patcher 中动态获取
+from engine.context import trace_id_var, task_id_var, account_id_var, account_name_var
 
 # 定义日志目录和文件
 LOG_DIR = os.getenv("LOG_DIR", "logs")
@@ -60,14 +60,20 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
                 "service": "niro-spider", 
                 "env": os.getenv("APP_ENV", "dev"),
                 "ip": get_current_ip_cached(),
-                "traceId": trace_id_var.get() or os.getenv("TRACE_ID", "")
+                "traceId": trace_id_var.get() or os.getenv("TRACE_ID", ""),
+                "taskId": task_id_var.get(),
+                "accountId": account_id_var.get(),
+                "accountName": account_name_var.get()
             }
         ),
         extra={
             "service": "niro-spider", 
             "env": os.getenv("APP_ENV", "dev"), 
             "ip": get_current_ip_cached(),
-            "traceId": ""
+            "traceId": "",
+            "taskId": None,
+            "accountId": None,
+            "accountName": "System"
         }
     )
 
@@ -75,7 +81,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     logger.add(
         sys.stdout,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | ip：{extra[ip]} | <level>{message}</level>",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | taskId: {extra[taskId]} | acc: {extra[accountName]} | <level>{message}</level>",
     )
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
@@ -87,7 +93,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         encoding="utf-8",
         enqueue=True,  # 异步写入，线程安全
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip：{extra[ip]} | {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip：{extra[ip]} | {message}",
     )
 
     # 3. 结构化 JSON 输出 (专为 ELK/Filebeat 设计)

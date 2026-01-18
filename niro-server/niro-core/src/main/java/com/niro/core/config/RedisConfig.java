@@ -47,8 +47,8 @@ public class RedisConfig {
         template.setHashKeySerializer(stringRedisSerializer);
         // value序列化方式采用jackson
         template.setValueSerializer(jackson2JsonRedisSerializer);
-        // hash的value序列化方式采用jackson
-        template.setHashValueSerializer(jackson2JsonRedisSerializer);
+        // hash的value采用String序列化，方便跨语言(Python)交互
+        template.setHashValueSerializer(stringRedisSerializer);
 
         template.afterPropertiesSet();
         return template;

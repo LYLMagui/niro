@@ -7,21 +7,18 @@ current_dir = os.path.dirname(os.path.abspath(__file__))
 # 将 src/main/python 目录添加到 sys.path
 sys.path.insert(0, current_dir)
 
-from spiders.task_scanner import TaskScanner
 from utils.logger import setup_logging, get_logger
 from config import settings
 
 # 初始化日志配置
 setup_logging(log_dir=settings.LOG_DIR)
+
+from spiders.task_scanner import TaskScanner
 logger = get_logger(__name__)
 
 def main():
     logger.info("🔧 初始化环境...")
     
-    # 简单的环境检查
-    if not settings.BUFF_COOKIE:
-        logger.warning("未配置 BUFF_COOKIE，可能无法获取数据！")
-
     # 启动扫描器
     scanner = TaskScanner()
     try:

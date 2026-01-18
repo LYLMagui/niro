@@ -59,6 +59,14 @@
               </div>
             </template>
 
+            <!-- 备注列 -->
+            <template #remark="{ row }">
+              <t-tooltip v-if="row.remark" :content="row.remark">
+                <span class="text-[13px] text-[#5e6d82]">{{ row.remark }}</span>
+              </t-tooltip>
+              <span v-else class="text-[12px] text-gray-400 italic">无</span>
+            </template>
+
             <!-- 角色标签美化 (保持原样) -->
             <template #role="{ row }">
               <t-tag 
@@ -146,10 +154,20 @@
                     <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
                   </t-link>
                 </t-tooltip>
-                <t-popconfirm content="确定删除该账号吗？" @confirm="onDeleteAccount(row)">
-                  <t-link theme="default" :disabled="row.checking" class="!text-gray-400 hover:!text-red-500 transition-colors">
-                    <t-icon name="delete" />
-                  </t-link>
+                <t-popconfirm 
+                  :content="row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '确定删除该账号吗？'" 
+                  @confirm="onDeleteAccount(row)"
+                  :disabled="!!row.boundTaskId"
+                >
+                  <t-tooltip :content="row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '删除'">
+                    <t-link 
+                      theme="default" 
+                      :disabled="row.checking || !!row.boundTaskId" 
+                      class="!text-gray-400 hover:!text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      <t-icon name="delete" />
+                    </t-link>
+                  </t-tooltip>
                 </t-popconfirm>
               </div>
             </template>
@@ -234,20 +252,20 @@
                     <div class="space-y-3 pt-2">
                       <t-form-item label="CorpID" name="wecomCorpid">
                         <template #label><span class="text-[#86909c]">CorpID</span></template>
-                        <t-input v-model="formData.wecomCorpid" placeholder="ww..." @blur="(v: string) => handleInputTrim(v, formData, 'wecomCorpid')" />
+                        <t-input v-model="formData.wecomCorpid" placeholder="ww..." @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpid')" />
                       </t-form-item>
                       <t-form-item label="CorpSecret" name="wecomCorpsecret">
                         <template #label><span class="text-[#86909c]">CorpSecret</span></template>
-                        <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="******" @blur="(v: string) => handleInputTrim(v, formData, 'wecomCorpsecret')" />
+                        <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="******" @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpsecret')" />
                       </t-form-item>
                       <div class="grid grid-cols-2 gap-3">
                         <t-form-item label="AgentID" name="wecomAgentid">
                           <template #label><span class="text-[#86909c]">AgentID</span></template>
-                          <t-input v-model="formData.wecomAgentid" placeholder="1000..." @blur="(v: string) => handleInputTrim(v, formData, 'wecomAgentid')" />
+                          <t-input v-model="formData.wecomAgentid" placeholder="1000..." @blur="(v: any) => handleInputTrim(v, formData, 'wecomAgentid')" />
                         </t-form-item>
                         <t-form-item label="接收人" name="wecomTouser">
                           <template #label><span class="text-[#86909c]">接收人</span></template>
-                          <t-input v-model="formData.wecomTouser" placeholder="@all" @blur="(v: string) => handleInputTrim(v, formData, 'wecomTouser')" />
+                          <t-input v-model="formData.wecomTouser" placeholder="@all" @blur="(v: any) => handleInputTrim(v, formData, 'wecomTouser')" />
                         </t-form-item>
                       </div>
                     </div>
@@ -291,7 +309,7 @@
       >
         <div class="flex gap-6">
           <t-form-item label="账号名称" name="accountName" class="flex-[1.5] min-w-0">
-            <t-input v-model="accountFormData.accountName" placeholder="如：扫描账号01" @blur="(v: string) => handleInputTrim(v, accountFormData, 'accountName')" />
+            <t-input v-model="accountFormData.accountName" placeholder="如：扫描账号01" @blur="(v: any) => handleInputTrim(v, accountFormData, 'accountName')" />
           </t-form-item>
           <t-form-item label="权重 (1-10)" name="weight" class="w-[140px] shrink-0">
             <t-input-number
@@ -309,7 +327,7 @@
             v-model="accountFormData.buffCookie"
             placeholder="请粘贴 Cookie 字符串..."
             :autosize="{ minRows: 3, maxRows: 5 }"
-            @blur="(v: string) => handleInputTrim(v, accountFormData, 'buffCookie')"
+            @blur="(v: any) => handleInputTrim(v, accountFormData, 'buffCookie')"
             class="custom-textarea"
           />
         </t-form-item>
@@ -323,7 +341,7 @@
         </t-form-item>
 
         <t-form-item label="备注" name="remark">
-          <t-input v-model="accountFormData.remark" placeholder="可选备注信息" @blur="(v: string) => handleInputTrim(v, accountFormData, 'remark')" />
+          <t-input v-model="accountFormData.remark" placeholder="可选备注信息" @blur="(v: any) => handleInputTrim(v, accountFormData, 'remark')" />
         </t-form-item>
 
         <div class="mt-8 flex justify-end gap-3">
@@ -358,18 +376,10 @@ const loading = ref(false);
 const wecomEnabled = ref(true);
 const balanceVisible = ref(true);
 
-// 模拟 SSE 日志数据
-const scanLogs = ref([
-  { time: '10:24:05', type: 'info', content: '系统初始化完成，等待任务调度...' },
-  { time: '10:24:10', type: 'success', content: '账号 [扫描号01] 登录状态校验成功' },
-  { time: '10:24:12', type: 'info', content: '正在扫描 [AK-47 | 二西莫夫] 市场数据...' },
-  { time: '10:24:15', type: 'info', content: '发现 5 个符合条件的饰品，正在进行磨损比对...' },
-]);
-
 /**
  * 自动清除换行符和首尾空格
  */
-const handleInputTrim = (val: string, target: any, key: string) => {
+const handleInputTrim = (val: any, target: any, key: string) => {
   if (typeof val === 'string') {
     target[key] = val.replace(/[\r\n]/g, '').trim();
   }
@@ -437,6 +447,7 @@ const accountRules: Record<string, FormRule[]> = {
 
 const accountColumns: PrimaryTableCol<TableRowData>[] = [
   { colKey: "accountName", title: "账号", width: 140, ellipsis: true, cell: "accountName", align: "left" },
+  { colKey: "remark", title: "备注", width: 120, ellipsis: true, cell: "remark", align: "left" },
   { colKey: "role", title: "角色", width: 100, cell: "role", align: "left" },
   { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
   { colKey: "stats", title: "实时统计", width: 150, cell: "stats", align: "left" },
@@ -546,15 +557,6 @@ const getGhostTagClass = (role: BuffAccountRole) => {
   return map[role] || "";
 };
 
-const getRoleTheme = (role: BuffAccountRole) => {
-  const map: Record<BuffAccountRole, string> = {
-    SCAN: "primary", // 侦察蓝
-    TRADE: "warning", // 击杀橙
-    BOTH: "success",
-  };
-  return map[role] || "default";
-};
-
 const getStatusLabel = (status: BuffAccountStatus) => {
   const map: Record<BuffAccountStatus, string> = {
     NORMAL: "在线",
@@ -592,13 +594,6 @@ const getStatusTextColor = (status: BuffAccountStatus) => {
     COOLING_DOWN: "text-purple-600",
   };
   return map[status] || "text-gray-500";
-};
-
-const getRateColor = (rate?: number) => {
-  if (!rate) return "text-gray-400";
-  if (rate >= 0.8) return "text-green-600";
-  if (rate >= 0.5) return "text-orange-500";
-  return "text-red-500";
 };
 
 const getBalanceClass = (row: BuffAccount) => {

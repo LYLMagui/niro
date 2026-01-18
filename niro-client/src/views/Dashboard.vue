@@ -27,7 +27,7 @@
             v-if="!isRunning"
             theme="primary"
             size="medium"
-            @click="startTask"
+            @click="handleGlobalStart"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
           >
             启动任务
@@ -36,7 +36,7 @@
             v-else
             theme="danger"
             size="medium"
-            @click="stopTask"
+            @click="handleGlobalStop"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
           >
             停止任务
@@ -49,6 +49,25 @@
         <div class="text-3xl font-bold text-orange-500">230ms</div>
         <div class="mt-2 text-sm text-gray-500">网络状况良好</div>
       </t-card>
+    </div>
+
+    <!-- 正在运行的任务 (智行风格进度条) -->
+    <div v-if="runningTasks.length > 0" class="space-y-4">
+      <div class="flex items-center justify-between">
+        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+          <t-icon name="control-platform" class="mr-2 text-blue-600" />
+          运行中的任务
+        </h3>
+        <t-link theme="primary" @click="$router.push('/tasks')">查看全部</t-link>
+      </div>
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <TaskProgressCard
+          v-for="task in runningTasks"
+          :key="task.id"
+          :task="task"
+          @stop="stopTask"
+        />
+      </div>
     </div>
 
     <!-- 底部表格：最新商品动态 -->
@@ -98,17 +117,36 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
+import { ref, onMounted } from "vue";
 import { useTaskStore } from "@/store/task";
 import { storeToRefs } from "pinia";
+import type { PrimaryTableCol } from "tdesign-vue-next";
+import TaskProgressCard from "@/components/TaskProgressCard.vue";
 
 // 使用 Pinia Store 管理任务状态
 const taskStore = useTaskStore();
-const { isRunning } = storeToRefs(taskStore); // 保持响应性
-const { startTask, stopTask } = taskStore;
+const { isRunning, runningTasks } = storeToRefs(taskStore); // 保持响应性
+const { fetchRunningTasks, startTask, stopTask } = taskStore;
+
+// 临时处理全局启动/停止 (目前后端需要 ID，这里先留空或处理首个任务)
+const handleGlobalStart = () => {
+  if (runningTasks.value.length > 0) {
+    startTask(runningTasks.value[0].id);
+  }
+};
+
+const handleGlobalStop = () => {
+  if (runningTasks.value.length > 0) {
+    stopTask(runningTasks.value[0].id);
+  }
+};
+
+onMounted(() => {
+  fetchRunningTasks();
+});
 
 // 表格列配置
-const columns = [
+const columns: PrimaryTableCol[] = [
   { colKey: "id", title: "ID", width: 80, cell: "id", align: "left" },
   { colKey: "name", title: "商品名称", ellipsis: true, align: "left" },
   { colKey: "price", title: "价格 (CNY)", width: 120, cell: "price", align: "right" },
