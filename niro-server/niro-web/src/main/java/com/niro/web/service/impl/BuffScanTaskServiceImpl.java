@@ -489,7 +489,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                     
                     // 补充实时统计信息
                     String statsKey = "niro:stats:task:" + dto.getId();
-                    String statsJson = (String) redisUtil.get(statsKey);
+                    String statsJson = redisUtil.getToString(statsKey);
                     if (cn.hutool.core.util.StrUtil.isNotBlank(statsJson)) {
                         dto.setStats(cn.hutool.json.JSONUtil.parse(statsJson));
                     }
