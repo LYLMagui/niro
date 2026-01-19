@@ -41,4 +41,12 @@ public class UserBuffSettingsController {
         userBuffSettingsService.saveOrUpdate(userId, param);
         return Result.success();
     }
+
+    @Operation(summary = "发送测试通知")
+    @PostMapping("/test-notify")
+    public Result<Void> sendTestNotify() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        userBuffSettingsService.sendTestNotify(userId);
+        return Result.success();
+    }
 }

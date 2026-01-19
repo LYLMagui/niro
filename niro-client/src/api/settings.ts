@@ -49,6 +49,11 @@ export const settingsApi = {
     return request.post<unknown>("/settings", data);
   },
 
+  // 发送测试通知
+  sendTestNotify() {
+    return request.post<unknown>("/settings/test-notify");
+  },
+
   // 获取BUFF账号列表
   getBuffAccounts() {
     return request.get<BuffAccount[]>("/buff/account/list");

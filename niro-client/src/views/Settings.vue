@@ -276,7 +276,22 @@
           </div>
 
           <!-- 底部固定保存按钮 -->
-          <div class="p-4 bg-white border-t border-gray-50 mt-4">
+          <div class="p-4 bg-white border-t border-gray-50 mt-4 relative">
+            <!-- 测试通知按钮 -->
+            <div class="absolute right-4 top-[-28px]">
+              <t-button
+                v-if="wecomEnabled"
+                variant="text"
+                theme="primary"
+                size="small"
+                :loading="testNotifyLoading"
+                @click="onTestNotify"
+                class="!px-2"
+              >
+                <template #icon><t-icon name="chat" /></template>
+                发送测试消息
+              </t-button>
+            </div>
             <t-button
               theme="primary"
               type="submit"
@@ -373,7 +388,8 @@ import { computed, onMounted, reactive, ref } from "vue";
 
 // --- 通用配置部分 ---
 const loading = ref(false);
-const wecomEnabled = ref(true);
+const testNotifyLoading = ref(false);
+const wecomEnabled = ref(false);
 const balanceVisible = ref(true);
 
 /**
@@ -415,6 +431,16 @@ const onSubmit = async (context: SubmitContext) => {
     } finally {
       loading.value = false;
     }
+  }
+};
+
+const onTestNotify = async () => {
+  testNotifyLoading.value = true;
+  try {
+    await settingsApi.sendTestNotify();
+    MessagePlugin.success("测试通知已发送，请检查企业微信");
+  } finally {
+    testNotifyLoading.value = false;
   }
 };
 

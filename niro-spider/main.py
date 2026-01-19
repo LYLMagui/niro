@@ -34,23 +34,15 @@ def main():
     logger.info("==================================================")
     
     consumer = TaskConsumer()
-    loop = asyncio.get_event_loop()
-
-    # 注册信号处理 (兼容 Linux/Unix)
-    if os.name != 'nt':
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(consumer)))
     
     try:
-        loop.run_until_complete(consumer.start())
+        asyncio.run(consumer.start())
     except KeyboardInterrupt:
         # Windows 下通常捕获此异常
         logger.info("🛑 用户通过键盘停止程序")
-        loop.run_until_complete(consumer.stop())
     except Exception as e:
         logger.critical(f"❌ 程序发生致命错误: {e}", exc_info=True)
     finally:
-        loop.close()
         logger.info("🏁 Niro Spider 已退出")
 
 if __name__ == "__main__":

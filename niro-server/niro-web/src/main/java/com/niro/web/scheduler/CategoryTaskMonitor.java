@@ -21,9 +21,9 @@ public class CategoryTaskMonitor {
     private final BuffScanTaskService buffScanTaskService;
 
     /**
-     * 每 2 分钟执行一次检查
+     * 每 1 分钟执行一次检查 (v2.7.2 缩短频率以提升任务自愈响应速度)
      */
-    @Scheduled(fixedRate = 120000)
+    @Scheduled(fixedRate = 60000)
     public void checkTasks() {
         log.info("🔍 [CategoryTaskMonitor] 开始执行任务自愈与分片健康检查...");
         try {

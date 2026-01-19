@@ -1,166 +1,194 @@
 <template>
-  <div class="flex h-full flex-col overflow-hidden bg-gray-50 p-2 dark:bg-gray-900 md:p-4">
-    <!-- Toolbar: v1.21.0 压缩版单行布局 -->
-    <div class="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-white p-2 shadow-sm dark:bg-gray-800">
-      <!-- 左侧：标题与状态 -->
-      <div class="flex items-center space-x-3">
-        <h2 class="text-base font-bold text-gray-800 dark:text-gray-200">全链路日志</h2>
-        <div class="flex items-center space-x-1.5">
-          <div 
-            class="h-2 w-2 rounded-full" 
-            :class="[
-              isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400',
-              isConnected ? 'animate-pulse' : ''
-            ]"
-          ></div>
-          <span class="text-xs text-gray-500">{{ isConnected ? '实时监听中' : '连接已断开' }}</span>
-        </div>
-      </div>
-
-      <!-- 中间：响应式过滤搜索框 -->
-      <div class="flex flex-1 items-center justify-center px-4 max-w-2xl">
-        <t-input 
-          v-model="filterKeyword" 
-          placeholder="搜索账号、TraceId、关键词..." 
-          size="small"
-          clearable 
-          class="w-full"
-        >
-          <template #prefixIcon><search-icon class="text-gray-400" /></template>
-        </t-input>
-      </div>
-
-      <!-- 右侧：功能按钮组与性能反馈 -->
-      <div class="flex items-center space-x-2">
-        <div class="mr-4 hidden flex-col items-end text-[10px] leading-tight text-gray-400 lg:flex">
-          <div class="flex items-center">
-            <span>当前显示: {{ filteredLogs.length }} / {{ displayLogs.length }} 行</span>
-            <div v-if="isConnected" class="ml-1.5 h-1 w-1 rounded-full bg-green-500 animate-ping"></div>
-          </div>
-          <span class="opacity-70">Buffer: 500 lines</span>
-        </div>
-
-        <t-button size="small" variant="text" @click="onlyErrors = !onlyErrors" :theme="onlyErrors ? 'danger' : 'default'">
-          <template #icon><info-circle-icon v-if="onlyErrors" /><help-circle-icon v-else /></template>
-          仅看错误
-        </t-button>
-        
-        <t-divider layout="vertical" />
-        
-        <t-button size="small" variant="text" @click="clearLogs">
-          <template #icon><clear-icon /></template>
-        </t-button>
-        
-        <t-button size="small" :theme="isConnected ? 'danger' : 'primary'" variant="base" @click="toggleConnection">
-          <template #icon><refresh-icon :class="{ 'animate-spin': isConnecting }" /></template>
-        </t-button>
-        
-        <!-- 分屏切换按钮 (仅宽屏显示) -->
-        <t-button size="small" variant="text" class="hidden xl:inline-flex" @click="showErrorWindow = !showErrorWindow" :theme="showErrorWindow ? 'primary' : 'default'">
-          <template #icon><view-module-icon /></template>
-        </t-button>
-      </div>
-    </div>
-
-    <!-- 主体内容：分屏模式支持 -->
-    <div class="relative flex flex-1 gap-2 overflow-hidden">
-      <!-- 左侧/主体：终端日志窗口 -->
-      <div class="flex flex-1 flex-col overflow-hidden rounded-lg bg-gray-900 shadow-xl border border-gray-800">
-        <div
-          ref="logContainerRef"
-          class="terminal-container flex-1 overflow-y-auto overflow-x-hidden p-3 font-mono text-[13px] leading-relaxed"
-        >
-          <div v-if="displayLogs.length === 0" class="flex h-full flex-col items-center justify-center text-gray-600">
-            <div class="mb-2 h-12 w-12 rounded-full bg-gray-800 flex items-center justify-center">
-              <terminal-icon size="24" />
-            </div>
-            <p>等待实时日志流接入...</p>
-          </div>
-          
-          <div
-            v-for="(log, index) in filteredLogs"
-            :key="index"
-            class="log-line group relative border-l-2 border-transparent py-0.5 pl-3 transition-all hover:bg-white/5"
-            :class="{
-              'border-blue-500 bg-blue-500/5': log.traceId && log.traceId === filterKeyword,
-              'border-green-500 bg-green-500/5': isSuccessLog(log.message)
-            }"
-          >
-            <!-- 时间戳 -->
-            <span class="mr-3 select-none text-gray-600">{{ formatTime(log.timestamp) }}</span>
-            
-            <!-- 日志级别 -->
-            <span :class="getLevelClass(log.level)" class="mr-3 inline-block w-12 font-bold select-none uppercase">
-              {{ log.level }}
-            </span>
-            
-            <!-- 内容解析渲染 -->
-            <span :class="getMessageClass(log.message)" class="break-all whitespace-pre-wrap">
-              <template v-for="(part, i) in formatMessage(log.message)" :key="i">
-                <t-tag 
-                  v-if="part.type === 'account'" 
-                  size="small" 
-                  :style="{ backgroundColor: getAccountColor(part.text), color: '#fff', borderColor: 'transparent' }"
-                  class="mx-1 cursor-pointer hover:brightness-110 active:scale-95 transition-all"
-                  @click="filterByKeyword(part.text)"
-                >
-                  {{ part.text }}
-                </t-tag>
-                <mark v-else-if="part.type === 'keyword'" class="rounded-sm bg-yellow-400/80 px-0.5 text-gray-900">
-                  {{ part.text }}
-                </mark>
-                <span v-else-if="part.highlight" class="text-blue-400 font-medium underline decoration-dotted underline-offset-4">
-                  {{ part.text }}
-                </span>
-                <span v-else>{{ part.text }}</span>
-              </template>
-            </span>
-            
-            <!-- 右侧悬浮 TraceID -->
-            <div class="absolute right-2 top-0 hidden h-full items-center group-hover:flex">
-              <t-tag 
-                v-if="log.traceId" 
-                size="extra-small" 
-                variant="dark"
-                class="cursor-pointer bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white"
-                @click="filterByKeyword(log.traceId)"
-              >
-                #{{ log.traceId.substring(0, 8) }}
-              </t-tag>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 右侧/悬浮：错误监控分窗 (宽屏模式) -->
-      <transition name="slide-right">
-        <div 
-          v-if="showErrorWindow && errorLogs.length > 0" 
-          class="hidden w-80 flex-col overflow-hidden rounded-lg bg-gray-900 border-l border-red-900/30 shadow-2xl xl:flex"
-        >
-          <div class="flex items-center justify-between bg-red-900/20 px-3 py-2 border-b border-red-900/30">
-            <span class="text-xs font-bold text-red-400 flex items-center">
-              <error-circle-filled-icon class="mr-1.5" /> 实时异常监控
-            </span>
-            <t-tag size="extra-small" theme="danger">{{ errorLogs.length }}</t-tag>
-          </div>
-          <div class="flex-1 overflow-auto p-2">
+  <div class="flex h-full flex-col p-6 overflow-hidden">
+    <t-card :bordered="false" class="shadow-sm embedded-card flex flex-col flex-1 overflow-hidden">
+      <template #title>
+        <div class="flex items-center">
+          <view-list-icon class="mr-2 text-blue-600" />
+          <span class="text-lg font-bold text-gray-800">全链路日志</span>
+          <div class="ml-4 flex items-center space-x-1.5">
             <div 
-              v-for="(log, idx) in errorLogs.slice(-20)" 
-              :key="idx" 
-              class="mb-2 rounded bg-red-500/5 p-2 text-[11px] border border-red-500/10 hover:bg-red-500/10 cursor-pointer"
-              @click="filterByKeyword(log.traceId || log.message)"
+              class="h-2 w-2 rounded-full" 
+              :class="[
+                isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400',
+                isConnected ? 'animate-pulse' : ''
+              ]"
+            ></div>
+            <span class="text-xs text-gray-500">{{ isConnected ? '实时监听中' : '连接已断开' }}</span>
+          </div>
+        </div>
+      </template>
+
+      <!-- 搜索栏/工具栏 -->
+      <div class="p-6 border-b border-gray-100">
+        <t-row :gutter="16">
+          <t-col :span="4">
+            <t-tag-input 
+              v-model="filterKeywords" 
+              v-model:inputValue="filterInput"
+              placeholder="搜索账号、TraceId、关键词..." 
+              clearable 
+              class="w-full"
             >
-              <div class="mb-1 flex justify-between text-gray-500">
-                <span>{{ formatTime(log.timestamp) }}</span>
-                <span class="text-red-400">{{ log._account }}</span>
+              <template #prefixIcon><search-icon class="text-gray-400" /></template>
+            </t-tag-input>
+          </t-col>
+          <t-col :span="3">
+            <div class="flex gap-4">
+              <t-button
+                :theme="isConnected ? 'danger' : 'primary'"
+                size="medium"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                @click="toggleConnection"
+              >
+                <template #icon><refresh-icon :class="{ 'animate-spin': isConnecting }" /></template>
+                {{ isConnected ? '断开' : '连接' }}
+              </t-button>
+              <t-button
+                theme="default"
+                variant="base"
+                size="medium"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                @click="clearLogs"
+              >
+                <template #icon><clear-icon /></template>
+                清空
+              </t-button>
+            </div>
+          </t-col>
+          <t-col :span="5">
+            <div class="flex justify-end items-center gap-3 w-full h-full">
+              <div class="mr-4 hidden flex-col items-end text-[10px] leading-tight text-gray-400 lg:flex">
+                <div class="flex items-center">
+                  <span>显示: {{ filteredLogs.length }}/{{ displayLogs.length }}</span>
+                  <div v-if="isConnected" class="ml-1.5 h-1 w-1 rounded-full bg-green-500 animate-ping"></div>
+                </div>
+                <span class="opacity-70">Buffer: 500 lines</span>
               </div>
-              <div class="text-gray-300 line-clamp-2">{{ log.message }}</div>
+
+              <t-button 
+                size="medium" 
+                variant="outline" 
+                @click="onlyErrors = !onlyErrors" 
+                :theme="onlyErrors ? 'danger' : 'default'"
+                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+              >
+                <template #icon><info-circle-icon v-if="onlyErrors" /><help-circle-icon v-else /></template>
+                仅看错误
+              </t-button>
+              
+              <t-button 
+                size="medium" 
+                variant="base" 
+                class="hidden xl:inline-flex rounded-lg transition-all duration-300 hover:shadow active:shadow-none" 
+                @click="showErrorWindow = !showErrorWindow" 
+                :theme="showErrorWindow ? 'primary' : 'default'"
+              >
+                <template #icon><view-module-icon /></template>
+                {{ showErrorWindow ? '关闭分屏' : '开启分屏' }}
+              </t-button>
+            </div>
+          </t-col>
+        </t-row>
+      </div>
+
+      <!-- 主体内容：分屏模式支持 -->
+      <div class="relative flex flex-1 min-h-0 gap-2 overflow-hidden bg-white">
+        <!-- 左侧/主体：终端日志窗口 -->
+        <div class="flex flex-1 flex-col min-h-0 overflow-hidden bg-gray-900">
+          <div
+            ref="logContainerRef"
+            class="terminal-container flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 font-mono text-[13px] leading-relaxed"
+          >
+            <div v-if="displayLogs.length === 0" class="flex h-full flex-col items-center justify-center text-gray-600">
+              <div class="mb-2 h-12 w-12 rounded-full bg-gray-800 flex items-center justify-center">
+                <terminal-icon size="24" />
+              </div>
+              <p>等待实时日志流接入...</p>
+            </div>
+            
+            <div
+              v-for="(log, index) in filteredLogs"
+              :key="index"
+              class="log-line group relative border-l-2 border-transparent py-0.5 pl-3 transition-all hover:bg-white/5"
+              :class="{
+                'border-blue-500 bg-blue-500/5': log.traceId && Array.isArray(filterKeywords) && filterKeywords.includes(log.traceId),
+                'border-green-500 bg-green-500/5': isSuccessLog(log.message)
+              }"
+            >
+              <!-- 时间戳 -->
+              <span class="mr-3 select-none text-gray-600">{{ formatTime(log.timestamp) }}</span>
+              
+              <!-- 日志级别 -->
+              <span :class="getLevelClass(log.level)" class="mr-3 inline-block w-12 font-bold select-none uppercase">
+                {{ log.level }}
+              </span>
+              
+              <!-- 内容解析渲染 -->
+              <span :class="getMessageClass(log.message)" class="break-all whitespace-pre-wrap">
+                <template v-for="(part, i) in formatMessage(log.message)" :key="i">
+                  <span 
+                    v-if="part.highlight" 
+                    class="cursor-pointer px-1 py-0.5 transition-colors"
+                    :class="{
+                       'mx-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30': part.type === 'account',
+                       'mx-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30': part.type === 'traceId',
+                       'mx-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30': part.type === 'ip',
+                       'bg-yellow-500/20 text-yellow-500': part.type === 'keyword'
+                     }"
+                     @click="['account', 'traceId', 'ip'].includes(part.type || '') ? filterByKeyword(part.text) : null"
+                  >
+                    {{ part.text }}
+                  </span>
+                  <span v-else class="text-gray-300">{{ part.text }}</span>
+                </template>
+              </span>
+              
+              <!-- 右侧悬浮 TraceID -->
+              <div class="absolute right-2 top-0 hidden h-full items-center group-hover:flex">
+                <t-tag 
+                  v-if="log.traceId" 
+                  size="extra-small" 
+                  variant="dark"
+                  class="cursor-pointer bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white"
+                  @click="filterByKeyword(log.traceId)"
+                >
+                  #{{ log.traceId.substring(0, 8) }}
+                </t-tag>
+              </div>
             </div>
           </div>
         </div>
-      </transition>
-    </div>
+
+        <!-- 右侧：错误日志悬浮窗/侧边栏 (分屏模式) -->
+        <transition name="slide-right">
+          <div
+            v-if="showErrorWindow && errorLogs.length > 0"
+            class="hidden w-80 flex-col overflow-hidden border-l border-gray-800 bg-gray-900 xl:flex"
+          >
+            <div class="flex items-center justify-between bg-red-900/20 px-3 py-2 border-b border-red-900/30">
+              <span class="text-xs font-bold text-red-400 flex items-center">
+                <error-circle-filled-icon class="mr-1.5" /> 实时异常监控
+              </span>
+              <t-tag size="extra-small" theme="danger">{{ errorLogs.length }}</t-tag>
+            </div>
+            <div class="flex-1 overflow-auto p-2">
+              <div 
+                v-for="(log, idx) in errorLogs.slice(-20)" 
+                :key="idx" 
+                class="mb-2 rounded bg-red-500/5 p-2 text-[11px] border border-red-500/10 hover:bg-red-500/10 cursor-pointer"
+                @click="filterByKeyword(log.traceId || log.message)"
+              >
+                <div class="mb-1 flex justify-between text-gray-500">
+                  <span>{{ formatTime(log.timestamp) }}</span>
+                  <span class="text-red-400">{{ log._account }}</span>
+                </div>
+                <div class="text-gray-300 line-clamp-2">{{ log.message }}</div>
+              </div>
+            </div>
+          </div>
+        </transition>
+      </div>
+    </t-card>
   </div>
 </template>
 
@@ -174,7 +202,8 @@ export default {
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from "vue";
 import { 
   ClearIcon, RefreshIcon, SearchIcon, InfoCircleIcon, 
-  HelpCircleIcon, ViewModuleIcon, TerminalIcon, ErrorCircleFilledIcon
+  HelpCircleIcon, ViewModuleIcon, TerminalIcon, ErrorCircleFilledIcon,
+  ViewListIcon
 } from "tdesign-icons-vue-next";
 import { searchLogs, type LogItem } from "../api/log";
 import dayjs from "dayjs";
@@ -182,7 +211,8 @@ import dayjs from "dayjs";
 const sseLogs = ref<LogItem[]>([]);
 const searchedLogs = ref<LogItem[]>([]);
 const searchTraceId = ref("");
-const filterKeyword = ref("");
+const filterKeywords = ref<string[]>([]);
+const filterInput = ref("");
 const onlyErrors = ref(false);
 const isSearching = ref(false);
 const isConnected = ref(false);
@@ -233,14 +263,22 @@ const filteredLogs = computed(() => {
     logs = logs.filter(log => log.level?.toUpperCase() === "ERROR");
   }
 
-  if (filterKeyword.value) {
-    const kw = filterKeyword.value.toLowerCase();
+  const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
+  const input = (filterInput.value || "").trim();
+  if (input) {
+    kws.push(input);
+  }
+
+  if (kws.length > 0) {
     logs = logs.filter(log => {
-      return (
-        log.message?.toLowerCase().includes(kw) ||
-        log._account?.toLowerCase().includes(kw) ||
-        log._traceId?.toLowerCase().includes(kw)
-      );
+      const content = (
+        (log.message || "") + 
+        (log._account || "") + 
+        (log._traceId || "")
+      ).toLowerCase();
+      
+      // 所有关键字都必须包含 (AND 逻辑)
+      return kws.every(kw => kw && content.includes(kw.toLowerCase()));
     });
   }
 
@@ -251,41 +289,66 @@ const filteredLogs = computed(() => {
 const formatMessage = (message: string) => {
   if (!message) return [];
   
-  // 移除消息开头可能存在的冗余时间戳格式 (YYYY-MM-DD HH:mm:ss.SSS | )
-  // 增加对多种空格/管道符变体的支持
-  const cleanMessage = message.replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*/, "");
+  const cleanMessage = message
+    .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*/, "")
+    .replace(/traceId:\s*([a-f0-9]{32})/gi, "[TraceId: $1]")
+    .replace(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi, "[IP: $1]");
   
-  const parts: { text: string; highlight: boolean; type?: 'account' | 'keyword' }[] = [];
-  const kw = filterKeyword.value;
-  
-  // 1. 按账号正则切分 [账号: xxx]
-  const accRegex = /(\[账号:\s*[^\s\[\]：:]+\])/g;
-  let lastIndex = 0;
-  let match;
-
-  const rawParts: { text: string; type: 'text' | 'account' }[] = [];
-  while ((match = accRegex.exec(cleanMessage)) !== null) {
-    if (match.index > lastIndex) {
-      rawParts.push({ text: cleanMessage.substring(lastIndex, match.index), type: 'text' });
-    }
-    rawParts.push({ text: match[0], type: 'account' });
-    lastIndex = accRegex.lastIndex;
+  const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
+  const input = (filterInput.value || "").trim();
+  if (input) {
+    kws.push(input);
   }
+  
+  // 过滤掉太短的关键字
+  const activeKws = kws.filter(k => k && typeof k === 'string' && k.length >= 2);
+
+  const parts: { text: string; highlight: boolean; type?: 'account' | 'keyword' | 'traceId' | 'ip' }[] = [];
+  
+  // 1. 按账号、TraceId 和 IP 正则切分
+   const combinedRegex = /(\[账号:\s*[^\s\[\]：:]+\]|\[TraceId:\s*[a-f0-9]{32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
+   let lastIndex = 0;
+   let match;
+ 
+   const rawParts: { text: string; type: 'text' | 'account' | 'traceId' | 'ip' }[] = [];
+   while ((match = combinedRegex.exec(cleanMessage)) !== null) {
+     if (match.index > lastIndex) {
+       rawParts.push({ text: cleanMessage.substring(lastIndex, match.index), type: 'text' });
+     }
+     const matchedText = match[0];
+     if (matchedText.toLowerCase().includes('账号')) {
+       rawParts.push({ text: matchedText, type: 'account' });
+     } else if (matchedText.toLowerCase().includes('traceid')) {
+       rawParts.push({ text: matchedText, type: 'traceId' });
+     } else {
+       rawParts.push({ text: matchedText, type: 'ip' });
+     }
+     lastIndex = combinedRegex.lastIndex;
+   }
   if (lastIndex < cleanMessage.length) {
     rawParts.push({ text: cleanMessage.substring(lastIndex), type: 'text' });
   }
 
-  // 2. 二次切分关键字
+  // 2. 处理关键字高亮 (支持多个)
   for (const part of rawParts) {
     if (part.type === 'account') {
-      parts.push({ text: part.text, highlight: true, type: 'account' });
-    } else {
-      if (!kw || kw.length < 2) { // 关键字太短不触发标记
+       parts.push({ text: part.text, highlight: true, type: 'account' });
+     } else if (part.type === 'traceId') {
+       parts.push({ text: part.text, highlight: true, type: 'traceId' });
+     } else if (part.type === 'ip') {
+       parts.push({ text: part.text, highlight: true, type: 'ip' });
+     } else {
+      if (activeKws.length === 0) {
         parts.push({ text: part.text, highlight: false });
         continue;
       }
 
-      const kwRegex = new RegExp(`(${kw.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")})`, "gi");
+      // 构建合并正则
+      const pattern = activeKws
+        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
+        .join('|');
+      const kwRegex = new RegExp(`(${pattern})`, "gi");
+      
       let kwLastIndex = 0;
       let kwMatch;
       while ((kwMatch = kwRegex.exec(part.text)) !== null) {
@@ -306,9 +369,14 @@ const formatMessage = (message: string) => {
 
 const filterByKeyword = (val: string | null) => {
   if (!val) return;
-  // 如果是完整的 [账号: xxx] 则提取内部名称
-  const match = val.match(/\[账号:\s*([^\s\[\]：:]+)\]/);
-  filterKeyword.value = match ? match[1] : val;
+  
+  // 提取 [账号: 123]、[TraceId: abc] 或 [IP: 1.1.1.1] 中的值
+   const match = val.match(/\[(?:账号|TraceId|IP):\s*([^\s\[\]：:]+)\]/i);
+   const target = match ? match[1] : val;
+
+  if (!filterKeywords.value.includes(target)) {
+    filterKeywords.value.push(target);
+  }
 };
 
 // 格式化时间
@@ -356,6 +424,8 @@ const handleSearch = async () => {
 const clearLogs = () => {
   sseLogs.value = [];
   searchedLogs.value = [];
+  filterKeywords.value = [];
+  filterInput.value = "";
 };
 
 const scrollToBottom = async (smooth = false) => {
@@ -423,18 +493,22 @@ onUnmounted(() => eventSource?.close());
 <style scoped>
 /* 自定义 Webkit 滚动条：更细更深 */
 .terminal-container::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 8px;
+  height: 8px;
 }
 .terminal-container::-webkit-scrollbar-track {
-  background: transparent;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 4px;
 }
 .terminal-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: content-box;
 }
 .terminal-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.3);
+  background-clip: content-box;
 }
 
 /* 动画：分屏滑入 */
@@ -451,6 +525,16 @@ onUnmounted(() => eventSource?.close());
 /* 覆盖 TDesign 样式微调 */
 :deep(.t-card) {
   border-radius: 8px;
+}
+:deep(.t-card__header) {
+  padding: 16px 24px;
+}
+:deep(.t-card__body) {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
 }
 :deep(.t-input--size-s) {
   background-color: rgba(0, 0, 0, 0.03);

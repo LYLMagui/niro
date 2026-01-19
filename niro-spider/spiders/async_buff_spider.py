@@ -12,7 +12,7 @@ from utils.proxy_helper import get_proxies
 from redis.asyncio import Redis
 
 from engine.sharded_executor import ShardedSpiderExecutor
-from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX
+from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX, REDIS_TASK_LAST_SCAN_PREFIX, SCAN_ADMISSION_INTERVAL
 from config.settings import BACKEND_URL
 
 class AsyncBuffSpider:
@@ -194,6 +194,16 @@ class AsyncBuffSpider:
 
         while True:
             try:
+                # 0. 扫描准入控制 (分布式频率限制)
+                last_scan_key = f"{REDIS_TASK_LAST_SCAN_PREFIX}{task_id}"
+                # 尝试抢占扫描位 (SET NX)，如果失败则说明距离上次扫描不足规定间隔
+                if not await self.redis.set(last_scan_key, "1", ex=SCAN_ADMISSION_INTERVAL, nx=True):
+                    ttl = await self.redis.ttl(last_scan_key)
+                    if ttl > 0:
+                        logger.info(f"⏳ [账号: {acc_name}] 准入控制：任务处于冷却中，需额外休眠 {ttl}s")
+                        await asyncio.sleep(ttl)
+                    continue # 冷却结束，重新尝试抢占
+
                 # 1. 执行扫描
                 logger.debug(f"[账号: {acc_name}] 正在扫描商品: {goods_id}")
                 items = await self.get_goods_list(goods_id, profile)

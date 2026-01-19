@@ -28,4 +28,11 @@ public interface UserBuffSettingsService extends IService<UserBuffSettings> {
      * @param param  配置参数
      */
     void saveOrUpdate(Long userId, UserBuffSettingsParam param);
+
+    /**
+     * 发送测试通知
+     *
+     * @param userId 用户ID
+     */
+    void sendTestNotify(Long userId);
 }

@@ -7,6 +7,7 @@ import com.niro.web.dto.param.UserBuffSettingsParam;
 import com.niro.web.entity.UserBuffSettings;
 import com.niro.web.mapper.UserBuffSettingsMapper;
 import com.niro.web.service.UserBuffSettingsService;
+import com.niro.web.service.WeComNotifyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -24,6 +25,8 @@ import java.time.LocalDateTime;
 @Service
 @RequiredArgsConstructor
 public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMapper, UserBuffSettings> implements UserBuffSettingsService {
+
+    private final WeComNotifyService weComNotifyService;
 
     @Override
     public UserBuffSettingsDTO getByUserId(Long userId) {
@@ -64,5 +67,11 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
         } else {
             this.save(settings);
         }
+    }
+
+    @Override
+    public void sendTestNotify(Long userId) {
+        log.info("用户 {} 触发发送测试通知", userId);
+        weComNotifyService.sendText("🔔 这是一个测试通知！如果你看到这条消息，说明你的企业微信通知配置正确。✅", userId);
     }
 }

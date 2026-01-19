@@ -123,6 +123,7 @@ class TaskConsumer:
                     continue
                 
                 queue_name, data_json = result
+                logger.debug(f"📡 [Queue Popped] Queue: {queue_name} | RawData: {data_json[:200]}...")
                 task_data = json.loads(data_json)
                 
                 # 如果是双重编码，再解一次

@@ -5,9 +5,9 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.niro.core.util.RedisUtil;
 import com.niro.web.entity.UserBuffSettings;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.stereotype.Service;
 
 import java.util.concurrent.TimeUnit;
@@ -17,11 +17,15 @@ import java.util.concurrent.TimeUnit;
  */
 @Service
 @Slf4j
-@RequiredArgsConstructor
 public class WeComNotifyService {
 
     private final RedisUtil redisUtil;
     private final UserBuffSettingsService userBuffSettingsService;
+
+    public WeComNotifyService(RedisUtil redisUtil, @Lazy UserBuffSettingsService userBuffSettingsService) {
+        this.redisUtil = redisUtil;
+        this.userBuffSettingsService = userBuffSettingsService;
+    }
 
     @Value("${wecom.corpid:}")
     private String globalCorpid;
@@ -40,19 +44,25 @@ public class WeComNotifyService {
     /**
      * 获取 access_token
      */
-    private String getAccessToken(String corpid, String corpsecret) {
+    private String getAccessToken(String corpid, String corpsecret, boolean forceRefresh) {
         if (corpid == null || corpid.isEmpty() || corpsecret == null || corpsecret.isEmpty()) {
             return null;
         }
 
         String redisKey = ACCESS_TOKEN_KEY_PREFIX + corpid;
-        String token = redisUtil.getToString(redisKey);
-        if (token != null) {
-            return token;
+        if (!forceRefresh) {
+            String token = redisUtil.getToString(redisKey);
+            if (token != null) {
+                return token;
+            }
+        } else {
+            log.info("强制刷新企业微信 access_token: corpid={}", corpid);
+            redisUtil.delete(redisKey);
         }
 
         String url = String.format("https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=%s&corpsecret=%s", corpid, corpsecret);
         try {
+            log.info("从企业微信 API 获取新 access_token: corpid={}", corpid);
             String resp = HttpUtil.get(url);
             JSONObject json = JSONUtil.parseObj(resp);
             if (json.getInt("errcode") == 0) {
@@ -60,6 +70,7 @@ public class WeComNotifyService {
                 long expires = json.getLong("expires_in", 7200L);
                 // 提前 5 分钟失效
                 redisUtil.setEx(redisKey, accessToken, expires - 300, TimeUnit.SECONDS);
+                log.info("成功获取并缓存企业微信 access_token: corpid={}, expires={}s", corpid, expires);
                 return accessToken;
             } else {
                 log.error("获取企业微信 access_token 失败: {}", resp);
@@ -95,9 +106,30 @@ public class WeComNotifyService {
      * 发送文本消息
      */
     public void sendText(String content, Long userId) {
+        sendText(content, userId, false);
+    }
+
+    private void sendText(String content, Long userId, boolean isRetry) {
+        log.info("准备发送企业微信文本通知: content={}, userId={}", content, userId);
         UserBuffSettings settings = getSettings(userId);
-        String token = getAccessToken(settings.getWecomCorpid(), settings.getWecomCorpsecret());
-        if (token == null) return;
+        if (settings == null) {
+            log.warn("未找到用户 {} 的配置，无法发送通知", userId);
+            return;
+        }
+        
+        String corpid = settings.getWecomCorpid();
+        String corpsecret = settings.getWecomCorpsecret();
+        
+        if (corpid == null || corpid.isEmpty() || corpsecret == null || corpsecret.isEmpty()) {
+            log.warn("企业微信 CorpId 或 CorpSecret 未配置 (UserId: {})", userId);
+            return;
+        }
+
+        String token = getAccessToken(corpid, corpsecret, isRetry);
+        if (token == null) {
+            log.warn("获取企业微信 access_token 失败，取消发送 (UserId: {})", userId);
+            return;
+        }
 
         if (settings.getWecomAgentid() == null || settings.getWecomAgentid().isEmpty() || 
             settings.getWecomTouser() == null || settings.getWecomTouser().isEmpty()) {
@@ -115,8 +147,12 @@ public class WeComNotifyService {
         try {
             String resp = HttpUtil.post(url, payload.toString());
             JSONObject json = JSONUtil.parseObj(resp);
-            if (json.getInt("errcode") == 0) {
+            int errcode = json.getInt("errcode");
+            if (errcode == 0) {
                 log.info("企业微信通知发送成功 (UserId: {})", userId);
+            } else if ((errcode == 40014 || errcode == 42001) && !isRetry) {
+                log.warn("企业微信 access_token 无效或过期，尝试刷新后重试 (UserId: {})", userId);
+                sendText(content, userId, true);
             } else {
                 log.error("企业微信通知发送失败: {} (UserId: {})", resp, userId);
             }
@@ -129,9 +165,30 @@ public class WeComNotifyService {
      * 发送 Markdown 消息
      */
     public void sendMarkdown(String content, Long userId) {
+        sendMarkdown(content, userId, false);
+    }
+
+    private void sendMarkdown(String content, Long userId, boolean isRetry) {
+        log.info("准备发送企业微信 Markdown 通知: userId={}", userId);
         UserBuffSettings settings = getSettings(userId);
-        String token = getAccessToken(settings.getWecomCorpid(), settings.getWecomCorpsecret());
-        if (token == null) return;
+        if (settings == null) {
+            log.warn("未找到用户 {} 的配置，无法发送通知", userId);
+            return;
+        }
+
+        String corpid = settings.getWecomCorpid();
+        String corpsecret = settings.getWecomCorpsecret();
+
+        if (corpid == null || corpid.isEmpty() || corpsecret == null || corpsecret.isEmpty()) {
+            log.warn("企业微信 CorpId 或 CorpSecret 未配置 (UserId: {})", userId);
+            return;
+        }
+
+        String token = getAccessToken(corpid, corpsecret, isRetry);
+        if (token == null) {
+            log.warn("获取企业微信 access_token 失败，取消发送 (UserId: {})", userId);
+            return;
+        }
 
         if (settings.getWecomAgentid() == null || settings.getWecomAgentid().isEmpty() || 
             settings.getWecomTouser() == null || settings.getWecomTouser().isEmpty()) {
@@ -149,8 +206,12 @@ public class WeComNotifyService {
         try {
             String resp = HttpUtil.post(url, payload.toString());
             JSONObject json = JSONUtil.parseObj(resp);
-            if (json.getInt("errcode") == 0) {
+            int errcode = json.getInt("errcode");
+            if (errcode == 0) {
                 log.info("企业微信 Markdown 通知发送成功 (UserId: {})", userId);
+            } else if ((errcode == 40014 || errcode == 42001) && !isRetry) {
+                log.warn("企业微信 access_token 无效或过期，尝试刷新后重试 (UserId: {})", userId);
+                sendMarkdown(content, userId, true);
             } else {
                 log.error("企业微信 Markdown 通知发送失败: {} (UserId: {})", resp, userId);
             }

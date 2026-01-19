@@ -1,5 +1,6 @@
 package com.niro.web.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import com.niro.web.service.BuffScanTaskService;
@@ -22,7 +23,8 @@ public class HealthController {
 
     @GetMapping("/test/start_task_6")
     public String startTask6() {
+        StpUtil.login(1L);
         buffScanTaskService.updateStatus(6L, 1);
-        return "Task 6 started";
+        return "Task 6 started with user 1";
     }
 }
