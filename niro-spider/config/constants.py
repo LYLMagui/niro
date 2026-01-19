@@ -16,6 +16,7 @@ REDIS_TASK_STATS_PREFIX = "niro:task:stats:"
 REDIS_TASK_STOP_SIGNAL_PREFIX = "niro:task:stop:"
 REDIS_TASK_STATUS_PUBSUB = "niro:task:pubsub:status"
 REDIS_TASK_LAST_SCAN_PREFIX = "niro:task:last_scan:"
+REDIS_TASK_NEXT_SLOT_PREFIX = "niro:task:next_slot:"
 
 # 扫描准入控制默认间隔（秒）
 SCAN_ADMISSION_INTERVAL = 10

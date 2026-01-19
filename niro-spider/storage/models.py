@@ -137,6 +137,7 @@ class BuffScanTask(Base):
     update_time = Column(DateTime, server_default=func.now(), onupdate=func.now(), comment='更新时间')
     cron_expression = Column(String(100), comment='Cron表达式')
     duration_minutes = Column(Integer, comment='持续时间(分钟)')
+    rest_period = Column(Integer, default=0, comment='暂停时长(分钟)')
     scan_interval = Column(Integer, comment='扫描间隔(秒)')
     scan_interval_min = Column(Integer, comment='最小扫描间隔(秒)')
     scan_interval_max = Column(Integer, comment='最大扫描间隔(秒)')

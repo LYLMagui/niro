@@ -75,9 +75,14 @@ public class BuffScanTask {
     private String cronExpression;
 
     /**
-     * 持续运行时间(分钟)
+     * 持续运行时间(分钟) / 工作时长
      */
     private Integer durationMinutes;
+
+    /**
+     * 暂停时长(分钟)
+     */
+    private Integer restPeriod;
 
     /**
      * 运行期间的扫描间隔(秒)

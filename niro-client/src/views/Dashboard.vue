@@ -14,6 +14,12 @@
         <div class="mt-2 text-sm text-gray-500">成功率 98%</div>
       </t-card>
 
+      <!-- 卡片：今日发现 (监控模式命中) -->
+      <t-card title="今日发现" hover-shadow>
+        <div class="text-3xl font-bold text-amber-500">{{ totalDiscoveryCount }}</div>
+        <div class="mt-2 text-sm text-gray-500">符合条件但未下单</div>
+      </t-card>
+
       <!-- 卡片：运行状态控制 -->
       <t-card title="运行状态" hover-shadow>
         <div class="flex items-center gap-2">
@@ -117,7 +123,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useTaskStore } from "@/store/task";
 import { storeToRefs } from "pinia";
 import type { PrimaryTableCol } from "tdesign-vue-next";
@@ -127,6 +133,13 @@ import TaskProgressCard from "@/components/TaskProgressCard.vue";
 const taskStore = useTaskStore();
 const { isRunning, runningTasks } = storeToRefs(taskStore); // 保持响应性
 const { fetchRunningTasks, startTask, stopTask } = taskStore;
+
+// 计算总发现次数 (仅监控模式命中)
+const totalDiscoveryCount = computed(() => {
+  return runningTasks.value.reduce((total, task) => {
+    return total + (task.stats?.discovery_count || 0);
+  }, 0);
+});
 
 // 临时处理全局启动/停止 (目前后端需要 ID，这里先留空或处理首个任务)
 const handleGlobalStart = () => {

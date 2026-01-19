@@ -57,18 +57,41 @@ class ShardedSpiderExecutor:
         self._processed_history = deque(maxlen=100) # 记录 (timestamp, count)
         self._start_time = time.time()
 
+    def _extract_value(self, data: Any) -> Any:
+        """处理 Jackson 序列化可能带有的类型信息 (e.g. ['java.math.BigDecimal', 100.0])"""
+        if isinstance(data, list) and len(data) == 2 and isinstance(data[0], str) and ("java." in data[0] or "com.niro" in data[0]):
+            return self._extract_value(data[1])
+        # 增加防御性：如果还是 list 且长度为 1，递归解包
+        if isinstance(data, list) and len(data) == 1:
+            return self._extract_value(data[0])
+        return data
+
     def _extract_list(self, data: Any) -> List[Any]:
-        """处理 Jackson 序列化可能带有的类型信息 (e.g. ['java.util.ArrayList', [...]])"""
-        if isinstance(data, list) and len(data) == 2 and isinstance(data[0], str) and data[0].startswith("java.util"):
-            return data[1]
-        return data if isinstance(data, list) else []
+        """处理 Jackson 序列化可能带有的类型信息或嵌套 (e.g. ['java.util.ArrayList', [...]])"""
+        raw_data = self._extract_value(data)
+        if not raw_data:
+            return []
+        # 处理可能的双重嵌套: [[{...}]]
+        if isinstance(raw_data, list) and len(raw_data) > 0 and isinstance(raw_data[0], list):
+            return self._extract_list(raw_data[0])
+        return raw_data if isinstance(raw_data, list) else [raw_data]
+
+    def _get_float(self, data: Any, default: float = 0.0) -> float:
+        """安全获取浮点数"""
+        val = self._extract_value(data)
+        if val is None:
+            return default
+        try:
+            return float(val)
+        except (ValueError, TypeError):
+            return default
 
     async def execute(self, task_data: Dict[str, Any]):
         """执行分片抓取任务"""
         self.task_data = task_data
-        self.task_id = task_data.get("taskId")
-        self.user_id = task_data.get("userId")
-        self.task_type = task_data.get("taskType")
+        self.task_id = self._extract_value(task_data.get("taskId"))
+        self.user_id = self._extract_value(task_data.get("userId"))
+        self.task_type = self._extract_value(task_data.get("taskType"))
         
         # 提取数据并处理 Jackson 序列化格式
         accounts = self._extract_list(task_data.get("accounts", []))
@@ -81,8 +104,8 @@ class ShardedSpiderExecutor:
             self.scan_interval_max = float(os.getenv("CRAWL_INTERVAL_MAX", 20))
             logger.info(f"[Task-ID: {self.task_id}] 检测到系统任务，使用系统间隔: {self.scan_interval_min}-{self.scan_interval_max}s")
         else:
-            self.scan_interval_min = task_data.get("scanIntervalMin") or 15
-            self.scan_interval_max = task_data.get("scanIntervalMax") or 18
+            self.scan_interval_min = self._get_float(task_data.get("scanIntervalMin"), 15.0)
+            self.scan_interval_max = self._get_float(task_data.get("scanIntervalMax"), 18.0)
             logger.info(f"[Task-ID: {self.task_id}] 使用用户配置间隔: {self.scan_interval_min}-{self.scan_interval_max}s")
         
         if not accounts:

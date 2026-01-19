@@ -154,14 +154,19 @@
               {{ name }}
             </t-tag>
           </div>
-          <span v-else class="text-xs text-gray-400">未绑定</span>
+          <t-tag v-else theme="warning" variant="light" size="small" class="rounded">
+            <template #icon><t-icon name="view-module" /></template>
+            仅监控
+          </t-tag>
         </template>
 
         <template #status="{ row }">
           <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
           <t-tag v-else-if="row.status === 1" theme="success">待运行</t-tag>
           <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
-          <t-tag v-else-if="row.status === 4" theme="warning">执行中</t-tag>
+          <t-tag v-else-if="row.status === 4" theme="warning">
+            {{ (!row.accountNames || row.accountNames.length === 0) ? '监控中' : '执行中' }}
+          </t-tag>
           <t-tag v-else theme="danger">异常</t-tag>
         </template>
 
@@ -174,10 +179,12 @@
             
             <t-popconfirm
               v-if="[0, 2, 3].includes(row.status)"
-              content="确定要启动任务吗？"
+              :content="(!row.accountNames || row.accountNames.length === 0) ? '当前任务未配置下单账号，将以“仅监控”模式启动，确定吗？' : '确定要启动任务吗？'"
               @confirm="handleStatus(row, 1)"
             >
-              <t-link theme="success">启动</t-link>
+              <t-link :theme="(!row.accountNames || row.accountNames.length === 0) ? 'warning' : 'success'">
+                {{ (!row.accountNames || row.accountNames.length === 0) ? '监控' : '启动' }}
+              </t-link>
             </t-popconfirm>
             <t-popconfirm
               v-if="[1, 4].includes(row.status)"
@@ -203,7 +210,7 @@
       v-model:visible="dialogVisible"
       :header="dialogTitle"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
-      width="600px"
+      :width="uiState.isCycleMode ? '720px' : '640px'"
       class="task-edit-dialog"
       :footer="false"
     >
@@ -329,149 +336,183 @@
                 :label="item.accountName"
                 :disabled="!!item.boundTaskId && item.boundTaskId !== formData.id"
               >
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex flex-col">
-                    <span>{{ item.accountName }}</span>
-                    <span v-if="item.boundTaskId && item.boundTaskId !== formData.id" class="text-[10px] text-gray-400">
-                      已绑定任务: {{ item.boundTaskName }}
-                    </span>
+                <div class="flex items-center justify-between w-full overflow-hidden">
+                  <div class="flex items-center gap-1.5 overflow-hidden flex-1 mr-2">
+                    <span class="font-medium shrink-0">{{ item.accountName }}</span>
+                    <t-tooltip
+                      v-if="item.boundTaskId && item.boundTaskId !== formData.id"
+                      :content="'已绑定任务: ' + item.boundTaskName"
+                      placement="top"
+                    >
+                      <span class="text-xs text-gray-400 truncate">
+                        (已绑定: {{ item.boundTaskName }})
+                      </span>
+                    </t-tooltip>
                   </div>
-                  <t-tag v-if="item.status === 'NORMAL'" theme="success" variant="light" size="small">在线</t-tag>
-                  <t-tag v-else theme="danger" variant="light" size="small">异常</t-tag>
+                  <t-tag v-if="item.status === 'NORMAL'" theme="success" variant="light" size="small" class="shrink-0">在线</t-tag>
+                  <t-tag v-else theme="danger" variant="light" size="small" class="shrink-0">异常</t-tag>
                 </div>
               </t-option>
             </t-select>
             <template #tips>多选账号可实现多并发扫货，提高抢购成功率</template>
           </t-form-item>
 
-          <!-- 调度配置分组 -->
-          <div class="schedule-group mt-1 rounded-md border border-blue-100 bg-blue-50/50 p-2">
-            <div class="mb-1 flex items-center gap-2 text-sm font-medium text-blue-700">
-              <t-icon name="time-filled" />
-              <span>运行计划</span>
-            </div>
-
-            <t-form-item
-              label="Cron表达式"
-              name="cronExpression"
-              class="mb-1.5"
-            >
-              <div class="flex items-center gap-2">
-                <t-input
-                  v-model="formData.cronExpression"
-                  :disabled="uiState.isCronImmediate"
-                  placeholder="未配置"
-                  clearable
-                  style="width: 200px"
-                  @blur="(v: any) => handleInputTrim(v, formData, 'cronExpression')"
-                >
-                  <template #suffix>
-                    <t-popup
-                      v-model:visible="cronVisible"
-                      placement="bottom-right"
-                      trigger="click"
-                      :overlay-inner-style="{ padding: 0 }"
-                    >
-                      <t-link theme="primary" variant="underline" :disabled="uiState.isCronImmediate">
-                        <t-icon name="calendar" class="mr-1" />
-                        可视化
-                      </t-link>
-                      <template #content>
-                        <div class="cron-popup-container">
-                          <cron-editor
-                            :model-value="formData.cronExpression || ''"
-                            @update:model-value="formData.cronExpression = $event"
-                            @confirm="cronVisible = false"
-                            @cancel="cronVisible = false"
-                          />
-                        </div>
-                      </template>
-                    </t-popup>
-                  </template>
-                </t-input>
-                <t-checkbox v-model="uiState.isCronImmediate">立即执行</t-checkbox>
-              </div>
-            </t-form-item>
-            <t-form-item
-              label="持续时间"
-              name="durationMinutes"
-              class="mb-1.5"
-            >
-              <div class="flex items-center gap-2">
-                <t-input-number
-                  v-model="uiState.durationValue"
-                  :disabled="uiState.isDurationUnlimited"
-                  :min="0"
-                  :step="1"
-                  theme="column"
-                  style="width: 100px"
-                />
-                <t-select v-model="uiState.durationUnit" :disabled="uiState.isDurationUnlimited" style="width: 80px">
-                  <t-option label="分钟" value="m" />
-                  <t-option label="小时" value="h" />
-                  <t-option label="天" value="d" />
-                </t-select>
-                <t-checkbox v-model="uiState.isDurationUnlimited">不限时间</t-checkbox>
-              </div>
-            </t-form-item>
           <t-form-item
-            label="扫描间隔"
-            name="scanInterval"
-            class="mb-1"
+            class="mb-2"
+            label-width="0"
           >
-            <div class="flex items-center gap-2">
-              <t-input-number
-                v-model="uiState.intervalMinValue"
-                :min="uiState.intervalUnit === 's' ? 15 : 1"
-                :step="1"
-                theme="column"
-                style="width: 100px"
-                @blur="handleIntervalMinBlur"
+            <div class="schedule-group w-full rounded-md border border-blue-100 bg-blue-50/50 p-3">
+              <!-- 顶部模式切换 -->
+              <div class="mb-3 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-sm font-medium text-blue-700">
+                  <t-icon name="time-filled" />
+                  <span>计划配置</span>
+                </div>
+                <t-radio-group v-model="uiState.isCycleMode" variant="default-filled" size="small">
+                  <t-radio-button :value="false">持续执行</t-radio-button>
+                  <t-radio-button :value="true">周期循环</t-radio-button>
+                </t-radio-group>
+              </div>
+
+              <!-- Cron 配置 -->
+              <t-form-item
+                label="启动时间"
+                name="cronExpression"
+                label-width="70px"
+                class="mb-3"
               >
-                <template #suffix>
-                  <t-tooltip content="最小扫描间隔过短容易触发平台限流导致账号异常，必须大于 15 秒">
+                <div class="flex items-center gap-2">
+                  <t-input
+                    v-model="formData.cronExpression"
+                    :disabled="uiState.isCronImmediate"
+                    placeholder="未配置"
+                    clearable
+                    style="width: 180px"
+                    @blur="(v: any) => handleInputTrim(v, formData, 'cronExpression')"
+                  >
+                    <template #suffix>
+                      <t-popup
+                        v-model:visible="cronVisible"
+                        placement="bottom-right"
+                        trigger="click"
+                        :overlay-inner-style="{ padding: 0 }"
+                      >
+                        <t-link theme="primary" variant="underline" :disabled="uiState.isCronImmediate">
+                          <t-icon name="calendar" />
+                        </t-link>
+                        <template #content>
+                          <div class="cron-popup-container">
+                            <cron-editor
+                              :model-value="formData.cronExpression || ''"
+                              @update:model-value="formData.cronExpression = $event"
+                              @confirm="cronVisible = false"
+                              @cancel="cronVisible = false"
+                            />
+                          </div>
+                        </template>
+                      </t-popup>
+                    </template>
+                  </t-input>
+                  <t-checkbox v-model="uiState.isCronImmediate">立即启动</t-checkbox>
+                </div>
+              </t-form-item>
+
+              <!-- 运行时长 / 循环配置 -->
+              <t-form-item
+                :label="uiState.isCycleMode ? '运行时长' : '持续时间'"
+                name="durationMinutes"
+                label-width="70px"
+                class="mb-3"
+              >
+                <div class="flex items-center gap-2">
+                  <t-input-number
+                    v-model="uiState.durationValue"
+                    :disabled="uiState.isDurationUnlimited && !uiState.isCycleMode"
+                    :min="0"
+                    :step="1"
+                    theme="column"
+                    style="width: 90px"
+                  />
+                  <t-select 
+                    v-model="uiState.durationUnit" 
+                    :disabled="uiState.isDurationUnlimited && !uiState.isCycleMode" 
+                    style="width: 80px"
+                  >
+                    <t-option label="分钟" value="m" />
+                    <t-option label="小时" value="h" />
+                    <t-option label="天" value="d" />
+                  </t-select>
+                  <t-checkbox v-if="!uiState.isCycleMode" v-model="uiState.isDurationUnlimited">不限时间</t-checkbox>
+                  
+                  <template v-if="uiState.isCycleMode">
+                    <span class="mx-1 text-orange-500 font-bold">/</span>
+                    <t-tag theme="warning" variant="light" size="small" class="mr-1">暂停</t-tag>
+                    <t-input-number
+                      v-model="uiState.restValue"
+                      :min="1"
+                      :step="1"
+                      theme="column"
+                      style="width: 90px"
+                    />
+                    <t-select v-model="uiState.restUnit" style="width: 80px">
+                      <t-option label="分钟" value="m" />
+                      <t-option label="小时" value="h" />
+                    </t-select>
+                  </template>
+                </div>
+              </t-form-item>
+
+              <!-- 扫描间隔 -->
+              <t-form-item
+                label="扫描间隔"
+                name="scanInterval"
+                label-width="70px"
+                class="mb-3"
+              >
+                <div class="flex items-center gap-2">
+                  <t-input-number
+                    v-model="uiState.intervalMinValue"
+                    :min="uiState.intervalUnit === 's' ? 15 : 1"
+                    :step="1"
+                    theme="column"
+                    style="width: 90px"
+                    @blur="handleIntervalMinBlur"
+                  />
+                  <span class="text-gray-400">-</span>
+                  <t-input-number
+                    v-model="uiState.intervalMaxValue"
+                    :min="uiState.intervalUnit === 's' ? 15 : 1"
+                    :step="1"
+                    theme="column"
+                    style="width: 90px"
+                    @blur="handleIntervalMaxBlur"
+                  />
+                  <t-select
+                    v-model="uiState.intervalUnit"
+                    style="width: 80px"
+                    @change="handleIntervalUnitChange"
+                  >
+                    <t-option label="秒" value="s" />
+                    <t-option label="分钟" value="m" />
+                    <t-option label="小时" value="h" />
+                  </t-select>
+                  <t-tooltip content="扫描间隔建议在 15-30 秒之间，过短容易触发风控。">
                     <t-icon name="help-circle" class="cursor-help text-gray-400" />
                   </t-tooltip>
-                </template>
-              </t-input-number>
-              <span class="text-gray-400">-</span>
-              <t-input-number
-                v-model="uiState.intervalMaxValue"
-                :min="uiState.intervalUnit === 's' ? 15 : 1"
-                :step="1"
-                theme="column"
-                style="width: 100px"
-                @blur="handleIntervalMaxBlur"
+                </div>
+              </t-form-item>
+
+              <!-- 动态逻辑预览 -->
+              <div
+                class="mt-2 rounded border border-blue-50 bg-white/80 p-2 text-[12px] leading-relaxed text-blue-600 shadow-sm"
               >
-                <template #suffix>
-                  <t-tooltip content="最大扫描间隔">
-                    <t-icon name="help-circle" class="cursor-help text-gray-400" />
-                  </t-tooltip>
-                </template>
-              </t-input-number>
-              <t-select
-                v-model="uiState.intervalUnit"
-                style="width: 80px"
-                @change="handleIntervalUnitChange"
-              >
-                <t-option label="秒" value="s" />
-                <t-option label="分钟" value="m" />
-                <t-option label="小时" value="h" />
-                <t-option label="天" value="d" />
-              </t-select>
+                <div class="flex items-start gap-1.5">
+                  <t-icon name="info-circle" class="mt-0.5 shrink-0" />
+                  <div class="font-medium">{{ executionSummary }}</div>
+                </div>
+              </div>
             </div>
           </t-form-item>
-
-            <!-- 动态逻辑预览 -->
-            <div
-              class="mt-1 ml-[110px] rounded border border-blue-50 bg-white/60 p-1.5 text-[13px] leading-relaxed text-blue-600"
-            >
-              <div class="flex items-start gap-1.5">
-                <t-icon name="info-circle" class="mt-0.5" />
-                <div>{{ executionSummary }}</div>
-              </div>
-            </div>
-          </div>
 
           <!-- 自定义底部按钮，用于触发表单提交 -->
           <div class="flex justify-end gap-3 border-t border-gray-100 pt-2.5 mt-2.5">
@@ -533,15 +574,21 @@
                 :label="item.accountName"
                 :disabled="!!item.boundTaskId && item.boundTaskId !== formData.id"
               >
-                <div class="flex items-center justify-between w-full">
-                  <div class="flex flex-col">
-                    <span>{{ item.accountName }}</span>
-                    <span v-if="item.boundTaskId && item.boundTaskId !== formData.id" class="text-[10px] text-gray-400">
-                      已绑定任务: {{ item.boundTaskName }}
-                    </span>
+                <div class="flex items-center justify-between w-full overflow-hidden">
+                  <div class="flex items-center gap-1.5 overflow-hidden flex-1 mr-2">
+                    <span class="font-medium shrink-0">{{ item.accountName }}</span>
+                    <t-tooltip
+                      v-if="item.boundTaskId && item.boundTaskId !== formData.id"
+                      :content="'已绑定任务: ' + item.boundTaskName"
+                      placement="top"
+                    >
+                      <span class="text-xs text-gray-400 truncate">
+                        (已绑定: {{ item.boundTaskName }})
+                      </span>
+                    </t-tooltip>
                   </div>
-                  <t-tag v-if="item.status === 'NORMAL'" theme="success" variant="light" size="small">在线</t-tag>
-                  <t-tag v-else theme="danger" variant="light" size="small">异常</t-tag>
+                  <t-tag v-if="item.status === 'NORMAL'" theme="success" variant="light" size="small" class="shrink-0">在线</t-tag>
+                  <t-tag v-else theme="danger" variant="light" size="small" class="shrink-0">异常</t-tag>
                 </div>
               </t-option>
             </t-select>
@@ -696,6 +743,9 @@ const uiState = reactive({
   intervalUnit: "s" as "s" | "m" | "h" | "d",
   isCronImmediate: true,
   isDurationUnlimited: true,
+  isCycleMode: false,
+  restValue: 5,
+  restUnit: "m" as "m" | "h" | "d",
 });
 
 // 单位换算系数 (基准: 分钟)
@@ -781,7 +831,12 @@ const executionSummary = computed(() => {
 
   const actionDesc = formData.taskType < 2 ? "采集价格" : "同步数据";
   if (formData.taskType < 2) {
-    summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${intervalMin}-${intervalMax} ${intervalUnit} 进行一次${actionDesc}。`;
+    if (uiState.isCycleMode) {
+      summary += `启动后将以 [工作 ${duration}${durationUnit} / 休息 ${uiState.restValue}${ { m: '分钟', h: '小时', d: '天' }[uiState.restUnit] }] 的周期循环运行。`;
+      summary += `运行期间每隔 ${intervalMin}-${intervalMax} ${intervalUnit} 进行一次${actionDesc}。`;
+    } else {
+      summary += `启动后将持续运行 ${duration} ${durationUnit}，期间每隔 ${intervalMin}-${intervalMax} ${intervalUnit} 进行一次${actionDesc}。`;
+    }
   } else {
     summary += `启动后将执行一次${actionDesc}。`;
   }
@@ -816,6 +871,7 @@ const formData = reactive<TaskSaveParam>({
   buyCount: 1,
   cronExpression: "",
   durationMinutes: 0,
+  restPeriod: 0,
   scanInterval: 15,
   scanIntervalMin: 15,
   scanIntervalMax: 20,
@@ -825,10 +881,7 @@ const formData = reactive<TaskSaveParam>({
 });
 
 const rules: FormRules<TaskSaveParam> = {
-  accountIds: [
-    { required: true, message: "请至少选择一个执行账号", type: "error", trigger: "change" },
-    { validator: (val: any) => val && val.length > 0, message: "执行账号不能为空", type: "error", trigger: "change" }
-  ],
+  accountIds: [],
   goodsId: [
     {
       required: true,
@@ -953,10 +1006,11 @@ watch(
   [() => uiState.intervalMinValue, () => uiState.intervalMaxValue, () => uiState.intervalUnit, () => uiState.durationValue, () => uiState.durationUnit],
   () => {
     if (formData.taskType < 2) {
-      formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
-      formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
-      formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
-    }
+    formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+    formData.restPeriod = uiState.isCycleMode ? (uiState.restValue * DURATION_FACTORS[uiState.restUnit]) : 0;
+  }
   },
   { immediate: true }
 );
@@ -1001,6 +1055,7 @@ const handleAdd = () => {
   formData.buyCount = 1;
   formData.cronExpression = "";
   formData.durationMinutes = 0;
+  formData.restPeriod = 0;
   formData.scanInterval = 15;
   formData.scanIntervalMin = 15;
   formData.scanIntervalMax = 20;
@@ -1013,6 +1068,9 @@ const handleAdd = () => {
   uiState.durationUnit = "m";
   uiState.isCronImmediate = true;
   uiState.isDurationUnlimited = true;
+  uiState.isCycleMode = false;
+  uiState.restValue = 5;
+  uiState.restUnit = "m";
   uiState.intervalMinValue = 15;
   uiState.intervalMaxValue = 20;
   uiState.intervalUnit = "s";
@@ -1065,6 +1123,7 @@ const handleEdit = (row: BuffScanTask) => {
     buyCount: row.buyCount,
     cronExpression: row.cronExpression || "", // 确保默认为空字符串
     durationMinutes: row.durationMinutes || 0,
+    restPeriod: row.restPeriod || 0,
     scanInterval: row.scanInterval || 15,
     scanIntervalMin: row.scanIntervalMin || 15,
     scanIntervalMax: row.scanIntervalMax || 20,
@@ -1077,7 +1136,13 @@ const handleEdit = (row: BuffScanTask) => {
   const durationUi = convertToUi(formData.durationMinutes || 0, DURATION_FACTORS);
   uiState.durationValue = durationUi.value;
   uiState.durationUnit = durationUi.unit as any;
-  uiState.isDurationUnlimited = !formData.durationMinutes;
+  uiState.isDurationUnlimited = !formData.durationMinutes && !formData.restPeriod;
+  uiState.isCycleMode = !!formData.restPeriod;
+
+  const restUi = convertToUi(formData.restPeriod || 0, DURATION_FACTORS);
+  uiState.restValue = restUi.value || 5;
+  uiState.restUnit = restUi.unit as any;
+
   uiState.isCronImmediate = !formData.cronExpression;
 
   const intervalMinUi = convertToUi(formData.scanIntervalMin || 15, INTERVAL_FACTORS);
@@ -1198,6 +1263,7 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
   // 提交前进行单位换算
   if (formData.taskType < 2) {
     formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+    formData.restPeriod = uiState.isCycleMode ? (uiState.restValue * DURATION_FACTORS[uiState.restUnit]) : 0;
     formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
     formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
     // 保持scanInterval字段用于向后兼容
@@ -1241,9 +1307,17 @@ const handleDelete = async (row: BuffScanTask) => {
 };
 
 const handleStatus = async (row: BuffScanTask, status: number) => {
-  await taskApi.updateStatus(row.id, status);
-  MessagePlugin.success(status === 1 ? "任务已启动" : "任务已停止");
-  fetchData();
+  if (status === 1 && (!row.accountIds || row.accountIds.length === 0)) {
+    MessagePlugin.error(`${row.name}未绑定执行账号`);
+    return;
+  }
+  try {
+    await taskApi.updateStatus(row.id, status);
+    MessagePlugin.success(status === 1 ? "任务已启动" : "任务已停止");
+    fetchData();
+  } catch (err) {
+    // 错误已由拦截器处理
+  }
 };
 
 onMounted(() => {

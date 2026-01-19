@@ -13,6 +13,7 @@ export interface BuffScanTask {
   status: number; // 0-停止, 1-运行中, 2-已完成, 3-异常
   cronExpression?: string;
   durationMinutes?: number;
+  restPeriod?: number;
   scanInterval?: number;
   scanIntervalMin?: number;
   scanIntervalMax?: number;
@@ -24,6 +25,7 @@ export interface BuffScanTask {
     total: number;
     finished: number;
     percentage: number;
+    discovery_count?: number;
     tps: number;
     update_time: number;
     pending_categories: number[];
@@ -54,6 +56,7 @@ export interface TaskSaveParam {
   buyCount: number;
   cronExpression?: string;
   durationMinutes?: number;
+  restPeriod?: number;
   scanInterval?: number;
   scanIntervalMin?: number;
   scanIntervalMax?: number;

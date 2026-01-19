@@ -39,9 +39,13 @@ public class BuffScanTaskParam {
     @Schema(description = "Cron触发表达式")
     private String cronExpression;
 
-    @Schema(description = "持续运行时间(分钟)", defaultValue = "0")
+    @Schema(description = "持续运行时间(分钟) / 工作时长", defaultValue = "0")
     @Min(value = 0, message = "持续时间不能为负数")
     private Integer durationMinutes;
+
+    @Schema(description = "暂停时长(分钟)", defaultValue = "0")
+    @Min(value = 0, message = "暂停时长不能为负数")
+    private Integer restPeriod;
 
     @Schema(description = "扫描间隔(秒)", defaultValue = "15")
     private Integer scanInterval;

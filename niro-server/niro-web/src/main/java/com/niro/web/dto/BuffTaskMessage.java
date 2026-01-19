@@ -63,6 +63,16 @@ public class BuffTaskMessage {
     private Integer scanIntervalMax;
 
     /**
+     * 持续时间(分钟) / 工作周期
+     */
+    private Integer durationMinutes;
+
+    /**
+     * 休息时间(分钟)
+     */
+    private Integer restPeriod;
+
+    /**
      * 任务所属用户ID
      */
     private Long userId;
@@ -87,6 +97,11 @@ public class BuffTaskMessage {
      * 绑定的账号列表
      */
     private List<AccountContext> accounts;
+
+    /**
+     * 允许下单的账号ID列表 (如果为空，则为仅扫描模式)
+     */
+    private List<Long> execAccountIds;
 
     @Data
     @Builder

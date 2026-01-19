@@ -56,8 +56,11 @@ public class BuffScanTaskDTO {
     @Schema(description = "Cron触发表达式")
     private String cronExpression;
 
-    @Schema(description = "持续运行时间(分钟)")
+    @Schema(description = "持续运行时间(分钟) / 工作时长")
     private Integer durationMinutes;
+
+    @Schema(description = "暂停时长(分钟)")
+    private Integer restPeriod;
 
     @Schema(description = "扫描间隔(秒)")
     private Integer scanInterval;

@@ -35,9 +35,9 @@ class Notifier:
             logger.error(f"获取 WeCom access_token 异常: {e}")
         return None
 
-    def get_user_config(self, user_id):
-        """[已废弃] v2.4.0 禁止从数据库查询配置"""
-        logger.warning(f"⚠️ 调用了已废弃的 get_user_config (UserID: {user_id})，请通过上下文获取配置")
+    def _get_config(self, user_id=None):
+        """获取配置 (预留，目前统一使用 settings 中的全局配置)"""
+        # 如果将来需要支持多用户不同机器人配置，可在此处扩展（例如从 Redis 获取）
         return None
 
     def send_text(self, content, user_id=None):
@@ -46,7 +46,7 @@ class Notifier:
         :param content: 文本内容
         :param user_id: 用户 ID
         """
-        config = self.get_user_config(user_id)
+        config = self._get_config(user_id)
         corpid = config.get('wecom_corpid') if config else settings.WECOM_CORPID
         corpsecret = config.get('wecom_corpsecret') if config else settings.WECOM_CORPSECRET
         agentid = config.get('wecom_agentid') if config else settings.WECOM_AGENTID
@@ -86,7 +86,7 @@ class Notifier:
         :param content: Markdown 内容
         :param user_id: 用户 ID
         """
-        config = self.get_user_config(user_id)
+        config = self._get_config(user_id)
         corpid = config.get('wecom_corpid') if config else settings.WECOM_CORPID
         corpsecret = config.get('wecom_corpsecret') if config else settings.WECOM_CORPSECRET
         agentid = config.get('wecom_agentid') if config else settings.WECOM_AGENTID
@@ -130,7 +130,7 @@ class Notifier:
         :param user_id: 用户 ID
         """
         # 1. 获取配置 (优先用户配置，其次全局配置)
-        config = self.get_user_config(user_id)
+        config = self._get_config(user_id)
         
         corpid = config.get('wecom_corpid') if config else settings.WECOM_CORPID
         corpsecret = config.get('wecom_corpsecret') if config else settings.WECOM_CORPSECRET

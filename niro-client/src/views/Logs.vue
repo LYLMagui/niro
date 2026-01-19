@@ -112,7 +112,8 @@
               class="log-line group relative border-l-2 border-transparent py-0.5 pl-3 transition-all hover:bg-white/5"
               :class="{
                 'border-blue-500 bg-blue-500/5': log.traceId && Array.isArray(filterKeywords) && filterKeywords.includes(log.traceId),
-                'border-green-500 bg-green-500/5': isSuccessLog(log.message)
+                'border-green-500 bg-green-500/5': isSuccessLog(log.message),
+                'border-amber-500 bg-amber-500/5 discovery-outline': log._isDiscovery
               }"
             >
               <!-- 时间戳 -->
@@ -124,7 +125,7 @@
               </span>
               
               <!-- 内容解析渲染 -->
-              <span :class="getMessageClass(log.message)" class="break-all whitespace-pre-wrap">
+              <span :class="getMessageClass(log)" class="break-all whitespace-pre-wrap">
                 <template v-for="(part, i) in formatMessage(log.message)" :key="i">
                   <span 
                     v-if="part.highlight" 
@@ -139,7 +140,7 @@
                   >
                     {{ part.text }}
                   </span>
-                  <span v-else class="text-gray-300">{{ part.text }}</span>
+                  <span v-else :class="log._isDiscovery ? 'text-amber-400 font-bold not-italic' : 'text-gray-300'">{{ part.text }}</span>
                 </template>
               </span>
               
@@ -159,30 +160,56 @@
           </div>
         </div>
 
-        <!-- 右侧：错误日志悬浮窗/侧边栏 (分屏模式) -->
+        <!-- 右侧：侧边栏看板 (分屏模式) -->
         <transition name="slide-right">
           <div
-            v-if="showErrorWindow && errorLogs.length > 0"
+            v-if="showErrorWindow"
             class="hidden w-80 flex-col overflow-hidden border-l border-gray-800 bg-gray-900 xl:flex"
           >
-            <div class="flex items-center justify-between bg-red-900/20 px-3 py-2 border-b border-red-900/30">
-              <span class="text-xs font-bold text-red-400 flex items-center">
-                <error-circle-filled-icon class="mr-1.5" /> 实时异常监控
-              </span>
-              <t-tag size="extra-small" theme="danger">{{ errorLogs.length }}</t-tag>
-            </div>
-            <div class="flex-1 overflow-auto p-2">
-              <div 
-                v-for="(log, idx) in errorLogs.slice(-20)" 
-                :key="idx" 
-                class="mb-2 rounded bg-red-500/5 p-2 text-[11px] border border-red-500/10 hover:bg-red-500/10 cursor-pointer"
-                @click="filterByKeyword(log.traceId || log.message)"
-              >
-                <div class="mb-1 flex justify-between text-gray-500">
-                  <span>{{ formatTime(log.timestamp) }}</span>
-                  <span class="text-red-400">{{ log._account }}</span>
+            <!-- 今日发现次数看板 -->
+            <div class="bg-blue-900/10 px-4 py-4 border-b border-blue-900/30">
+              <div class="flex items-center justify-between mb-3">
+                <span class="text-xs font-bold text-blue-400 flex items-center uppercase tracking-wider">
+                  <t-icon name="search" class="mr-2" /> 今日发现机会
+                </span>
+                <div class="flex items-baseline gap-1">
+                  <span class="text-2xl font-black text-blue-400 font-mono">{{ discoveryCount }}</span>
+                  <span class="text-[10px] text-blue-500/60 uppercase">hits</span>
                 </div>
-                <div class="text-gray-300 line-clamp-2">{{ log.message }}</div>
+              </div>
+              <div class="rounded bg-blue-500/5 p-2 border border-blue-500/10">
+                <div class="text-[11px] text-blue-300/70 leading-relaxed flex items-start gap-1.5">
+                  <t-icon name="info-circle" size="14px" class="mt-0.5 flex-shrink-0" />
+                  <span>符合筛选条件但由于未配置下单账号，系统仅作实时提醒，请根据日志 TraceId 快速定位商品。</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- 实时异常监控 -->
+            <div class="flex flex-col flex-1 overflow-hidden">
+              <div class="flex items-center justify-between bg-red-900/20 px-3 py-2 border-b border-red-900/30">
+                <span class="text-xs font-bold text-red-400 flex items-center uppercase tracking-wider">
+                  <error-circle-filled-icon class="mr-1.5" /> 实时异常监控
+                </span>
+                <t-tag size="extra-small" theme="danger" variant="dark">{{ errorLogs.length }}</t-tag>
+              </div>
+              <div class="flex-1 overflow-auto p-2">
+                <div v-if="errorLogs.length === 0" class="h-full flex flex-col items-center justify-center text-gray-600 opacity-50">
+                   <t-icon name="check-circle" size="48px" class="mb-2" />
+                   <span class="text-xs">暂无运行异常</span>
+                </div>
+                <div 
+                  v-for="(log, idx) in errorLogs.slice(-20)" 
+                  :key="idx" 
+                  class="mb-2 rounded bg-red-500/5 p-2 text-[11px] border border-red-500/10 hover:bg-red-500/10 cursor-pointer transition-colors"
+                  @click="filterByKeyword(log.traceId || log.message)"
+                >
+                  <div class="mb-1 flex justify-between text-gray-500 font-mono">
+                    <span>{{ formatTime(log.timestamp) }}</span>
+                    <span class="text-red-400 font-bold">{{ log._account || 'SYSTEM' }}</span>
+                  </div>
+                  <div class="text-gray-300 line-clamp-2 leading-relaxed">{{ log.message }}</div>
+                </div>
               </div>
             </div>
           </div>
@@ -210,6 +237,31 @@ import dayjs from "dayjs";
 
 const sseLogs = ref<LogItem[]>([]);
 const searchedLogs = ref<LogItem[]>([]);
+const discoveryCount = ref(0); // 发现次数统计
+
+// 提示音逻辑
+const playBeep = () => {
+  if (document.visibilityState !== 'visible') return;
+  try {
+    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const oscillator = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    oscillator.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+    gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+    oscillator.start();
+    oscillator.stop(audioCtx.currentTime + 0.1);
+  } catch (e) {
+    console.warn("播放提示音失败", e);
+  }
+};
+
 const searchTraceId = ref("");
 const filterKeywords = ref<string[]>([]);
 const filterInput = ref("");
@@ -232,16 +284,20 @@ const getAccountColor = (name: string) => {
   return `hsl(${hue}, 60%, 45%)`;
 };
 
-// 解析日志行
+// 解析日志行 (仅做数据转换，无副作用)
 const parseLog = (log: LogItem) => {
   const msg = log.message || "";
   const accMatch = msg.match(/\[账号:\s*([^\s\[\]：:]+)\]/);
   const traceMatch = msg.match(/traceId:\s*([a-f0-9]{32})/i);
   
+  // 识别“发现捡漏机会”标识
+  const isDiscovery = msg.includes("🔍") || msg.includes("发现捡漏机会");
+  
   return {
     ...log,
     _account: accMatch ? accMatch[1] : null,
-    _traceId: log.traceId || (traceMatch ? traceMatch[1] : null)
+    _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
+    _isDiscovery: isDiscovery
   };
 };
 
@@ -400,8 +456,9 @@ const isSuccessLog = (message: string) => {
   return message && (message.includes("下单成功") || message.includes("购买成功") || message.includes("✅"));
 };
 
-const getMessageClass = (message: string) => {
-  if (isSuccessLog(message)) return "text-green-400 font-medium";
+const getMessageClass = (log: any) => {
+  if (log._isDiscovery) return "text-amber-400 font-bold not-italic";
+  if (isSuccessLog(log.message)) return "text-green-400 font-medium";
   return "text-gray-300";
 };
 
@@ -464,6 +521,14 @@ const connect = () => {
     } catch (e) {
       logData = { timestamp: new Date().toISOString(), level: "INFO", message: event.data };
     }
+    
+    // 检查是否为“发现捡漏机会”
+    const msg = logData.message || "";
+    if (msg.includes("🔍") || msg.includes("发现捡漏机会")) {
+      discoveryCount.value++;
+      playBeep();
+    }
+
     sseLogs.value.push(logData);
     if (sseLogs.value.length > 500) sseLogs.value.shift();
   };
@@ -491,24 +556,26 @@ onUnmounted(() => eventSource?.close());
 </script>
 
 <style scoped>
-/* 自定义 Webkit 滚动条：更细更深 */
 .terminal-container::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-.terminal-container::-webkit-scrollbar-track {
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 4px;
+  width: 6px;
 }
 .terminal-container::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 10px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
 }
-.terminal-container::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-  background-clip: content-box;
+.terminal-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.discovery-outline {
+  border-left-width: 4px !important;
+  animation: discovery-pulse 2s infinite;
+}
+
+@keyframes discovery-pulse {
+  0% { box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1); }
+  50% { box-shadow: inset 0 0 10px 2px rgba(245, 158, 11, 0.2); }
+  100% { box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1); }
 }
 
 /* 动画：分屏滑入 */

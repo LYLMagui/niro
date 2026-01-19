@@ -16,6 +16,7 @@ import com.niro.web.dto.BuffTaskMessage;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.*;
+import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
@@ -106,7 +107,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
      */
     private void saveTaskAccounts(Long taskId, Long userId, List<Long> accountIds) {
         if (CollUtil.isEmpty(accountIds)) {
-            throw new BusinessException("任务必须绑定至少一个执行账号");
+            return;
         }
 
         // 校验账号是否属于当前用户
@@ -157,6 +158,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setBuyCount(param.getBuyCount());
         task.setCronExpression(param.getCronExpression());
         task.setDurationMinutes(param.getDurationMinutes());
+        task.setRestPeriod(param.getRestPeriod());
         task.setScanInterval(param.getScanInterval());
 
         // 如果修改了任务类型，且改为系统任务，需要校验唯一性
@@ -386,7 +388,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .list();
 
         if (CollUtil.isEmpty(rels)) {
-            throw new BusinessException("任务启动失败：该任务未绑定任何账号，请先在配置中关联账号");
+            throw new BusinessException(task.getName() + "未绑定执行账号");
         }
 
         List<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
@@ -422,7 +424,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .minProfit(task.getMinProfit())
                 .scanIntervalMin(task.getScanIntervalMin())
                 .scanIntervalMax(task.getScanIntervalMax())
-                .accounts(accountContexts);
+                .durationMinutes(task.getDurationMinutes())
+                .restPeriod(task.getRestPeriod())
+                .accounts(accountContexts)
+                .execAccountIds(accounts.stream()
+                        .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole()) || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))
+                        .map(BuffAccount::getId)
+                        .collect(Collectors.toList()));
 
         // 3. 处理系统任务的分片逻辑
         if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
