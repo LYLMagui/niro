@@ -35,6 +35,13 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
     void updateStatus(Long id, Integer status);
 
     /**
+     * Python 端任务状态回调
+     *
+     * @param task 任务信息
+     */
+    void taskCallback(BuffScanTask task);
+
+    /**
      * 分页查询任务
      * @param param 查询参数
      * @return 分页结果

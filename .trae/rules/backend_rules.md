@@ -5,7 +5,8 @@
 - **ORM**：MyBatis-Plus。禁止 XML/手写 SQL，统一 `lambdaQuery()` 链式写法。
 - **注入**：构造函数注入 + `@RequiredArgsConstructor`，禁止 `@Autowired`。
 - **工具**：优先 `Hutool`（BeanUtil 转换、判空等）。禁止 VO，统一使用 DTO。
-
+- **类引用**：除非类名冲突，否则禁止使用全包名路径！
+- **统一查询风格**：mp的查询风格统一为 `userBuffSettingsService.lambdaQuery().eq(...).one()` 形式
 ## 2. 分层与结构
 - **层级**：`controller` (入参校验) -> `service` (业务逻辑) -> `mapper` (数据访问)。
 - **规范**：`XxxService` 接口 + `XxxServiceImpl` 实现。`XxxDTO` 后缀，`XxxEnum` 枚举。
@@ -17,7 +18,7 @@
 - **校验**：JSR303 (`@Valid`)。
 - **异常**：`@RestControllerAdvice` 全局捕获，业务中禁止滥用 `try-catch`。
 
-## 5. 公共组件与工具 (可复用)
+## 5. 公共组件与工具
 - **断言工具**：`com.niro.core.util.Assert`。用于业务校验，抛出 `BusinessException`。
 - **Redis工具**：`com.niro.core.util.RedisUtil`。封装常用 Redis 操作。
 - **业务异常**：`com.niro.core.exception.BusinessException`。统一业务错误处理。

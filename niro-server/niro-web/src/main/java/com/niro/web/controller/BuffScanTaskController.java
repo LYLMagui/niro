@@ -4,6 +4,7 @@ import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.web.dto.BuffScanTaskDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
+import com.niro.web.entity.BuffScanTask;
 import com.niro.web.service.BuffScanTaskService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,6 +48,12 @@ public class BuffScanTaskController {
     @Operation(summary = "更新任务状态 (0:停止 1:运行)")
     public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status) {
         buffScanTaskService.updateStatus(id, status);
+    }
+
+    @PostMapping("/callback/status")
+    @Operation(summary = "Python 端任务状态回调")
+    public void taskCallback(@RequestBody BuffScanTask task) {
+        buffScanTaskService.taskCallback(task);
     }
 
     @GetMapping("/page")

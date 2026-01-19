@@ -1,9 +1,11 @@
 package com.niro.web.service.impl;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.stereotype.Service;
@@ -26,12 +28,13 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
-import com.niro.web.mapper.BuffScanTaskAccountMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffScanTaskService;
+import com.niro.web.service.BuffScanTaskAccountService;
+import com.niro.web.service.WeComNotifyService;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
@@ -54,8 +57,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffAccountService buffAccountService;
-    private final BuffScanTaskAccountMapper buffScanTaskAccountMapper;
+    private final BuffScanTaskAccountService buffScanTaskAccountService;
     private final RedisUtil redisUtil;
+    private final WeComNotifyService weComNotifyService;
 
     @org.springframework.beans.factory.annotation.Value("${PROXY_URL:}")
     private String globalProxyUrl;
@@ -130,7 +134,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                     .accountId(accountId)
                     .createTime(LocalDateTime.now())
                     .build();
-            buffScanTaskAccountMapper.insert(rel);
+            buffScanTaskAccountService.save(rel);
         }
     }
 
@@ -189,10 +193,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         this.updateById(task);
 
         // 更新账号关联：先删除旧的，再添加新的
-        buffScanTaskAccountMapper.delete(
-            com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+        buffScanTaskAccountService.lambdaUpdate()
                 .eq(BuffScanTaskAccount::getTaskId, task.getId())
-        );
+                .remove();
         saveTaskAccounts(task.getId(), currentUserId, param.getAccountIds());
     }
 
@@ -298,11 +301,39 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 如果是开启任务，则推送至 Redis 队列
         if (BuffConstant.TASK_STATUS_RUNNING.equals(status)) {
+            // 清除可能存在的停止信号
+            redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id);
             pushTaskToQueue(task);
+            weComNotifyService.sendText("🚀 任务已启动: " + task.getName(), task.getUserId());
         } else if (BuffConstant.TASK_STATUS_STOPPED.equals(status)) {
-            // 如果是停止任务，则从 Redis 心跳中移除
+            // 设置停止信号，Python 端会轮询此信号并退出
+            redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id, "1", 5, TimeUnit.MINUTES);
+            // 从 Redis 心跳中移除
             redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
+            weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName(), task.getUserId());
         }
+    }
+
+    @Override
+    public void taskCallback(BuffScanTask task) {
+        BuffScanTask existTask = this.getById(task.getId());
+        if (existTask == null) {
+            log.warn("回调任务不存在: {}", task.getId());
+            return;
+        }
+
+        // 仅在任务处于运行状态时更新状态
+        if (BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus()) || Integer.valueOf(4).equals(existTask.getStatus())) {
+            existTask.setStatus(task.getStatus());
+            this.updateById(existTask);
+
+            String statusDesc = task.getStatus() == 2 ? "已完成" : "异常停止";
+            weComNotifyService.sendText(String.format("🏁 任务%s: %s", statusDesc, existTask.getName()), existTask.getUserId());
+        }
+        
+        // 任务结束，清理心跳和停止信号
+        redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, existTask.getId().toString());
+        redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());
     }
 
     /**
@@ -310,10 +341,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
      */
     private void pushTaskToQueue(BuffScanTask task) {
         // 1. 获取任务绑定的账号信息
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountMapper.selectList(
-            com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
                 .eq(BuffScanTaskAccount::getTaskId, task.getId())
-        );
+                .list();
 
         if (CollUtil.isEmpty(rels)) {
             log.warn("任务 [{}] 未绑定账号，取消推送至队列", task.getId());
@@ -335,6 +365,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
             .map(acc -> BuffTaskMessage.AccountContext.builder()
                 .accountId(acc.getId())
+                .accountName(acc.getAccountName())
                 .buffCookie(acc.getBuffCookie())
                 .proxy(Boolean.TRUE.equals(enableProxy) ? globalProxyUrl : null)
                 .role(acc.getRole())
@@ -357,8 +388,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 3. 处理系统任务的分片逻辑
         if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
+            List<Long> categoryIds = null;
             // 自愈逻辑：检查 Redis 中是否存在已有的分片进度
-            String progressKey = "niro:stats:task:" + task.getId();
+            String progressKey = BuffConstant.REDIS_TASK_STATS_PREFIX + task.getId();
             String progressJson = redisUtil.getToString(progressKey);
             
             if (cn.hutool.core.util.StrUtil.isNotBlank(progressJson)) {
@@ -366,28 +398,54 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 cn.hutool.json.JSONArray pendingCats = progress.getJSONArray("pending_categories");
                 if (CollUtil.isNotEmpty(pendingCats)) {
                     log.info("任务 [{}] 发现未完成分片，共 {} 个分类，准备执行断点续传", task.getId(), pendingCats.size());
-                    messageBuilder.categoryIds(pendingCats.toList(Long.class));
+                    categoryIds = pendingCats.toList(Long.class);
                 }
-            } else {
-                // 首次推送：根据任务类型获取所有待处理的分类 ID
-                List<Long> allCategoryIds = null;
+            } 
+
+            // 如果没有断点进度，则首次下发
+            if (CollUtil.isEmpty(categoryIds)) {
                 if (TaskTypeEnum.SYNC_CATEGORY.getCode().equals(task.getTaskType())) {
                     // 同步分类树：下发所有一级分类
-                    allCategoryIds = buffGoodsCategoryService.lambdaQuery()
+                    categoryIds = buffGoodsCategoryService.lambdaQuery()
                             .eq(BuffGoodsCategory::getParentId, 0)
                             .list()
                             .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
                 } else if (TaskTypeEnum.SYNC_GOODS.getCode().equals(task.getTaskType())) {
                     // 同步商品：下发所有二级分类 (叶子节点)
-                    allCategoryIds = buffGoodsCategoryService.lambdaQuery()
+                    categoryIds = buffGoodsCategoryService.lambdaQuery()
+                            .gt(BuffGoodsCategory::getParentId, 0)
+                            .list()
+                            .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
+                } else if (TaskTypeEnum.SYNC_STICKER.getCode().equals(task.getTaskType())) {
+                    // 印花同步：下发所有分类（通常印花也是按照分类同步的，这里暂时对齐 SYNC_GOODS 的逻辑或根据实际需求调整）
+                    categoryIds = buffGoodsCategoryService.lambdaQuery()
                             .gt(BuffGoodsCategory::getParentId, 0)
                             .list()
                             .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
                 }
+                log.info("任务 [{}] 首次下发，共 {} 个待处理分类", task.getId(), categoryIds != null ? categoryIds.size() : 0);
+            }
+
+            // 统一填充元数据
+            if (CollUtil.isNotEmpty(categoryIds)) {
+                List<BuffGoodsCategory> cats = buffGoodsCategoryService.listByIds(categoryIds);
+                // 仅下发数据库中存在的分类 ID
+                List<Long> validCategoryIds = cats.stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
+                messageBuilder.categoryIds(validCategoryIds);
                 
-                if (CollUtil.isNotEmpty(allCategoryIds)) {
-                    log.info("任务 [{}] 首次下发，共 {} 个待处理分类", task.getId(), allCategoryIds.size());
-                    messageBuilder.categoryIds(allCategoryIds);
+                Map<String, Map<String, String>> meta = new HashMap<>();
+                for (BuffGoodsCategory c : cats) {
+                    Map<String, String> info = new HashMap<>();
+                    info.put("name", c.getName());
+                    info.put("internalName", c.getInternalName());
+                    // 补充分类类型标识
+                    info.put("categoryType", c.getParentId() == 0 ? "category" : "category_leaf");
+                    meta.put(c.getId().toString(), info);
+                }
+                messageBuilder.categoryMeta(meta);
+                
+                if (validCategoryIds.size() < categoryIds.size()) {
+                    log.warn("任务 [{}] 过滤掉 {} 个不存在的分类 ID", task.getId(), categoryIds.size() - validCategoryIds.size());
                 }
             }
         }
@@ -411,16 +469,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     private String getQueueName(Integer taskType) {
-        if (TaskTypeEnum.isSystemTask(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_PREFIX + "system";
-        }
         if (TaskTypeEnum.SNIPING.getCode().equals(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_PREFIX + "sniping";
+            return BuffConstant.REDIS_TASK_QUEUE_HIGH;
+        }
+        if (TaskTypeEnum.isSystemTask(taskType)) {
+            return BuffConstant.REDIS_TASK_QUEUE_MEDIUM;
         }
         if (TaskTypeEnum.FLIPPING.getCode().equals(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_PREFIX + "flipping";
+            return BuffConstant.REDIS_TASK_QUEUE_MEDIUM;
         }
-        return BuffConstant.REDIS_TASK_QUEUE_PREFIX + "default";
+        return BuffConstant.REDIS_TASK_QUEUE_LOW;
     }
 
     @Override
@@ -464,10 +522,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
             // 2. 补充账号信息
             List<Long> taskIds = dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList());
-            List<BuffScanTaskAccount> rels = buffScanTaskAccountMapper.selectList(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+            List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
                     .in(BuffScanTaskAccount::getTaskId, taskIds)
-            );
+                    .list();
 
             if (CollUtil.isNotEmpty(rels)) {
                 Set<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toSet());
@@ -488,10 +545,19 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                     }
                     
                     // 补充实时统计信息
-                    String statsKey = "niro:stats:task:" + dto.getId();
+                    String statsKey = BuffConstant.REDIS_TASK_STATS_PREFIX + dto.getId();
                     String statsJson = redisUtil.getToString(statsKey);
                     if (cn.hutool.core.util.StrUtil.isNotBlank(statsJson)) {
                         dto.setStats(cn.hutool.json.JSONUtil.parse(statsJson));
+                    }
+
+                    // 补充实时状态信息 (v2.4.0 优先从 Redis 获取)
+                    String statusKey = BuffConstant.REDIS_TASK_STATUS_PREFIX + dto.getId(); 
+                    String statusJson = redisUtil.getToString(statusKey);
+                    if (cn.hutool.core.util.StrUtil.isNotBlank(statusJson)) {
+                        cn.hutool.json.JSONObject statusObj = cn.hutool.json.JSONUtil.parseObj(statusJson);
+                        dto.setRealtimeStatus(statusObj.getStr("status"));
+                        dto.setLastError(statusObj.getStr("error"));
                     }
                 });
             }
@@ -521,10 +587,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         this.removeById(id);
 
         // 删除账号关联
-        buffScanTaskAccountMapper.delete(
-            com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
+        buffScanTaskAccountService.lambdaUpdate()
                 .eq(BuffScanTaskAccount::getTaskId, id)
-        );
+                .remove();
     }
 
     @Override

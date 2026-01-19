@@ -1,6 +1,6 @@
 from typing import List, Dict, Optional
-from sqlalchemy.orm import Session
-from storage.database import Session as SessionLocal
+from sqlalchemy import select
+from storage.database import async_session_factory
 from storage.models import BuffSticker
 from dto.buff_dto import BuffStickerInfo
 from utils.logger import get_logger
@@ -16,8 +16,8 @@ class PremiumCalculator:
     CACHE_EXPIRE = 3600  # 1小时过期
 
     @classmethod
-    def get_sticker_price(cls, sticker_id: int) -> float:
-        """获取印花市场价格（带缓存）"""
+    async def get_sticker_price(cls, sticker_id: int) -> float:
+        """获取印花市场价格（带缓存，异步版）"""
         now = int(time.time())
         if sticker_id in cls._price_cache:
             cache_item = cls._price_cache[sticker_id]
@@ -25,16 +25,22 @@ class PremiumCalculator:
                 return cache_item["price"]
 
         # 缓存不存在或已过期，从数据库查询
-        with SessionLocal() as session:
-            sticker = session.query(BuffSticker).filter(BuffSticker.sticker_id == sticker_id).first()
-            price = float(sticker.price) if sticker else 0.0
-            cls._price_cache[sticker_id] = {"price": price, "timestamp": now}
-            return price
+        async with async_session_factory() as session:
+            try:
+                stmt = select(BuffSticker).where(BuffSticker.sticker_id == sticker_id)
+                result = await session.execute(stmt)
+                sticker = result.scalar_one_or_none()
+                price = float(sticker.price) if sticker else 0.0
+                cls._price_cache[sticker_id] = {"price": price, "timestamp": now}
+                return price
+            except Exception as e:
+                logger.error(f"❌ 获取印花价格失败 [ID: {sticker_id}]: {e}")
+                return 0.0
 
     @classmethod
-    def calculate_item_sticker_value(cls, stickers: List[BuffStickerInfo]) -> Dict:
+    async def calculate_item_sticker_value(cls, stickers: List[BuffStickerInfo]) -> Dict:
         """
-        计算饰品上的印花总价值与理论溢价
+        计算饰品上的印花总价值与理论溢价 (异步版)
         :param stickers: 饰品携带的贴纸列表
         :return: {
             "total_sticker_price": 贴纸总原价,
@@ -47,7 +53,7 @@ class PremiumCalculator:
         details = []
 
         for s in stickers:
-            base_price = cls.get_sticker_price(s.sticker_id)
+            base_price = await cls.get_sticker_price(s.sticker_id)
             if base_price <= 0:
                 continue
 
@@ -87,15 +93,15 @@ class PremiumCalculator:
         }
 
     @classmethod
-    def evaluate_item_premium(cls, current_price: float, market_floor: float, stickers: List[BuffStickerInfo]) -> tuple[bool, str]:
+    async def evaluate_item_premium(cls, current_price: float, market_floor: float, stickers: List[BuffStickerInfo]) -> tuple[bool, str]:
         """
-        评估饰品溢价是否合理（即是否为捡漏）
+        评估饰品溢价是否合理（即是否为捡漏，异步版）
         :return: (是否匹配, 匹配理由)
         """
         if not stickers:
             return False, ""
 
-        res = cls.calculate_item_sticker_value(stickers)
+        res = await cls.calculate_item_sticker_value(stickers)
         theoretical_premium = res["theoretical_premium"]
         
         if theoretical_premium <= 0:

@@ -1,8 +1,9 @@
 requests
 python-dotenv
 redis
-psycopg2-binary
 sqlalchemy
+asyncpg
+psycopg2-binary
 apscheduler
 jmespath
 loguru
@@ -11,6 +12,7 @@ tenacity
 pendulum
 httpx
 async-timeout
+aiolimiter
 boltons
 more-itertools
 pydash

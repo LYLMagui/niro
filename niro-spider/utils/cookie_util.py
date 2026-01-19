@@ -7,7 +7,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-from storage.database import Session
+# from storage.database import Session  # v2.4.0 废弃同步数据库查询
 from config import settings
 from utils.logger import get_logger
 
@@ -56,22 +56,7 @@ def verify_cookie(cookie):
 
 def get_latest_cookie(user_id=None):
     """
-    从数据库获取指定用户的 Buff Cookie (已废弃，建议使用 TaskMessage 中的账号上下文)
-    :param user_id: 用户 ID
-    :return: Cookie 字符串
+    [已废弃] v2.4.0 禁止从数据库查询账号信息
     """
-    if not user_id:
-        return None
-        
-    session = Session()
-    try:
-        from storage.models import BuffAccount
-        account = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
-        if account:
-            return account.buff_cookie
-    except Exception as e:
-        logger.error(f"❌ 获取数据库账号 Cookie 失败: {e}")
-    finally:
-        Session.remove()
-    
+    logger.error("❌ 调用了已废弃的 get_latest_cookie，请通过 TaskMessage 获取 Cookie")
     return None

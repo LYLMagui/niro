@@ -96,3 +96,6 @@ CLASH_GROUP_NAME = os.getenv("CLASH_GROUP_NAME", "Proxies") # 默认代理组名
 # BUFF Cookie 配置 (用于部分需要主账号 Cookie 的场景)
 BUFF_COOKIE = os.getenv("BUFF_COOKIE", "")
 
+# 后端服务配置
+BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+

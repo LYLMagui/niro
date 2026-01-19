@@ -1,12 +1,8 @@
-import random
 import sys
 import os
-import requests
-import time
-import json
-from typing import List, Dict, Any, Optional
-from pydantic import BaseModel, Field, AliasPath
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from typing import List, Dict, Any
+from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy import func
 
 # 修复模块导入路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,399 +10,52 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from storage.models import BuffGoodsCategory, BuffScanTask
-from storage.database import Session
-from storage.redis_pool import redis_client
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import func
-from utils.logger import get_logger, setup_logging, get_current_ip_cached, account_name_var, account_id_var
-from utils.exception_handler import LoginRequiredError
-from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies, refresh_proxies
-from utils.network_util import log_request_ip, coffee_break
-from utils.notifier import Notifier
+from storage.models import BuffGoodsCategory
+from storage.database import async_session_factory
+from utils.logger import get_logger
 
 logger = get_logger(__name__)
-notifier = Notifier()
 
-BUFF_HOST = "https://buff.163.com"
-
-# --- 常量定义 ---
-# Redis 暂存 Key
-REDIS_TEMP_CATEGORY_KEY = "niro:spider:temp_categories"
-
-# --- Pydantic 模型定义 ---
-
-class BuffGoodsItem(BaseModel):
-    id: int
-    name: Optional[str] = None
-    tags: Optional[Dict[str, Any]] = Field(None, validation_alias=AliasPath("goods_info", "info", "tags"))
-
-class BuffGoodsData(BaseModel):
-    items: List[BuffGoodsItem]
-    total_page: int
-    total_count: int
-
-class BuffGoodsResponse(BaseModel):
-    code: str
-    data: Optional[BuffGoodsData] = None
-    msg: Optional[str] = None
-
-# --- 辅助函数 ---
-
-def normalize_internal_name(name: str) -> str:
-    """规范化 internal_name，去掉前缀以便匹配"""
-    if not name: return ""
-    return name.replace("csgo_type_", "").replace("type_", "").replace("csgo_", "").strip()
-
-def normalize_match_name(name: str) -> str:
-    """更彻底的规范化，用于模糊匹配"""
-    if not name: return ""
-    return normalize_internal_name(name).replace("_", "").lower()
-
-# --- 业务逻辑 ---
-
-def before_retry_callback(retry_state):
-    """重试前的回调：处理代理失效与节点切换"""
-    attempt = retry_state.attempt_number
-    exception = retry_state.outcome.exception()
+async def save_categories(categories: List[Dict]):
+    """保存抓取到的分类数据 (UPSERT)
     
-    # 记录错误原因
-    error_msg = str(exception)
-    if "Read timed out" in error_msg:
-        logger.warning(f"⏳ [超时重试] 分类同步请求超时，正在尝试切换代理节点... ({attempt}/3)")
-    elif "429" in error_msg:
-        logger.warning(f"🚫 [限流重试] 触发频率限制 (429)，正在更换 IP 规避... ({attempt}/3)")
-    else:
-        logger.warning(f"🔄 [异常重试] 请求异常: {error_msg}，准备重试... ({attempt}/3)")
+    由 ShardedSpiderExecutor 调用，负责将抓取到的分类树数据写入数据库。
+    """
+    if not categories:
+        return
 
-    try:
-        refresh_proxies()
-    except Exception as e:
-        logger.error(f"❌ 尝试切换代理节点失败: {e}")
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type(requests.exceptions.RequestException),
-    before_sleep=before_retry_callback,
-    reraise=True
-)
-def fetch_buff_goods_api(params: Dict[str, Any], profile: Any = None) -> BuffGoodsData:
-    url = f"{BUFF_HOST}/api/market/goods"
-    if not profile or not profile.cookie:
-        raise Exception(f"无法获取有效 Profile 或 Cookie")
-    headers = profile.get_headers()
-    proxies = get_proxies()
-    log_request_ip(proxies, prefix="[CategorySync] ")
-    response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=10)
-    response.encoding = 'utf-8'
-    if response.status_code == 403: raise LoginRequiredError("Buff Login Required (403)")
-    response.raise_for_status()
-    resp = BuffGoodsResponse.model_validate(response.json())
-    if resp.code == "Login Required": raise LoginRequiredError("Buff Login Required")
-    if resp.code != "OK" or not resp.data: raise Exception(f"API 业务错误: {resp.msg}")
-    return resp.data
-
-def is_task_running(task_id):
-    if not task_id: return True
-    session = Session()
-    try:
-        task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
-        return task.status in (1, 4) if task else False
-    finally: Session.remove()
-
-def get_task_user_id(task_id):
-    if not task_id: return None
-    session = Session()
-    try:
-        task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
-        return task.user_id if task else None
-    finally: Session.remove()
-
-def save_categories(categories: List[Dict], parent_id: int = 0):
-    if not categories: return
-    
-    # 分布式状态锁：以 parent_id 为键，避免多个账号同时在更新同一个分类节点
-    lock_key = f"niro:lock:category_sync:{parent_id}"
-    session = Session()
-    try:
-        # 尝试获取 Redis 锁，有效期 30 秒
-        if not redis_client.set(lock_key, "locked", ex=30, nx=True):
-            logger.warning(f"⏳ 另一个账号正在执行分类 [ParentID:{parent_id}] 保存，跳过本次写入")
-            return
-
-        # 0. 预处理分类数据
-        db_items = []
-        for cat in categories:
-            internal = cat['internal_name']
-            db_items.append({
-                "name": cat["name"],
-                "internal_name": internal,
-                "category_type": cat.get("category_type", "category"),
-                "full_internal_name": cat.get('full_internal_name') or (internal if internal.startswith("csgo_") else f"csgo_{internal}"),
-                "parent_id": cat.get("parent_id", 0)
-            })
-
-        # 1. 批量插入/更新分类 (UPSERT)
-        stmt = insert(BuffGoodsCategory).values(db_items)
-        stmt = stmt.on_conflict_do_update(
-            index_elements=['internal_name'],
-            set_={
-                'name': stmt.excluded.name,
-                'category_type': stmt.excluded.category_type,
-                'full_internal_name': stmt.excluded.full_internal_name,
-                'parent_id': stmt.excluded.parent_id,
-                'update_time': func.now()
-            }
-        )
-        session.execute(stmt)
-        session.commit()
-
-        # 2. 如果提供了 parent_internal_name，则需要根据名称二次关联 (向后兼容)
-        existing_cats = session.query(BuffGoodsCategory.id, BuffGoodsCategory.internal_name).all()
-        name_to_id = {normalize_internal_name(c.internal_name): c.id for c in existing_cats}
+    db_items = []
+    for item in categories:
+        internal_name = item.get('internal_name')
+        if not internal_name: continue
         
-        needs_update = False
-        for cat in categories:
-            if "parent_id" not in cat or cat["parent_id" ] == 0:
-                parent_normalized = normalize_internal_name(cat.get("parent_internal_name", ""))
-                if parent_normalized and parent_normalized in name_to_id:
-                    p_id = name_to_id[parent_normalized]
-                    c_id = name_to_id.get(normalize_internal_name(cat["internal_name"]))
-                    if c_id:
-                        session.query(BuffGoodsCategory).filter(BuffGoodsCategory.id == c_id).update({"parent_id": p_id})
-                        needs_update = True
-        
-        if needs_update:
-            session.commit()
-    except Exception as e:
-        session.rollback()
-        logger.error(f"❌ 保存分类失败: {e}")
-    finally:
-        redis_client.delete(lock_key)
-        Session.remove()
+        db_items.append({
+            'name': item.get('name'),
+            'internal_name': internal_name,
+            'category_type': item.get('category_type', 'type'),
+            'full_internal_name': internal_name,
+            'parent_id': item.get('parent_id', 0)
+        })
 
-def get_task_account_info(task_id):
-    """获取任务绑定的账号信息 (支持多账号轮询)"""
-    if not task_id: return None, "System"
-    session = Session()
-    try:
-        from storage.models import BuffScanTaskAccount, BuffAccount
-        # 获取该任务关联的所有有效账号
-        accounts = session.query(BuffAccount).join(
-            BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
-        ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
-        
-        if not accounts:
-            return None, "System"
-        
-        if len(accounts) == 1:
-            return accounts[0].id, accounts[0].account_name
-        
-        # 多账号轮询逻辑 (Round Robin)
-        redis_key = f"niro:task:account_index:{task_id}"
-        current_index = redis_client.get(redis_key)
-        current_index = int(current_index) if current_index else 0
-        
-        # 确保索引不越界 (可能中途删除了账号)
-        if current_index >= len(accounts):
-            current_index = 0
-        
-        target_acc = accounts[current_index]
-        
-        # 更新下一个索引到 Redis
-        next_index = (current_index + 1) % len(accounts)
-        redis_client.set(redis_key, next_index)
-        
-        logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
-        
-        return target_acc.id, target_acc.account_name
-    finally: Session.remove()
+    if not db_items:
+        return
 
-def run_category_sync(task_id=None):
-    start_time = time.time()
-    get_current_ip_cached(force_refresh=True)
-    
-    # 设置账号上下文
-    acc_id = account_id_var.get()
-    acc_name = account_name_var.get()
-    
-    if not acc_id:
-        acc_id, acc_name = get_task_account_info(task_id)
-        account_id_var.set(acc_id)
-        account_name_var.set(acc_name)
-
-    user_id = get_task_user_id(task_id)
-    profile = BrowserHelper.create_profile(user_id)
-    logger.info(f"🎭 已启动精准分类同步，使用账号: {acc_name}，指纹: {profile.user_agent}")
-
-    # 清理上次可能残留的 Redis 数据
-    redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
-
-    # 2. 循环遍历一级分类，深度抓取二级分类并暂存到 Redis
-    total_new_categories = 0
-    primary_cat_count = 0
-    
-    # 从数据库获取一级分类 (parent_id = 0)
-    session = Session()
-    try:
-        primary_categories = session.query(BuffGoodsCategory).filter(BuffGoodsCategory.parent_id == 0).all()
-        if not primary_categories:
-            logger.error("❌ 数据库中未找到一级分类，请先初始化分类数据")
-            return
-        
-        primary_cat_count = len(primary_categories)
-        logger.info(f"📊 从数据库加载了 {primary_cat_count} 个一级分类")
-        
-        for p_cat in primary_categories:
-            if task_id and not is_task_running(task_id):
-                logger.warning(f"🛑 [账号:{acc_name}] 任务被手动停止")
-                break
-
-            type_internal = p_cat.internal_name
-            type_name = p_cat.name
-            logger.info(f"📂 [账号:{acc_name}] 正在抓取 [{type_name}] 的二级分类...")
-
-            processed_in_type = set()
-            empty_pages_count = 0  # 连续无新数据页面计数器
-            for page in range(1, 21): # 每种分类抓取 20 页
-                if task_id and not is_task_running(task_id): break
-                
-                # 1. 智能延迟：分类同步频率可以稍微快一点，但仍需正态分布抖动
-                wait_time = random.gauss(4.0, 1.0)
-                wait_time = max(wait_time, 2.0)
-                logger.info(f"💤 [账号:{acc_name}] 请求前随机休眠 {wait_time:.2f}s...")
-                time.sleep(wait_time)
-
-                logger.info(f"  -> [账号:{acc_name}] 正在处理 [{type_name}] 第 {page}/20 页...")
-                # 一级分类统一使用 category_group 参数
-                params = {
-                    "game": "csgo", 
-                    "page_num": page, 
-                    "tab": "selling", 
-                    "category_group": type_internal,
-                    "sort_by": "price.asc"
+    async with async_session_factory() as session:
+        try:
+            stmt = insert(BuffGoodsCategory).values(db_items)
+            stmt = stmt.on_conflict_do_update(
+                index_elements=['internal_name'],
+                set_={
+                    'name': stmt.excluded.name,
+                    'category_type': stmt.excluded.category_type,
+                    'full_internal_name': stmt.excluded.full_internal_name,
+                    'parent_id': stmt.excluded.parent_id,
+                    'update_time': func.now()
                 }
-            
-                try:
-                    data = fetch_buff_goods_api(params, profile=profile)
-                    if not data.items: break
-                    
-                    page_categories = []
-                    for item in data.items:
-                        tags = item.tags or {}
-                        
-                        # 1. 确定真实的父级分类 (Type)
-                        if type_internal in ["other", "sticker"]:
-                            # 特殊处理：当请求的是 'other' 或 'sticker' 分类组时
-                            # BUFF API 返回的商品 type 可能与传入参数不完全一致
-                            # 我们强制将父级归类为当前抓取的一级分类标识
-                            real_parent_internal = type_internal
-                        else:
-                            parent_tag = tags.get("type")
-                            if not parent_tag: continue
-                            
-                            real_parent_internal = parent_tag.get("internal_name")
-                            
-                            # 关键修复：支持多种前缀的匹配 (如 knife 匹配 csgo_type_knife)
-                            if normalize_match_name(real_parent_internal) != normalize_match_name(type_internal):
-                                continue
-                        
-                        # 确定二级分类：根据规律，具体的武器型号或细分类型在 API 中使用 category 参数
-                        sub_tag = tags.get("category") or tags.get("weapon")
-                        if not sub_tag: continue
-                        
-                        sub_internal = sub_tag.get("internal_name")
-                        # 如果二级分类和父级分类一样（魔法值或数据异常），或者已经处理过，则跳过
-                        if not sub_internal or sub_internal == real_parent_internal or sub_internal in processed_in_type: 
-                            continue
-                        
-                        sub_name = sub_tag.get("localized_name") or sub_tag.get("name")
-                        page_categories.append({
-                            "name": sub_name,
-                            "internal_name": sub_internal,
-                            "category_type": "category", # 明确标记为 category
-                            "full_internal_name": sub_internal if sub_internal.startswith("csgo_") else f"csgo_{sub_internal}",
-                            "parent_internal_name": real_parent_internal
-                        })
-                        processed_in_type.add(sub_internal)
-
-                    if page_categories:
-                        # 暂存到 Redis
-                        for cat in page_categories:
-                            redis_client.rpush(REDIS_TEMP_CATEGORY_KEY, json.dumps(cat, ensure_ascii=False))
-                        logger.info(f"  📥 本页发现 {len(page_categories)} 个新二级分类，已暂存至 Redis")
-                        empty_pages_count = 0  # 重置计数器
-                    else:
-                        empty_pages_count += 1
-                        logger.info(f"  ℹ️ 本页未发现新二级分类 (连续 {empty_pages_count} 页)")
-
-                    if empty_pages_count >= 3:
-                        logger.info(f"  🏁 连续 {empty_pages_count} 页无新数据，判定 [{type_name}] 已抓取完毕")
-                        break
-
-                    if data.total_page < page: break
-                    wait_time = random.uniform(15, 20)
-                    logger.info(f"💤 翻页后休眠 {wait_time:.2f}s...")
-                    time.sleep(wait_time)
-                except Exception as e:
-                    logger.error(f"  ❌ 抓取出错: {e}")
-                    break
-            
-            # 2.1 抓取完一个一级分类后，立即从 Redis 读取并保存到数据库
-            type_temp_count = redis_client.llen(REDIS_TEMP_CATEGORY_KEY)
-            if type_temp_count > 0:
-                logger.info(f"🚀 一级分类 [{type_name}] 抓取完成，正在从 Redis 读取 {type_temp_count} 条数据并保存到数据库...")
-                all_temp_data = redis_client.lrange(REDIS_TEMP_CATEGORY_KEY, 0, -1)
-                all_categories = [json.loads(d) for d in all_temp_data]
-                
-                save_categories(all_categories)
-                total_new_categories += len(all_categories)
-                logger.info(f"✅ 成功将 [{type_name}] 的 {len(all_categories)} 条二级分类数据保存到数据库")
-                
-                # 保存完成后清理 Redis，为下一个一级分类腾出空间
-                redis_client.delete(REDIS_TEMP_CATEGORY_KEY)
-            
-            logger.info(f"✅ 一级分类 [{type_name}] 同步完毕")
-            wait_time = random.uniform(10, 15)
-            logger.info(f"💤 切换一级分类休眠 {wait_time:.2f}s...")
-            time.sleep(wait_time)
-
-        # 计算耗时
-        duration = time.time() - start_time
-        hours, rem = divmod(duration, 3600)
-        minutes, seconds = divmod(rem, 60)
-        duration_str = f"{int(hours)}h {int(minutes)}m {int(seconds)}s" if hours > 0 else f"{int(minutes)}m {int(seconds)}s"
-
-        # 获取任务信息，计算下次执行时间
-        next_run_str = "未配置"
-        if task_id:
-            task = session.query(BuffScanTask).filter(BuffScanTask.id == task_id).first()
-            if task and task.scan_interval:
-                next_run_ts = time.time() + task.scan_interval
-                next_run_str = time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(next_run_ts))
-
-        # 发送通知
-        msg = (
-            f"✅ 【分类树同步任务完成】\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"⏱️ 任务耗时：{duration_str}\n"
-            f"📂 一级分类：{primary_cat_count} 个\n"
-            f"🌿 二级分类：{total_new_categories} 个\n"
-            f"⏭️ 下次执行：{next_run_str}\n"
-            f"👤 操作用户：{user_id if user_id else '系统'}\n"
-            f"━━━━━━━━━━━━━━━\n"
-            f"商品分类树已同步至数据库。"
-        )
-        notifier.send_text(msg, user_id=user_id)
-
-        logger.info(f"🎉 分类同步任务完成，总耗时: {duration_str}")
-    except Exception as e:
-        logger.error(f"❌ 分类同步任务出现错误: {e}")
-    finally:
-        Session.remove()
-
-if __name__ == "__main__":
-    setup_logging()
-    run_category_sync()
+            )
+            await session.execute(stmt)
+            await session.commit()
+            logger.info(f"✅ 成功保存 {len(db_items)} 个分类数据")
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"❌ 保存分类失败: {e}")

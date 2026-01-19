@@ -8,6 +8,7 @@ import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 /**
  * BUFF 任务消息 DTO (发送至 Redis 队列)
@@ -72,6 +73,12 @@ public class BuffTaskMessage {
     private List<Long> categoryIds;
 
     /**
+     * 分类元数据 (Map<categoryId, {name: "xxx", internalName: "xxx"}>)
+     * 用于前端直接下发元数据，避免 Spider 再次查询数据库
+     */
+    private Map<String, Map<String, String>> categoryMeta;
+
+    /**
      * 分片页码范围 (用于分片抓取)
      */
     private List<Integer> pageRange;
@@ -90,6 +97,11 @@ public class BuffTaskMessage {
          * 账号ID
          */
         private Long accountId;
+
+        /**
+         * 账号名称
+         */
+        private String accountName;
 
         /**
          * BUFF Cookie

@@ -1,65 +1,57 @@
-import sys
+import asyncio
 import os
+import sys
+import signal
+from loguru import logger
 
-# 获取当前脚本所在目录 (niro-spider/src/main/python)
+# 获取当前脚本所在目录并加入搜索路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
+if current_dir not in sys.path:
+    sys.path.insert(0, current_dir)
 
-# 将 src/main/python 目录添加到 sys.path
-# 这样可以直接 import config, spiders 等模块
-sys.path.insert(0, current_dir)
+from utils.logger import setup_logging
+from engine.task_consumer import TaskConsumer
 
-from spiders.buff_spider import BuffSpider
-from utils.logger import setup_logging, get_logger
-from utils.proxy_checker import validate_proxy
-from config import settings
-
-# 初始化日志配置
-setup_logging()
-logger = get_logger(__name__)
-
-def filter_proxies():
-    """
-    启动时过滤代理池，移除无效代理
-    """
-    if not hasattr(settings, 'PROXIES') or not settings.PROXIES:
-        return
-
-    logger.info(f"正在清洗代理池 (共 {len(settings.PROXIES)} 个)...")
-    valid_proxies = []
-    
-    # 遍历检测
-    for proxy in settings.PROXIES:
-        if validate_proxy(proxy):
-            valid_proxies.append(proxy)
-    
-    # 更新内存中的配置 (不会修改文件)
-    # 如果可用代理太少，发出警告
-    settings.PROXIES = valid_proxies
-    
-    if not valid_proxies:
-        logger.error("❌ 警告：没有可用的代理IP！爬虫将无法工作或直接使用本机IP。")
-    else:
-        logger.info(f"✅ 代理池清洗完成，剩余可用: {len(valid_proxies)} 个")
+async def shutdown(consumer: TaskConsumer):
+    """优雅关闭异步引擎"""
+    logger.info("🛑 接收到停止信号，正在关闭引擎...")
+    await consumer.stop()
+    tasks = [t for t in asyncio.all_tasks() if t is not asyncio.current_task()]
+    [t.cancel() for t in tasks]
+    await asyncio.gather(*tasks, return_exceptions=True)
+    asyncio.get_event_loop().stop()
 
 def main():
-    # 1. 启动前清洗代理池
-    filter_proxies()
+    """
+    Niro Spider v2.4.0 异步消息驱动架构启动入口
+    废除旧的 DB 轮询模式，采用 Redis 阻塞监听 (BLPOP) 模式
+    """
+    setup_logging()
     
-    # 如果没有可用代理，可以选择直接退出
-    if not settings.PROXIES:
-        logger.warning("由于没有可用代理，停止运行 (如需直连请注释此判断)")
-        # return 
+    logger.info("==================================================")
+    logger.info("🚀 Niro Spider v2.4.0 (Message-Driven) Starting...")
+    logger.info("   Mode: Async / Redis-Blocked / Sharded")
+    logger.info("==================================================")
     
-    logger.info("🚀 启动 Buff 爬虫...")
-    spider = BuffSpider()
+    consumer = TaskConsumer()
+    loop = asyncio.get_event_loop()
+
+    # 注册信号处理 (兼容 Linux/Unix)
+    if os.name != 'nt':
+        for sig in (signal.SIGINT, signal.SIGTERM):
+            loop.add_signal_handler(sig, lambda: asyncio.create_task(shutdown(consumer)))
     
-    # 这里只是 MVP0 的测试
-    test_goods_id = 1116002 
-    items = spider.get_goods_list(test_goods_id)
-    
-    logger.info(f"✅ 爬取完成，共获取 {len(items)} 条数据")
-    for item in items[:3]: 
-        logger.info(f"- [{item['name']}] 价格: {item['price_buff']}, 磨损: {item['paintwear']}")
+    try:
+        loop.run_until_complete(consumer.start())
+    except KeyboardInterrupt:
+        # Windows 下通常捕获此异常
+        logger.info("🛑 用户通过键盘停止程序")
+        loop.run_until_complete(consumer.stop())
+    except Exception as e:
+        logger.critical(f"❌ 程序发生致命错误: {e}", exc_info=True)
+    finally:
+        loop.close()
+        logger.info("🏁 Niro Spider 已退出")
 
 if __name__ == "__main__":
     main()

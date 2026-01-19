@@ -12,6 +12,8 @@ from utils.proxy_helper import get_proxies
 from redis.asyncio import Redis
 
 from engine.sharded_executor import ShardedSpiderExecutor
+from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX
+from config.settings import BACKEND_URL
 
 class AsyncBuffSpider:
     def __init__(self, redis: Optional[Redis] = None):
@@ -110,21 +112,17 @@ class AsyncBuffSpider:
         # 判断是否为系统任务（需要分片协同）
         if task_type and task_type >= 2:
             logger.info(f"🚀 [Task-ID: {task_id}] 启动分片协同执行器: {task_name}")
-            executor = ShardedSpiderExecutor(self.client)
+            executor = ShardedSpiderExecutor(self.client, redis_async=self.redis)
             await executor.execute(task_data)
             return
 
-        # 普通扫货任务逻辑（保持原样或后续迁移）
+        # 普通扫货任务逻辑
         goods_id = task_data.get("goodsId")
         accounts = task_data.get("accounts", [])
         
         if not accounts:
             logger.error(f"❌ 任务 [{task_name}] 未绑定任何账号，无法执行")
             return
-
-        # 扫描间隔
-        interval_min = task_data.get("scanIntervalMin", 15)
-        interval_max = task_data.get("scanIntervalMax", 30)
 
         logger.info(f"🔍 开始执行扫描任务: {task_name} (ID: {task_id}, GoodsID: {goods_id})")
 
@@ -134,8 +132,42 @@ class AsyncBuffSpider:
             job = asyncio.create_task(self._account_scan_loop(task_data, account))
             scan_jobs.append(job)
         
-        # 等待所有账号扫描任务结束 (通常是由于外部取消或任务停止)
-        await asyncio.gather(*scan_jobs, return_exceptions=True)
+        # 监控任务停止信号
+        monitor_task = asyncio.create_task(self._monitor_stop_signal(task_id, scan_jobs))
+
+        # 等待所有账号扫描任务结束
+        await asyncio.gather(*scan_jobs, monitor_task, return_exceptions=True)
+
+        # 任务结束回调后端
+        await self._callback_status(task_id, 0 if monitor_task.done() and not monitor_task.cancelled() else 2)
+
+    async def _monitor_stop_signal(self, task_id: int, jobs: List[asyncio.Task]):
+        """监控 Redis 停止信号"""
+        stop_key = f"{REDIS_TASK_STOP_SIGNAL_PREFIX}{task_id}"
+        while True:
+            if await self.redis.exists(stop_key):
+                logger.info(f"🛑 [Task-ID: {task_id}] 收到停止信号，正在取消所有扫描子任务...")
+                for job in jobs:
+                    job.cancel()
+                break
+            await asyncio.sleep(5)
+
+    async def _callback_status(self, task_id: int, status: int):
+        """回调后端更新任务状态"""
+        url = f"{BACKEND_URL}/task/callback/status"
+        payload = {
+            "id": task_id,
+            "status": status
+        }
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                resp = await client.post(url, json=payload)
+                if resp.status_code == 200:
+                    logger.info(f"✅ [Task-ID: {task_id}] 状态回调成功: {status}")
+                else:
+                    logger.error(f"❌ [Task-ID: {task_id}] 状态回调失败: {resp.status_code}, {resp.text}")
+        except Exception as e:
+            logger.error(f"❌ [Task-ID: {task_id}] 状态回调异常: {e}")
 
     async def _account_scan_loop(self, task_data: Dict[str, Any], account: Dict[str, Any]):
         """单个账号的扫描循环"""
@@ -153,15 +185,17 @@ class AsyncBuffSpider:
         )
         
         # 设置账号级上下文
-        account_name_var.set(f"Acc-{account_id}")
+        raw_name = account.get("accountName")
+        acc_name = f"{raw_name}" if raw_name else f"{account_id}"
+        account_name_var.set(acc_name)
         account_id_var.set(account_id)
 
-        logger.info(f"👤 账号 [{account_id}] 扫描启动")
+        logger.info(f"👤 [账号: {acc_name}] 扫描启动")
 
         while True:
             try:
                 # 1. 执行扫描
-                logger.debug(f"正在扫描商品: {goods_id}")
+                logger.debug(f"[账号: {acc_name}] 正在扫描商品: {goods_id}")
                 items = await self.get_goods_list(goods_id, profile)
                 
                 if items:
@@ -173,16 +207,17 @@ class AsyncBuffSpider:
                 await asyncio.sleep(wait_time)
                 
             except asyncio.CancelledError:
-                logger.info(f"🛑 账号 [{account_id}] 扫描任务已取消")
+                logger.info(f"🛑 [账号: {acc_name}] 扫描任务已取消")
                 break
             except Exception as e:
-                logger.error(f"⚠️ 账号 [{account_id}] 扫描异常: {e}")
+                logger.error(f"⚠️ [账号: {acc_name}] 扫描异常: {e}")
                 await asyncio.sleep(interval_min)
 
     async def _process_items(self, task_data: Dict[str, Any], items: List[Dict[str, Any]], account: Dict[str, Any]):
         """处理获取到的商品列表，执行匹配与下单"""
         task_id = task_data.get("taskId")
         max_price = task_data.get("maxPrice")
+        acc_name = account_name_var.get()
         
         # 暂时只实现价格匹配逻辑
         for item in items:
@@ -196,18 +231,18 @@ class AsyncBuffSpider:
             # 磨损过滤 (后续完善)
             # ...
             
-            logger.info(f"🎯 发现匹配商品: {item_id}, 价格: {price} <= {max_price}")
+            logger.info(f"🎯 [账号: {acc_name}] 发现匹配商品: {item_id}, 价格: {price} <= {max_price}")
             
             # 分布式锁：防止多账号重复购买同一饰品
             lock_key = f"niro:lock:item:{item_id}"
             # 尝试获取锁，有效期 10 秒
             if await self.redis.set(lock_key, "locked", ex=10, nx=True):
                 try:
-                    logger.warning(f"🔒 已获取锁 [{lock_key}]，准备执行下单...")
+                    logger.warning(f"🔒 [账号: {acc_name}] 已获取锁 [{lock_key}]，准备执行下单...")
                     # TODO: 执行下单 API
                     # await self._create_order(item, account)
                 finally:
                     # 锁由 TTL 自动释放，或者下单成功后不主动释放防止其他账号再次尝试
                     pass
             else:
-                logger.info(f"⏩ 商品 {item_id} 已被其他账号锁定")
+                logger.info(f"⏩ [账号: {acc_name}] 商品 {item_id} 已被其他账号锁定")

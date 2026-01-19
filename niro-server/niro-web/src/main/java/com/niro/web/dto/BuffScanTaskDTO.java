@@ -85,4 +85,10 @@ public class BuffScanTaskDTO {
 
     @Schema(description = "任务实时统计数据 (JSON)")
     private Object stats;
+
+    @Schema(description = "任务实时状态 (来自 Redis)")
+    private String realtimeStatus;
+
+    @Schema(description = "最后一次错误信息 (来自 Redis)")
+    private String lastError;
 }

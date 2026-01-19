@@ -74,28 +74,19 @@ class BuffSpider:
         self.logger.info(f"🎭 已为当前任务分配指纹: {self.profile.user_agent}")
 
     def get_account_info(self, user_id):
-        """获取账号信息"""
-        if not user_id: return None, "System"
-        from storage.database import Session
-        from storage.models import BuffAccount
-        session = Session()
-        try:
-            acc = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
-            if acc:
-                return acc.id, acc.account_name
-            return None, "System"
-        finally:
-            Session.remove()
+        """获取账号信息 (v2.4.0 仅从上下文获取)"""
+        acc_id = account_id_var.get()
+        acc_name = account_name_var.get()
+        if acc_id and acc_name:
+            return acc_id, acc_name
+        
+        # 如果上下文中没有，说明执行器配置有误
+        self.logger.error(f"❌ 无法从上下文获取账号信息 (User:{user_id})，请检查 Executor 逻辑")
+        return None, "System"
 
     def refresh_cookie(self):
-        """从数据库刷新指定用户的有效 Cookie"""
-        from utils.cookie_util import get_latest_cookie
-        new_cookie = get_latest_cookie(self.user_id)
-        if new_cookie != self.profile.cookie:
-            self.profile.update_cookie(new_cookie)
-            self.logger.info(f"🔄 [Cookie] 已为用户 {self.user_id if self.user_id else 'Global'} 加载最新 Cookie")
-        elif not self.profile.cookie:
-            self.logger.warning(f"⚠️ 无法加载用户 {self.user_id} 的有效 Cookie")
+        """[已废弃] v2.4.0 不再支持从数据库刷新 Cookie，必须由外部调度器保证 Cookie 有效性"""
+        self.logger.warning("⚠️ 调用了已废弃的 refresh_cookie，当前版本应由调度器负责 Cookie 维护")
 
     def refresh_profile(self):
         """重新生成浏览器指纹 Profile (通常用于任务启动时)"""

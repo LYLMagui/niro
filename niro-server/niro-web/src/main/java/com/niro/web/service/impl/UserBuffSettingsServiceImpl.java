@@ -1,7 +1,6 @@
 package com.niro.web.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.dto.UserBuffSettingsDTO;
 import com.niro.web.dto.param.UserBuffSettingsParam;

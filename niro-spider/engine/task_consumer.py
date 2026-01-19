@@ -21,12 +21,11 @@ from engine.context import set_context
 from spiders.async_buff_spider import AsyncBuffSpider
 from utils.logger import setup_logging
 
-# 队列优先级定义 (从高到低)
+# 队列优先级定义 (符合 v2.4.0 规范：Redis 阻塞式监听模式)
 QUEUES = [
-    "niro:task:queue:system",
-    "niro:task:queue:sniping",
-    "niro:task:queue:flipping",
-    "niro:task:queue:default"
+    "niro:tasks:priority:high",
+    "niro:tasks:priority:medium",
+    "niro:tasks:priority:low"
 ]
 
 class TaskConsumer:
@@ -45,57 +44,72 @@ class TaskConsumer:
             decode_responses=True
         )
         self.spider = AsyncBuffSpider(redis=self.redis)
-        logger.info(f"🚀 已连接 Redis: {settings.REDIS_HOST}:{settings.REDIS_PORT}")
+        logger.info(f"🚀 [Async Engine] 已建立 Redis 连接: {settings.REDIS_HOST}:{settings.REDIS_PORT}")
 
     async def stop(self):
         self.running = False
         if self._tasks:
-            logger.info(f"正在等待 {len(self._tasks)} 个任务完成...")
+            logger.info(f"正在安全退出，等待 {len(self._tasks)} 个任务完成...")
             await asyncio.gather(*self._tasks, return_exceptions=True)
         if self.spider:
             await self.spider.close()
         if self.redis:
             await self.redis.close()
-        logger.info("👋 消费者已停止")
+        logger.info("👋 异步引擎已平滑停止")
 
     async def process_task(self, task_data: Dict[str, Any]):
-        """处理单个任务"""
-        trace_id = str(uuid.uuid4()).replace("-", "")
+        """处理单个任务：注入上下文并执行"""
         task_id = task_data.get("taskId")
+        trace_id = task_data.get("traceId") or str(uuid.uuid4()).replace("-", "")
+        user_id = task_data.get("userId")
         
-        # 为当前协程设置上下文
-        # 注意：这里只设置了任务级上下文，具体的账号上下文在执行子任务时再动态切换
-        set_context(trace_id=trace_id, task_id=task_id)
+        # 1. 注入核心上下文
+        set_context(trace_id=trace_id, task_id=task_id, user_id=user_id)
         
-        logger.info(f"📥 收到新任务: [{task_data.get('name')}] (ID: {task_id}, 类型: {task_data.get('taskType')})")
+        logger.info(f"📥 [New Task] Name: {task_data.get('name')} | TaskID: {task_id} | TraceID: {trace_id}")
         
-        # 启动心跳更新任务
+        # 2. 更新任务状态为“运行中”
+        await self._update_task_status(task_id, "RUNNING")
+        
+        # 3. 启动心跳更新
         heartbeat_task = asyncio.create_task(self._update_heartbeat(task_id))
         
         try:
-            # 执行异步扫描任务
+            # 4. 执行异步爬虫逻辑
             await self.spider.scan_task(task_data)
+            
+            # 5. 任务反馈 (由 spider 内部 callback 完成)
+            # await self._update_task_status(task_id, "COMPLETED")
+            
+        except asyncio.CancelledError:
+            logger.warning(f"🛑 [Task Cancelled] TaskID: {task_id}")
+            # await self._update_task_status(task_id, "CANCELLED")
         except Exception as e:
-            logger.exception(f"❌ 任务处理失败: {task_id}, 错误: {e}")
+            logger.exception(f"❌ [Task Failed] TaskID: {task_id} | Error: {e}")
+            # await self._update_task_status(task_id, "FAILED", error_msg=str(e))
         finally:
-            # 任务结束，停止心跳
             heartbeat_task.cancel()
             try:
                 await heartbeat_task
             except asyncio.CancelledError:
                 pass
 
+    async def _update_task_status(self, task_id: int, status: str, error_msg: str = None):
+        """反馈机制：[已废弃] 状态更新已统一由 spider 内部通过 HTTP Callback 完成"""
+        return
+        # if not task_id: return
+        # ... (rest of commented code)
+
     async def _update_heartbeat(self, task_id: int):
-        """定期更新任务心跳"""
+        """定期更新任务心跳 (用于故障自愈)"""
         try:
             while True:
-                # 使用与 Java 端一致的 Hash Key: niro:task:heartbeat
                 await self.redis.hset("niro:task:heartbeat", str(task_id), int(time.time() * 1000))
-                await asyncio.sleep(30)  # 每 30 秒更新一次
+                await asyncio.sleep(20) # 缩短心跳间隔
         except asyncio.CancelledError:
             pass
         except Exception as e:
-            logger.error(f"💓 心跳更新失败: {task_id}, 错误: {e}")
+            logger.error(f"💓 [Heartbeat Error] TaskID: {task_id} | {e}")
 
     async def start(self):
         await self.init_redis()
@@ -128,23 +142,5 @@ class TaskConsumer:
                 task.add_done_callback(self._tasks.discard)
                 
             except Exception as e:
-                logger.error(f"⚠️ 队列监听异常: {e}")
-                await asyncio.sleep(1)
-
-async def run_engine():
-    setup_logging()
-    consumer = TaskConsumer()
-    
-    # 注册信号处理 (Windows 下 asyncio 不支持 add_signal_handler)
-    if os.name != 'nt':
-        loop = asyncio.get_running_loop()
-        for sig in (signal.SIGINT, signal.SIGTERM):
-            loop.add_signal_handler(sig, lambda: asyncio.create_task(consumer.stop()))
-    
-    try:
-        await consumer.start()
-    except (asyncio.CancelledError, KeyboardInterrupt):
-        await consumer.stop()
-
-if __name__ == "__main__":
-    asyncio.run(run_engine())
+                    logger.error(f"⚠️ 队列监听异常: {e}")
+                    await asyncio.sleep(1)

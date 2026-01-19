@@ -81,7 +81,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     logger.add(
         sys.stdout,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | taskId: {extra[taskId]} | acc: {extra[accountName]} | <level>{message}</level>",
+        format="<cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | taskId: {extra[taskId]} | acc: {extra[accountName]} | <level>{message}</level>",
     )
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
@@ -93,7 +93,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         encoding="utf-8",
         enqueue=True,  # 异步写入，线程安全
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip：{extra[ip]} | {message}",
+        format="{name}:{function}:{line} - traceId: {extra[traceId]} | ip: {extra[ip]} | {message}",
     )
 
     # 3. 结构化 JSON 输出 (专为 ELK/Filebeat 设计)

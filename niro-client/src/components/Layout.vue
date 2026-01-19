@@ -86,13 +86,17 @@
       </t-header>
 
       <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
-      <t-content class="flex flex-col overflow-auto bg-gray-50">
-        <div class="flex-1 p-6">
-          <router-view />
+      <t-content class="flex flex-col overflow-hidden bg-gray-50">
+        <div class="flex-1 overflow-hidden p-3">
+          <router-view v-slot="{ Component }">
+            <keep-alive include="Logs">
+              <component :is="Component" />
+            </keep-alive>
+          </router-view>
         </div>
 
-        <!-- 底部版权信息 -->
-        <t-footer class="bg-gray-50 py-4 text-center text-sm text-gray-400">
+        <!-- 底部版权信息：极致压缩版 -->
+        <t-footer class="bg-gray-50 p-0 text-center text-xs text-gray-400 border-t border-gray-100">
           Copyright @ 2024 Niro Control
         </t-footer>
       </t-content>

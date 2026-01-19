@@ -9,3 +9,9 @@ TAB_SELLING = "selling"
 
 # 默认同步间隔（秒）：12小时
 DEFAULT_SYNC_INTERVAL = 43200
+
+# Redis 相关常量
+REDIS_TASK_HEARTBEAT_HASH = "niro:task:heartbeat"
+REDIS_TASK_STATS_PREFIX = "niro:task:stats:"
+REDIS_TASK_STOP_SIGNAL_PREFIX = "niro:task:stop:"
+REDIS_TASK_STATUS_PUBSUB = "niro:task:pubsub:status"

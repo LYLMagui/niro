@@ -1,10 +1,16 @@
 package com.niro.web;
 
+import java.util.TimeZone;
+
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
+import org.springframework.core.env.Environment;
 import org.springframework.scheduling.annotation.EnableScheduling;
+
+import jakarta.annotation.PostConstruct;
+import jakarta.annotation.Resource;
 
 @SpringBootApplication
 @EnableScheduling
@@ -12,13 +18,13 @@ import org.springframework.scheduling.annotation.EnableScheduling;
 @ComponentScan(basePackages = {"com.niro"})
 public class NiroWebApplication {
 
-    @jakarta.annotation.Resource
-    private org.springframework.core.env.Environment env;
+    @Resource
+    private Environment env;
 
-    @jakarta.annotation.PostConstruct
+    @PostConstruct
     public void init() {
         // 设置默认时区为上海 (GMT+8)
-        java.util.TimeZone.setDefault(java.util.TimeZone.getTimeZone("Asia/Shanghai"));
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
     }
 
     public static void main(String[] args) {

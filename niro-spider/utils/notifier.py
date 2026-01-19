@@ -2,9 +2,6 @@ import requests
 import time
 from config import settings
 from utils.logger import get_logger
-from storage.database import Session
-from storage.models import UserBuffSettings
-
 logger = get_logger(__name__)
 
 class Notifier:
@@ -39,27 +36,8 @@ class Notifier:
         return None
 
     def get_user_config(self, user_id):
-        """从数据库获取用户的通知配置 (优先匹配 user_id，否则获取最新的一条)"""
-        session = Session()
-        try:
-            query = session.query(UserBuffSettings)
-            if user_id:
-                setting = query.filter(UserBuffSettings.user_id == user_id).first()
-            else:
-                # 如果没有 user_id，获取最新更新的一条配置作为兜底
-                setting = query.order_by(UserBuffSettings.update_time.desc()).first()
-                
-            if setting:
-                return {
-                    'wecom_corpid': setting.wecom_corpid,
-                    'wecom_corpsecret': setting.wecom_corpsecret,
-                    'wecom_agentid': setting.wecom_agentid,
-                    'wecom_touser': setting.wecom_touser
-                }
-        except Exception as e:
-            logger.error(f"查询用户 {user_id if user_id else 'Global'} 通知配置失败: {e}")
-        finally:
-            Session.remove()
+        """[已废弃] v2.4.0 禁止从数据库查询配置"""
+        logger.warning(f"⚠️ 调用了已废弃的 get_user_config (UserID: {user_id})，请通过上下文获取配置")
         return None
 
     def send_text(self, content, user_id=None):

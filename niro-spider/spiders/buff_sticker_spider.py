@@ -1,11 +1,11 @@
 import random
 import sys
 import os
-import requests
+import httpx
+import asyncio
 import time
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field, AliasPath, ConfigDict
-from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
 # 修复模块导入路径
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -14,15 +14,13 @@ if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
 from storage.models import BuffSticker
-from storage.database import Session
+from storage.database import async_session_factory
 from sqlalchemy import func
 from sqlalchemy.dialects.postgresql import insert
 from config.constants import GAME_CSGO, CATEGORY_STICKER, TAB_SELLING
 from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
 from utils.logger import get_logger, setup_logging, account_name_var, account_id_var, task_id_var
-from utils.exception_handler import LoginRequiredError
-from utils.browser_helper import BrowserHelper
-from utils.proxy_helper import get_proxies, refresh_proxies
+from utils.browser_helper import BrowserHelper, BrowserProfile
 
 logger = get_logger(__name__)
 
@@ -48,97 +46,58 @@ class BuffStickerData(BaseModel):
     total_page: int
     total_count: int
 
-class BuffStickerResponse(BaseModel):
-    """BUFF印花响应模型"""
-    code: str
-    data: Optional[BuffStickerData] = None
-    msg: Optional[str] = None
-
 # --- 业务逻辑 ---
 
-def before_retry_callback(retry_state):
-    """重试前的回调：处理代理失效与节点切换"""
-    attempt = retry_state.attempt_number
-    exception = retry_state.outcome.exception()
-    
-    # 记录错误原因
-    error_msg = str(exception)
-    if "Read timed out" in error_msg:
-        logger.warning(f"⏳ [超时重试] 印花同步请求超时，正在尝试切换代理节点... ({attempt}/3)")
-    elif "429" in error_msg:
-        logger.warning(f"🚫 [限流重试] 触发频率限制 (429)，正在更换 IP 规避... ({attempt}/3)")
-    else:
-        logger.warning(f"🔄 [异常重试] 请求异常: {error_msg}，准备重试... ({attempt}/3)")
-
-    try:
-        refresh_proxies()
-    except Exception as e:
-        logger.error(f"❌ 尝试切换代理节点失败: {e}")
-
-@retry(
-    stop=stop_after_attempt(3),
-    wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type(requests.exceptions.RequestException),
-    before_sleep=before_retry_callback,
-    reraise=True
-)
-def fetch_stickers_api(page_num: int = 1, profile: Any = None) -> BuffStickerData:
-    """分页抓取印花数据"""
+async def fetch_stickers_api(client: httpx.AsyncClient, page_num: int = 1, profile: BrowserProfile = None) -> Optional[BuffStickerData]:
+    """分页抓取印花数据 (异步版)"""
     url = f"{BUFF_HOST}/api/market/goods"
     params = {
         "game": GAME_CSGO,
-        "category_group": CATEGORY_STICKER,  # 关键：指定分类组为印花
+        "category_group": CATEGORY_STICKER,
         "page_num": page_num,
         "tab": TAB_SELLING,
         "use_suggestion": 0
     }
     
     if not profile or not profile.cookie:
-        raise Exception("无法获取有效 Profile 或 Cookie")
+        logger.error("无法获取有效 Profile 或 Cookie")
+        return None
 
     headers = profile.get_headers()
-    proxies = get_proxies()
     
-    response = requests.get(url, headers=headers, params=params, proxies=proxies, timeout=15)
-    response.encoding = 'utf-8'
-    
-    if response.status_code == 403:
-        raise LoginRequiredError("Buff Login Required (403)")
-    
-    if response.status_code == 429:
-        logger.warning(f"触发频率限制 (429)，准备重试... URL: {url} Page: {page_num}")
-        raise requests.exceptions.RequestException(f"Rate limited (429)", response=response)
-
-    response.raise_for_status()
-    
-    resp_json = response.json()
-    resp = BuffStickerResponse.model_validate(resp_json)
-    
-    if resp.code != "OK":
-        raise Exception(f"BUFF API Error: {resp.msg}")
+    try:
+        response = await client.get(url, headers=headers, params=params)
+        response.raise_for_status()
+        data = response.json()
         
-    return resp.data
+        if data.get("code") == "OK":
+            return BuffStickerData(**data.get("data"))
+        else:
+            logger.error(f"API 错误: {data.get('msg')}")
+            return None
+    except Exception as e:
+        logger.error(f"抓取印花第 {page_num} 页失败: {e}")
+        return None
 
-def upsert_stickers(stickers: List[BuffStickerItem]):
-    """使用 PostgreSQL 的 upsert 逻辑更新印花价格"""
+async def upsert_stickers(stickers: List[BuffStickerItem]):
+    """批量更新印花数据 (异步 UPSERT)"""
     if not stickers:
         return
-
-    # 过滤掉非印花物品（如挂件等）
-    valid_stickers = [s for s in stickers if s.item_type == "csgo_tool_sticker"]
-    if not valid_stickers:
-        return
-
-    with Session() as session:
-        for item in valid_stickers:
-            stmt = insert(BuffSticker).values(
-                sticker_id=item.sticker_id,
-                name=item.name,
-                image_url=item.image_url,
-                price=item.price,
-                sell_num=item.sell_num
-            )
-            # 如果冲突（sticker_id已存在），则更新价格、名称、图片、在售数量和更新时间
+        
+    # 转换为字典列表
+    values = []
+    for item in stickers:
+        values.append({
+            "sticker_id": item.sticker_id,
+            "name": item.name,
+            "image_url": item.image_url,
+            "price": item.price,
+            "sell_num": item.sell_num
+        })
+        
+    async with async_session_factory() as session:
+        try:
+            stmt = insert(BuffSticker).values(values)
             stmt = stmt.on_conflict_do_update(
                 index_elements=['sticker_id'],
                 set_={
@@ -149,117 +108,55 @@ def upsert_stickers(stickers: List[BuffStickerItem]):
                     'update_time': func.now()
                 }
             )
-            session.execute(stmt)
-        session.commit()
+            await session.execute(stmt)
+            await session.commit()
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"❌ 更新印花数据失败: {e}")
 
-def get_task_account_info(task_id):
-    """获取任务绑定的账号信息 (支持多账号轮询)"""
-    if not task_id: return None, "System"
-    session = Session()
-    try:
-        from storage.models import BuffScanTaskAccount, BuffAccount
-        # 获取该任务关联的所有有效账号
-        accounts = session.query(BuffAccount).join(
-            BuffScanTaskAccount, BuffScanTaskAccount.account_id == BuffAccount.id
-        ).filter(BuffScanTaskAccount.task_id == task_id).order_by(BuffAccount.id).all()
-        
-        if not accounts:
-            return None, "System"
-        
-        if len(accounts) == 1:
-            return accounts[0].id, accounts[0].account_name
-        
-        from storage.redis_pool import redis_client
-        # 多账号轮询逻辑 (Round Robin)
-        redis_key = f"niro:task:account_index:{task_id}"
-        current_index = redis_client.get(redis_key)
-        current_index = int(current_index) if current_index else 0
-        
-        # 确保索引不越界 (可能中途删除了账号)
-        if current_index >= len(accounts):
-            current_index = 0
-        
-        target_acc = accounts[current_index]
-        
-        # 更新下一个索引到 Redis
-        next_index = (current_index + 1) % len(accounts)
-        redis_client.set(redis_key, next_index)
-        
-        logger.info(f"🔄 任务 [ID:{task_id}] 触发账号轮询: [{current_index+1}/{len(accounts)}] 使用账号: {target_acc.account_name}")
-        
-        return target_acc.id, target_acc.account_name
-    finally: Session.remove()
-
-def run_sticker_sync(user_id: int = 1, task_id: int = None):
-    """执行同步印花主逻辑"""
-    start_time = time.time()
-    
-    # 设置上下文
+async def run_sticker_sync(user_id: int = 1, task_id: int = None):
+    """执行同步印花主逻辑 (Async Entry)"""
     if task_id:
         task_id_var.set(task_id)
         
-    acc_id = account_id_var.get()
-    acc_name = account_name_var.get()
-    
-    if not acc_id:
-        if task_id:
-            acc_id, acc_name = get_task_account_info(task_id)
-        else:
-            # 兼容旧逻辑或手动执行
-            session = Session()
-            from storage.models import BuffAccount
-            acc = session.query(BuffAccount).filter(BuffAccount.user_id == user_id).first()
-            acc_id, acc_name = (acc.id, acc.account_name) if acc else (None, "System")
-            session.close()
-        
-        account_id_var.set(acc_id)
-        account_name_var.set(acc_name)
+    # 设置账号级上下文 (默认管理员账号)
+    account_id_var.set(1)
+    account_name_var.set("Admin")
 
-    # 强制刷新出口IP缓存
-    from utils.logger import get_current_ip_cached
-    get_current_ip_cached(force_refresh=True)
+    logger.info("🚀 开始执行印花价值同步任务")
     
-    logger.info(f"🚀 [账号:{acc_name}] 开始执行印花价值同步任务")
-    
-    try:
-        # 1. 获取用户 Profile (包含 Cookie 和浏览器指纹)
-        profile = BrowserHelper.create_profile(user_id)
-        logger.info(f"🎭 [账号:{acc_name}] 已分配指纹: {profile.user_agent}")
-        
-        if not profile:
-            logger.error(f"未找到用户 {user_id} 的配置信息")
-            return
+    async with httpx.AsyncClient(timeout=10.0) as client:
+        try:
+            # 1. 获取用户 Profile
+            profile = BrowserHelper.create_profile(user_id)
+            if not profile:
+                logger.error(f"未找到用户 {user_id} 的配置信息")
+                return
 
-        # 2. 抓取第一页获取总页数
-        first_page_data = fetch_stickers_api(page_num=1, profile=profile)
-        total_page = first_page_data.total_page
-        logger.info(f"📊 [账号:{acc_name}] 成功获取印花数据，共 {total_page} 页, {first_page_data.total_count} 个印花")
-        
-        # 处理第一页
-        upsert_stickers(first_page_data.items)
-        
-        # 3. 循环处理后续页面
-        for page in range(2, total_page + 1):
-            logger.info(f"正在同步 [账号:{acc_name}] 第 {page}/{total_page} 页...")
+            # 2. 抓取第一页
+            first_page_data = await fetch_stickers_api(client, page_num=1, profile=profile)
+            if not first_page_data:
+                return
+                
+            total_page = first_page_data.total_page
+            logger.info(f"📊 成功获取印花数据，共 {total_page} 页, {first_page_data.total_count} 个印花")
             
-            # 智能延迟：印花同步数据量大，延迟需要更稳健
-            wait_time = random.uniform(CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX)
-            logger.info(f"💤 [账号:{acc_name}] 抓取第 {page} 页前休眠 {wait_time:.2f}s...")
-            time.sleep(wait_time)
+            await upsert_stickers(first_page_data.items)
             
-            page_data = fetch_stickers_api(page_num=page, profile=profile)
-            if page_data and page_data.items:
-                upsert_stickers(page_data.items)
+            # 3. 循环处理
+            for page in range(2, total_page + 1):
+                logger.info(f"正在同步第 {page}/{total_page} 页...")
+                await asyncio.sleep(random.uniform(CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX))
+                
+                page_data = await fetch_stickers_api(client, page_num=page, profile=profile)
+                if page_data and page_data.items:
+                    await upsert_stickers(page_data.items)
+                
+            logger.info("✅ 印花价值同步任务执行完成！")
             
-        logger.info(f"✅ [账号:{acc_name}] 印花价值同步任务执行完成！")
-        
-    except Exception as e:
-        logger.error("印花价值同步任务失败: {}", e, exc_info=True)
-        raise e
+        except Exception as e:
+            logger.error(f"印花价值同步任务失败: {e}")
 
 if __name__ == "__main__":
-    # 初始化日志配置
     setup_logging()
-    
-    # 默认使用管理员账户执行
-    run_sticker_sync(user_id=1)
+    asyncio.run(run_sticker_sync())

@@ -2,7 +2,10 @@ package com.niro.web.service.impl;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
@@ -19,9 +22,9 @@ import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.mapper.BuffAccountMapper;
-import com.niro.web.mapper.BuffScanTaskAccountMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
+import com.niro.web.service.BuffScanTaskAccountService;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -44,7 +47,7 @@ import lombok.extern.slf4j.Slf4j;
 public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffAccount> implements BuffAccountService {
 
     private static final int MAX_ACCOUNT_COUNT = 10;
-    private final BuffScanTaskAccountMapper buffScanTaskAccountMapper;
+    private final BuffScanTaskAccountService buffScanTaskAccountService;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     @Override
@@ -60,19 +63,18 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
 
         // 查询账号绑定的任务信息
         List<Long> accountIds = list.stream().map(BuffAccount::getId).collect(Collectors.toList());
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountMapper.selectList(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
-                        .in(BuffScanTaskAccount::getAccountId, accountIds)
-        );
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
+                .in(BuffScanTaskAccount::getAccountId, accountIds)
+                .list();
 
-        java.util.Map<Long, Long> accountTaskMap = new java.util.HashMap<>();
-        java.util.Map<Long, String> taskNameMap = new java.util.HashMap<>();
+        Map<Long, Long> accountTaskMap = new HashMap<>();
+        Map<Long, String> taskNameMap = new HashMap<>();
 
         if (CollUtil.isNotEmpty(rels)) {
             // 提取有效的 taskId
             List<Long> taskIds = rels.stream()
                     .map(BuffScanTaskAccount::getTaskId)
-                    .filter(java.util.Objects::nonNull)
+                    .filter(Objects::nonNull)
                     .distinct()
                     .collect(Collectors.toList());
 
@@ -94,8 +96,8 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             });
         }
 
-        final java.util.Map<Long, Long> finalAccountTaskMap = accountTaskMap;
-        final java.util.Map<Long, String> finalTaskNameMap = taskNameMap;
+        final Map<Long, Long> finalAccountTaskMap = accountTaskMap;
+        final Map<Long, String> finalTaskNameMap = taskNameMap;
 
         return list.stream()
                 .map(item -> {
@@ -170,10 +172,9 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
         Assert.notNull(account, "账号不存在");
 
         // 需求：如果账号被绑定，则删除账号要报错
-        long bindCount = buffScanTaskAccountMapper.selectCount(
-                com.baomidou.mybatisplus.core.toolkit.Wrappers.<BuffScanTaskAccount>lambdaQuery()
-                        .eq(BuffScanTaskAccount::getAccountId, id)
-        );
+        long bindCount = buffScanTaskAccountService.lambdaQuery()
+                .eq(BuffScanTaskAccount::getAccountId, id)
+                .count();
         if (bindCount > 0) {
             throw new BusinessException("该账号已绑定任务，请先移除任务绑定或停止并删除任务后再试");
         }

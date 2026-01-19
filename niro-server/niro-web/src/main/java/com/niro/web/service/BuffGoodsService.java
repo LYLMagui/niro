@@ -1,5 +1,7 @@
 package com.niro.web.service;
 
+import java.util.List;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.niro.web.dto.BuffGoodsDTO;
@@ -30,5 +32,5 @@ public interface BuffGoodsService extends IService<BuffGoods> {
      * @param keyword 搜索关键词
      * @return
      */
-    java.util.List<BuffGoodsSimpleDTO> getSimpleList(String keyword);
+    List<BuffGoodsSimpleDTO> getSimpleList(String keyword);
 }
