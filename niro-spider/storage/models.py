@@ -1,4 +1,4 @@
-from sqlalchemy import Column, BigInteger, String, Text, DateTime, Numeric, Integer, SmallInteger
+from sqlalchemy import Column, BigInteger, String, Text, DateTime, Numeric, Integer, SmallInteger, JSON
 from sqlalchemy.sql import func
 from .database import Base
 import datetime
@@ -28,6 +28,7 @@ class BuffAccount(Base):
     status = Column(String(50), nullable=False, comment='账号状态')
     weight = Column(Integer, default=1, comment='调度权重')
     balance = Column(Numeric(10, 2), default=0.00, comment='账号余额')
+    pending_balance = Column(Numeric(10, 2), default=0.00, comment='待结算余额')
     fail_count = Column(Integer, default=0, comment='连续请求失败计数')
     last_check_time = Column(DateTime, comment='最后有效性检测时间')
     user_agent = Column(Text, comment='关联的浏览器指纹')
@@ -103,7 +104,7 @@ class BuffGoods(Base):
     market_hash_name = Column(String(255), nullable=False, default="", comment='Steam市场Hash名称')
     icon_url = Column(Text, nullable=False, default="", comment='图标URL')
     original_icon_url = Column(Text, nullable=False, default="", comment='原始图标URL')
-    tags = Column(Text, comment='标签JSON数据')
+    tags = Column(JSON, comment='标签JSON数据')
     last_sync_tag = Column(String(50), nullable=True, comment='最后同步版本标识')
     create_time = Column(DateTime, nullable=False, server_default=func.now(), comment='创建时间')
     update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment='修改时间')

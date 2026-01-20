@@ -61,7 +61,7 @@ class TaskConsumer:
     async def process_task(self, task_data: Dict[str, Any]):
         """处理单个任务：注入上下文并执行"""
         task_id = task_data.get("taskId")
-        trace_id = task_data.get("traceId") or secrets.token_urlsafe(9)
+        trace_id = (task_data.get("traceId") or secrets.token_urlsafe(9)).lower()
         user_id = task_data.get("userId")
         
         # 1. 注入核心上下文

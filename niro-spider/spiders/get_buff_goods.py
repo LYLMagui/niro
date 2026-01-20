@@ -37,12 +37,23 @@ class BuffGoodsItem(BaseModel):
 
 # --- 业务逻辑 ---
 
-async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None, sync_tag: str = None):
+async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None, sync_tag: str = None, category_name: str = None):
     """批量保存商品数据 (UPSERT)
     
     由 ShardedSpiderExecutor 调用，负责将抓取到的商品数据写入数据库。
     """
     if not goods_list: return 0
+    
+    # 获取分类名称用于日志
+    if not category_name and category_id:
+        async with async_session_factory() as session:
+            from sqlalchemy import select
+            from storage.models import BuffGoodsCategory
+            cat_stmt = select(BuffGoodsCategory.name).where(BuffGoodsCategory.id == category_id)
+            cat_result = await session.execute(cat_stmt)
+            category_name = cat_result.scalar()
+    
+    display_name = category_name or str(category_id)
     
     # 分布式状态锁：以 category_id 为键，避免多个账号同时在更新同一个分类下的商品
     lock_key = f"niro:lock:goods_sync:{category_id}"
@@ -50,7 +61,7 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
     # 尝试获取 Redis 锁，有效期 60 秒
     if redis_async:
         if not await redis_async.set(lock_key, "locked", ex=60, nx=True):
-            logger.warning(f"⏳ 另一个账号正在执行分类 [ID:{category_id}] 商品保存，跳过本次写入")
+            logger.warning(f"⏳ 另一个账号正在执行分类 [分类: {display_name}] 商品保存，跳过本次写入")
             return 0
     
     # 1. 对 goods_list 进行去重处理 (基于 goods_id)
@@ -76,7 +87,7 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
                 "rarity": validated_item.rarity or "",
                 "exterior": validated_item.exterior or "",
                 "category_id": category_id,
-                "tags": json.dumps(validated_item.tags_dict, ensure_ascii=False) if validated_item.tags_dict else None,
+                "tags": validated_item.tags_dict,
                 "last_sync_tag": sync_tag
             }
             final_goods_list.append(item)
@@ -93,7 +104,7 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
                 "rarity": g.get("rarity") or "",
                 "exterior": g.get("exterior") or "",
                 "category_id": category_id,
-                "tags": json.dumps(g.get("tags_dict"), ensure_ascii=False) if g.get("tags_dict") else g.get("tags"),
+                "tags": g.get("tags_dict") or g.get("tags"),
                 "last_sync_tag": sync_tag
             }
             final_goods_list.append(item)
@@ -131,14 +142,22 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
             if redis_async:
                 await redis_async.delete(lock_key)
 
-async def delete_stale_goods(category_id: int, current_tag: str):
+async def delete_stale_goods(category_id: int, current_tag: str, category_name: str = None):
     """清理分类下过期的商品数据 (异步删除)"""
     if not category_id or not current_tag:
         return 0
     
     async with async_session_factory() as session:
         try:
-            from sqlalchemy import delete
+            from sqlalchemy import delete, select
+            from storage.models import BuffGoodsCategory
+            
+            # 获取分类名称
+            if not category_name:
+                cat_stmt = select(BuffGoodsCategory.name).where(BuffGoodsCategory.id == category_id)
+                cat_result = await session.execute(cat_stmt)
+                category_name = cat_result.scalar() or str(category_id)
+
             # 查找该分类下，但版本标识不是当前版本的商品（说明在本次全量同步中未出现，已下架）
             stmt = delete(BuffGoods).where(
                 BuffGoods.category_id == category_id,
@@ -148,7 +167,7 @@ async def delete_stale_goods(category_id: int, current_tag: str):
             await session.commit()
             count = result.rowcount
             if count > 0:
-                logger.info(f"🧹 [分类: {category_id}] 清理已下架商品: {count} 条")
+                logger.info(f"🧹 [分类: {category_name}] 清理已下架商品: {count} 条")
             return count
         except Exception as e:
             await session.rollback()

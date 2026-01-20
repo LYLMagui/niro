@@ -9,7 +9,7 @@
         </div>
       </template>
 
-      <!-- 搜索栏 (在 embedded-card 下需要手动控制 padding) -->
+      <!-- 搜索栏 -->
       <div class="p-6 border-b border-gray-100">
         <t-form
           ref="form"
@@ -25,7 +25,7 @@
               filterable
               placeholder="请输入商品名称搜索"
               clearable
-              style="width: 300px"
+              style="width: 260px"
               :on-search="onRemoteSearch"
               :loading="searchLoading"
               reserve-keyword
@@ -38,7 +38,7 @@
               placeholder="请选择分类"
               clearable
               check-strictly
-              style="width: 200px"
+              style="width: 180px"
             />
           </t-form-item>
           <t-form-item label="外观磨损" name="exterior">
@@ -46,7 +46,7 @@
               v-model="searchForm.exterior"
               placeholder="请选择外观"
               clearable
-              style="width: 160px"
+              style="width: 140px"
             >
               <t-option
                 v-for="item in ExteriorOptions"
@@ -57,12 +57,11 @@
             </t-select>
           </t-form-item>
           <t-form-item>
-            <div class="flex gap-4">
+            <div class="flex gap-2">
               <t-button
                 theme="primary"
                 type="submit"
                 size="medium"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 <template #icon><search-icon /></template>
                 查询
@@ -72,7 +71,6 @@
                 variant="base"
                 type="reset"
                 size="medium"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 <template #icon><refresh-icon /></template>
                 重置
@@ -81,11 +79,10 @@
                 theme="warning"
                 variant="base"
                 size="medium"
-                class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="syncDialogVisible = true"
               >
                 <template #icon><cloud-download-icon /></template>
-                分类同步
+                同步
               </t-button>
             </div>
           </t-form-item>
@@ -93,17 +90,18 @@
       </div>
 
       <!-- 数据表格 -->
-      <t-table
-        row-key="id"
-        :data="dataList"
-        :columns="columns"
-        :loading="loading"
-        :pagination="pagination"
-        hover
-        :header-affixed-top="true"
-        class="embedded-table w-full"
-        @page-change="onPageChange"
-      >
+      <div class="p-0">
+        <t-table
+          row-key="id"
+          :data="dataList"
+          :columns="columns"
+          :loading="loading"
+          :pagination="pagination"
+          hover
+          :header-affixed-top="{ offsetTop: 0, container: '.t-layout__content' }"
+          class="embedded-table w-full"
+          @page-change="onPageChange"
+        >
         <template #empty>
           <t-empty icon="queue" description="未搜索到相关商品" />
         </template>
@@ -188,16 +186,8 @@
           </div>
         </template>
       </t-table>
+      </div>
     </t-card>
-    <!-- 图片预览组件 -->
-    <t-image-viewer
-      :images="[previewImage]"
-      :visible="visible"
-      mode="modal"
-      :close-on-overlay="true"
-      @close="visible = false"
-    />
-
     <!-- 任务配置弹窗组件 (隐藏主体只用弹窗) -->
     <task-config ref="taskConfigRef" dialog-only />
 
@@ -227,6 +217,15 @@
         </t-form>
       </div>
     </t-dialog>
+
+    <!-- 图片预览组件 (移回主容器内，防止干扰布局) -->
+    <t-image-viewer
+      :images="[previewImage]"
+      :visible="visible"
+      mode="modal"
+      :close-on-overlay="true"
+      @close="visible = false"
+    />
   </div>
 </template>
 
@@ -427,6 +426,10 @@ onMounted(() => {
 </script>
 
 <style scoped>
+:deep(.t-card__body) {
+  padding: 0;
+}
+
 /* 图片预览样式保持 */
 .goods-img-container {
   transition: transform 0.2s;

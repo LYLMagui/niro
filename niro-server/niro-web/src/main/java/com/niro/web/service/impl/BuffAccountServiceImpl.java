@@ -243,8 +243,8 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                         }
                     }
                     
-                    // 更新基本信息
-                    account.setAccountName(item.getStr("personaname"));
+                    // 更新基本信息 (保留用户自定义的账号名作为备注，不使用 Steam 昵称覆盖)
+                    // account.setAccountName(item.getStr("personaname"));
                 }
                 
                 // 如果之前是失效状态，恢复为正常
@@ -302,22 +302,32 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
      */
     private void updateBalance(BuffAccount account) {
         try {
-            String url = "https://buff.163.com/account/api/user/wallet/info?_=" + System.currentTimeMillis();
+            // 使用更详细的资产接口获取余额和待结算金额
+            String url = "https://buff.163.com/api/asset/get_brief_asset/?_=" + System.currentTimeMillis();
             HttpResponse response = HttpRequest.get(url)
                     .header("User-Agent", account.getUserAgent() != null ? account.getUserAgent() : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
                     .header("Cookie", account.getBuffCookie())
-                    .header("Referer", "https://buff.163.com/user-center/profile")
+                    .header("Referer", "https://buff.163.com/user-center/asset/pending_divide/")
                     .header("X-Requested-With", "XMLHttpRequest")
                     .timeout(5000)
                     .execute();
 
-            JSONObject json = JSONUtil.parseObj(response.body());
+            String body = response.body();
+            JSONObject json = JSONUtil.parseObj(body);
             if ("OK".equals(json.getStr("code"))) {
                 JSONObject data = json.getJSONObject("data");
                 if (data != null) {
-                    BigDecimal balance = data.getBigDecimal("alipay_amount", BigDecimal.ZERO);
+                    // cash_amount 是当前可用余额
+                    BigDecimal balance = data.getBigDecimal("cash_amount", BigDecimal.ZERO);
+                    // pending_divide_amount 是待结算金额
+                    BigDecimal pendingBalance = data.getBigDecimal("pending_divide_amount", BigDecimal.ZERO);
+                    
                     account.setBalance(balance);
+                    account.setPendingBalance(pendingBalance);
+                    log.info("账号 [{}] 余额更新成功: balance={}, pending={}", account.getAccountName(), balance, pendingBalance);
                 }
+            } else {
+                log.warn("更新账号 [{}] 余额失败: {}", account.getAccountName(), json.getStr("msg"));
             }
         } catch (Exception e) {
             log.warn("Update BUFF Balance Error, id: {}, error: {}", account.getId(), e.getMessage());

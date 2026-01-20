@@ -33,6 +33,8 @@ public class BuffAccountDTO {
 
     private BigDecimal balance;
 
+    private BigDecimal pendingBalance;
+
     private Integer failCount;
 
     private LocalDateTime lastCheckTime;

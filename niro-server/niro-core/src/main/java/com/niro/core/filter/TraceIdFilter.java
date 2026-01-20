@@ -26,8 +26,8 @@ public class TraceIdFilter implements Filter {
     public void doFilter(ServletRequest request, ServletResponse response, FilterChain chain) 
             throws IOException, ServletException {
         try {
-            // 生成 TraceId 并放入 MDC
-            String traceId = IdUtil.nanoId(12);
+            // 生成 TraceId 并放入 MDC (全小写)
+            String traceId = IdUtil.nanoId(12).toLowerCase();
             MDC.put(TRACE_ID, traceId);
             
             // 尝试获取当前登录用户 ID (通过反射避免直接依赖 satoken 引起核心包过大，或者直接导入)

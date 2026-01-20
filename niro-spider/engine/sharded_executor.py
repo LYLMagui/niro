@@ -676,7 +676,7 @@ class ShardedSpiderExecutor:
 
                 # 批量保存
                 save_func, _ = get_save_goods_func()
-                rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag)
+                rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
                 logger.info(f"✅ [账号: {account_name}] 分类 {cat_name} 入库成功: {rows} 条受影响")
                 
                 # 清理 Redis 暂存数据
@@ -684,7 +684,7 @@ class ShardedSpiderExecutor:
 
             # 5. 执行增量清理（仅在该分类完整同步成功后执行）
             _, delete_func = get_save_goods_func()
-            await delete_func(category_id, self.sync_tag)
+            await delete_func(category_id, self.sync_tag, cat_name)
             
             return True, total_processed_count
             

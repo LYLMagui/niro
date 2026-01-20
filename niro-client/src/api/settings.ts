@@ -22,6 +22,7 @@ export interface BuffAccount {
   status: BuffAccountStatus;
   weight: number;
   balance: number;
+  pendingBalance?: number;
   failCount: number;
   lastCheckTime?: string;
   userAgent?: string;

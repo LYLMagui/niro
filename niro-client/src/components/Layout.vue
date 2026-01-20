@@ -1,6 +1,6 @@
 <template>
   <!-- TDesign 布局组件：整体布局容器 -->
-  <t-layout class="h-screen w-full">
+  <t-layout class="h-screen w-full overflow-hidden">
     <!-- 侧边栏 -->
     <t-aside>
       <!-- 侧边菜单，绑定当前激活的菜单项 -->
@@ -8,7 +8,7 @@
         theme="light"
         :value="activeValue"
         style="margin-right: 50px"
-        height="550px"
+        height="100%"
         @change="handleMenuChange"
       >
         <!-- 菜单顶部 Logo 区域 -->
@@ -69,7 +69,7 @@
     </t-aside>
 
     <!-- 主体内容区域 -->
-    <t-layout>
+    <t-layout class="flex-1 flex flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
       <t-header>
         <t-head-menu theme="light">
@@ -86,8 +86,11 @@
       </t-header>
 
       <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
-      <t-content class="flex flex-col overflow-hidden bg-gray-50">
-        <div class="flex-1 overflow-hidden p-3">
+      <t-content 
+        class="flex-1 flex flex-col bg-gray-50"
+        :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
+      >
+        <div :class="[activeValue === 'Logs' ? 'flex-1 overflow-hidden' : 'p-3 flex-1']">
           <router-view v-slot="{ Component }">
             <keep-alive include="Logs">
               <component :is="Component" />
@@ -95,8 +98,11 @@
           </router-view>
         </div>
 
-        <!-- 底部版权信息：极致压缩版 -->
-        <t-footer class="bg-gray-50 p-0 text-center text-xs text-gray-400 border-t border-gray-100">
+        <!-- 底部版权信息：日志页隐藏，其他页显示 -->
+        <t-footer 
+          v-if="activeValue !== 'Logs'"
+          class="p-6 text-center text-xs text-gray-400 border-t border-gray-100 bg-white"
+        >
           Copyright @ 2024 Niro Control
         </t-footer>
       </t-content>

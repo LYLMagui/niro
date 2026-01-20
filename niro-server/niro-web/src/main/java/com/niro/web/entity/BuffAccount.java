@@ -60,6 +60,11 @@ public class BuffAccount {
     private BigDecimal balance;
 
     /**
+     * 待结算余额
+     */
+    private BigDecimal pendingBalance;
+
+    /**
      * 连续请求失败计数
      */
     private Integer failCount;

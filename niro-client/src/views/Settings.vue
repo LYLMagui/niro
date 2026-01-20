@@ -120,13 +120,17 @@
 
             <!-- 余额显示/隐藏 (保持原样) -->
             <template #balance="{ row }">
-              <div 
-                class="flex items-center justify-end cursor-pointer select-none group"
+                <div 
+                class="flex flex-col items-end justify-center cursor-pointer select-none group py-1"
                 @click="balanceVisible = !balanceVisible"
               >
                 <div :class="['font-numeric font-bold text-sm transition-all duration-300', getBalanceClass(row), (row.balance || 0) > 1000 ? 'high-value-shadow' : '']">
                   <span class="text-[10px] mr-0.5 opacity-60">¥</span>
                   <span v-if="balanceVisible">{{ row.balance?.toFixed(2) }}</span>
+                  <span v-else>****</span>
+                </div>
+                <div v-if="row.pendingBalance > 0" class="text-[12px] text-orange-500 font-numeric leading-tight mt-1 antialiased font-medium">
+                  <span v-if="balanceVisible">待结算: ¥{{ row.pendingBalance?.toFixed(2) }}</span>
                   <span v-else>****</span>
                 </div>
               </div>
@@ -201,11 +205,16 @@
                   </div>
                 </div>
                 <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-3 transition-all hover:bg-orange-50">
-                  <div class="text-[12px] text-[#86909c] mb-1">总余额</div>
+                  <div class="text-[12px] text-[#86909c] mb-1 flex justify-between items-center">
+                    <span>总资产</span>
+                    <t-tooltip v-if="totalPendingBalance > 0" :content="`可用: ¥${totalBalance.toFixed(2)} | 待结: ¥${totalPendingBalance.toFixed(2)}`">
+                      <span class="text-[12px] text-orange-500 cursor-help antialiased font-medium">待结: ¥{{ balanceVisible ? totalPendingBalance.toFixed(2) : '***' }}</span>
+                    </t-tooltip>
+                  </div>
                   <div class="flex items-baseline gap-0.5">
                     <span v-if="balanceVisible" class="text-[12px] font-bold text-[#d97706]">¥</span>
                     <span class="text-xl font-bold text-[#d97706] font-numeric">
-                      {{ balanceVisible ? totalBalance.toFixed(2) : '****' }}
+                      {{ balanceVisible ? totalAssets.toFixed(2) : '****' }}
                     </span>
                   </div>
                 </div>
@@ -454,6 +463,8 @@ const accountSubmitLoading = ref(false);
 const accountFormRef = ref();
 
 const totalBalance = computed(() => accounts.value.reduce((sum, a) => sum + (a.balance || 0), 0));
+const totalPendingBalance = computed(() => accounts.value.reduce((sum, a) => sum + (a.pendingBalance || 0), 0));
+const totalAssets = computed(() => totalBalance.value + totalPendingBalance.value);
 
 const accountFormData = reactive<BuffAccount>({
   accountName: "",
@@ -462,6 +473,7 @@ const accountFormData = reactive<BuffAccount>({
   weight: 1,
   status: "NORMAL",
   balance: 0,
+  pendingBalance: 0,
   failCount: 0,
 });
 
@@ -502,6 +514,7 @@ const onAddAccount = () => {
     weight: 1,
     status: "NORMAL",
     balance: 0,
+    pendingBalance: 0,
     failCount: 0,
     remark: "",
   });
@@ -630,9 +643,13 @@ const getBalanceClass = (row: BuffAccount) => {
   return "text-refined-orange";
 };
 
-onMounted(() => {
+onMounted(async () => {
   fetchSettings();
-  fetchAccounts();
+  await fetchAccounts();
+  // 进入页面后自动触发一次一键检测
+  if (accounts.value.length > 0) {
+    onCheckAll();
+  }
 });
 </script>
 
