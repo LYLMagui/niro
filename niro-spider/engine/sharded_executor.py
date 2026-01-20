@@ -22,8 +22,8 @@ def get_save_category_func():
     return save_categories
 
 def get_save_goods_func():
-    from spiders.get_buff_goods import save_goods_batch
-    return save_goods_batch
+    from spiders.get_buff_goods import save_goods_batch, delete_stale_goods
+    return save_goods_batch, delete_stale_goods
 
 def get_save_sticker_func():
     from spiders.buff_sticker_spider import upsert_stickers
@@ -52,8 +52,10 @@ class ShardedSpiderExecutor:
         self.task_id: Optional[int] = None
         self.user_id: Optional[int] = None
         self.task_type: Optional[int] = None
+        self.sync_tag: Optional[str] = None
         
         # TPS 计算相关
+        self._processed_count = 0
         self._processed_history = deque(maxlen=100) # 记录 (timestamp, count)
         self._start_time = time.time()
 
@@ -92,6 +94,9 @@ class ShardedSpiderExecutor:
         self.task_id = self._extract_value(task_data.get("taskId"))
         self.user_id = self._extract_value(task_data.get("userId"))
         self.task_type = self._extract_value(task_data.get("taskType"))
+        
+        # 1. 版本管理：创建基于当前时间的唯一版本字符串
+        self.sync_tag = f"v_{int(time.time())}"
         
         # 提取数据并处理 Jackson 序列化格式
         accounts = self._extract_list(task_data.get("accounts", []))
@@ -203,14 +208,46 @@ class ShardedSpiderExecutor:
             logger.error(f"❌ [Task-ID: {self.task_id}] 状态回调异常: {e}")
 
     def _shard_categories(self) -> Dict[int, List[int]]:
-        """将 pending_categories 均匀分配给 active_accounts"""
-        shards = {acc_id: [] for acc_id in self.active_accounts.keys()}
-        cats = sorted(list(self.pending_categories)) # 排序确保确定性
-        acc_ids = sorted(list(self.active_accounts.keys()))
+        """将 pending_categories 根据账号权重均匀分配给 active_accounts (优先选择 NORMAL 账号)"""
+        # 1. 筛选目标账号
+        normal_accounts = [acc_id for acc_id, acc in self.active_accounts.items() if acc.get("role") == "NORMAL"]
+        target_acc_ids = normal_accounts if normal_accounts else list(self.active_accounts.keys())
         
-        for i, cat_id in enumerate(cats):
-            acc_id = acc_ids[i % len(acc_ids)]
-            shards[acc_id].append(cat_id)
+        if not target_acc_ids:
+            return {}
+
+        # 2. 获取并计算权重
+        # 确保每个账号至少有 1 的权重，防止除零错误
+        weights = {acc_id: max(1, int(self.active_accounts[acc_id].get("weight") or 1)) for acc_id in target_acc_ids}
+        total_weight = sum(weights.values())
+        
+        cats = sorted(list(self.pending_categories))
+        total_cats = len(cats)
+        
+        if total_cats == 0:
+            return {acc_id: [] for acc_id in target_acc_ids}
+
+        # 3. 基于权重的分配逻辑 (加权轮询变体)
+        shards = {acc_id: [] for acc_id in target_acc_ids}
+        
+        # 按照权重比例分配
+        # 计算每个账号理论上应该分到的数量
+        allocated_count = 0
+        for i, acc_id in enumerate(target_acc_ids):
+            if i == len(target_acc_ids) - 1:
+                # 最后一个账号承包剩余所有任务，确保不漏掉
+                count = total_cats - allocated_count
+            else:
+                count = int((weights[acc_id] / total_weight) * total_cats)
+            
+            # 从待分配列表中取出对应数量的分类
+            shard_cats = cats[allocated_count : allocated_count + count]
+            shards[acc_id].extend(shard_cats)
+            allocated_count += count
+
+        # 打印权重分配详情日志
+        weight_desc = ", ".join([f"{self.active_accounts[aid].get('accountName')}(W:{weights[aid]}, N:{len(shards[aid])})" for aid in target_acc_ids])
+        logger.info(f"⚖️ [Task-ID: {self.task_id}] 触发加权分片分配: {weight_desc}")
             
         return shards
 
@@ -227,64 +264,83 @@ class ShardedSpiderExecutor:
         account_name_var.set(account_name)
         
         processed_cats = []
+        total_shard_count = len(category_ids)
+        account_processed_goods = 0
+        shard_start_time = time.time()
+        
         try:
             for i, cat_id in enumerate(category_ids):
                 # 每次处理新分类前检查停止信号
                 await self._check_stop_signal(raise_exception=True)
 
-                # 模拟人类操作的休息时间 (抓完一组后暂停 20-30 秒)
-                if i > 0:
+                # 计算进度与 TPS
+                elapsed = time.time() - shard_start_time
+                current_tps = account_processed_goods / elapsed if elapsed > 0 else 0
+                # 更新到 active_accounts 供 _update_progress 使用
+                if account_id in self.active_accounts:
+                    self.active_accounts[account_id]["current_tps"] = round(current_tps, 2)
+                
+                # 获取分类名称用于日志
+                categories_meta = self.task_data.get("categoryMeta") or {}
+                cat_meta = categories_meta.get(str(cat_id)) or {}
+                cat_name = cat_meta.get("name") or f"ID:{cat_id}"
+                
+                progress = (i / total_shard_count) * 100
+                logger.info(f"� [账号: {account_name}] 进度: {progress:.1f}% ({i}/{total_shard_count}) | 账号TPS: {current_tps:.2f} | 处理分类: {cat_name}")
+                
+                # 执行抓取
+                success = False
+                processed_count = 0
+                try:
+                    # 修改 _crawl_category 以返回 (success, processed_count)
+                    success, processed_count = await self._crawl_category(account, cat_id, limiter)
+                    account_processed_goods += processed_count
+                except AccountInvalidException as ae:
+                    # 429/401 异常，重新抛出以触发主循环的重平衡逻辑
+                    logger.warning(f"⚠️ [账号: {account_name}] 账号失效 ({ae.reason})，停止该分片并触发重平衡")
+                    raise ae
+                except Exception as ce:
+                    logger.exception(f"❌ [账号: {account_name}] 处理分类 {cat_name} 时发生未捕获异常: {ce}")
+                
+                if success:
+                    processed_cats.append(cat_id)
+                    self.finished_categories.add(cat_id)
+                    if cat_id in self.pending_categories:
+                        self.pending_categories.remove(cat_id)
+                    # 更新进度
+                    await self._update_progress()
+                else:
+                    logger.warning(f"⚠️ [账号: {account_name}] 处理分类失败或跳过: {cat_name}")
+
+                # 模拟人类操作的休息时间 (抓完一个分类后暂停 20-30 秒)
+                if i < total_shard_count - 1:
                     sleep_time = random.uniform(20, 30)
-                    logger.info(f"💤 [账号: {account_name}] 完成一组抓取，休息 {sleep_time:.2f} 秒...")
-                    # 暂停期间也要能响应停止信号
-                    # 我们可以把长暂停拆分成短暂停，或者在 sleep 后立即检查
-                    # 这里采用拆分暂停的方式
+                    logger.info(f"💤 [账号: {account_name}] 完成一个分类，休息 {sleep_time:.2f} 秒...")
                     slept = 0
                     while slept < sleep_time:
                         await self._check_stop_signal(raise_exception=True)
                         chunk = min(2, sleep_time - slept)
                         await asyncio.sleep(chunk)
                         slept += chunk
-
-                logger.info(f"🔍 [账号: {account_name}] 正在处理分类: {cat_id}")
-                
-                # 执行抓取 (将限流器传入内部，实现更细粒度的控制)
-                success = False
-                try:
-                    success = await self._crawl_category(account, cat_id, limiter)
-                except Exception as ce:
-                    logger.exception(f"❌ [账号: {account_name}] 处理分类 {cat_id} 时发生未捕获异常: {ce}")
-                
-                if success:
-                    processed_cats.append(cat_id)
-                    self.finished_categories.add(cat_id)
-                    self.pending_categories.remove(cat_id)
-                    self._processed_history.append((time.time(), 1))
-                    # 更新 Redis 进度与心跳
-                    await self._update_progress()
-                else:
-                    logger.warning(f"⚠️ [账号: {account_name}] 处理分类失败: {cat_id}")
                         
-        except AccountInvalidException as e:
-            raise e
-        except TaskStoppedException as e:
-            raise e
+        except (AccountInvalidException, TaskStoppedException):
+            raise
         except Exception as e:
             logger.error(f"[账号: {account_name}] 抓取异常: {e}")
             
         return processed_cats
 
-    async def _crawl_category(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> bool:
+    async def _crawl_category(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> (bool, int):
         """实际抓取逻辑 (适配不同任务类型)"""
         if self.task_type == 2: # 同步分类
-            return await self._crawl_category_tree(account, category_id, limiter)
+            return await self._crawl_category_tree(account, category_id, limiter), 0
         elif self.task_type == 3: # 同步商品
             return await self._crawl_category_goods(account, category_id, limiter)
         elif self.task_type == 4: # 同步印花
-            return await self._crawl_stickers(account, category_id, limiter)
+            return await self._crawl_stickers(account, category_id, limiter), 0
         else:
             logger.error(f"Unknown task type: {self.task_type}")
-            return False
+            return False, 0
 
     async def _crawl_stickers(self, account: Dict[str, Any], page_num: int, limiter: AsyncLimiter) -> bool:
         """同步印花逻辑：抓取指定页码的印花 (此时 category_id 被视为 page_num)"""
@@ -474,8 +530,8 @@ class ShardedSpiderExecutor:
             logger.error(f"❌ [账号: {account_name}] 同步分类树失败: {e}")
             return False
 
-    async def _crawl_category_goods(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> bool:
-        """同步分类商品逻辑：抓取分类下的所有商品"""
+    async def _crawl_category_goods(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> (bool, int):
+        """同步分类商品逻辑：抓取分类下的所有商品 (支持增量更新与 Hash 跳过)"""
         acc_id = account["accountId"]
         raw_name = account.get("accountName")
         account_name = raw_name.replace("Acc-", "") if raw_name else f"{acc_id}"
@@ -484,12 +540,13 @@ class ShardedSpiderExecutor:
         categories_meta = self.task_data.get("categoryMeta") or {}
         cat_meta = categories_meta.get(str(category_id)) or {}
         
+        cat_name = cat_meta.get("name") or f"ID:{category_id}"
         internal_name = cat_meta.get("internalName")
         cat_type = cat_meta.get("categoryType") or "category"
         
         if not internal_name:
-            logger.error(f"❌ [账号: {account_name}] Payload 中缺失分类 {category_id} 的元数据，跳过该分类")
-            return True # 返回 True 表示处理完成 (尽管是失败的)，防止主循环死循环
+            logger.error(f"❌ [账号: {account_name}] Payload 中缺失分类 {cat_name} 的元数据，跳过该分类")
+            return True, 0 
 
         headers = {
             "Cookie": account["buffCookie"],
@@ -498,6 +555,8 @@ class ShardedSpiderExecutor:
         proxy = account.get("proxy")
         
         redis_key = f"niro:spider:temp:goods:{self.task_id}:{category_id}"
+        hash_key = f"niro:spider:hash:category:{category_id}"
+        total_processed_count = 0
  
         try:
             # 清理旧数据
@@ -505,15 +564,16 @@ class ShardedSpiderExecutor:
                 await self.redis_async.delete(redis_key)
 
             page = 1
-            total_pages = 1 # 初始页数，第一页请求后会更新
-            max_safe_pages = 2000 # 安全上限，防止死循环
+            total_pages = 1 
+            max_safe_pages = 2000 
 
-            logger.info(f"🚀 [账号: {account_name}] 商品同步启动: {internal_name} ({cat_type})")
+            logger.info(f"🚀 [账号: {account_name}] 商品同步启动: {cat_name} ({internal_name}) | 版本: {self.sync_tag}")
 
             while page <= total_pages and page <= max_safe_pages:
                 # 模拟人类随机延迟
                 delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-                logger.info(f"⏳ [账号: {account_name}] 第 {page}/{total_pages} 页等待 {delay:.2f} 秒...")
+                page_info = f"{page}/{total_pages}" if total_pages > 1 else f"{page}"
+                logger.info(f"⏳ [账号: {account_name}] 第 {page_info} 页等待 {delay:.2f} 秒...")
                 
                 # 延迟期间检查停止信号
                 slept = 0
@@ -529,9 +589,9 @@ class ShardedSpiderExecutor:
                         "game": "csgo",
                         "page_num": page,
                         "tab": "selling",
-                        "sort_by": "price.asc"
+                        "sort_by": "price.asc",
+                        "category": internal_name
                     }
-                    params[cat_type] = internal_name
                     
                     if proxy:
                         async with httpx.AsyncClient(proxy=proxy, timeout=self.client.timeout, verify=False) as proxy_client:
@@ -549,8 +609,27 @@ class ShardedSpiderExecutor:
                 if data.get("code") != "OK":
                     msg = data.get('msg', 'Unknown API Error')
                     logger.error(f"❌ [账号: {account_name}] API 错误: {msg}")
-                    return False # 直接返回 False，触发上层警告
+                    return False, total_processed_count 
                 
+                items = data.get("data", {}).get("items", [])
+                
+                # 3. Hash 跳过机制：仅在第一页检查
+                if page == 1 and self.redis_async:
+                    import hashlib
+                    # 提取第一页商品 ID 并排序计算 Hash
+                    item_ids = sorted([str(item["id"]) for item in items])
+                    current_hash = hashlib.md5(",".join(item_ids).encode()).hexdigest()
+                    
+                    old_hash = await self.redis_async.get(hash_key)
+                    if old_hash and old_hash == current_hash:
+                        logger.info(f"⏭️ [账号: {account_name}] 分类 {cat_name} 数据未变动 (Hash 命中)，跳过后续同步")
+                        # Hash 命中，更新该分类下所有商品的 tag，防止被误删
+                        await self._touch_category_tag(category_id, cat_name)
+                        return True, 0
+                    
+                    # 记录新 Hash
+                    await self.redis_async.set(hash_key, current_hash, ex=86400 * 7) # 有效期 7 天
+
                 # 动态更新总页数
                 if page == 1:
                     api_total = data.get("data", {}).get("total_page")
@@ -560,47 +639,76 @@ class ShardedSpiderExecutor:
                     else:
                         logger.warning(f"⚠️ [账号: {account_name}] 无法获取总页数，可能该分类下无商品")
 
-                items = data.get("data", {}).get("items", [])
                 if not items:
                     logger.info(f"ℹ️ [账号: {account_name}] 第 {page} 页无数据")
                     if page == 1:
-                        return False # 第一页就没数据，判定为失败
+                        return False, total_processed_count 
                     break
                 
+                # 4. 暂存数据到 Redis
+                if self.redis_async:
+                    await self.redis_async.rpush(redis_key, *[json.dumps(item, ensure_ascii=False) for item in items])
+                    await self.redis_async.expire(redis_key, 7200)  # 1小时有效期
+                
+                total_processed_count += len(items)
+                self._processed_count += len(items)
+                self._processed_history.append((time.time(), len(items)))
+                page += 1
+
+            # --- 全部分页抓取完成后，执行批量保存 ---
+            if total_processed_count > 0 and self.redis_async:
+                logger.info(f"💾 [账号: {account_name}] 分类 {cat_name} 抓取完毕，开始批量入库 {total_processed_count} 条数据...")
+                
+                # 从 Redis 读取所有暂存数据
+                all_data_raw = await self.redis_async.lrange(redis_key, 0, -1)
+                all_items = [json.loads(d) for d in all_data_raw]
+                
+                # 映射字段，确保包含 save_goods_batch 需要的全部信息
                 page_goods = []
-                for item in items:
+                for item in all_items:
                     page_goods.append({
-                        "goods_id": item["id"],
+                        "id": item["id"],
                         "name": item["name"],
                         "market_hash_name": item.get("market_hash_name"),
                         "short_name": item.get("short_name"),
-                        "category_id": category_id
+                        "goods_info": item.get("goods_info", {})
                     })
+
+                # 批量保存
+                save_func, _ = get_save_goods_func()
+                rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag)
+                logger.info(f"✅ [账号: {account_name}] 分类 {cat_name} 入库成功: {rows} 条受影响")
                 
-                # 每页保存到 Redis
-                if page_goods and self.redis_async:
-                    await self.redis_async.rpush(redis_key, *[json.dumps(g, ensure_ascii=False) for g in page_goods])
-                    logger.info(f"💾 [账号: {account_name}] 第 {page} 页抓取到 {len(page_goods)} 个商品，已暂存 Redis")
-                
-                page += 1
-                    
-            # 抓取完所有页后，从 Redis 读取数据并统一入库
-            has_data = False
-            if self.redis_async:
-                stored_items = await self.redis_async.lrange(redis_key, 0, -1)
-                if stored_items:
-                    all_goods = [json.loads(i) for i in stored_items]
-                    save_func = get_save_goods_func()
-                    await save_func(all_goods, category_id, self.redis_async)
-                    logger.info(f"✅ [账号: {account_name}] 成功同步 {len(all_goods)} 个商品入库")
-                    has_data = True
-                    await self.redis_async.delete(redis_key)
-                
-            return has_data
+                # 清理 Redis 暂存数据
+                await self.redis_async.delete(redis_key)
+
+            # 5. 执行增量清理（仅在该分类完整同步成功后执行）
+            _, delete_func = get_save_goods_func()
+            await delete_func(category_id, self.sync_tag)
+            
+            return True, total_processed_count
+            
+        except AccountInvalidException as ae:
+            # 发生 429/401，严禁执行清理逻辑，直接向上抛出
+            raise ae
         except Exception as e:
-            if isinstance(e, AccountInvalidException): raise e
-            logger.error(f"❌ [账号: {account_name}] 同步商品失败: {e}")
-            return False
+                logger.error(f"❌ [账号: {account_name}] 同步分类 {cat_name} 商品失败: {e}")
+                return False, total_processed_count
+
+    async def _touch_category_tag(self, category_id: int, cat_name: str):
+        """Hash 命中时，更新该分类下所有商品的 sync_tag，防止被误删"""
+        from storage.database import async_session_factory
+        from storage.models import BuffGoods
+        from sqlalchemy import update
+        async with async_session_factory() as session:
+            try:
+                stmt = update(BuffGoods).where(BuffGoods.category_id == category_id).values(last_sync_tag=self.sync_tag)
+                await session.execute(stmt)
+                await session.commit()
+                logger.info(f"🏷️ [分类: {cat_name}] Hash 命中，已刷新全量 Tag 为 {self.sync_tag}")
+            except Exception as e:
+                await session.rollback()
+                logger.error(f"❌ 更新分类 {cat_name} Tag 失败: {e}")
 
     async def _handle_account_failure(self, exc: AccountInvalidException):
         """处理账号失效：剔除账号、通知后端、回收任务"""
@@ -666,7 +774,7 @@ class ShardedSpiderExecutor:
                 "total": total,
                 "finished": finished,
                 "percentage": round(finished / total * 100, 2) if total > 0 else 0,
-                "tps": 0 # 暂时不计算单号 TPS
+                "tps": acc_info.get("current_tps", 0)
             }
 
         # 2. 更新任务统计数据

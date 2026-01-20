@@ -104,6 +104,7 @@ class BuffGoods(Base):
     icon_url = Column(Text, nullable=False, default="", comment='图标URL')
     original_icon_url = Column(Text, nullable=False, default="", comment='原始图标URL')
     tags = Column(Text, comment='标签JSON数据')
+    last_sync_tag = Column(String(50), nullable=True, comment='最后同步版本标识')
     create_time = Column(DateTime, nullable=False, server_default=func.now(), comment='创建时间')
     update_time = Column(DateTime, nullable=False, server_default=func.now(), onupdate=func.now(), comment='修改时间')
 

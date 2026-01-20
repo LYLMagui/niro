@@ -37,7 +37,7 @@ class BuffGoodsItem(BaseModel):
 
 # --- 业务逻辑 ---
 
-async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None):
+async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None, sync_tag: str = None):
     """批量保存商品数据 (UPSERT)
     
     由 ShardedSpiderExecutor 调用，负责将抓取到的商品数据写入数据库。
@@ -62,21 +62,41 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
     
     final_goods_list = []
     for g_id, g in unique_goods.items():
-        # 统一字段名
-        item = {
-            "goods_id": g_id,
-            "name": g.get("name"),
-            "market_hash_name": g.get("market_hash_name") or "",
-            "short_name": g.get("short_name") or "",
-            "icon_url": g.get("icon_url") or "",
-            "original_icon_url": g.get("original_icon_url") or "",
-            "rarity": g.get("rarity") or "",
-            "exterior": g.get("exterior") or "",
-            "type": g.get("type") or "",
-            "category_id": category_id,
-            "tags": json.dumps(g.get("tags_dict"), ensure_ascii=False) if g.get("tags_dict") else g.get("tags")
-        }
-        final_goods_list.append(item)
+        try:
+            # 使用 Pydantic 模型进行字段提取与校验
+            validated_item = BuffGoodsItem.model_validate(g)
+            
+            item = {
+                "goods_id": validated_item.goods_id,
+                "name": validated_item.name,
+                "market_hash_name": validated_item.market_hash_name or "",
+                "short_name": validated_item.short_name or "",
+                "icon_url": validated_item.icon_url or "",
+                "original_icon_url": validated_item.original_icon_url or "",
+                "rarity": validated_item.rarity or "",
+                "exterior": validated_item.exterior or "",
+                "category_id": category_id,
+                "tags": json.dumps(validated_item.tags_dict, ensure_ascii=False) if validated_item.tags_dict else None,
+                "last_sync_tag": sync_tag
+            }
+            final_goods_list.append(item)
+        except Exception as ve:
+            logger.warning(f"⚠️ 商品 {g_id} 数据校验失败，尝试手动提取: {ve}")
+            # 备选方案：手动提取
+            item = {
+                "goods_id": g_id,
+                "name": g.get("name"),
+                "market_hash_name": g.get("market_hash_name") or "",
+                "short_name": g.get("short_name") or "",
+                "icon_url": g.get("icon_url") or "",
+                "original_icon_url": g.get("original_icon_url") or "",
+                "rarity": g.get("rarity") or "",
+                "exterior": g.get("exterior") or "",
+                "category_id": category_id,
+                "tags": json.dumps(g.get("tags_dict"), ensure_ascii=False) if g.get("tags_dict") else g.get("tags"),
+                "last_sync_tag": sync_tag
+            }
+            final_goods_list.append(item)
     
     if not final_goods_list:
         return 0
@@ -94,9 +114,9 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
                     "original_icon_url": stmt.excluded.original_icon_url,
                     "rarity": stmt.excluded.rarity,
                     "exterior": stmt.excluded.exterior,
-                    "type": stmt.excluded.type,
                     "category_id": stmt.excluded.category_id,
                     "tags": stmt.excluded.tags,
+                    "last_sync_tag": stmt.excluded.last_sync_tag,
                     "update_time": func.now()
                 }
             )
@@ -110,3 +130,27 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
         finally:
             if redis_async:
                 await redis_async.delete(lock_key)
+
+async def delete_stale_goods(category_id: int, current_tag: str):
+    """清理分类下过期的商品数据 (异步删除)"""
+    if not category_id or not current_tag:
+        return 0
+    
+    async with async_session_factory() as session:
+        try:
+            from sqlalchemy import delete
+            # 查找该分类下，但版本标识不是当前版本的商品（说明在本次全量同步中未出现，已下架）
+            stmt = delete(BuffGoods).where(
+                BuffGoods.category_id == category_id,
+                BuffGoods.last_sync_tag != current_tag
+            )
+            result = await session.execute(stmt)
+            await session.commit()
+            count = result.rowcount
+            if count > 0:
+                logger.info(f"🧹 [分类: {category_id}] 清理已下架商品: {count} 条")
+            return count
+        except Exception as e:
+            await session.rollback()
+            logger.error(f"❌ 清理分类 {category_id} 过期数据失败: {e}")
+            return 0

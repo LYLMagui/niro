@@ -231,7 +231,7 @@ class AsyncBuffSpider:
         task_data["scan_accounts"] = scan_accounts
         task_data["buy_accounts"] = buy_accounts
         
-        logger.info(f"🔍 开始执行扫描任务: {task_name} (ID: {task_id}, GoodsID: {goods_id}, 账号数: {len(scan_accounts)})")
+        logger.info(f"🚀 开始执行扫描任务: {task_name} (ID: {task_id}, GoodsID: {goods_id}, 账号数: {len(scan_accounts)})")
         if not buy_accounts:
             logger.warning(f"💡 [系统提示] 当前任务未配置下单账号，将进入“纯监控模式”")
         

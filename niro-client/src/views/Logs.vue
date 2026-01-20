@@ -120,7 +120,7 @@
               <span class="mr-3 select-none text-gray-600">{{ formatTime(log.timestamp) }}</span>
               
               <!-- 日志级别 -->
-              <span :class="getLevelClass(log.level)" class="mr-3 inline-block w-12 font-bold select-none uppercase">
+              <span :class="getLevelClass(log.level)" class="inline-block w-12 font-bold select-none uppercase">
                 {{ log.level }}
               </span>
               
@@ -153,7 +153,7 @@
                   class="cursor-pointer bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white"
                   @click="filterByKeyword(log.traceId)"
                 >
-                  #{{ log.traceId.substring(0, 8) }}
+                  #{{ log.traceId }}
                 </t-tag>
               </div>
             </div>
@@ -288,7 +288,7 @@ const getAccountColor = (name: string) => {
 const parseLog = (log: LogItem) => {
   const msg = log.message || "";
   const accMatch = msg.match(/\[账号:\s*([^\s\[\]：:]+)\]/);
-  const traceMatch = msg.match(/traceId:\s*([a-f0-9]{32})/i);
+  const traceMatch = msg.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
   
   // 识别“发现捡漏机会”标识
   const isDiscovery = msg.includes("🔍") || msg.includes("发现捡漏机会");
@@ -347,7 +347,7 @@ const formatMessage = (message: string) => {
   
   const cleanMessage = message
     .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*/, "")
-    .replace(/traceId:\s*([a-f0-9]{32})/gi, "[TraceId: $1]")
+    .replace(/traceId:\s*([a-zA-Z0-9_-]{7,32})/gi, "[TraceId: $1]")
     .replace(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi, "[IP: $1]");
   
   const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
@@ -362,7 +362,7 @@ const formatMessage = (message: string) => {
   const parts: { text: string; highlight: boolean; type?: 'account' | 'keyword' | 'traceId' | 'ip' }[] = [];
   
   // 1. 按账号、TraceId 和 IP 正则切分
-   const combinedRegex = /(\[账号:\s*[^\s\[\]：:]+\]|\[TraceId:\s*[a-f0-9]{32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
+   const combinedRegex = /(\[账号:\s*[^\s\[\]：:]+\]|\[TraceId:\s*[a-zA-Z0-9_-]{7,32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
    let lastIndex = 0;
    let match;
  
@@ -438,7 +438,7 @@ const filterByKeyword = (val: string | null) => {
 // 格式化时间
 const formatTime = (ts: string) => {
   if (!ts) return "";
-  return dayjs(ts).format("HH:mm:ss.SSS");
+  return dayjs(ts).format("YYYY-MM-DD HH:mm:ss.SSS");
 };
 
 // 级别样式
