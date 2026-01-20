@@ -426,6 +426,8 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .scanIntervalMax(task.getScanIntervalMax())
                 .durationMinutes(task.getDurationMinutes())
                 .restPeriod(task.getRestPeriod())
+                .buyCount(task.getBuyCount())
+                .successCount(task.getSuccessCount())
                 .accounts(accountContexts)
                 .execAccountIds(accounts.stream()
                         .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole()) || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))

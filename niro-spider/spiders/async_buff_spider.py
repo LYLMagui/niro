@@ -16,6 +16,8 @@ from engine.sharded_executor import ShardedSpiderExecutor
 from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX, REDIS_TASK_LAST_SCAN_PREFIX, REDIS_TASK_NEXT_SLOT_PREFIX, SCAN_ADMISSION_INTERVAL, REDIS_TASK_STATS_PREFIX
 from config.settings import BACKEND_URL
 from utils.notifier import Notifier
+from utils.exception_handler import LoginRequiredError
+from enums.buff_enums import BuffPaymentMethod, BuffGameType
 
 class AsyncBuffSpider:
     def __init__(self, redis: Optional[Redis] = None):
@@ -26,13 +28,22 @@ class AsyncBuffSpider:
             limits=httpx.Limits(max_connections=100, max_keepalive_connections=20),
             follow_redirects=True
         )
+        # 记录账号上一次成功下单的时间戳，用于 Sequential Guard
+        self._last_buy_times = {}
 
     async def close(self):
         await self.client.aclose()
 
     async def _request(self, method: str, url: str, profile: BrowserProfile, proxy: Optional[str] = None, **kwargs) -> Dict[str, Any]:
         """封装基础请求逻辑，包含自动重试和代理切换"""
+        # 1. 获取基础 Headers
         headers = profile.get_headers()
+        
+        # 2. 如果 kwargs 中包含 headers，将其弹出并合并，避免重复传递给 _do_request 导致参数冲突
+        if "headers" in kwargs:
+            extra_headers = kwargs.pop("headers")
+            if isinstance(extra_headers, dict):
+                headers.update(extra_headers)
         
         # 如果方法参数没传 proxy，则尝试从全局配置获取
         if not proxy:
@@ -69,14 +80,32 @@ class AsyncBuffSpider:
                 return await self._do_request(client, method, url, headers, attempt + 1, **kwargs) if attempt < 2 else {"error": "RATE_LIMITED"}
             
             response.raise_for_status()
-            data = response.json()
+            
+            # 预检：如果返回的是 HTML，说明 Cookie 已失效或被重定向到登录页
+            resp_text = response.text
+            # 只有在请求 Buff 域名且返回 HTML 时才判定为登录失效
+            if "buff.163.com" in str(url) and (resp_text.strip().startswith("<!DOCTYPE") or resp_text.strip().startswith("<html")):
+                logger.error(f"🔑 [Cookie失效] 收到 HTML 登录重定向响应")
+                raise LoginRequiredError("Buff Login Required (HTML Redirect)")
+
+            try:
+                data = response.json()
+            except Exception as e:
+                # 如果 URL 包含 epay.163.com，说明是激活链接，不需要解析 JSON
+                if "epay.163.com" in str(url):
+                    return {"code": "OK", "msg": "Epay Activation Hit"}
+                
+                logger.error(f"解析 JSON 失败: {e}, 响应内容: {resp_text[:100]}...")
+                raise LoginRequiredError("Buff Response Parse Failed")
             
             if data.get("code") == "Login Required":
                 logger.error("🔑 [Cookie失效] 账号需要重新登录")
-                return {"error": "LOGIN_REQUIRED"}
+                raise LoginRequiredError("Buff Login Required")
             
             return data
             
+        except LoginRequiredError:
+            raise
         except Exception as e:
             logger.error(f"🌐 [请求异常] {url} 错误: {e}")
             if attempt >= 2:
@@ -378,113 +407,452 @@ class AsyncBuffSpider:
         except Exception as e:
             logger.exception(f"💥 [账号: 未知] 协程初始化失败: {e}")
 
+    def _get_csrf_token(self, profile: BrowserProfile) -> str:
+        """从 Cookie 中提取 CSRF Token"""
+        if not profile.cookie:
+            return ""
+        import re
+        match = re.search(r'csrf_token=([^;]+)', profile.cookie)
+        return match.group(1) if match else ""
+
+    async def _create_order(self, item: Dict[str, Any], account: Dict[str, Any], task_data: Dict[str, Any]):
+        """执行下单购买"""
+        # 兼容性修复：处理原始账号字典提取
+        raw_acc_name = account.get("accountName") or account.get("name")
+        acc_name = f"{raw_acc_name}" if raw_acc_name else "未知账号"
+        
+        # 核心修复：如果账号对象中没有 profile，则根据 cookie 动态创建一个
+        profile = account.get("profile")
+        if not profile:
+            cookie = account.get("buffCookie")
+            if not cookie:
+                logger.error(f"❌ [账号: {acc_name}] 下单失败：缺少 buffCookie")
+                return "ERROR", "Missing buffCookie"
+            profile = BrowserHelper.create_profile(cookie=cookie)
+        
+        goods_id = self._extract_value(task_data.get("goodsId"))
+        item_id = item.get("id")
+        price = item.get("price")
+        
+        url = "https://buff.163.com/api/market/goods/buy"
+        payload = {
+            "game": BuffGameType.CSGO.value,
+            "goods_id": int(goods_id),
+            "sell_order_id": str(item_id),
+            "price": float(price),
+            "pay_method": BuffPaymentMethod.BALANCE.value,
+            "allow_tradable_cooldown": 0,
+        }
+        
+        headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+        headers.update({
+            "X-CSRFToken": self._get_csrf_token(profile),
+            "Content-Type": "application/json",
+        })
+
+        logger.info(f"🛒 [账号: {acc_name}] [发起购买] GoodsID={goods_id} | ItemID={item_id} | Price={price}")
+        
+        try:
+            # 使用统一的 _request 逻辑，包含 HTML 预检和异常处理
+            res_json = await self._request("POST", url, profile, json=payload, headers=headers)
+            
+            if res_json.get("code") == "OK":
+                data = res_json.get("data", {})
+                order_id = data.get("id")
+                logger.info(f"✅ [账号: {acc_name}] 下单成功! 订单号: {order_id}")
+                
+                # 推送成功通知
+                goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                user_id = self._extract_value(task_data.get("userId"))
+                title = "✅ 下单成功"
+                description = f"账号: {acc_name}\n饰品: {goods_name}\n价格: ¥{price}\n订单号: {order_id}"
+                self.notifier.send_textcard(title, description, user_id=user_id)
+                return "SUCCESS", None
+            else:
+                error_msg = res_json.get("error") or res_json.get("msg") or "未知错误"
+                code = res_json.get("code")
+                logger.error(f"❌ [账号: {acc_name}] 下单失败: {code} - {error_msg}")
+                
+                # 风控判断 (根据实际 Buff 返回码调整)
+                if code in ["Risk Control", "Account Banned", "Action Forbidden"]:
+                    return "RISK", error_msg
+                
+                # 其他失败 (如库存不足、余额不足等)
+                return "FAILED", error_msg
+        except LoginRequiredError:
+            logger.error(f"🔑 [账号: {acc_name}] Cookie 已失效，无法下单")
+            raise
+        except Exception as e:
+            logger.error(f"⚠️ [账号: {acc_name}] 下单请求异常: {e}")
+            return "ERROR", str(e)
+
     async def _process_items(self, task_data: Dict[str, Any], items: List[Dict[str, Any]], account: Dict[str, Any]):
-        """处理获取到的商品列表，执行匹配与下单"""
+        """处理获取到的商品列表，执行匹配与批量下单"""
         task_id = self._extract_value(task_data.get("taskId"))
         user_id = self._extract_value(task_data.get("userId"))
         max_price = self._get_float(task_data.get("maxPrice"), 0.0)
         acc_name = account_name_var.get()
-        # 使用 scan_task 中过滤好的下单账号列表
         buy_accounts = task_data.get("buy_accounts") or []
         
-        # 1. 价格过滤与分组
-        matched_items = []
-        for item in items:
-            price = float(item.get("price"))
-            if price <= max_price:
-                matched_items.append(item)
-        
+        # 1. 价格过滤
+        matched_items = [it for it in items if float(it.get("price")) <= max_price]
         if not matched_items:
             return
 
-        # 按价格分组
-        price_groups = {}
-        for item in matched_items:
-            p = float(item.get("price"))
-            if p not in price_groups:
-                price_groups[p] = []
-            price_groups[p].append(item)
-
-        # 2. 遍历价格分组处理
-        for price, group in price_groups.items():
-            count = len(group)
-            # 取第一个作为代表展示
-            first_item = group[0]
-            item_id = first_item.get("id")
-            paintwear = first_item.get("paintwear")
-            
-            # 检查是否有下单账号
-            if not buy_accounts:
-                # 纯监控模式：检查是否有新挂单（只要组内有一个是新的就报，但跳过已报过的 ID）
-                new_items_in_group = []
-                for it in group:
-                    it_id = it.get("id")
-                    report_cache_key = f"niro:report:cache:{it_id}"
-                    if not await self.redis.exists(report_cache_key):
-                        new_items_in_group.append(it)
-                
-                if not new_items_in_group:
-                    continue
-
-                # 记录所有新挂单为已报
-                for it in new_items_in_group:
-                    await self.redis.set(f"niro:report:cache:{it.get('id')}", "1", ex=180)
-
-                # 合并日志输出
-                count_suffix = f" (该价位共 {count} 个挂单)" if count > 1 else ""
-                logger.info(
-                    f"🔍 [账号: {acc_name}] [发现捡漏机会]{count_suffix}\n"
-                    f"   挂单ID: {item_id}{' 等' if count > 1 else ''}\n"
-                    f"   价格: ¥{price} (低于预设 ¥{max_price})\n"
-                    f"   磨损: {paintwear or 'N/A'}"
-                )
-                logger.info(f"💡 [账号: {acc_name}] [系统提示] 当前任务未配置下单账号，仅记录行情，未触发尝试下单。")
-                
-                # 推送合并通知
-                try:
-                    goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
-                    goods_id = self._extract_value(task_data.get("goodsId"))
-                    link = f"https://buff.163.com/goods/{goods_id}"
-                    
-                    title = f"🔍 发现捡漏机会 ({count}个)" if count > 1 else "🔍 发现捡漏机会"
-                    description = f"饰品: {goods_name}\n" \
-                                 f"价格: ¥{price} (预设: ¥{max_price})\n" \
-                                 f"磨损: {paintwear or 'N/A'}\n" \
-                                 f"挂单ID: {item_id}{'...' if count > 1 else ''}"
-                    
-                    self.notifier.send_textcard(title, description, url=link, btntxt="立即前往秒杀", user_id=user_id)
-                except Exception as ne:
-                    logger.error(f"⚠️ 推送通知失败: {ne}")
-
-                # 更新统计
-                stats_key = f"{REDIS_TASK_STATS_PREFIX}{task_id}"
-                try:
-                    stats_json = await self.redis.get(stats_key)
-                    stats = json.loads(stats_json) if stats_json else {}
-                    stats["discovery_count"] = stats.get("discovery_count", 0) + len(new_items_in_group)
-                    await self.redis.set(stats_key, json.dumps(stats), ex=86400)
-                except Exception as e:
-                    logger.error(f"⚠️ 更新任务统计失败: {e}")
-                continue
-
-            # 实战模式：仍需对组内每个挂单尝试加锁下单
-            for it in group:
+        # 2. 检查是否有下单账号
+        if not buy_accounts:
+            # 纯监控模式：去重报送
+            new_items = []
+            for it in matched_items:
                 it_id = it.get("id")
-                it_price = float(it.get("price"))
+                report_cache_key = f"niro:report:cache:{it_id}"
+                if not await self.redis.exists(report_cache_key):
+                    new_items.append(it)
+            
+            if not new_items: return
+
+            for it in new_items:
+                await self.redis.set(f"niro:report:cache:{it.get('id')}", "1", ex=180)
+
+            logger.info(f"🔍 [账号: {acc_name}] [监控发现] 匹配到 {len(new_items)} 个挂单，已推送通知")
+            
+            try:
+                goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                goods_id = self._extract_value(task_data.get("goodsId"))
+                link = f"https://buff.163.com/goods/{goods_id}"
                 
-                # 分布式锁：防止多账号重复购买同一饰品
-                lock_key = f"niro:lock:item:{it_id}"
-                if await self.redis.set(lock_key, "locked", ex=10, nx=True):
-                    try:
-                        logger.info(
-                            f"🎯 [账号: {acc_name}] [发现匹配挂单]\n"
-                            f"   挂单ID: {it_id}\n"
-                            f"   价格: ¥{it_price} (低于预设 ¥{max_price})"
-                        )
-                        logger.warning(f"🔒 [账号: {acc_name}] 已获取锁 [{lock_key}]，准备执行下单...")
-                        # TODO: 执行下单 API
-                        # await self._create_order(it, account)
-                    finally:
-                        pass
+                count = len(new_items)
+                first_item = new_items[0]
+                item_id = first_item.get("id")
+                price = first_item.get("price")
+                paintwear = first_item.get("paintwear")
+
+                title = f"🔍 发现捡漏机会 ({count}个)" if count > 1 else "🔍 发现捡漏机会"
+                description = f"饰品: {goods_name}\n" \
+                             f"价格: ¥{price} (预设: ¥{max_price})\n" \
+                             f"磨损: {paintwear or 'N/A'}\n" \
+                             f"挂单ID: {item_id}{'...' if count > 1 else ''}"
+                
+                self.notifier.send_textcard(title, description, url=link, btntxt="立即前往秒杀", user_id=user_id)
+            except Exception as ne:
+                logger.error(f"⚠️ 推送通知失败: {ne}")
+            return
+
+        # 3. 下单账号预检与 Busy 熔断
+        available_buyers = []
+        for buyer in buy_accounts:
+            buyer_id = self._extract_value(buyer.get("accountId"))
+            busy_key = f"niro:account:busy:{buyer_id}"
+            if not await self.redis.exists(busy_key):
+                available_buyers.append(buyer)
+        
+        if not available_buyers:
+            # 全部繁忙时，节流日志输出
+            log_throttle_key = f"niro:log:busy_throttle:{task_id}"
+            if not await self.redis.exists(log_throttle_key):
+                logger.debug(f"⏳ [账号: {acc_name}] 下单账号均处于 Busy 状态，跳过本次撮合")
+                await self.redis.set(log_throttle_key, "1", ex=10)
+            return
+
+        # 4. 饰品加锁与去重 (批量撮合)
+        # 获取任务配置的购买数量限制
+        buy_count = int(task_data.get("buyCount") or 0)
+        success_count = int(task_data.get("successCount") or 0)
+        remaining_count = max(0, buy_count - success_count)
+        
+        # 如果设置了购买上限且已达标，则跳过
+        if buy_count > 0 and remaining_count <= 0:
+            return
+
+        pending_it_ids = []
+        for it in matched_items:
+            # 如果已经达到了本次任务需要的剩余数量，停止撮合
+            if buy_count > 0 and len(pending_it_ids) >= remaining_count:
+                break
+                
+            it_id = it.get("id")
+            pending_key = f"niro:pending_purchase:{it_id}"
+            lock_key = f"niro:lock:item:{it_id}"
+            
+            # 双重去重与分布式锁
+            if await self.redis.exists(pending_key): continue
+            if await self.redis.set(lock_key, "locked", ex=60, nx=True):
+                if await self.redis.set(pending_key, "processing", ex=120, nx=True):
+                    pending_it_ids.append(it_id)
                 else:
-                    logger.debug(f"⏩ [账号: {acc_name}] 挂单 {it_id} 已被其他账号锁定")
+                    await self.redis.delete(lock_key)
+
+        if not pending_it_ids:
+            return
+
+        # 5. 非阻塞发起批量下单任务
+        buyer = random.choice(available_buyers)
+        # 补全 profile
+        if not buyer.get("profile"):
+            buyer["profile"] = BrowserHelper.create_profile(cookie=buyer.get("buffCookie"))
+            
+        logger.warning(f"🚀 [账号: {acc_name}] 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
+        # 核心：使用 create_task 异步运行，不阻塞主扫描循环
+        asyncio.create_task(self.async_buy_v3(pending_it_ids, buyer, task_data))
+
+    async def async_buy_v3(self, sell_order_ids: List[str], account: Dict[str, Any], task_data: Dict[str, Any]):
+        """
+        [Mission] 异步化重写 buy_v3 (五步核心流程) - 优化版
+        引入“人类行为模拟”冷却机制和加固确认逻辑
+        """
+        acc_id = self._extract_value(account.get("accountId"))
+        acc_name = account.get("accountName") or "未知账号"
+        profile = account.get("profile")
+        goods_id = self._extract_value(task_data.get("goodsId"))
+        user_id = self._extract_value(task_data.get("userId"))
+        busy_key = f"niro:account:busy:{acc_id}"
+        
+        current_ids = list(sell_order_ids)
+        trace_id = None
+        should_clear_busy = True 
+        
+        try:
+            # --- 0. 下单间隔保护 (Sequential Guard) ---
+            last_buy_time = self._last_buy_times.get(acc_id, 0)
+            elapsed = time.time() - last_buy_time
+            if elapsed < 120:  # 保护期延长至 120 秒
+                guard_delay = random.uniform(5.0, 10.0)
+                logger.info(f"保护期内 (已过 {elapsed:.1f}s/120s)，增加额外延迟: {guard_delay:.2f}s")
+                await asyncio.sleep(guard_delay)
+            
+            # 微秒级抖动，模拟点击开始
+            await asyncio.sleep(random.uniform(0.1, 0.3))
+
+            # --- 1. 批量预览 (Preview) ---
+            preview_data, trace_id, error_code = await self._batch_buy_preview(goods_id, current_ids, profile)
+            
+            if error_code == "Already Paying":
+                logger.error(f"🚨 [账号: {acc_name}] 触发 Already Paying 熔断，标记 Busy 200s")
+                await self.redis.set(busy_key, "1", ex=200)
+                await self._release_items(current_ids)
+                should_clear_busy = False
+                return
+
+            if not preview_data:
+                logger.error(f"❌ [账号: {acc_name}] 批量预览失败: {error_code}")
+                await self._release_items(current_ids)
+                return
+
+            pay_method = BuffPaymentMethod.BALANCE.value
+            selected_method = next((m for m in preview_data.get("pay_methods", []) if m.get("value") == int(pay_method)), None)
+            if not selected_method:
+                logger.error(f"❌ [账号: {acc_name}] 不支持余额支付")
+                await self._release_items(current_ids)
+                return
+            
+            # total_price 是包含手续费的总价，用于创建订单和支付
+            total_price = selected_method.get("price_with_pay_fee")
+            # unit_price 是饰品的单价（不含手续费），用于最终确认请求
+            # 注意：预览接口返回的 price 是所有饰品的原始总价
+            original_total_price = preview_data.get("price")
+            unit_price = float(original_total_price) / len(current_ids)
+            
+            # 模拟真人思考与选择支付方式
+            await asyncio.sleep(random.uniform(0.8, 1.5))
+
+            # --- 2. 创建订单 (Create) ---
+            logger.info(f"📝 [账号: {acc_name}] 准备预创建订单，待下单数量: {len(current_ids)}")
+            batch_buy_id = await self._batch_buy_create(goods_id, pay_method, total_price, len(current_ids), profile, trace_id)
+            if not batch_buy_id:
+                await self._release_items(current_ids)
+                return
+            
+            # 设置初始 Busy 标志
+            await self.redis.set(busy_key, "1", ex=200)
+            logger.info(f"🔒 [账号: {acc_name}] 已锁定 Busy 状态 | BatchID: {batch_buy_id}")
+
+            # --- 3. 支付预处理 (Pay Prep) ---
+            await asyncio.sleep(random.uniform(0.5, 0.8))
+            pay_res = await self._batch_buy_pay(batch_buy_id, goods_id, profile)
+            if not pay_res or pay_res.get("code") != "OK":
+                logger.error(f"❌ [账号: {acc_name}] 支付预处理失败 | Msg: {pay_res.get('msg') if pay_res else 'Request Failed'}")
+                await self._release_items(current_ids)
+                return
+            
+            pay_data = pay_res.get("data", {})
+            if pay_data.get("auto_pay") is False:
+                epay_url = pay_data.get("elements", {}).get("url")
+                if epay_url:
+                    logger.warning(f"⚠️ [账号: {acc_name}] 需手动支付授权！延长 Busy 锁至 180s")
+                    await self.redis.set(busy_key, "1", ex=180) # 延长锁时间，给人工预留时间
+                    logger.warning(f"👉 支付链接: {epay_url}")
+                    
+                    try:
+                        goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                        title = "⚠️ 需手动支付授权"
+                        description = f"账号: {acc_name}\n饰品: {goods_name}\n金额: ¥{total_price}\n状态: 等待人工操作"
+                        self.notifier.send_textcard(title, description, url=epay_url, btntxt="点击前往支付", user_id=user_id)
+                    except Exception as ne:
+                        logger.error(f"⚠️ 支付链接推送失败: {ne}")
+            
+            logger.info(f"💰 [账号: {acc_name}] 支付预处理完成，开始轮询支付状态...")
+
+            # --- 4. 轮询状态 (Polling Status) ---
+            is_ready = False
+            for i in range(180):
+                check_res = await self._batch_buy_check_state(batch_buy_id, goods_id, profile)
+                
+                if not check_res or check_res.get("code") != "OK":
+                    logger.warning(f"⚠️ [账号: {acc_name}] 轮询支付状态异常 ({i}s): {check_res.get('msg') if check_res else 'Request Failed'}")
+                
+                state = check_res.get("data", {}).get("state") if check_res else None
+                if state == 2:
+                    is_ready = True
+                    logger.info(f"✅ [账号: {acc_name}] 支付状态已就绪 (耗时: {i}s)")
+                    break
+                
+                if state == 4:
+                    logger.error(f"❌ [账号: {acc_name}] 支付失败或已关闭 (State: 4)")
+                    break
+                
+                if i > 0 and i % 10 == 0:
+                    logger.info(f"⏳ [账号: {acc_name}] 支付状态轮询中... 当前状态: {state} ({i}s/180s)")
+                
+                await asyncio.sleep(1.0 + random.uniform(0, 0.2)) # 增加微小抖动
+
+            if not is_ready:
+                logger.error(f"❌ [账号: {acc_name}] 支付状态轮询超时")
+                await self._release_items(current_ids)
+                return
+
+            # --- 5. 最终确认 (Final Confirm) ---
+            # 增加确认前的冷静期，模拟真人从支付完成回到页面的动作
+            await asyncio.sleep(random.uniform(0.8, 1.5))
+            
+            url = "https://buff.163.com/api/market/goods/buy"
+            # 协议核心修正：最终确认请求的 price 必须是饰品单价（不含手续费），且为字符串格式
+            price_str = f"{unit_price:.2f}"
+            
+            payload = {
+                "game": BuffGameType.CSGO.value,
+                "goods_id": int(goods_id),
+                "sell_order_id": current_ids[0],
+                "price": price_str,
+                "batch": 1,
+                "pay_method": int(pay_method),
+                "allow_tradable_cooldown": 0,
+                "hide_non_epay": False,
+                "batch_id": "",
+                "batch_buy_id": batch_buy_id,
+                "steamid": None
+            }
+            
+            logger.info(f"🚀 [账号: {acc_name}] 发起最终确认 | Price(Unit): {price_str} | BatchID: {batch_buy_id}")
+            
+            # 加固：重新获取最新的 CSRF Token 并构建请求
+            # 协议深度对齐：移除 buff-cashier-trace-id，增加 X-Requested-With 和 Accept
+            headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+            headers.update({
+                "X-CSRFToken": self._get_csrf_token(profile),
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "Accept": "application/json, text/javascript, */*; q=0.01"
+            })
+            # 注意：最终确认请求在 HAR 中并不携带 buff-cashier-trace-id
+
+            # 详尽记录最终响应，防止 None 陷阱
+            try:
+                # 直接调用 _request，它内部会处理 JSON 解析
+                res_json = await self._request("POST", url, profile, json=payload, headers=headers)
+                
+                if res_json.get("code") == "OK":
+                    order_id = res_json.get("data", {}).get("id")
+                    logger.info(f"✨ [账号: {acc_name}] 批量下单圆满成功! 订单号: {order_id}")
+                    self._last_buy_times[acc_id] = time.time() # 记录成功时间
+                    
+                    goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                    title = f"✨ 批量下单成功 ({len(current_ids)}件)"
+                    description = f"账号: {acc_name}\n饰品: {goods_name}\n总价: ¥{price_str}\n订单号: {order_id}"
+                    self.notifier.send_textcard(title, description, user_id=user_id)
+                else:
+                    error_msg = res_json.get("msg") or res_json.get("error") or "Unknown Error"
+                    logger.error(f"❌ [账号: {acc_name}] 最终确认失败 | Code: {res_json.get('code')} | Msg: {error_msg} | Payload: {payload}")
+                    await self._release_items(current_ids)
+            except Exception as final_e:
+                logger.error(f"💥 [账号: {acc_name}] 最终确认阶段发生异常: {final_e}")
+                await self._release_items(current_ids)
+
+        except Exception as e:
+            logger.exception(f"💥 [账号: {acc_name}] 异步下单链路崩溃: {e}")
+            await self._release_items(current_ids)
+        finally:
+            # --- 6. 强制余温冷却 (Post-Order Cooldown) ---
+            # 成功下单后休息 1-2 分钟，确保账号安全
+            cooldown = random.uniform(60.0, 120.0)
+            logger.info(f"🧊 [账号: {acc_name}] 下单任务结束，进入强制余温冷却 (1-2分钟): {cooldown:.2f}s")
+            await asyncio.sleep(cooldown)
+            
+            if should_clear_busy:
+                await self.redis.delete(busy_key)
+                logger.info(f"🔓 [账号: {acc_name}] Busy 锁已释放")
+
+    async def _release_items(self, item_ids: List[str]):
+        """统一释放饰品锁"""
+        for it_id in item_ids:
+            await self.redis.delete(f"niro:lock:item:{it_id}", f"niro:pending_purchase:{it_id}")
+
+    async def _batch_buy_preview(self, goods_id: int, sell_order_ids: List[str], profile: BrowserProfile):
+        """[Mission] 异步版预览"""
+        url = "https://buff.163.com/api/market/goods/batch_buy/preview"
+        payload = {
+            "game": BuffGameType.CSGO.value,
+            "goods_id": int(goods_id),
+            "sell_orders": sell_order_ids,
+            "select_epay": 1,  # 补全关键字段：支付渠道预选
+            "steamid": None
+        }
+        headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+        headers.update({
+            "X-CSRFToken": self._get_csrf_token(profile),
+            "Content-Type": "application/json"
+        })
+        
+        try:
+            # 使用临时的 AsyncClient 获取 TraceID，因为 _request 目前只返回 json
+            async with httpx.AsyncClient(timeout=10.0, verify=False) as client:
+                resp = await client.post(url, headers=headers, json=payload)
+                trace_id = resp.headers.get("buff-cashier-trace-id")
+                data = resp.json()
+                if data.get("code") == "OK":
+                    return data.get("data"), trace_id, "OK"
+                return None, trace_id, data.get("code")
+        except Exception as e:
+            return None, None, str(e)
+
+    async def _batch_buy_create(self, goods_id: int, pay_method: int, total_price: Any, num: int, profile: BrowserProfile, trace_id: str):
+        """[Mission] 异步版创建"""
+        url = "https://buff.163.com/api/market/goods/batch_buy/create"
+        payload = {
+            "game": BuffGameType.CSGO.value,
+            "goods_id": int(goods_id),
+            "pay_method": int(pay_method),
+            "frozen_amount": float(total_price), # 修正：必须是 float 数字
+            "max_price": str(total_price),      # 修正：必须是 str 字符串
+            "num": str(num),                    # 修正：必须是 str 字符串
+            "steamid": None
+        }
+        headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+        headers.update({
+            "X-CSRFToken": self._get_csrf_token(profile),
+            "Content-Type": "application/json",
+            "buff-cashier-trace-id": trace_id
+        })
+        res = await self._request("POST", url, profile, json=payload, headers=headers)
+        return res.get("data", {}).get("batch_buy_id") if res.get("code") == "OK" else None
+
+    async def _batch_buy_pay(self, batch_buy_id: str, goods_id: int, profile: BrowserProfile):
+        """[Mission] 异步版支付预处理"""
+        url = "https://buff.163.com/api/market/goods/batch_buy/epay_page_pay"
+        params = {"batch_buy_id": batch_buy_id, "_": int(time.time() * 1000)}
+        return await self._request("GET", url, profile, params=params)
+
+    async def _batch_buy_check_state(self, batch_buy_id: str, goods_id: int, profile: BrowserProfile):
+        """[Mission] 异步版状态轮询"""
+        url = "https://buff.163.com/api/market/goods/batch_buy/check_state"
+        params = {"batch_buy_id": batch_buy_id, "_": int(time.time() * 1000)}
+        return await self._request("GET", url, profile, params=params)

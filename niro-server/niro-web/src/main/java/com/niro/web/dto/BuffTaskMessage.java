@@ -94,6 +94,16 @@ public class BuffTaskMessage {
     private List<Integer> pageRange;
 
     /**
+     * 计划购买数量
+     */
+    private Integer buyCount;
+
+    /**
+     * 已成功购买数量
+     */
+    private Integer successCount;
+
+    /**
      * 绑定的账号列表
      */
     private List<AccountContext> accounts;

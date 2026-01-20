@@ -93,6 +93,18 @@ class BuffSpider:
         self.profile = BrowserHelper.create_profile(self.user_id)
         self.logger.info(f"🎭 已重新分配浏览器指纹: {self.profile.user_agent}")
 
+    def _check_response(self, response: requests.Response):
+        """通用响应校验"""
+        # 强制设置编码，防止中文乱码
+        response.encoding = 'utf-8'
+
+        # 预检：如果返回的是 HTML，说明 Cookie 已失效或被重定向
+        if response.text.strip().startswith("<!DOCTYPE") or response.text.strip().startswith("<html"):
+            self.logger.error("🔑 Cookie 已失效 (收到 HTML 登录重定向响应)")
+            raise LoginRequiredError("Buff Login Required (HTML Redirect)")
+
+        response.raise_for_status()
+
     @handle_api_error(default_return=[])
     @retry(
         stop=stop_after_attempt(3),
@@ -139,9 +151,7 @@ class BuffSpider:
             self.host + url, headers=self.profile.get_headers(), params=params, proxies=proxies, timeout=10
         )
         
-        # 强制设置编码，防止中文乱码
-        response.encoding = 'utf-8'
-        response.raise_for_status()
+        self._check_response(response)
         
         # 使用 Pydantic 解析响应
         try:
@@ -269,9 +279,7 @@ class BuffSpider:
         
         response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
         
-        if response.status_code != 200:
-            logger.error(f"❌ 下单请求失败, HTTP状态码: {response.status_code}, 内容: {response.text}")
-            return None
+        self._check_response(response)
 
         res_json = response.json()
         if res_json.get("code") == "OK":
@@ -323,7 +331,7 @@ class BuffSpider:
         self.logger.info(f"📋 [批量下单-预览] GoodsID={goods_id} | OrdersCount={len(sell_order_ids)}")
         proxies = get_proxies()
         response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
-        response.raise_for_status()
+        self._check_response(response)
         
         res_json = response.json()
         trace_id = response.headers.get("buff-cashier-trace-id")
@@ -373,7 +381,7 @@ class BuffSpider:
         self.logger.info(f"🏗️ [批量下单-创建] GoodsID={goods_id} | Method={pay_method} | Total={total_price}")
         proxies = get_proxies()
         response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
-        response.raise_for_status()
+        self._check_response(response)
         
         res_json = response.json()
         if res_json.get("code") == "OK":
@@ -399,7 +407,7 @@ class BuffSpider:
         headers = self.profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
         proxies = get_proxies()
         response = requests.get(self.host + url, headers=headers, params=params, proxies=proxies, timeout=10)
-        response.raise_for_status()
+        self._check_response(response)
         
         return response.json()
 
@@ -419,7 +427,7 @@ class BuffSpider:
         self.logger.info(f"💰 [批量下单-支付] BatchID={batch_buy_id}")
         proxies = get_proxies()
         response = requests.get(self.host + url, headers=headers, params=params, proxies=proxies, timeout=10)
-        response.raise_for_status()
+        self._check_response(response)
         
         return response.json()
 
@@ -529,7 +537,7 @@ class BuffSpider:
             
             self.logger.info(f"🚀 [批量下单-最终确认] 发起创建支付单 POST {url} | BatchID={batch_buy_id}")
             response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
-            response.raise_for_status()
+            self._check_response(response)
             
             result = response.json()
             if result.get("code") == "OK":

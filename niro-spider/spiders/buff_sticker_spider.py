@@ -21,6 +21,7 @@ from config.constants import GAME_CSGO, CATEGORY_STICKER, TAB_SELLING
 from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
 from utils.logger import get_logger, setup_logging, account_name_var, account_id_var, task_id_var
 from utils.browser_helper import BrowserHelper, BrowserProfile
+from utils.exception_handler import LoginRequiredError
 
 logger = get_logger(__name__)
 
@@ -68,13 +69,28 @@ async def fetch_stickers_api(client: httpx.AsyncClient, page_num: int = 1, profi
     try:
         response = await client.get(url, headers=headers, params=params)
         response.raise_for_status()
-        data = response.json()
+        
+        # 预检：如果返回的是 HTML，说明 Cookie 已失效
+        resp_text = response.text
+        if resp_text.strip().startswith("<!DOCTYPE") or resp_text.strip().startswith("<html"):
+            logger.error("🔑 Cookie 已失效 (收到 HTML 登录重定向响应)")
+            raise LoginRequiredError("Buff Login Required (HTML Redirect)")
+
+        try:
+            data = response.json()
+        except Exception as e:
+            logger.error(f"解析 JSON 失败: {e}, 响应内容: {resp_text[:100]}...")
+            raise LoginRequiredError(f"Invalid JSON Response: {str(e)}")
         
         if data.get("code") == "OK":
             return BuffStickerData(**data.get("data"))
         else:
-            logger.error(f"API 错误: {data.get('msg')}")
-            return None
+            msg = data.get('msg', 'Unknown API Error')
+            logger.error(f"API 错误: {msg}")
+            # 根据用户要求：只要不是成功，则视为失效
+            raise LoginRequiredError(f"Buff API Error: {msg}")
+    except LoginRequiredError as le:
+        raise le
     except Exception as e:
         logger.error(f"抓取印花第 {page_num} 页失败: {e}")
         return None

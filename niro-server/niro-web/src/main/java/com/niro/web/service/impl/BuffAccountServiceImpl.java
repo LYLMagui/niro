@@ -205,9 +205,31 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             String body = response.body();
             log.info("BUFF Cookie Check Response: {}", body);
             
-            JSONObject json = JSONUtil.parseObj(body);
-            String code = json.getStr("code");
+            // 校验响应内容是否为 JSON
+            if (body == null || body.trim().startsWith("<!DOCTYPE") || body.trim().startsWith("<html")) {
+                log.warn("BUFF Cookie Check Failed: Response is HTML (Redirect to Login), id: {}", account.getId());
+                account.setStatus(BuffAccountStatusEnum.INVALID);
+                account.setWarningMsg("Cookie 已失效，请重新登录获取");
+                account.setFailCount(account.getFailCount() + 1);
+                account.setLastCheckTime(LocalDateTime.now());
+                updateById(account);
+                return;
+            }
 
+            JSONObject json;
+            try {
+                json = JSONUtil.parseObj(body);
+            } catch (Exception e) {
+                log.error("BUFF Cookie Check Parse Error, id: {}, body: {}", account.getId(), body);
+                account.setStatus(BuffAccountStatusEnum.INVALID);
+                account.setWarningMsg("接口响应异常，可能已失效");
+                account.setFailCount(account.getFailCount() + 1);
+                account.setLastCheckTime(LocalDateTime.now());
+                updateById(account);
+                return;
+            }
+
+            String code = json.getStr("code");
             account.setLastCheckTime(LocalDateTime.now());
             
             if ("OK".equals(code)) {
@@ -242,9 +264,6 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                             account.setWarningMsg("");
                         }
                     }
-                    
-                    // 更新基本信息 (保留用户自定义的账号名作为备注，不使用 Steam 昵称覆盖)
-                    // account.setAccountName(item.getStr("personaname"));
                 }
                 
                 // 如果之前是失效状态，恢复为正常
@@ -265,7 +284,8 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
         } catch (Exception e) {
             log.error("Check BUFF Cookie Error, id: {}, error: {}", id, e.getMessage());
             account.setLastCheckTime(LocalDateTime.now());
-            account.setWarningMsg("网络请求失败: " + e.getMessage());
+            account.setStatus(BuffAccountStatusEnum.INVALID); // 任何异常均视为失效
+            account.setWarningMsg("网络请求或解析失败: " + e.getMessage());
             account.setFailCount(account.getFailCount() + 1);
         }
         

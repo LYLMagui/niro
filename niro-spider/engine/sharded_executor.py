@@ -12,6 +12,7 @@ from collections import deque
 
 from engine.context import trace_id_var, task_id_var, account_id_var, account_name_var
 from utils.browser_helper import BrowserProfile
+from utils.exception_handler import LoginRequiredError
 from storage.redis_pool import redis_async as redis_client_async
 from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX
 from config.settings import BACKEND_URL
@@ -211,43 +212,42 @@ class ShardedSpiderExecutor:
         """将 pending_categories 根据账号权重均匀分配给 active_accounts (优先选择 NORMAL 账号)"""
         # 1. 筛选目标账号
         normal_accounts = [acc_id for acc_id, acc in self.active_accounts.items() if acc.get("role") == "NORMAL"]
-        target_acc_ids = normal_accounts if normal_accounts else list(self.active_accounts.keys())
+        target_acc_ids = sorted(normal_accounts if normal_accounts else list(self.active_accounts.keys()))
         
         if not target_acc_ids:
             return {}
 
         # 2. 获取并计算权重
-        # 确保每个账号至少有 1 的权重，防止除零错误
         weights = {acc_id: max(1, int(self.active_accounts[acc_id].get("weight") or 1)) for acc_id in target_acc_ids}
         total_weight = sum(weights.values())
         
+        # 核心：使用确定性排序确保分片一致性
         cats = sorted(list(self.pending_categories))
         total_cats = len(cats)
         
         if total_cats == 0:
             return {acc_id: [] for acc_id in target_acc_ids}
 
-        # 3. 基于权重的分配逻辑 (加权轮询变体)
+        # 3. 基于权重的分配逻辑 (确定性加权轮询)
         shards = {acc_id: [] for acc_id in target_acc_ids}
         
-        # 按照权重比例分配
-        # 计算每个账号理论上应该分到的数量
         allocated_count = 0
         for i, acc_id in enumerate(target_acc_ids):
             if i == len(target_acc_ids) - 1:
                 # 最后一个账号承包剩余所有任务，确保不漏掉
                 count = total_cats - allocated_count
             else:
+                # 按比例分配，使用 floor 确保不越界
                 count = int((weights[acc_id] / total_weight) * total_cats)
             
-            # 从待分配列表中取出对应数量的分类
+            # 确定性地取出对应数量的分类
             shard_cats = cats[allocated_count : allocated_count + count]
             shards[acc_id].extend(shard_cats)
             allocated_count += count
 
-        # 打印权重分配详情日志
+        # 打印分配详情，验证负载均衡
         weight_desc = ", ".join([f"{self.active_accounts[aid].get('accountName')}(W:{weights[aid]}, N:{len(shards[aid])})" for aid in target_acc_ids])
-        logger.info(f"⚖️ [Task-ID: {self.task_id}] 触发加权分片分配: {weight_desc}")
+        logger.info(f"⚖️ [Task-ID: {self.task_id}] 负载均衡分片: {weight_desc}")
             
         return shards
 
@@ -384,7 +384,10 @@ class ShardedSpiderExecutor:
                 return True
             
             return False
+        except LoginRequiredError as le:
+            raise AccountInvalidException(acc_id, str(le), [page_num])
         except Exception as e:
+            if isinstance(e, AccountInvalidException): raise e
             logger.error(f"❌ [账号: {account_name}] 同步印花第 {page_num} 页失败: {e}")
             return False
 
@@ -462,9 +465,20 @@ class ShardedSpiderExecutor:
                     raise AccountInvalidException(acc_id, "Login Required (401)", [p_cat_id])
                 if response.status_code == 429:
                     raise AccountInvalidException(acc_id, "Rate Limited (429)", [p_cat_id])
+                
+                # 预检：如果返回的是 HTML，说明 Cookie 已失效
+                resp_text = response.text
+                if resp_text.strip().startswith("<!DOCTYPE") or resp_text.strip().startswith("<html"):
+                    raise AccountInvalidException(acc_id, "Login Required (HTML Redirect)", [p_cat_id])
+                    
                 response.raise_for_status()
                 
-                data = response.json()
+                try:
+                    data = response.json()
+                except Exception as e:
+                    logger.error(f"❌ [账号: {account_name}] JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
+                    raise AccountInvalidException(acc_id, "Invalid JSON Response", [p_cat_id])
+                
                 if data.get("code") != "OK":
                     msg = data.get('msg', 'Unknown API Error')
                     logger.error(f"❌ [账号: {account_name}] API 错误: {msg}")
@@ -603,9 +617,20 @@ class ShardedSpiderExecutor:
                     raise AccountInvalidException(acc_id, "Login Required (401)", [category_id])
                 if response.status_code == 429:
                     raise AccountInvalidException(acc_id, "Rate Limited (429)", [category_id])
+                
+                # 预检：如果返回的是 HTML，说明 Cookie 已失效
+                resp_text = response.text
+                if resp_text.strip().startswith("<!DOCTYPE") or resp_text.strip().startswith("<html"):
+                    raise AccountInvalidException(acc_id, "Login Required (HTML Redirect)", [category_id])
+                    
                 response.raise_for_status()
                 
-                data = response.json()
+                try:
+                    data = response.json()
+                except Exception as e:
+                    logger.error(f"❌ [账号: {account_name}] JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
+                    raise AccountInvalidException(acc_id, "Invalid JSON Response", [category_id])
+                
                 if data.get("code") != "OK":
                     msg = data.get('msg', 'Unknown API Error')
                     logger.error(f"❌ [账号: {account_name}] API 错误: {msg}")

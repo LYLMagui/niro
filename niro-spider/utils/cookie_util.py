@@ -38,6 +38,12 @@ def verify_cookie(cookie):
     
     try:
         response = requests.get(url, headers=headers, proxies=proxies, timeout=10)
+        
+        # 预检：如果返回的是 HTML，说明 Cookie 已失效
+        resp_text = response.text
+        if resp_text.strip().startswith("<!DOCTYPE") or resp_text.strip().startswith("<html"):
+            return False, "Login Required (HTML Redirect)"
+
         if response.status_code == 403:
             return False, "HTTP 403 Forbidden (IP Blocked or Cookie Expired)"
         
