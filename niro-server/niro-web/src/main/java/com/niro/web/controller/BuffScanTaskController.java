@@ -12,6 +12,8 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
+
 /**
  * 扫货任务接口
  *
@@ -60,5 +62,11 @@ public class BuffScanTaskController {
     @Operation(summary = "分页查询任务")
     public Page<BuffScanTaskDTO> pageTask(@Valid TaskQueryParam param) {
         return buffScanTaskService.pageTask(param);
+    }
+
+    @GetMapping("/trade-tasks")
+    @Operation(summary = "获取所有下单模式的任务列表")
+    public List<BuffScanTask> listTradeTasks() {
+        return buffScanTaskService.listTradeTasks();
     }
 }

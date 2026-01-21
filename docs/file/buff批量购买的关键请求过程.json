@@ -1,0 +1,428 @@
+[
+  {
+    "method": "POST",
+    "url": "https://buff.163.com/api/market/goods/batch_buy/preview",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "POST",
+      ":path": "/api/market/goods/batch_buy/preview",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "content-length": "137",
+      "content-type": "application/json",
+      "origin": "https://buff.163.com",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-csrftoken": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB5pQ.HIsqYiceJ79rSTzFUSojjVfTX84",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {},
+    "body": {
+      "game": "csgo",
+      "goods_id": 1119940,
+      "sell_orders": ["3951097969-AB36-156531424", "3951098158-AB36-156531424"],
+      "select_epay": 1,
+      "steamid": null
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "buff-cashier-trace-id": "92be01f9bfc644d088c6e6f9217c79e0",
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:02 GMT",
+        "ntes-trace-id": "de20063617f640ab:de20063617f640ab:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "2291"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://buff.163.com/api/asset/get_pay_method_description/",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "GET",
+      ":path": "/api/asset/get_pay_method_description/?hide_non_epay=false&query_from=cashier&pay_method=44&amount=3.89&_=1768978842913",
+      ":scheme": "https",
+      "accept": "*/*",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {
+      "hide_non_epay": "false",
+      "query_from": "cashier",
+      "pay_method": "44",
+      "amount": "3.89",
+      "_": "1768978842913"
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-length": "172",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:02 GMT",
+        "ntes-trace-id": "4fa6c033de337b81:4fa6c033de337b81:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "104"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "POST",
+    "url": "https://buff.163.com/api/market/goods/batch_buy/create",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "POST",
+      ":path": "/api/market/goods/batch_buy/create",
+      ":scheme": "https",
+      "accept": "*/*",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "buff-cashier-trace-id": "92be01f9bfc644d088c6e6f9217c79e0",
+      "content-length": "129",
+      "content-type": "application/json",
+      "origin": "https://buff.163.com",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-csrftoken": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB5rg.U6oTPrWsvGkch75ZjjXejyGtlU0",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {},
+    "body": {
+      "game": "csgo",
+      "goods_id": 1119940,
+      "pay_method": 44,
+      "frozen_amount": 3.89,
+      "max_price": "1.95",
+      "num": "2",
+      "steamid": null
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "buff-cashier-trace-id": "expired",
+        "content-length": "69",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:08 GMT",
+        "ntes-trace-id": "4c93a8005d77ca5c:4c93a8005d77ca5c:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "162"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://buff.163.com/api/market/goods/batch_buy/epay_page_pay",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "GET",
+      ":path": "/api/market/goods/batch_buy/epay_page_pay?batch_buy_id=260121T1099239984&_=1768978842915",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {
+      "batch_buy_id": "260121T1099239984",
+      "_": "1768978842915"
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:08 GMT",
+        "ntes-trace-id": "e8f48aaa24cb7304:e8f48aaa24cb7304:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "102"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://buff.163.com/api/market/goods/batch_buy/check_state",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "GET",
+      ":path": "/api/market/goods/batch_buy/check_state?batch_buy_id=260121T1099239984&_=1768978842917",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {
+      "batch_buy_id": "260121T1099239984",
+      "_": "1768978842917"
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-length": "77",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:09 GMT",
+        "ntes-trace-id": "6d629e7601437e45:6d629e7601437e45:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "27"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "GET",
+    "url": "https://buff.163.com/api/market/goods/sell_order",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "GET",
+      ":path": "/api/market/goods/sell_order?page_num=1&game=csgo&goods_id=1119940&sort_by=price.asc&mode=&max_price=1.95&page_size=50&exclude_current_user=1&allow_tradable_cooldown=0&allow_epay=1&_=1768978842926",
+      ":scheme": "https",
+      "accept": "*/*",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {
+      "page_num": "1",
+      "game": "csgo",
+      "goods_id": "1119940",
+      "sort_by": "price.asc",
+      "mode": "",
+      "max_price": "1.95",
+      "page_size": "50",
+      "exclude_current_user": "1",
+      "allow_tradable_cooldown": "0",
+      "allow_epay": "1",
+      "_": "1768978842926"
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:22 GMT",
+        "ntes-trace-id": "5d6fe32352cde894:5d6fe32352cde894:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "85"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "POST",
+    "url": "https://buff.163.com/api/market/goods/buy",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "POST",
+      ":path": "/api/market/goods/buy",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "content-length": "265",
+      "content-type": "application/json",
+      "origin": "https://buff.163.com",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-csrftoken": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB5wg.t6l97UrHPJPIqFTzyPjLHeol9ys",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {},
+    "body": {
+      "game": "csgo",
+      "goods_id": 1119940,
+      "sell_order_id": "3951097969-AB36-156531424",
+      "price": "1.94",
+      "batch": 1,
+      "pay_method": 44,
+      "allow_tradable_cooldown": 0,
+      "hide_non_epay": false,
+      "batch_id": "029564a987704ef893a195d502762342",
+      "batch_buy_id": "260121T1099239984",
+      "steamid": null
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:23 GMT",
+        "ntes-trace-id": "a80f4972bb1941d0:a80f4972bb1941d0:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "845"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "POST",
+    "url": "https://buff.163.com/api/market/goods/buy",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "POST",
+      ":path": "/api/market/goods/buy",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "content-length": "265",
+      "content-type": "application/json",
+      "origin": "https://buff.163.com",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-csrftoken": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB5ww.f9pTc89Z1tLh-8UmOPywXmJRc-o",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {},
+    "body": {
+      "game": "csgo",
+      "goods_id": 1119940,
+      "sell_order_id": "3951098158-AB36-156531424",
+      "price": "1.95",
+      "batch": 1,
+      "pay_method": 44,
+      "allow_tradable_cooldown": 0,
+      "hide_non_epay": false,
+      "batch_id": "029564a987704ef893a195d502762342",
+      "batch_buy_id": "260121T1099239984",
+      "steamid": null
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-encoding": "gzip",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:24 GMT",
+        "ntes-trace-id": "3861b5a5341bc144:3861b5a5341bc144:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "728"
+      },
+      "body": {}
+    }
+  },
+  {
+    "method": "POST",
+    "url": "https://buff.163.com/api/market/bill_order/notify_buyer_to_send_offer",
+    "headers": {
+      ":authority": "buff.163.com",
+      ":method": "POST",
+      ":path": "/api/market/bill_order/notify_buyer_to_send_offer",
+      ":scheme": "https",
+      "accept": "application/json, text/javascript, */*; q=0.01",
+      "accept-encoding": "gzip, deflate, br, zstd",
+      "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
+      "content-length": "51",
+      "content-type": "application/json",
+      "origin": "https://buff.163.com",
+      "priority": "u=1, i",
+      "referer": "https://buff.163.com/goods/1119940?from=market",
+      "sec-ch-ua": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\"",
+      "sec-ch-ua-mobile": "?0",
+      "sec-ch-ua-platform": "\"Windows\"",
+      "sec-fetch-dest": "empty",
+      "sec-fetch-mode": "cors",
+      "sec-fetch-site": "same-origin",
+      "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0",
+      "x-csrftoken": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB5xA.EFw8LzT_3Xnc8YYvenJ30HmwWSE",
+      "x-requested-with": "XMLHttpRequest"
+    },
+    "params": {},
+    "body": {
+      "bill_order_id": "260121T3649990100",
+      "game": "csgo"
+    },
+    "response": {
+      "status": 200,
+      "statusText": "OK",
+      "headers": {
+        "content-length": "35",
+        "content-type": "application/json",
+        "date": "Wed, 21 Jan 2026 07:01:28 GMT",
+        "ntes-trace-id": "40265e67f75610d2:40265e67f75610d2:0:0",
+        "server": "nginx",
+        "x-envoy-upstream-service-time": "54"
+      },
+      "body": {}
+    }
+  }
+]

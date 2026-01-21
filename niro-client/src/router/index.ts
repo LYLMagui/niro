@@ -41,7 +41,7 @@ const routes: RouteRecordRaw[] = [
       {
         path: "tasks",
         name: "TaskConfig",
-        component: () => import("@/views/TaskConfig.vue"),
+        component: () => import("@/views/TaskList.vue"),
         meta: { title: "任务配置", icon: "server" },
       },
       {

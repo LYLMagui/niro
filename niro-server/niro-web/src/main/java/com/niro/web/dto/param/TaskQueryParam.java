@@ -1,7 +1,10 @@
 package com.niro.web.dto.param;
 
+import com.niro.web.enums.TaskRunModeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+
+import java.util.List;
 
 /**
  * 任务查询参数
@@ -24,4 +27,10 @@ public class TaskQueryParam {
 
     @Schema(description = "搜索关键词 (任务名/商品名)")
     private String keyword;
+
+    @Schema(description = "运行模式 (SCAN/TRADE/BOTH)")
+    private TaskRunModeEnum runMode;
+
+    @Schema(description = "任务类型列表")
+    private List<Integer> taskTypes;
 }

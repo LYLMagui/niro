@@ -21,20 +21,34 @@ body {
   margin: 0;
   /* 设置全局字体栈 - 使用更柔和的现代字体系统 */
   font-family:
-    "Inter", "HarmonyOS Sans SC", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", -apple-system, 
-    BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    "Inter",
+    "HarmonyOS Sans SC",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei",
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
 /* 数字列等宽字体工具类 */
 .font-numeric {
-  font-family: 'Inter', -apple-system, 'PingFang SC', sans-serif !important;
+  font-family:
+    "Inter",
+    -apple-system,
+    "PingFang SC",
+    sans-serif !important;
   font-variant-numeric: tabular-nums;
 }
 
 .font-mono-value {
-  font-family: 'JetBrains Mono', monospace !important;
+  font-family: "JetBrains Mono", monospace !important;
 }
 
 /* 在线状态心跳发光 */
@@ -44,9 +58,15 @@ body {
 }
 
 @keyframes online-heartbeat {
-  0% { box-shadow: 0 0 4px rgba(43, 164, 113, 0.2); }
-  50% { box-shadow: 0 0 12px rgba(43, 164, 113, 0.6); }
-  100% { box-shadow: 0 0 4px rgba(43, 164, 113, 0.2); }
+  0% {
+    box-shadow: 0 0 4px rgba(43, 164, 113, 0.2);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(43, 164, 113, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 4px rgba(43, 164, 113, 0.2);
+  }
 }
 
 /* 高价值项文字阴影 - 优化颜色 */
@@ -73,82 +93,73 @@ body {
 
 /* Ghost Tag 风格 */
 .tag-ghost-blue {
+  color: #0052d9 !important;
   background: transparent !important;
   border: 1px solid rgba(0, 82, 217, 0.3) !important;
-  color: #0052d9 !important;
 }
 .tag-ghost-purple {
+  color: #722ed1 !important;
   background: transparent !important;
   border: 1px solid rgba(114, 46, 209, 0.3) !important;
-  color: #722ed1 !important;
 }
 .tag-ghost-green {
+  color: #2ba471 !important;
   background: transparent !important;
   border: 1px solid rgba(43, 164, 113, 0.3) !important;
-  color: #2ba471 !important;
 }
 
 /* TDesign 表格全局深度定制 */
-.t-table {
-  border: none !important;
-  border-radius: 0 !important;
-  background-color: transparent !important;
-}
-
 .t-table::after,
 .t-table::before {
   display: none !important;
 }
 
-.t-table__content {
-  border: none !important;
-  background-color: transparent !important;
-}
-
 /* 表头全局覆盖 */
 .t-table .t-table__header tr {
-  background-color: #F7F8FA !important;
+  background-color: #f7f8fa !important;
 }
 
 .t-table .t-table__header th {
-  color: #4E5969 !important;
+  padding: 14px 16px !important;
+  font-family: inherit !important;
   font-size: 14px !important;
   font-weight: 600 !important;
+  color: #4e5969 !important;
   letter-spacing: 0.02em !important;
-  padding: 14px 16px !important;
-  background-color: #F7F8FA !important;
-  border-bottom: 1px solid #E5E6EB !important;
+  background-color: #f7f8fa !important;
   /* 移除单元格右侧竖线 */
   border-right: none !important;
-  font-family: inherit !important;
+  border-bottom: 1px solid #e5e6eb !important;
 }
 
 /* 表格主体单元格 */
 .t-table .t-table__body td {
   padding: 14px 16px !important;
-  border-bottom: 1px solid #F2F3F5 !important;
   font-family: inherit !important;
+  border-bottom: 1px solid #f2f3f5 !important;
 }
 
 /* 增强表格容器边界感 */
 .t-table {
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 1px 2px rgba(0, 0, 0, 0.02) !important;
-  border: 1px solid #E5E6EB !important;
-  border-radius: 8px !important;
   overflow: hidden !important;
   background-color: #fff !important;
+  border: 1px solid #e5e6eb !important;
+  border-radius: 8px !important;
+  box-shadow:
+    0 2px 8px rgba(0, 0, 0, 0.04),
+    0 1px 2px rgba(0, 0, 0, 0.02) !important;
 }
 
 .t-table__content {
-  border: none !important;
   background-color: #fff !important;
+  border: none !important;
 }
 
 /* 嵌入式表格专用样式 - 用于卡片内部 */
 .embedded-table {
   border: none !important;
-  box-shadow: none !important;
   border-radius: 0 !important;
+  box-shadow: none !important;
 }
 
 .embedded-table th:first-child,
@@ -164,9 +175,9 @@ body {
 /* 紧凑型标签 */
 .compact-tag {
   height: 20px !important;
-  line-height: 18px !important;
   padding: 0 8px !important;
   font-size: 11px !important;
+  line-height: 18px !important;
 }
 
 /* 嵌入式卡片容器 */
@@ -180,8 +191,8 @@ body {
 
 /* 统一卡片常驻阴影 */
 .t-card {
+  border: 1px solid #e5e6eb !important;
   box-shadow: 0 4px 14px 0 rgba(0, 0, 0, 0.05) !important;
-  border: 1px solid #E5E6EB !important;
   transition: all 0.3s ease;
 }
 
@@ -190,13 +201,14 @@ body {
 }
 
 /* 单元格内容对齐 - 默认左对齐 */
-.t-table th, .t-table td {
+.t-table th,
+.t-table td {
   text-align: left;
 }
 
 /* 统一行悬停颜色 */
 .t-table__row--hover {
-  background-color: #F7F8FA !important;
+  background-color: #f7f8fa !important;
 }
 
 /* 排除右对齐列 */
@@ -217,18 +229,22 @@ body {
 
 /* 刷新图标旋转动画 */
 .checking-rotate {
-  animation: rotate-center 1s linear infinite;
   color: var(--td-brand-color);
+  animation: rotate-center 1s linear infinite;
 }
 
 @keyframes rotate-center {
-  0% { transform: rotate(0); }
-  100% { transform: rotate(360deg); }
+  0% {
+    transform: rotate(0);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
 }
 
 .t-tag {
-  letter-spacing: -0.01em;
   font-weight: 600 !important;
+  letter-spacing: -0.01em;
 }
 
 /* 隐藏表格阴影 */

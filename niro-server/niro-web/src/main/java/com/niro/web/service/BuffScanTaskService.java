@@ -7,6 +7,8 @@ import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffScanTask;
 
+import java.util.List;
+
 /**
  * 扫货任务服务接口
  *
@@ -64,4 +66,10 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
      * 重新推送所有运行中的任务到队列 (自愈机制)
      */
     void reEnqueueRunningTasks();
+
+    /**
+     * 获取所有下单模式的任务列表
+     * @return 任务列表
+     */
+    List<BuffScanTask> listTradeTasks();
 }

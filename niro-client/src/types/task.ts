@@ -29,22 +29,30 @@ export interface BuffScanTask {
     tps: number;
     update_time: number;
     pending_categories: number[];
-    account_stats?: Record<string, {
-      total: number;
-      finished: number;
-      percentage: number;
-      tps: number;
-    }>;
+    account_stats?: Record<
+      string,
+      {
+        total: number;
+        finished: number;
+        percentage: number;
+        tps: number;
+      }
+    >;
   };
   createTime: string;
   updateTime: string;
+  runMode?: "SCAN" | "TRADE" | "BOTH";
+  targetTradeAccountId?: number;
+  targetTaskId?: number;
 }
 
 export interface TaskQueryParam {
-  pageNo: number;
+  page: number;
   pageSize: number;
-  name?: string;
+  keyword?: string;
   status?: number;
+  runMode?: "SCAN" | "TRADE" | "BOTH";
+  taskTypes?: number[];
 }
 
 export interface TaskSaveParam {
@@ -63,4 +71,7 @@ export interface TaskSaveParam {
   taskType: number;
   minProfit?: number;
   accountIds?: number[];
+  runMode?: "SCAN" | "TRADE" | "BOTH";
+  targetTradeAccountId?: number;
+  targetTaskId?: number;
 }

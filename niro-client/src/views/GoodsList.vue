@@ -1,7 +1,7 @@
 <template>
   <div class="p-6">
     <!-- 合并后的商品列表卡片 -->
-    <t-card :bordered="false" class="shadow-sm embedded-card">
+    <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
           <t-icon name="view-list" class="mr-2 text-blue-600" />
@@ -10,7 +10,7 @@
       </template>
 
       <!-- 搜索栏 -->
-      <div class="p-6 border-b border-gray-100">
+      <div class="border-b border-gray-100 p-6">
         <t-form
           ref="form"
           :data="searchForm"
@@ -58,20 +58,11 @@
           </t-form-item>
           <t-form-item>
             <div class="flex gap-2">
-              <t-button
-                theme="primary"
-                type="submit"
-                size="medium"
-              >
+              <t-button theme="primary" type="submit" size="medium">
                 <template #icon><search-icon /></template>
                 查询
               </t-button>
-              <t-button
-                theme="default"
-                variant="base"
-                type="reset"
-                size="medium"
-              >
+              <t-button theme="default" variant="base" type="reset" size="medium">
                 <template #icon><refresh-icon /></template>
                 重置
               </t-button>
@@ -102,90 +93,90 @@
           class="embedded-table w-full"
           @page-change="onPageChange"
         >
-        <template #empty>
-          <t-empty icon="queue" description="未搜索到相关商品" />
-        </template>
+          <template #empty>
+            <t-empty icon="queue" description="未搜索到相关商品" />
+          </template>
 
-        <!-- 图片列自定义渲染 -->
-        <template #iconUrl="{ row }">
-          <div
-            class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white"
-            style="width: 110px; height: 110px"
-            @click="onPreview(row.iconUrl)"
-          >
-            <t-image
-              :src="row.iconUrl"
-              :style="{ width: '100px', height: '100px' }"
-              fit="contain"
-            />
-          </div>
-        </template>
-
-        <!-- 商品名称列自定义渲染 -->
-        <template #name="{ row }">
-          <div class="flex flex-col">
-            <span class="font-medium text-gray-900">{{ row.name }}</span>
-            <span class="text-xs text-gray-500">{{ row.marketHashName }}</span>
-          </div>
-        </template>
-
-        <!-- 磨损列自定义渲染 -->
-        <template #exterior="{ row }">
-          <t-tag
-            v-if="row.exterior"
-            variant="light"
-            :style="{
-              color: ExteriorColorMap[row.exterior] || '#333',
-              backgroundColor: (ExteriorColorMap[row.exterior] || '#eee') + '20',
-              borderColor: (ExteriorColorMap[row.exterior] || '#ccc') + '40',
-            }"
-          >
-            {{ ExteriorMap[row.exterior] || row.exterior }}
-          </t-tag>
-          <span v-else>-</span>
-        </template>
-
-        <!-- 稀有度列自定义渲染 -->
-        <template #rarity="{ row }">
-          <t-tag
-            v-if="row.rarity"
-            variant="light"
-            :style="{
-              color: RarityColorMap[row.rarity] || '#333',
-              backgroundColor: (RarityColorMap[row.rarity] || '#eee') + '20',
-            }"
-          >
-            {{ RarityMap[row.rarity] || row.rarity }}
-          </t-tag>
-          <span v-else>-</span>
-        </template>
-
-        <!-- 操作列 -->
-        <template #operation="{ row }">
-          <div class="flex items-center justify-center space-x-2">
-            <t-button
-              variant="text"
-              theme="primary"
-              size="small"
-              class="transition-all hover:font-bold"
-              @click="openBuffGoods(row.goodsId)"
+          <!-- 图片列自定义渲染 -->
+          <template #iconUrl="{ row }">
+            <div
+              class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white"
+              style="width: 110px; height: 110px"
+              @click="onPreview(row.iconUrl)"
             >
-              <template #icon><link-icon /></template>
-              详情
-            </t-button>
-            <t-button
-              variant="text"
-              theme="warning"
-              size="small"
-              class="transition-all hover:font-bold"
-              @click="openCreateTaskDialog(row)"
+              <t-image
+                :src="row.iconUrl"
+                :style="{ width: '100px', height: '100px' }"
+                fit="contain"
+              />
+            </div>
+          </template>
+
+          <!-- 商品名称列自定义渲染 -->
+          <template #name="{ row }">
+            <div class="flex flex-col">
+              <span class="font-medium text-gray-900">{{ row.name }}</span>
+              <span class="text-xs text-gray-500">{{ row.marketHashName }}</span>
+            </div>
+          </template>
+
+          <!-- 磨损列自定义渲染 -->
+          <template #exterior="{ row }">
+            <t-tag
+              v-if="row.exterior"
+              variant="light"
+              :style="{
+                color: ExteriorColorMap[row.exterior] || '#333',
+                backgroundColor: (ExteriorColorMap[row.exterior] || '#eee') + '20',
+                borderColor: (ExteriorColorMap[row.exterior] || '#ccc') + '40',
+              }"
             >
-              <template #icon><shop-icon /></template>
-              扫货
-            </t-button>
-          </div>
-        </template>
-      </t-table>
+              {{ ExteriorMap[row.exterior] || row.exterior }}
+            </t-tag>
+            <span v-else>-</span>
+          </template>
+
+          <!-- 稀有度列自定义渲染 -->
+          <template #rarity="{ row }">
+            <t-tag
+              v-if="row.rarity"
+              variant="light"
+              :style="{
+                color: RarityColorMap[row.rarity] || '#333',
+                backgroundColor: (RarityColorMap[row.rarity] || '#eee') + '20',
+              }"
+            >
+              {{ RarityMap[row.rarity] || row.rarity }}
+            </t-tag>
+            <span v-else>-</span>
+          </template>
+
+          <!-- 操作列 -->
+          <template #operation="{ row }">
+            <div class="flex items-center justify-center space-x-2">
+              <t-button
+                variant="text"
+                theme="primary"
+                size="small"
+                class="transition-all hover:font-bold"
+                @click="openBuffGoods(row.goodsId)"
+              >
+                <template #icon><link-icon /></template>
+                详情
+              </t-button>
+              <t-button
+                variant="text"
+                theme="warning"
+                size="small"
+                class="transition-all hover:font-bold"
+                @click="openCreateTaskDialog(row)"
+              >
+                <template #icon><shop-icon /></template>
+                扫货
+              </t-button>
+            </div>
+          </template>
+        </t-table>
       </div>
     </t-card>
     <!-- 任务配置弹窗组件 (隐藏主体只用弹窗) -->
@@ -233,13 +224,14 @@
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import TaskConfig from "@/views/TaskConfig.vue";
-import type {
-  Goods,
-  GoodsPageQuery,
-  GoodsSimple,
-  PageResult,
-} from "@/types/goods";
-import { CloudDownloadIcon, LinkIcon, RefreshIcon, SearchIcon, ShopIcon } from "tdesign-icons-vue-next";
+import type { Goods, GoodsPageQuery, GoodsSimple, PageResult } from "@/types/goods";
+import {
+  CloudDownloadIcon,
+  LinkIcon,
+  RefreshIcon,
+  SearchIcon,
+  ShopIcon,
+} from "tdesign-icons-vue-next";
 import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
 import { onMounted, reactive, ref } from "vue";

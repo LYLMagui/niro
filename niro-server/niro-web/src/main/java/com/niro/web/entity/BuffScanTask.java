@@ -3,6 +3,7 @@ package com.niro.web.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
+import com.niro.web.enums.TaskRunModeEnum;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -23,6 +24,11 @@ public class BuffScanTask {
      */
     @TableId(type = IdType.AUTO)
     private Long id;
+
+    /**
+     * 运行模式
+     */
+    private TaskRunModeEnum runMode;
 
     /**
      * 任务名称(通常是商品名)
@@ -90,6 +96,11 @@ public class BuffScanTask {
     private Integer scanInterval;
 
     /**
+     * 关联的下单账号ID (仅 SCAN 模式任务使用)
+     */
+    private Long targetTradeAccountId;
+
+    /**
      * 最小扫描间隔(秒)
      */
     private Integer scanIntervalMin;
@@ -108,6 +119,11 @@ public class BuffScanTask {
      * 站内倒卖任务的最小预期利润
      */
     private BigDecimal minProfit;
+
+    /**
+     * 关联的下单任务ID (仅 SCAN/BOTH 模式使用)
+     */
+    private Long targetTaskId;
 
     /**
      * 创建时间

@@ -1,5 +1,6 @@
 package com.niro.web.dto;
 
+import com.niro.web.enums.TaskRunModeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -19,6 +20,9 @@ public class BuffScanTaskDTO {
 
     @Schema(description = "任务ID")
     private Long id;
+
+    @Schema(description = "运行模式")
+    private TaskRunModeEnum runMode;
 
     @Schema(description = "任务名称")
     private String name;
@@ -64,6 +68,12 @@ public class BuffScanTaskDTO {
 
     @Schema(description = "扫描间隔(秒)")
     private Integer scanInterval;
+
+    @Schema(description = "关联的下单账号ID (仅 SCAN 模式任务使用)")
+    private Long targetTradeAccountId;
+
+    @Schema(description = "关联的下单账号名称")
+    private String targetTradeAccountName;
 
     @Schema(description = "最小扫描间隔(秒)")
     private Integer scanIntervalMin;

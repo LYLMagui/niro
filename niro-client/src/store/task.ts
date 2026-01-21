@@ -15,7 +15,7 @@ export const useTaskStore = defineStore("task", () => {
   // 动作：获取运行中的任务
   async function fetchRunningTasks() {
     try {
-      const res = await taskApi.getPage({ pageNo: 1, pageSize: 10, status: 1 });
+      const res = await taskApi.getPage({ page: 1, pageSize: 10, status: 1 });
       if (res && res.records) {
         runningTasks.value = res.records;
         isRunning.value = runningTasks.value.length > 0;

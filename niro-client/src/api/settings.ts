@@ -11,7 +11,14 @@ export interface UserBuffSettings {
 }
 
 export type BuffAccountRole = "SCAN" | "TRADE" | "BOTH";
-export type BuffAccountStatus = "NORMAL" | "BANNED" | "MARKET_RESTRICTED" | "TRADE_RESTRICTED" | "INVALID" | "COOLING_DOWN" | "SCANNING";
+export type BuffAccountStatus =
+  | "NORMAL"
+  | "BANNED"
+  | "MARKET_RESTRICTED"
+  | "TRADE_RESTRICTED"
+  | "INVALID"
+  | "COOLING_DOWN"
+  | "SCANNING";
 
 export interface BuffAccount {
   id?: number;

@@ -1,4 +1,4 @@
-import request from '../utils/request';
+import request from "../utils/request";
 
 export interface LogItem {
   timestamp: string;
@@ -7,7 +7,7 @@ export interface LogItem {
   traceId?: string;
   service?: string;
   class?: string;
-  [key: string]: any;
+  [key: string]: unknown;
 }
 
 /**
@@ -16,6 +16,6 @@ export interface LogItem {
  */
 export function searchLogs(traceId: string) {
   return request.get<LogItem[]>(`/log/search`, {
-    params: { traceId }
+    params: { traceId },
   });
 }

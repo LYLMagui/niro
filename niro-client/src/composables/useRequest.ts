@@ -7,7 +7,7 @@ interface UseRequestOptions<T> {
   onError?: (error: unknown) => void;
 }
 
-export function useRequest<T = unknown, A extends any[] = any[]>(
+export function useRequest<T = unknown, A extends unknown[] = []>(
   apiFn: (...args: A) => Promise<T>,
   options: UseRequestOptions<T> = {}
 ) {
@@ -37,7 +37,8 @@ export function useRequest<T = unknown, A extends any[] = any[]>(
   };
 
   if (options.immediate) {
-    (run as any)();
+    const emptyArgs = [] as unknown as A;
+    run(...emptyArgs);
   }
 
   return { loading, data, error, run };

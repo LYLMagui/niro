@@ -1,10 +1,10 @@
 <template>
   <div class="p-6">
-    <div class="grid grid-cols-1 lg:grid-cols-[72%_1fr] gap-6 items-start">
+    <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[72%_1fr]">
       <!-- 左侧：Content (72%) -->
       <div class="min-w-0">
         <!-- 账号列表 -->
-        <t-card :bordered="false" class="shadow-sm embedded-card h-full">
+        <t-card :bordered="false" class="embedded-card h-full shadow-sm">
           <template #title>
             <div class="flex items-center">
               <t-icon name="user-setting" class="mr-2 text-blue-600" />
@@ -17,9 +17,9 @@
                 variant="outline"
                 theme="default"
                 size="small"
-                @click="onCheckAll"
                 :loading="checkingAll"
-                class="rounded transition-all duration-300 !text-gray-600 !border-gray-200"
+                class="rounded !border-gray-200 !text-gray-600 transition-all duration-300"
+                @click="onCheckAll"
               >
                 <template #icon><t-icon name="refresh" /></template>
                 一键检测
@@ -27,8 +27,8 @@
               <t-button
                 theme="primary"
                 size="small"
-                @click="onAddAccount"
                 class="rounded transition-all duration-300"
+                @click="onAddAccount"
               >
                 <template #icon><t-icon name="add" /></template>
                 新增账号
@@ -48,7 +48,10 @@
           >
             <!-- 空状态 (保持原样) -->
             <template #empty>
-              <t-empty icon="component-breadcrumb" description="暂无账号配置，请点击上方“新增账号”开始使用" />
+              <t-empty
+                icon="component-breadcrumb"
+                description="暂无账号配置，请点击上方“新增账号”开始使用"
+              />
             </template>
 
             <!-- 账号名称列增加图标标识 (保持原样) -->
@@ -69,14 +72,21 @@
 
             <!-- 角色标签美化 (保持原样) -->
             <template #role="{ row }">
-              <t-tag 
-                variant="outline" 
-                shape="round" 
+              <t-tag
+                variant="outline"
+                shape="round"
                 size="small"
-                :class="['px-2 font-bold compact-tag transition-all duration-300', getGhostTagClass(row.role)]"
+                :class="[
+                  'compact-tag px-2 font-bold transition-all duration-300',
+                  getGhostTagClass(row.role),
+                ]"
               >
                 <template #icon>
-                  <t-icon :name="row.role === 'SCAN' ? 'search' : row.role === 'TRADE' ? 'cart' : 'view-module'" />
+                  <t-icon
+                    :name="
+                      row.role === 'SCAN' ? 'search' : row.role === 'TRADE' ? 'cart' : 'view-module'
+                    "
+                  />
                 </template>
                 {{ getRoleLabel(row.role) }}
               </t-tag>
@@ -88,11 +98,20 @@
                 <t-loading size="small" text="检测中" inherit-color />
               </div>
               <div v-else class="flex items-center">
-                <span :class="['w-2 h-2 rounded-full inline-block relative', getStatusTheme(row.status), (row.status === 'SCANNING' || row.status === 'COOLING_DOWN') ? 'breathing' : '', row.status === 'NORMAL' ? 'status-dot-online' : '']"></span>
+                <span
+                  :class="[
+                    'relative inline-block h-2 w-2 rounded-full',
+                    getStatusTheme(row.status),
+                    row.status === 'SCANNING' || row.status === 'COOLING_DOWN' ? 'breathing' : '',
+                    row.status === 'NORMAL' ? 'status-dot-online' : '',
+                  ]"
+                ></span>
                 <div class="ml-2 flex flex-col">
                   <div class="flex items-center">
-                    <span :class="['text-[13px] font-semibold', getStatusTextColor(row.status)]">{{ getStatusLabel(row.status) }}</span>
-                    <t-tooltip :content="row.warningMsg" v-if="row.warningMsg">
+                    <span :class="['text-[13px] font-semibold', getStatusTextColor(row.status)]">
+                      {{ getStatusLabel(row.status) }}
+                    </span>
+                    <t-tooltip v-if="row.warningMsg" :content="row.warningMsg">
                       <t-icon name="error-circle" class="ml-1 text-red-500" />
                     </t-tooltip>
                   </div>
@@ -102,16 +121,16 @@
 
             <!-- 统计列美化 (保持原样) -->
             <template #stats="{ row }">
-              <div class="flex flex-col justify-center gap-1 py-1 h-full min-h-[44px]">
+              <div class="flex h-full min-h-[44px] flex-col justify-center gap-1 py-1">
                 <div class="flex items-center leading-tight">
-                  <span class="text-[12px] text-[#86909c] mr-2 shrink-0">扫描:</span>
-                  <span class="text-[13px] font-bold text-blue-600 font-numeric">
+                  <span class="mr-2 shrink-0 text-[12px] text-[#86909c]">扫描:</span>
+                  <span class="font-numeric text-[13px] font-bold text-blue-600">
                     {{ (row.todayScanCount || 0).toLocaleString() }}
                   </span>
                 </div>
                 <div class="flex items-center leading-tight">
-                  <span class="text-[12px] text-[#86909c] mr-2 shrink-0">成功:</span>
-                  <span class="text-[13px] font-bold text-green-600 font-numeric">
+                  <span class="mr-2 shrink-0 text-[12px] text-[#86909c]">成功:</span>
+                  <span class="font-numeric text-[13px] font-bold text-green-600">
                     {{ ((row.tradeSuccessRate || 0) * 100).toFixed(1) }}%
                   </span>
                 </div>
@@ -120,16 +139,25 @@
 
             <!-- 余额显示/隐藏 (保持原样) -->
             <template #balance="{ row }">
-                <div 
-                class="flex flex-col items-end justify-center cursor-pointer select-none group py-1"
+              <div
+                class="group flex cursor-pointer flex-col items-end justify-center py-1 select-none"
                 @click="balanceVisible = !balanceVisible"
               >
-                <div :class="['font-numeric font-bold text-sm transition-all duration-300', getBalanceClass(row), (row.balance || 0) > 1000 ? 'high-value-shadow' : '']">
-                  <span class="text-[10px] mr-0.5 opacity-60">¥</span>
+                <div
+                  :class="[
+                    'font-numeric text-sm font-bold transition-all duration-300',
+                    getBalanceClass(row),
+                    (row.balance || 0) > 1000 ? 'high-value-shadow' : '',
+                  ]"
+                >
+                  <span class="mr-0.5 text-[10px] opacity-60">¥</span>
                   <span v-if="balanceVisible">{{ row.balance?.toFixed(2) }}</span>
                   <span v-else>****</span>
                 </div>
-                <div v-if="row.pendingBalance > 0" class="text-[12px] text-orange-500 font-numeric leading-tight mt-1 antialiased font-medium">
+                <div
+                  v-if="row.pendingBalance > 0"
+                  class="font-numeric mt-1 text-[12px] leading-tight font-medium text-orange-500 antialiased"
+                >
                   <span v-if="balanceVisible">待结算: ¥{{ row.pendingBalance?.toFixed(2) }}</span>
                   <span v-else>****</span>
                 </div>
@@ -139,8 +167,12 @@
             <!-- 最后检测时间 (保持原样) -->
             <template #lastCheckTime="{ row }">
               <div class="flex items-center space-x-2">
-                <div class="text-[12px] text-[#86909c] font-numeric font-medium">
-                  {{ row.lastCheckTime ? row.lastCheckTime.replace('T', ' ').substring(5, 16) : '等待检测' }}
+                <div class="font-numeric text-[12px] font-medium text-[#86909c]">
+                  {{
+                    row.lastCheckTime
+                      ? row.lastCheckTime.replace("T", " ").substring(5, 16)
+                      : "等待检测"
+                  }}
                 </div>
               </div>
             </template>
@@ -149,25 +181,43 @@
             <template #operation="{ row }">
               <div class="flex items-center justify-center space-x-3">
                 <t-tooltip content="编辑">
-                  <t-link theme="default" @click="onEditAccount(row)" :disabled="row.checking" class="!text-gray-400 hover:!text-blue-600 transition-colors">
+                  <t-link
+                    theme="default"
+                    :disabled="row.checking"
+                    class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    @click="onEditAccount(row)"
+                  >
                     <t-icon name="edit" />
                   </t-link>
                 </t-tooltip>
                 <t-tooltip content="检测">
-                  <t-link theme="default" @click="onCheckAccount(row)" :disabled="row.checking" class="!text-gray-400 hover:!text-blue-600 transition-colors">
+                  <t-link
+                    theme="default"
+                    :disabled="row.checking"
+                    class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    @click="onCheckAccount(row)"
+                  >
                     <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
                   </t-link>
                 </t-tooltip>
-                <t-popconfirm 
-                  :content="row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '确定删除该账号吗？'" 
-                  @confirm="onDeleteAccount(row)"
+                <t-popconfirm
+                  :content="
+                    row.boundTaskId
+                      ? `账号已绑定任务【${row.boundTaskName}】，无法删除`
+                      : '确定删除该账号吗？'
+                  "
                   :disabled="!!row.boundTaskId"
+                  @confirm="onDeleteAccount(row)"
                 >
-                  <t-tooltip :content="row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '删除'">
-                    <t-link 
-                      theme="default" 
-                      :disabled="row.checking || !!row.boundTaskId" 
-                      class="!text-gray-400 hover:!text-red-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  <t-tooltip
+                    :content="
+                      row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '删除'
+                    "
+                  >
+                    <t-link
+                      theme="default"
+                      :disabled="row.checking || !!row.boundTaskId"
+                      class="!text-gray-400 transition-colors hover:!text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
                     >
                       <t-icon name="delete" />
                     </t-link>
@@ -180,41 +230,56 @@
       </div>
 
       <!-- 右侧：Aside 整体化 (30%) -->
-      <div class="lg:sticky lg:top-6 flex flex-col h-fit">
-        <t-card :bordered="false" class="shadow-sm overflow-hidden">
+      <div class="flex h-fit flex-col lg:sticky lg:top-6">
+        <t-card :bordered="false" class="overflow-hidden shadow-sm">
           <template #title>
             <div class="flex items-center">
               <t-icon name="setting" class="mr-2 text-gray-500" size="20px" />
               <span class="text-base font-bold text-gray-800">控制面板</span>
             </div>
           </template>
-          
-          <div class="px-4 py-2 space-y-6">
+
+          <div class="space-y-6 px-4 py-2">
             <!-- 统计板块 -->
             <section>
-              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+              <div
+                class="mb-3 flex items-center text-[13px] font-bold tracking-wider text-gray-700 uppercase"
+              >
                 <span class="mr-2">实时统计</span>
-                <div class="h-[1px] bg-gray-100 flex-1"></div>
+                <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
               <div class="grid grid-cols-2 gap-3">
-                <div class="bg-blue-50/50 border border-blue-100 rounded-lg p-3 transition-all hover:bg-blue-50">
-                  <div class="text-[12px] text-[#86909c] mb-1">活跃账号</div>
+                <div
+                  class="rounded-lg border border-blue-100 bg-blue-50/50 p-3 transition-all hover:bg-blue-50"
+                >
+                  <div class="mb-1 text-[12px] text-[#86909c]">活跃账号</div>
                   <div class="flex items-baseline gap-1">
-                    <span class="text-xl font-bold text-[#0052d9] font-numeric">{{ accounts.filter(a => a.status === 'NORMAL').length }}</span>
+                    <span class="font-numeric text-xl font-bold text-[#0052d9]">
+                      {{ accounts.filter((a) => a.status === "NORMAL").length }}
+                    </span>
                     <span class="text-[11px] text-[#86909c]">/ {{ accounts.length }}</span>
                   </div>
                 </div>
-                <div class="bg-orange-50/50 border border-orange-100 rounded-lg p-3 transition-all hover:bg-orange-50">
-                  <div class="text-[12px] text-[#86909c] mb-1 flex justify-between items-center">
+                <div
+                  class="rounded-lg border border-orange-100 bg-orange-50/50 p-3 transition-all hover:bg-orange-50"
+                >
+                  <div class="mb-1 flex items-center justify-between text-[12px] text-[#86909c]">
                     <span>总资产</span>
-                    <t-tooltip v-if="totalPendingBalance > 0" :content="`可用: ¥${totalBalance.toFixed(2)} | 待结: ¥${totalPendingBalance.toFixed(2)}`">
-                      <span class="text-[12px] text-orange-500 cursor-help antialiased font-medium">待结: ¥{{ balanceVisible ? totalPendingBalance.toFixed(2) : '***' }}</span>
+                    <t-tooltip
+                      v-if="totalPendingBalance > 0"
+                      :content="`可用: ¥${totalBalance.toFixed(2)} | 待结: ¥${totalPendingBalance.toFixed(2)}`"
+                    >
+                      <span class="cursor-help text-[12px] font-medium text-orange-500 antialiased">
+                        待结: ¥{{ balanceVisible ? totalPendingBalance.toFixed(2) : "***" }}
+                      </span>
                     </t-tooltip>
                   </div>
                   <div class="flex items-baseline gap-0.5">
-                    <span v-if="balanceVisible" class="text-[12px] font-bold text-[#d97706]">¥</span>
-                    <span class="text-xl font-bold text-[#d97706] font-numeric">
-                      {{ balanceVisible ? totalAssets.toFixed(2) : '****' }}
+                    <span v-if="balanceVisible" class="text-[12px] font-bold text-[#d97706]">
+                      ¥
+                    </span>
+                    <span class="font-numeric text-xl font-bold text-[#d97706]">
+                      {{ balanceVisible ? totalAssets.toFixed(2) : "****" }}
                     </span>
                   </div>
                 </div>
@@ -223,22 +288,29 @@
 
             <!-- 交易配置 -->
             <section>
-              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+              <div
+                class="mb-3 flex items-center text-[13px] font-bold tracking-wider text-gray-700 uppercase"
+              >
                 <span class="mr-2">交易配置</span>
-                <div class="h-[1px] bg-gray-100 flex-1"></div>
+                <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
               <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
                 <t-form-item label="默认支付方式" name="paymentMethod">
                   <template #label>
                     <span class="text-[#86909c]">默认支付方式</span>
                   </template>
-                  <t-radio-group v-model="formData.paymentMethod" variant="default-filled" size="small" class="w-full">
+                  <t-radio-group
+                    v-model="formData.paymentMethod"
+                    variant="default-filled"
+                    size="small"
+                    class="w-full"
+                  >
                     <t-radio-button value="BALANCE">余额</t-radio-button>
                     <t-radio-button value="ALIPAY">支付宝</t-radio-button>
                     <t-radio-button value="WECHAT">微信</t-radio-button>
                   </t-radio-group>
                 </t-form-item>
-                
+
                 <div class="mt-4 flex items-center justify-between">
                   <span class="text-[13px] text-[#86909c]">企业微信通知</span>
                   <t-switch v-model="wecomEnabled" size="small" />
@@ -248,9 +320,11 @@
 
             <!-- 参数详情 (折叠) -->
             <section v-if="wecomEnabled">
-              <div class="text-[13px] font-bold text-gray-700 uppercase tracking-wider mb-3 flex items-center">
+              <div
+                class="mb-3 flex items-center text-[13px] font-bold tracking-wider text-gray-700 uppercase"
+              >
                 <span class="mr-2">通知参数</span>
-                <div class="h-[1px] bg-gray-100 flex-1"></div>
+                <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
               <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
                 <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
@@ -261,20 +335,37 @@
                     <div class="space-y-3 pt-2">
                       <t-form-item label="CorpID" name="wecomCorpid">
                         <template #label><span class="text-[#86909c]">CorpID</span></template>
-                        <t-input v-model="formData.wecomCorpid" placeholder="ww..." @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpid')" />
+                        <t-input
+                          v-model="formData.wecomCorpid"
+                          placeholder="ww..."
+                          @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpid')"
+                        />
                       </t-form-item>
                       <t-form-item label="CorpSecret" name="wecomCorpsecret">
                         <template #label><span class="text-[#86909c]">CorpSecret</span></template>
-                        <t-input v-model="formData.wecomCorpsecret" type="password" placeholder="******" @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpsecret')" />
+                        <t-input
+                          v-model="formData.wecomCorpsecret"
+                          type="password"
+                          placeholder="******"
+                          @blur="(v: any) => handleInputTrim(v, formData, 'wecomCorpsecret')"
+                        />
                       </t-form-item>
                       <div class="grid grid-cols-2 gap-3">
                         <t-form-item label="AgentID" name="wecomAgentid">
                           <template #label><span class="text-[#86909c]">AgentID</span></template>
-                          <t-input v-model="formData.wecomAgentid" placeholder="1000..." @blur="(v: any) => handleInputTrim(v, formData, 'wecomAgentid')" />
+                          <t-input
+                            v-model="formData.wecomAgentid"
+                            placeholder="1000..."
+                            @blur="(v: any) => handleInputTrim(v, formData, 'wecomAgentid')"
+                          />
                         </t-form-item>
                         <t-form-item label="接收人" name="wecomTouser">
                           <template #label><span class="text-[#86909c]">接收人</span></template>
-                          <t-input v-model="formData.wecomTouser" placeholder="@all" @blur="(v: any) => handleInputTrim(v, formData, 'wecomTouser')" />
+                          <t-input
+                            v-model="formData.wecomTouser"
+                            placeholder="@all"
+                            @blur="(v: any) => handleInputTrim(v, formData, 'wecomTouser')"
+                          />
                         </t-form-item>
                       </div>
                     </div>
@@ -285,17 +376,17 @@
           </div>
 
           <!-- 底部固定保存按钮 -->
-          <div class="p-4 bg-white border-t border-gray-50 mt-4 relative">
+          <div class="relative mt-4 border-t border-gray-50 bg-white p-4">
             <!-- 测试通知按钮 -->
-            <div class="absolute right-4 top-[-28px]">
+            <div class="absolute top-[-28px] right-4">
               <t-button
                 v-if="wecomEnabled"
                 variant="text"
                 theme="primary"
                 size="small"
                 :loading="testNotifyLoading"
-                @click="onTestNotify"
                 class="!px-2"
+                @click="onTestNotify"
               >
                 <template #icon><t-icon name="chat" /></template>
                 发送测试消息
@@ -307,7 +398,7 @@
               block
               :loading="loading"
               size="small"
-              class="rounded shadow-sm h-9"
+              class="h-9 rounded shadow-sm"
               @click="onSubmit({ validateResult: true } as any)"
             >
               保存全局配置
@@ -328,12 +419,16 @@
         :data="accountFormData"
         :rules="accountRules"
         label-align="top"
-        @submit="onAccountSubmit"
         class="overflow-x-hidden p-1"
+        @submit="onAccountSubmit"
       >
         <div class="flex gap-6">
-          <t-form-item label="账号名称" name="accountName" class="flex-[1.5] min-w-0">
-            <t-input v-model="accountFormData.accountName" placeholder="如：扫描账号01" @blur="(v: any) => handleInputTrim(v, accountFormData, 'accountName')" />
+          <t-form-item label="账号名称" name="accountName" class="min-w-0 flex-[1.5]">
+            <t-input
+              v-model="accountFormData.accountName"
+              placeholder="如：扫描账号01"
+              @blur="(v: any) => handleInputTrim(v, accountFormData, 'accountName')"
+            />
           </t-form-item>
           <t-form-item label="权重 (1-10)" name="weight" class="w-[140px] shrink-0">
             <t-input-number
@@ -351,8 +446,8 @@
             v-model="accountFormData.buffCookie"
             placeholder="请粘贴 Cookie 字符串..."
             :autosize="{ minRows: 3, maxRows: 5 }"
-            @blur="(v: any) => handleInputTrim(v, accountFormData, 'buffCookie')"
             class="custom-textarea"
+            @blur="(v: any) => handleInputTrim(v, accountFormData, 'buffCookie')"
           />
         </t-form-item>
 
@@ -365,14 +460,18 @@
         </t-form-item>
 
         <t-form-item label="备注" name="remark">
-          <t-input v-model="accountFormData.remark" placeholder="可选备注信息" @blur="(v: any) => handleInputTrim(v, accountFormData, 'remark')" />
+          <t-input
+            v-model="accountFormData.remark"
+            placeholder="可选备注信息"
+            @blur="(v: any) => handleInputTrim(v, accountFormData, 'remark')"
+          />
         </t-form-item>
 
         <div class="mt-8 flex justify-end gap-3">
           <t-button
             variant="outline"
-            @click="accountDialogVisible = false"
             class="rounded-md transition-all duration-300"
+            @click="accountDialogVisible = false"
           >
             取消
           </t-button>
@@ -380,7 +479,7 @@
             theme="primary"
             type="submit"
             :loading="accountSubmitLoading"
-            class="rounded-md transition-all duration-300 px-8"
+            class="rounded-md px-8 transition-all duration-300"
           >
             确定
           </t-button>
@@ -391,8 +490,20 @@
 </template>
 
 <script setup lang="ts">
-import { settingsApi, UserBuffSettings, BuffAccount, BuffAccountRole, BuffAccountStatus } from "@/api/settings";
-import { FormRule, MessagePlugin, SubmitContext, PrimaryTableCol, TableRowData } from "tdesign-vue-next";
+import {
+  settingsApi,
+  UserBuffSettings,
+  BuffAccount,
+  BuffAccountRole,
+  BuffAccountStatus,
+} from "@/api/settings";
+import {
+  FormRule,
+  MessagePlugin,
+  SubmitContext,
+  PrimaryTableCol,
+  TableRowData,
+} from "tdesign-vue-next";
 import { computed, onMounted, reactive, ref } from "vue";
 
 // --- 通用配置部分 ---
@@ -405,8 +516,8 @@ const balanceVisible = ref(true);
  * 自动清除换行符和首尾空格
  */
 const handleInputTrim = (val: any, target: any, key: string) => {
-  if (typeof val === 'string') {
-    target[key] = val.replace(/[\r\n]/g, '').trim();
+  if (typeof val === "string") {
+    target[key] = val.replace(/[\r\n]/g, "").trim();
   }
 };
 
@@ -463,7 +574,9 @@ const accountSubmitLoading = ref(false);
 const accountFormRef = ref();
 
 const totalBalance = computed(() => accounts.value.reduce((sum, a) => sum + (a.balance || 0), 0));
-const totalPendingBalance = computed(() => accounts.value.reduce((sum, a) => sum + (a.pendingBalance || 0), 0));
+const totalPendingBalance = computed(() =>
+  accounts.value.reduce((sum, a) => sum + (a.pendingBalance || 0), 0)
+);
 const totalAssets = computed(() => totalBalance.value + totalPendingBalance.value);
 
 const accountFormData = reactive<BuffAccount>({
@@ -484,14 +597,28 @@ const accountRules: Record<string, FormRule[]> = {
 };
 
 const accountColumns: PrimaryTableCol<TableRowData>[] = [
-  { colKey: "accountName", title: "账号", width: 140, ellipsis: true, cell: "accountName", align: "left" },
+  {
+    colKey: "accountName",
+    title: "账号",
+    width: 140,
+    ellipsis: true,
+    cell: "accountName",
+    align: "left",
+  },
   { colKey: "remark", title: "备注", width: 120, ellipsis: true, cell: "remark", align: "left" },
   { colKey: "role", title: "角色", width: 100, cell: "role", align: "left" },
   { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
   { colKey: "stats", title: "实时统计", width: 150, cell: "stats", align: "left" },
   { colKey: "balance", title: "余额", width: 110, cell: "balance", align: "right" },
   { colKey: "lastCheckTime", title: "最后检测", width: 140, cell: "lastCheckTime", align: "left" },
-  { colKey: "operation", title: "操作", width: 130, fixed: "right", cell: "operation", align: "center" },
+  {
+    colKey: "operation",
+    title: "操作",
+    width: 130,
+    fixed: "right",
+    cell: "operation",
+    align: "center",
+  },
 ];
 
 const fetchAccounts = async () => {
@@ -570,7 +697,7 @@ const onCheckAll = async () => {
   if (accounts.value.length === 0) return;
   checkingAll.value = true;
   // 给所有账号设置检测状态
-  accounts.value.forEach(a => a.checking = true);
+  accounts.value.forEach((a) => (a.checking = true));
   try {
     await settingsApi.checkAllBuffAccounts();
     MessagePlugin.success("全局账号检测完成");
@@ -656,28 +783,37 @@ onMounted(async () => {
 <style scoped>
 /* 状态呼吸灯动画 (Tailwind 无法直接实现 keyframes 扩展动画) */
 .breathing::after {
-  content: "";
   position: absolute;
-  width: 100%;
-  height: 100%;
   top: 0;
   left: 0;
-  border-radius: 50%;
+  width: 100%;
+  height: 100%;
+  content: "";
   background-color: inherit;
-  animation: breathe 2s infinite ease-in-out;
+  border-radius: 50%;
   opacity: 0.6;
+  animation: breathe 2s infinite ease-in-out;
 }
 
 @keyframes breathe {
-  0% { transform: scale(1); opacity: 0.6; }
-  50% { transform: scale(2.5); opacity: 0; }
-  100% { transform: scale(1); opacity: 0.6; }
+  0% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0;
+    transform: scale(2.5);
+  }
+  100% {
+    opacity: 0.6;
+    transform: scale(1);
+  }
 }
 
 /* 弹窗样式优化 */
 :deep(.t-dialog__body) {
-  overflow-x: hidden;
   padding: 16px 24px !important;
+  overflow-x: hidden;
 }
 
 :deep(.custom-textarea) {
@@ -688,8 +824,8 @@ onMounted(async () => {
 }
 
 :deep(.custom-textarea:focus) {
+  background-color: #fff !important;
   border-color: #0052d9 !important;
   box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1);
-  background-color: #fff !important;
 }
 </style>

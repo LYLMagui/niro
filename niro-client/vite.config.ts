@@ -22,7 +22,7 @@ export default defineConfig(({ mode }) => {
    * prefix：接受的环境变量前缀，默认为 VITE_
    */
   const env = loadEnv(mode, process.cwd());
-  
+
   return {
     base: env.VITE_BASE || "/",
     server: {
@@ -52,22 +52,17 @@ export default defineConfig(({ mode }) => {
         "lodash-es",
         "tdesign-vue-next",
         "tdesign-icons-vue-next",
-      "@vueuse/core",
-      "qs",
-    ],
-  },
-  plugins: [
-    vue(),
-    vueDevTools(),
-    // 自动导入插件
+        "@vueuse/core",
+        "qs",
+      ],
+    },
+    plugins: [
+      vue(),
+      vueDevTools(),
+      // 自动导入插件
       AutoImport({
         // 需要自动导入的模块
-        imports: [
-          "vue", 
-          "@vueuse/core", 
-          "vue-router", 
-          "pinia",
-        ],
+        imports: ["vue", "@vueuse/core", "vue-router", "pinia"],
         eslintrc: {
           // 是否自动生成 eslint 规则，第一次为true，生成之后设置为false防止重复生成
           enabled: true,
@@ -78,9 +73,7 @@ export default defineConfig(({ mode }) => {
         vueTemplate: true,
         // 指定自动导入函数TS类型声明文件路径
         dts: "src/types/auto-imports.d.ts",
-        resolvers: [
-          TDesignResolver({ library: "vue-next" }),
-        ],
+        resolvers: [TDesignResolver({ library: "vue-next" })],
       }),
       // 按需自动导入组件
       Components({

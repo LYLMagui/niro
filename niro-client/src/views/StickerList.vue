@@ -1,6 +1,6 @@
 <template>
   <div class="sticker-list-container p-6">
-    <t-card :bordered="false" class="shadow-sm embedded-card">
+    <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
           <t-icon name="view-module" class="mr-2 text-blue-600" />
@@ -10,10 +10,15 @@
       </template>
 
       <!-- 搜索栏 -->
-      <div class="p-6 border-b border-gray-100">
+      <div class="border-b border-gray-100 p-6">
         <t-form :data="queryParams" layout="inline" @submit="handleSearch">
           <t-form-item label="搜索名称" name="keyword">
-            <t-input v-model="queryParams.keyword" placeholder="输入印花名称关键词" clearable @blur="(v: any) => handleInputTrim(v, queryParams, 'keyword')" />
+            <t-input
+              v-model="queryParams.keyword"
+              placeholder="输入印花名称关键词"
+              clearable
+              @blur="(v: any) => handleInputTrim(v, queryParams, 'keyword')"
+            />
           </t-form-item>
           <t-form-item>
             <div class="flex gap-4">
@@ -28,8 +33,8 @@
               <t-button
                 variant="outline"
                 size="medium"
-                @click="handleReset"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                @click="handleReset"
               >
                 重置
               </t-button>
@@ -55,14 +60,14 @@
         </template>
         <template #imageUrl="{ row }">
           <div
-            class="flex cursor-pointer items-center justify-center border border-gray-200 bg-white mx-auto"
+            class="mx-auto flex cursor-pointer items-center justify-center border border-gray-200 bg-white"
             style="width: 110px; height: 110px"
             @click="onPreview(row.imageUrl)"
           >
-            <t-image 
-              :src="row.imageUrl" 
-              fit="contain" 
-              :style="{ width: '100px', height: '100px' }" 
+            <t-image
+              :src="row.imageUrl"
+              fit="contain"
+              :style="{ width: '100px', height: '100px' }"
             />
           </div>
         </template>
@@ -92,10 +97,10 @@
  * 创建时间: 2026-01-08
  * 功能简述: 印花价值列表展示与同步管理
  */
-import { stickerApi } from '@/api/sticker';
-import { DEFAULT_PAGE_SIZE } from '@/utils/constants';
-import { onMounted, reactive, ref } from 'vue';
-import { type PrimaryTableCol } from 'tdesign-vue-next';
+import { stickerApi } from "@/api/sticker";
+import { DEFAULT_PAGE_SIZE } from "@/utils/constants";
+import { onMounted, reactive, ref } from "vue";
+import { type PrimaryTableCol } from "tdesign-vue-next";
 
 const loading = ref(false);
 const dataList = ref<any[]>([]);
@@ -104,8 +109,8 @@ const dataList = ref<any[]>([]);
  * 自动清除换行符和首尾空格
  */
 const handleInputTrim = (val: any, target: any, key: string) => {
-  if (typeof val === 'string') {
-    target[key] = val.replace(/[\r\n]/g, '').trim();
+  if (typeof val === "string") {
+    target[key] = val.replace(/[\r\n]/g, "").trim();
   }
 };
 
@@ -120,7 +125,7 @@ const onPreview = (url: string) => {
 };
 
 const queryParams = reactive({
-  keyword: '',
+  keyword: "",
   page: 1,
   pageSize: DEFAULT_PAGE_SIZE,
 });
@@ -133,11 +138,11 @@ const pagination = reactive({
 });
 
 const columns: PrimaryTableCol<any>[] = [
-  { colKey: 'imageUrl', title: '图标', width: 140, align: 'center' },
-  { colKey: 'name', title: '印花名称', ellipsis: true, minWidth: 200, align: 'left' },
-  { colKey: 'price', title: '当前价格', width: 120, align: 'right' },
-  { colKey: 'sellNum', title: '在售数量', width: 100, align: 'right' },
-  { colKey: 'updateTime', title: '最后更新', width: 180, align: 'left' },
+  { colKey: "imageUrl", title: "图标", width: 140, align: "center" },
+  { colKey: "name", title: "印花名称", ellipsis: true, minWidth: 200, align: "left" },
+  { colKey: "price", title: "当前价格", width: 120, align: "right" },
+  { colKey: "sellNum", title: "在售数量", width: 100, align: "right" },
+  { colKey: "updateTime", title: "最后更新", width: 180, align: "left" },
 ];
 
 // 获取列表数据
@@ -152,7 +157,7 @@ const fetchData = async () => {
     dataList.value = (res as any).records;
     pagination.total = (res as any).total;
   } catch (error) {
-    console.error('获取印花列表失败:', error);
+    console.error("获取印花列表失败:", error);
   } finally {
     loading.value = false;
   }
@@ -176,21 +181,20 @@ const handleSearch = () => {
 
 // 重置
 const handleReset = () => {
-  queryParams.keyword = '';
+  queryParams.keyword = "";
   handleSearch();
 };
 
-
 // 格式化时间
 const formatTime = (time: string) => {
-  if (!time) return '-';
+  if (!time) return "-";
   const date = new Date(time);
   const y = date.getFullYear();
-  const m = String(date.getMonth() + 1).padStart(2, '0');
-  const d = String(date.getDate()).padStart(2, '0');
-  const h = String(date.getHours()).padStart(2, '0');
-  const min = String(date.getMinutes()).padStart(2, '0');
-  const s = String(date.getSeconds()).padStart(2, '0');
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  const h = String(date.getHours()).padStart(2, "0");
+  const min = String(date.getMinutes()).padStart(2, "0");
+  const s = String(date.getSeconds()).padStart(2, "0");
   return `${y}-${m}-${d} ${h}:${min}:${s}`;
 };
 

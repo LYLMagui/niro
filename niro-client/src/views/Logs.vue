@@ -1,32 +1,34 @@
 <template>
-  <div class="flex h-full flex-col p-6 overflow-hidden">
-    <t-card :bordered="false" class="shadow-sm embedded-card flex flex-col flex-1 overflow-hidden">
+  <div class="flex h-full flex-col overflow-hidden p-6">
+    <t-card :bordered="false" class="embedded-card flex flex-1 flex-col overflow-hidden shadow-sm">
       <template #title>
         <div class="flex items-center">
           <view-list-icon class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">全链路日志</span>
           <div class="ml-4 flex items-center space-x-1.5">
-            <div 
-              class="h-2 w-2 rounded-full" 
+            <div
+              class="h-2 w-2 rounded-full"
               :class="[
                 isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400',
-                isConnected ? 'animate-pulse' : ''
+                isConnected ? 'animate-pulse' : '',
               ]"
             ></div>
-            <span class="text-xs text-gray-500">{{ isConnected ? '实时监听中' : '连接已断开' }}</span>
+            <span class="text-xs text-gray-500">
+              {{ isConnected ? "实时监听中" : "连接已断开" }}
+            </span>
           </div>
         </div>
       </template>
 
       <!-- 搜索栏/工具栏 -->
-      <div class="p-6 border-b border-gray-100">
+      <div class="border-b border-gray-100 p-6">
         <t-row :gutter="16">
           <t-col :span="4">
-            <t-tag-input 
-              v-model="filterKeywords" 
+            <t-tag-input
+              v-model="filterKeywords"
               v-model:inputValue="filterInput"
-              placeholder="搜索账号、TraceId、关键词..." 
-              clearable 
+              placeholder="搜索账号、TraceId、关键词..."
+              clearable
               class="w-full"
             >
               <template #prefixIcon><search-icon class="text-gray-400" /></template>
@@ -40,8 +42,10 @@
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="toggleConnection"
               >
-                <template #icon><refresh-icon :class="{ 'animate-spin': isConnecting }" /></template>
-                {{ isConnected ? '断开' : '连接' }}
+                <template #icon>
+                  <refresh-icon :class="{ 'animate-spin': isConnecting }" />
+                </template>
+                {{ isConnected ? "断开" : "连接" }}
               </t-button>
               <t-button
                 theme="default"
@@ -56,35 +60,43 @@
             </div>
           </t-col>
           <t-col :span="5">
-            <div class="flex justify-end items-center gap-3 w-full h-full">
-              <div class="mr-4 hidden flex-col items-end text-[10px] leading-tight text-gray-400 lg:flex">
+            <div class="flex h-full w-full items-center justify-end gap-3">
+              <div
+                class="mr-4 hidden flex-col items-end text-[10px] leading-tight text-gray-400 lg:flex"
+              >
                 <div class="flex items-center">
                   <span>显示: {{ filteredLogs.length }}/{{ displayLogs.length }}</span>
-                  <div v-if="isConnected" class="ml-1.5 h-1 w-1 rounded-full bg-green-500 animate-ping"></div>
+                  <div
+                    v-if="isConnected"
+                    class="ml-1.5 h-1 w-1 animate-ping rounded-full bg-green-500"
+                  ></div>
                 </div>
                 <span class="opacity-70">Buffer: 500 lines</span>
               </div>
 
-              <t-button 
-                size="medium" 
-                variant="outline" 
-                @click="onlyErrors = !onlyErrors" 
+              <t-button
+                size="medium"
+                variant="outline"
                 :theme="onlyErrors ? 'danger' : 'default'"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+                @click="onlyErrors = !onlyErrors"
               >
-                <template #icon><info-circle-icon v-if="onlyErrors" /><help-circle-icon v-else /></template>
+                <template #icon>
+                  <info-circle-icon v-if="onlyErrors" />
+                  <help-circle-icon v-else />
+                </template>
                 仅看错误
               </t-button>
-              
-              <t-button 
-                size="medium" 
-                variant="base" 
-                class="hidden xl:inline-flex rounded-lg transition-all duration-300 hover:shadow active:shadow-none" 
-                @click="showErrorWindow = !showErrorWindow" 
+
+              <t-button
+                size="medium"
+                variant="base"
+                class="hidden rounded-lg transition-all duration-300 hover:shadow active:shadow-none xl:inline-flex"
                 :theme="showErrorWindow ? 'primary' : 'default'"
+                @click="showErrorWindow = !showErrorWindow"
               >
                 <template #icon><view-module-icon /></template>
-                {{ showErrorWindow ? '关闭分屏' : '开启分屏' }}
+                {{ showErrorWindow ? "关闭分屏" : "开启分屏" }}
               </t-button>
             </div>
           </t-col>
@@ -92,63 +104,86 @@
       </div>
 
       <!-- 主体内容：分屏模式支持 -->
-      <div class="relative flex flex-1 min-h-0 gap-2 overflow-hidden bg-white">
+      <div class="relative flex min-h-0 flex-1 gap-2 overflow-hidden bg-white">
         <!-- 左侧/主体：终端日志窗口 -->
-        <div class="flex flex-1 flex-col min-h-0 overflow-hidden bg-gray-900">
+        <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-900">
           <div
             ref="logContainerRef"
-            class="terminal-container flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-3 font-mono text-[13px] leading-relaxed"
+            class="terminal-container min-h-0 flex-1 overflow-x-hidden overflow-y-auto p-3 font-mono text-[13px] leading-relaxed"
           >
-            <div v-if="displayLogs.length === 0" class="flex h-full flex-col items-center justify-center text-gray-600">
-              <div class="mb-2 h-12 w-12 rounded-full bg-gray-800 flex items-center justify-center">
+            <div
+              v-if="displayLogs.length === 0"
+              class="flex h-full flex-col items-center justify-center text-gray-600"
+            >
+              <div class="mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-gray-800">
                 <terminal-icon size="24" />
               </div>
               <p>等待实时日志流接入...</p>
             </div>
-            
+
             <div
               v-for="(log, index) in filteredLogs"
               :key="index"
               class="log-line group relative border-l-2 border-transparent py-0.5 pl-3 transition-all hover:bg-white/5"
               :class="{
-                'border-blue-500 bg-blue-500/5': log.traceId && Array.isArray(filterKeywords) && filterKeywords.includes(log.traceId),
+                'border-blue-500 bg-blue-500/5':
+                  log.traceId &&
+                  Array.isArray(filterKeywords) &&
+                  filterKeywords.includes(log.traceId),
                 'border-green-500 bg-green-500/5': isSuccessLog(log.message),
-                'border-amber-500 bg-amber-500/5 discovery-outline': log._isDiscovery
+                'discovery-outline border-amber-500 bg-amber-500/5': log._isDiscovery,
               }"
             >
               <!-- 时间戳 -->
-              <span class="mr-3 select-none text-gray-600">{{ formatTime(log.timestamp) }}</span>
-              
+              <span class="mr-3 text-gray-600 select-none">{{ formatTime(log.timestamp) }}</span>
+
               <!-- 日志级别 -->
-              <span :class="getLevelClass(log.level)" class="inline-block w-12 font-bold select-none uppercase">
+              <span
+                :class="getLevelClass(log.level)"
+                class="inline-block w-12 font-bold uppercase select-none"
+              >
                 {{ log.level }}
               </span>
-              
+
               <!-- 内容解析渲染 -->
               <span :class="getMessageClass(log)" class="break-all whitespace-pre-wrap">
                 <template v-for="(part, i) in formatMessage(log.message)" :key="i">
-                  <span 
-                    v-if="part.highlight" 
+                  <span
+                    v-if="part.highlight"
                     class="cursor-pointer px-1 py-0.5 transition-colors"
                     :class="{
-                       'mx-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30': part.type === 'account',
-                       'mx-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30': part.type === 'traceId',
-                       'mx-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30': part.type === 'ip',
-                       'bg-yellow-500/20 text-yellow-500': part.type === 'keyword'
-                     }"
-                     @click="['account', 'traceId', 'ip'].includes(part.type || '') ? filterByKeyword(part.text) : null"
+                      'mx-0.5 rounded bg-blue-500/20 text-blue-400 hover:bg-blue-500/30':
+                        part.type === 'account',
+                      'mx-0.5 rounded bg-purple-500/20 text-purple-400 hover:bg-purple-500/30':
+                        part.type === 'traceId',
+                      'mx-0.5 rounded bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30':
+                        part.type === 'ip',
+                      'bg-yellow-500/20 text-yellow-500': part.type === 'keyword',
+                    }"
+                    @click="
+                      ['account', 'traceId', 'ip'].includes(part.type || '')
+                        ? filterByKeyword(part.text)
+                        : null
+                    "
                   >
                     {{ part.text }}
                   </span>
-                  <span v-else :class="log._isDiscovery ? 'text-amber-400 font-bold not-italic' : 'text-gray-300'">{{ part.text }}</span>
+                  <span
+                    v-else
+                    :class="
+                      log._isDiscovery ? 'font-bold text-amber-400 not-italic' : 'text-gray-300'
+                    "
+                  >
+                    {{ part.text }}
+                  </span>
                 </template>
               </span>
-              
+
               <!-- 右侧悬浮 TraceID -->
-              <div class="absolute right-2 top-0 hidden h-full items-center group-hover:flex">
-                <t-tag 
-                  v-if="log.traceId" 
-                  size="extra-small" 
+              <div class="absolute top-0 right-2 hidden h-full items-center group-hover:flex">
+                <t-tag
+                  v-if="log.traceId"
+                  size="small"
                   variant="dark"
                   class="cursor-pointer bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white"
                   @click="filterByKeyword(log.traceId)"
@@ -167,48 +202,64 @@
             class="hidden w-80 flex-col overflow-hidden border-l border-gray-800 bg-gray-900 xl:flex"
           >
             <!-- 今日发现次数看板 -->
-            <div class="bg-blue-900/10 px-4 py-4 border-b border-blue-900/30">
-              <div class="flex items-center justify-between mb-3">
-                <span class="text-xs font-bold text-blue-400 flex items-center uppercase tracking-wider">
-                  <t-icon name="search" class="mr-2" /> 今日发现机会
+            <div class="border-b border-blue-900/30 bg-blue-900/10 px-4 py-4">
+              <div class="mb-3 flex items-center justify-between">
+                <span
+                  class="flex items-center text-xs font-bold tracking-wider text-blue-400 uppercase"
+                >
+                  <t-icon name="search" class="mr-2" />
+                  今日发现机会
                 </span>
                 <div class="flex items-baseline gap-1">
-                  <span class="text-2xl font-black text-blue-400 font-mono">{{ discoveryCount }}</span>
+                  <span class="font-mono text-2xl font-black text-blue-400">
+                    {{ discoveryCount }}
+                  </span>
                   <span class="text-[10px] text-blue-500/60 uppercase">hits</span>
                 </div>
               </div>
-              <div class="rounded bg-blue-500/5 p-2 border border-blue-500/10">
-                <div class="text-[11px] text-blue-300/70 leading-relaxed flex items-start gap-1.5">
+              <div class="rounded border border-blue-500/10 bg-blue-500/5 p-2">
+                <div class="flex items-start gap-1.5 text-[11px] leading-relaxed text-blue-300/70">
                   <t-icon name="info-circle" size="14px" class="mt-0.5 flex-shrink-0" />
-                  <span>符合筛选条件但由于未配置下单账号，系统仅作实时提醒，请根据日志 TraceId 快速定位商品。</span>
+                  <span>
+                    符合筛选条件但由于未配置下单账号，系统仅作实时提醒，请根据日志 TraceId
+                    快速定位商品。
+                  </span>
                 </div>
               </div>
             </div>
 
             <!-- 实时异常监控 -->
-            <div class="flex flex-col flex-1 overflow-hidden">
-              <div class="flex items-center justify-between bg-red-900/20 px-3 py-2 border-b border-red-900/30">
-                <span class="text-xs font-bold text-red-400 flex items-center uppercase tracking-wider">
-                  <error-circle-filled-icon class="mr-1.5" /> 实时异常监控
+            <div class="flex flex-1 flex-col overflow-hidden">
+              <div
+                class="flex items-center justify-between border-b border-red-900/30 bg-red-900/20 px-3 py-2"
+              >
+                <span
+                  class="flex items-center text-xs font-bold tracking-wider text-red-400 uppercase"
+                >
+                  <error-circle-filled-icon class="mr-1.5" />
+                  实时异常监控
                 </span>
-                <t-tag size="extra-small" theme="danger" variant="dark">{{ errorLogs.length }}</t-tag>
+                <t-tag size="small" theme="danger" variant="dark">{{ errorLogs.length }}</t-tag>
               </div>
               <div class="flex-1 overflow-auto p-2">
-                <div v-if="errorLogs.length === 0" class="h-full flex flex-col items-center justify-center text-gray-600 opacity-50">
-                   <t-icon name="check-circle" size="48px" class="mb-2" />
-                   <span class="text-xs">暂无运行异常</span>
+                <div
+                  v-if="errorLogs.length === 0"
+                  class="flex h-full flex-col items-center justify-center text-gray-600 opacity-50"
+                >
+                  <t-icon name="check-circle" size="48px" class="mb-2" />
+                  <span class="text-xs">暂无运行异常</span>
                 </div>
-                <div 
-                  v-for="(log, idx) in errorLogs.slice(-20)" 
-                  :key="idx" 
-                  class="mb-2 rounded bg-red-500/5 p-2 text-[11px] border border-red-500/10 hover:bg-red-500/10 cursor-pointer transition-colors"
+                <div
+                  v-for="(log, idx) in errorLogs.slice(-20)"
+                  :key="idx"
+                  class="mb-2 cursor-pointer rounded border border-red-500/10 bg-red-500/5 p-2 text-[11px] transition-colors hover:bg-red-500/10"
                   @click="filterByKeyword(log.traceId || log.message)"
                 >
-                  <div class="mb-1 flex justify-between text-gray-500 font-mono">
+                  <div class="mb-1 flex justify-between font-mono text-gray-500">
                     <span>{{ formatTime(log.timestamp) }}</span>
-                    <span class="text-red-400 font-bold">{{ log._account || 'SYSTEM' }}</span>
+                    <span class="font-bold text-red-400">{{ log._account || "SYSTEM" }}</span>
                   </div>
-                  <div class="text-gray-300 line-clamp-2 leading-relaxed">{{ log.message }}</div>
+                  <div class="line-clamp-2 leading-relaxed text-gray-300">{{ log.message }}</div>
                 </div>
               </div>
             </div>
@@ -221,18 +272,24 @@
 
 <script lang="ts">
 export default {
-  name: "Logs"
+  name: "Logs",
 };
 </script>
 
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, nextTick, computed, watch } from "vue";
-import { 
-  ClearIcon, RefreshIcon, SearchIcon, InfoCircleIcon, 
-  HelpCircleIcon, ViewModuleIcon, TerminalIcon, ErrorCircleFilledIcon,
-  ViewListIcon
+import {
+  ClearIcon,
+  RefreshIcon,
+  SearchIcon,
+  InfoCircleIcon,
+  HelpCircleIcon,
+  ViewModuleIcon,
+  TerminalIcon,
+  ErrorCircleFilledIcon,
+  ViewListIcon,
 } from "tdesign-icons-vue-next";
-import { searchLogs, type LogItem } from "../api/log";
+import { type LogItem } from "../api/log";
 import dayjs from "dayjs";
 
 const sseLogs = ref<LogItem[]>([]);
@@ -241,7 +298,7 @@ const discoveryCount = ref(0); // 发现次数统计
 
 // 提示音逻辑
 const playBeep = () => {
-  if (document.visibilityState !== 'visible') return;
+  if (document.visibilityState !== "visible") return;
   try {
     const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     const oscillator = audioCtx.createOscillator();
@@ -250,8 +307,8 @@ const playBeep = () => {
     oscillator.connect(gainNode);
     gainNode.connect(audioCtx.destination);
 
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime); 
+    oscillator.type = "sine";
+    oscillator.frequency.setValueAtTime(880, audioCtx.currentTime);
     gainNode.gain.setValueAtTime(0.1, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
 
@@ -262,42 +319,29 @@ const playBeep = () => {
   }
 };
 
-const searchTraceId = ref("");
+const onlyErrors = ref(false);
 const filterKeywords = ref<string[]>([]);
 const filterInput = ref("");
-const onlyErrors = ref(false);
-const isSearching = ref(false);
 const isConnected = ref(false);
 const isConnecting = ref(false);
 const showErrorWindow = ref(true);
 const logContainerRef = ref<HTMLElement | null>(null);
 let eventSource: EventSource | null = null;
 
-// 动态账号颜色生成
-const getAccountColor = (name: string) => {
-  if (!name) return '#4b5563';
-  // 提取账号中的数字或标识
-  const match = name.match(/(\d+)/);
-  const id = match ? parseInt(match[1]) : name.length * 12345;
-  const hues = [210, 260, 280, 310, 330, 10, 30]; // 蓝色、紫色、洋红、橙色系
-  const hue = hues[id % hues.length];
-  return `hsl(${hue}, 60%, 45%)`;
-};
-
 // 解析日志行 (仅做数据转换，无副作用)
 const parseLog = (log: LogItem) => {
   const msg = log.message || "";
-  const accMatch = msg.match(/\[账号:\s*([^\s\[\]：:]+)\]/);
+  const accMatch = msg.match(/\[账号:\s*([^\s[\]：:]+)\]/);
   const traceMatch = msg.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
-  
+
   // 识别“发现捡漏机会”标识
   const isDiscovery = msg.includes("🔍") || msg.includes("发现捡漏机会");
-  
+
   return {
     ...log,
     _account: accMatch ? accMatch[1] : null,
     _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
-    _isDiscovery: isDiscovery
+    _isDiscovery: isDiscovery,
   };
 };
 
@@ -308,7 +352,7 @@ const displayLogs = computed(() => {
 
 // 错误日志抽离
 const errorLogs = computed(() => {
-  return displayLogs.value.filter(log => log.level?.toUpperCase() === 'ERROR');
+  return displayLogs.value.filter((log) => log.level?.toUpperCase() === "ERROR");
 });
 
 // 实时过滤逻辑
@@ -316,7 +360,7 @@ const filteredLogs = computed(() => {
   let logs = displayLogs.value;
 
   if (onlyErrors.value) {
-    logs = logs.filter(log => log.level?.toUpperCase() === "ERROR");
+    logs = logs.filter((log) => log.level?.toUpperCase() === "ERROR");
   }
 
   const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
@@ -326,15 +370,15 @@ const filteredLogs = computed(() => {
   }
 
   if (kws.length > 0) {
-    logs = logs.filter(log => {
+    logs = logs.filter((log) => {
       const content = (
-        (log.message || "") + 
-        (log._account || "") + 
+        (log.message || "") +
+        (log._account || "") +
         (log._traceId || "")
       ).toLowerCase();
-      
+
       // 所有关键字都必须包含 (AND 逻辑)
-      return kws.every(kw => kw && content.includes(kw.toLowerCase()));
+      return kws.every((kw) => kw && content.includes(kw.toLowerCase()));
     });
   }
 
@@ -344,74 +388,77 @@ const filteredLogs = computed(() => {
 // 格式化消息内容，提取账号和关键字
 const formatMessage = (message: string) => {
   if (!message) return [];
-  
+
   const cleanMessage = message
     .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*/, "")
     .replace(/traceId:\s*([a-zA-Z0-9_-]{7,32})/gi, "[TraceId: $1]")
     .replace(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi, "[IP: $1]");
-  
+
   const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
   const input = (filterInput.value || "").trim();
   if (input) {
     kws.push(input);
   }
-  
-  // 过滤掉太短的关键字
-  const activeKws = kws.filter(k => k && typeof k === 'string' && k.length >= 2);
 
-  const parts: { text: string; highlight: boolean; type?: 'account' | 'keyword' | 'traceId' | 'ip' }[] = [];
-  
+  // 过滤掉太短的关键字
+  const activeKws = kws.filter((k) => k && typeof k === "string" && k.length >= 2);
+
+  const parts: {
+    text: string;
+    highlight: boolean;
+    type?: "account" | "keyword" | "traceId" | "ip";
+  }[] = [];
+
   // 1. 按账号、TraceId 和 IP 正则切分
-   const combinedRegex = /(\[账号:\s*[^\s\[\]：:]+\]|\[TraceId:\s*[a-zA-Z0-9_-]{7,32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
-   let lastIndex = 0;
-   let match;
- 
-   const rawParts: { text: string; type: 'text' | 'account' | 'traceId' | 'ip' }[] = [];
-   while ((match = combinedRegex.exec(cleanMessage)) !== null) {
-     if (match.index > lastIndex) {
-       rawParts.push({ text: cleanMessage.substring(lastIndex, match.index), type: 'text' });
-     }
-     const matchedText = match[0];
-     if (matchedText.toLowerCase().includes('账号')) {
-       rawParts.push({ text: matchedText, type: 'account' });
-     } else if (matchedText.toLowerCase().includes('traceid')) {
-       rawParts.push({ text: matchedText, type: 'traceId' });
-     } else {
-       rawParts.push({ text: matchedText, type: 'ip' });
-     }
-     lastIndex = combinedRegex.lastIndex;
-   }
+  const combinedRegex =
+    /(\[账号:\s*[^\s[\]：:]+\]|\[TraceId:\s*[a-zA-Z0-9_-]{7,32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
+  let lastIndex = 0;
+  let match;
+
+  const rawParts: { text: string; type: "text" | "account" | "traceId" | "ip" }[] = [];
+  while ((match = combinedRegex.exec(cleanMessage)) !== null) {
+    if (match.index > lastIndex) {
+      rawParts.push({ text: cleanMessage.substring(lastIndex, match.index), type: "text" });
+    }
+    const matchedText = match[0];
+    if (matchedText.toLowerCase().includes("账号")) {
+      rawParts.push({ text: matchedText, type: "account" });
+    } else if (matchedText.toLowerCase().includes("traceid")) {
+      rawParts.push({ text: matchedText, type: "traceId" });
+    } else {
+      rawParts.push({ text: matchedText, type: "ip" });
+    }
+    lastIndex = combinedRegex.lastIndex;
+  }
   if (lastIndex < cleanMessage.length) {
-    rawParts.push({ text: cleanMessage.substring(lastIndex), type: 'text' });
+    rawParts.push({ text: cleanMessage.substring(lastIndex), type: "text" });
   }
 
   // 2. 处理关键字高亮 (支持多个)
   for (const part of rawParts) {
-    if (part.type === 'account') {
-       parts.push({ text: part.text, highlight: true, type: 'account' });
-     } else if (part.type === 'traceId') {
-       parts.push({ text: part.text, highlight: true, type: 'traceId' });
-     } else if (part.type === 'ip') {
-       parts.push({ text: part.text, highlight: true, type: 'ip' });
-     } else {
+    if (part.type === "account") {
+      parts.push({ text: part.text, highlight: true, type: "account" });
+    } else if (part.type === "traceId") {
+      parts.push({ text: part.text, highlight: true, type: "traceId" });
+    } else if (part.type === "ip") {
+      parts.push({ text: part.text, highlight: true, type: "ip" });
+    } else {
       if (activeKws.length === 0) {
         parts.push({ text: part.text, highlight: false });
         continue;
       }
 
       // 构建合并正则
-      const pattern = activeKws
-        .map(k => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"))
-        .join('|');
+      const pattern = activeKws.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
       const kwRegex = new RegExp(`(${pattern})`, "gi");
-      
+
       let kwLastIndex = 0;
       let kwMatch;
       while ((kwMatch = kwRegex.exec(part.text)) !== null) {
         if (kwMatch.index > kwLastIndex) {
           parts.push({ text: part.text.substring(kwLastIndex, kwMatch.index), highlight: false });
         }
-        parts.push({ text: kwMatch[0], highlight: true, type: 'keyword' });
+        parts.push({ text: kwMatch[0], highlight: true, type: "keyword" });
         kwLastIndex = kwRegex.lastIndex;
       }
       if (kwLastIndex < part.text.length) {
@@ -425,10 +472,10 @@ const formatMessage = (message: string) => {
 
 const filterByKeyword = (val: string | null) => {
   if (!val) return;
-  
+
   // 提取 [账号: 123]、[TraceId: abc] 或 [IP: 1.1.1.1] 中的值
-   const match = val.match(/\[(?:账号|TraceId|IP):\s*([^\s\[\]：:]+)\]/i);
-   const target = match ? match[1] : val;
+  const match = val.match(/\[(?:账号|TraceId|IP):\s*([^\s[\]：:]+)\]/i);
+  const target = match ? match[1] : val;
 
   if (!filterKeywords.value.includes(target)) {
     filterKeywords.value.push(target);
@@ -444,38 +491,30 @@ const formatTime = (ts: string) => {
 // 级别样式
 const getLevelClass = (level: string) => {
   switch (level?.toUpperCase()) {
-    case "ERROR": return "text-red-500";
-    case "WARN": return "text-yellow-500";
-    case "INFO": return "text-blue-400";
-    case "DEBUG": return "text-gray-500";
-    default: return "text-gray-600";
+    case "ERROR":
+      return "text-red-500";
+    case "WARN":
+      return "text-yellow-500";
+    case "INFO":
+      return "text-blue-400";
+    case "DEBUG":
+      return "text-gray-500";
+    default:
+      return "text-gray-600";
   }
 };
 
 const isSuccessLog = (message: string) => {
-  return message && (message.includes("下单成功") || message.includes("购买成功") || message.includes("✅"));
+  return (
+    message &&
+    (message.includes("下单成功") || message.includes("购买成功") || message.includes("✅"))
+  );
 };
 
 const getMessageClass = (log: any) => {
   if (log._isDiscovery) return "text-amber-400 font-bold not-italic";
   if (isSuccessLog(log.message)) return "text-green-400 font-medium";
   return "text-gray-300";
-};
-
-const handleSearch = async () => {
-  if (!searchTraceId.value) {
-    searchedLogs.value = [];
-    return;
-  }
-  isSearching.value = true;
-  try {
-    const res = await searchLogs(searchTraceId.value);
-    searchedLogs.value = res;
-  } catch (err) {
-    console.error("Search logs failed:", err);
-  } finally {
-    isSearching.value = false;
-  }
 };
 
 const clearLogs = () => {
@@ -485,7 +524,7 @@ const clearLogs = () => {
   filterInput.value = "";
 };
 
-const scrollToBottom = async (smooth = false) => {
+const scrollToBottom = async () => {
   await nextTick();
   if (logContainerRef.value) {
     const container = logContainerRef.value;
@@ -505,7 +544,7 @@ watch(
 const connect = () => {
   if (isConnected.value) return;
   isConnecting.value = true;
-  
+
   const baseApi = import.meta.env.VITE_BASE_API || "/dev-api";
   eventSource = new EventSource(`${baseApi}/log/stream`);
 
@@ -521,7 +560,7 @@ const connect = () => {
     } catch (e) {
       logData = { timestamp: new Date().toISOString(), level: "INFO", message: event.data };
     }
-    
+
     // 检查是否为“发现捡漏机会”
     const msg = logData.message || "";
     if (msg.includes("🔍") || msg.includes("发现捡漏机会")) {
@@ -573,9 +612,15 @@ onUnmounted(() => eventSource?.close());
 }
 
 @keyframes discovery-pulse {
-  0% { box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1); }
-  50% { box-shadow: inset 0 0 10px 2px rgba(245, 158, 11, 0.2); }
-  100% { box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1); }
+  0% {
+    box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1);
+  }
+  50% {
+    box-shadow: inset 0 0 10px 2px rgba(245, 158, 11, 0.2);
+  }
+  100% {
+    box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1);
+  }
 }
 
 /* 动画：分屏滑入 */
@@ -585,8 +630,8 @@ onUnmounted(() => eventSource?.close());
 }
 .slide-right-enter-from,
 .slide-right-leave-to {
-  transform: translateX(100%);
   opacity: 0;
+  transform: translateX(100%);
 }
 
 /* 覆盖 TDesign 样式微调 */
@@ -598,10 +643,10 @@ onUnmounted(() => eventSource?.close());
 }
 :deep(.t-card__body) {
   display: flex;
-  flex-direction: column;
   flex: 1;
-  overflow: hidden;
+  flex-direction: column;
   padding: 0;
+  overflow: hidden;
 }
 :deep(.t-input--size-s) {
   background-color: rgba(0, 0, 0, 0.03);

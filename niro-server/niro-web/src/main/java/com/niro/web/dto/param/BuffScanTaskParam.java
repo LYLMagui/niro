@@ -3,6 +3,7 @@ package com.niro.web.dto.param;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.niro.web.enums.TaskRunModeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
 import lombok.Data;
@@ -20,6 +21,9 @@ public class BuffScanTaskParam {
     @Schema(description = "任务ID (更新时必填)")
     private Long id;
 
+    @Schema(description = "运行模式", defaultValue = "SCAN")
+    private TaskRunModeEnum runMode;
+
     @Schema(description = "Buff商品ID")
     private Long goodsId;
 
@@ -33,7 +37,6 @@ public class BuffScanTaskParam {
     private BigDecimal maxPaintwear;
 
     @Schema(description = "计划购买数量", defaultValue = "1")
-    @Min(value = 1, message = "购买数量至少为1")
     private Integer buyCount;
 
     @Schema(description = "Cron触发表达式")
@@ -50,6 +53,9 @@ public class BuffScanTaskParam {
     @Schema(description = "扫描间隔(秒)", defaultValue = "15")
     private Integer scanInterval;
 
+    @Schema(description = "关联的下单账号ID (仅 SCAN 模式任务使用)")
+    private Long targetTradeAccountId;
+
     @Schema(description = "最小扫描间隔(秒)")
     private Integer scanIntervalMin;
 
@@ -61,6 +67,9 @@ public class BuffScanTaskParam {
 
     @Schema(description = "最小预期利润 (仅倒卖任务有效)")
     private BigDecimal minProfit;
+
+    @Schema(description = "关联的下单任务ID (仅 SCAN/BOTH 模式使用)")
+    private Long targetTaskId;
 
     @Schema(description = "绑定的账号ID列表")
     private List<Long> accountIds;

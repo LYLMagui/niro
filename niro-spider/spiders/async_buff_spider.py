@@ -130,7 +130,16 @@ class AsyncBuffSpider:
         data = await self._request("GET", url, profile, params=params)
         
         if data.get("code") == "OK":
-            items = data.get("data", {}).get("items", [])
+            payload = data.get("data", {})
+            items = payload.get("items", [])
+            goods_infos = payload.get("goods_infos", {})
+            if items and goods_infos:
+                for item in items:
+                    goods_id = item.get("goods_id")
+                    goods_info = goods_infos.get(str(goods_id)) if goods_id is not None else None
+                    if goods_info:
+                        item["sell_min_price"] = goods_info.get("sell_min_price")
+                        item["buy_max_price"] = goods_info.get("buy_max_price")
             return items
         
         return []
@@ -222,23 +231,14 @@ class AsyncBuffSpider:
         task_id = self._extract_value(task_data.get("taskId"))
         task_type = self._extract_value(task_data.get("taskType"))
         task_name = self._extract_value(task_data.get("name"))
+        run_mode = self._extract_value(task_data.get("runMode"))
         
-        # 判断是否为系统任务（需要分片协同）
-        if task_type and self._get_float(task_type) >= 2:
-            logger.info(f"🚀 [Task-ID: {task_id}] 启动分片协同执行器: {task_name}")
-            executor = ShardedSpiderExecutor(self.client, redis_async=self.redis)
-            await executor.execute(task_data)
-            return
-
-        # 普通扫货任务逻辑
-        goods_id = self._extract_value(task_data.get("goodsId"))
+        # 1. 账号过滤
         raw_accounts = self._extract_list(task_data.get("accounts", []))
-        
         if not raw_accounts:
             logger.error(f"❌ 任务 [{task_name}] 未绑定任何账号，无法执行")
             return
 
-        # 过滤出扫描账号和下单账号
         scan_accounts = []
         buy_accounts = []
         for acc in raw_accounts:
@@ -252,17 +252,35 @@ class AsyncBuffSpider:
             if role in ["TRADE", "BOTH"]:
                 buy_accounts.append(actual_acc)
 
+        task_data["scan_accounts"] = scan_accounts
+        task_data["buy_accounts"] = buy_accounts
+
+        # 2. 判断运行模式
+        if run_mode == "TRADE":
+            logger.info(f"🚀 [Task-ID: {task_id}] 启动下单监听模式: {task_name}")
+            trade_job = asyncio.create_task(self._trade_task_loop(task_data))
+            monitor_task = asyncio.create_task(self._monitor_stop_signal(task_id, [trade_job]))
+            await asyncio.gather(trade_job, monitor_task, return_exceptions=True)
+            await self._callback_status(task_id, 0 if monitor_task.done() and not monitor_task.cancelled() else 2)
+            return
+
+        # 3. 判断是否为系统任务（需要分片协同）
+        if task_type and self._get_float(task_type) >= 2:
+            logger.info(f"🚀 [Task-ID: {task_id}] 启动分片协同执行器: {task_name}")
+            executor = ShardedSpiderExecutor(self.client, redis_async=self.redis)
+            await executor.execute(task_data)
+            return
+
+        # 4. 普通扫货/监控任务逻辑
+        goods_id = self._extract_value(task_data.get("goodsId"))
+        
         if not scan_accounts:
             logger.error(f"❌ 任务 [{task_name}] 未绑定任何扫描账号，无法执行")
             return
-
-        # 将账号信息放入 task_data 供子协程共享
-        task_data["scan_accounts"] = scan_accounts
-        task_data["buy_accounts"] = buy_accounts
         
         logger.info(f"🚀 开始执行扫描任务: {task_name} (ID: {task_id}, GoodsID: {goods_id}, 账号数: {len(scan_accounts)})")
-        if not buy_accounts:
-            logger.warning(f"💡 [系统提示] 当前任务未配置下单账号，将进入“纯监控模式”")
+        if not buy_accounts and not task_data.get("targetTaskId"):
+            logger.warning(f"💡 [系统提示] 当前任务未配置下单账号或关联任务，将进入“纯监控模式”")
         
         # 为每个扫描账号创建一个扫描协程
         scan_jobs = []
@@ -278,6 +296,55 @@ class AsyncBuffSpider:
 
         # 任务结束回调后端
         await self._callback_status(task_id, 0 if monitor_task.done() and not monitor_task.cancelled() else 2)
+
+    async def _trade_task_loop(self, task_data: Dict[str, Any]):
+        """下单任务循环：监听 Redis 信号并执行购买"""
+        task_id = self._extract_value(task_data.get("taskId"))
+        task_name = self._extract_value(task_data.get("name"))
+        buy_accounts = task_data.get("buy_accounts", [])
+
+        queue_key = f"niro:queue:trade:{task_id}"
+        
+        logger.info(f"🎧 [下单任务: {task_name}] 正在监听信号队列: {queue_key}")
+        
+        while True:
+            try:
+                # 阻塞式弹出购买信号
+                result = await self.redis.blpop(queue_key, timeout=5)
+                if not result:
+                    continue
+                
+                _, signal_json = result
+                signal_data = json.loads(signal_json)
+                sell_order_ids = signal_data.get("sell_order_ids", [])
+                
+                if not sell_order_ids:
+                    continue
+                
+                # 随机选择一个可用的下单账号
+                available_buyers = []
+                for buyer in buy_accounts:
+                    buyer_id = self._extract_value(buyer.get("accountId"))
+                    if not await self.redis.exists(f"niro:account:busy:{buyer_id}"):
+                        available_buyers.append(buyer)
+                
+                if not available_buyers:
+                    logger.warning(f"⏳ [下单任务: {task_name}] 收到信号，但所有下单账号均繁忙，跳过本次处理")
+                    continue
+                
+                buyer = random.choice(available_buyers)
+                if not buyer.get("profile"):
+                    buyer["profile"] = BrowserHelper.create_profile(cookie=buyer.get("buffCookie"))
+                
+                logger.info(f"🎯 [下单任务: {task_name}] 接收到购买信号，指派 [{buyer.get('accountName')}] 执行购买 (ID数: {len(sell_order_ids)})")
+                asyncio.create_task(self.async_buy_v3(sell_order_ids, buyer, task_data))
+                
+            except asyncio.CancelledError:
+                logger.info(f"🛑 [下单任务: {task_name}] 已停止监听")
+                break
+            except Exception as e:
+                logger.error(f"⚠️ [下单任务: {task_name}] 监听循环异常: {e}")
+                await asyncio.sleep(1)
 
     async def _monitor_stop_signal(self, task_id: int, jobs: List[asyncio.Task]):
         """监控 Redis 停止信号"""
@@ -487,20 +554,35 @@ class AsyncBuffSpider:
             return "ERROR", str(e)
 
     async def _process_items(self, task_data: Dict[str, Any], items: List[Dict[str, Any]], account: Dict[str, Any]):
-        """处理获取到的商品列表，执行匹配与批量下单"""
+        """处理获取到的商品列表，执行匹配与信号路由"""
         task_id = self._extract_value(task_data.get("taskId"))
         user_id = self._extract_value(task_data.get("userId"))
         max_price = self._get_float(task_data.get("maxPrice"), 0.0)
+        min_profit = self._get_float(task_data.get("minProfit"), 0.0)
+        task_type = self._get_float(task_data.get("taskType"), 0.0)
         acc_name = account_name_var.get()
         buy_accounts = task_data.get("buy_accounts") or []
+        target_task_id = self._extract_value(task_data.get("targetTaskId"))
         
         # 1. 价格过滤
-        matched_items = [it for it in items if float(it.get("price")) <= max_price]
+        if int(task_type) == 1:
+            matched_items = []
+            for it in items:
+                buy_price = self._get_float(it.get("price"), 0.0)
+                ref_price = self._get_float(it.get("sell_min_price"), 0.0)
+                if ref_price <= 0:
+                    continue
+                profit = ref_price * 0.975 - buy_price
+                if profit >= min_profit:
+                    it["estimated_profit"] = profit
+                    matched_items.append(it)
+        else:
+            matched_items = [it for it in items if self._get_float(it.get("price"), 0.0) <= max_price]
         if not matched_items:
             return
 
-        # 2. 检查是否有下单账号
-        if not buy_accounts:
+        # 2. 检查路由目标 (优先使用关联任务)
+        if not buy_accounts and not target_task_id:
             # 纯监控模式：去重报送
             new_items = []
             for it in matched_items:
@@ -538,35 +620,33 @@ class AsyncBuffSpider:
                 logger.error(f"⚠️ 推送通知失败: {ne}")
             return
 
-        # 3. 下单账号预检与 Busy 熔断
-        available_buyers = []
-        for buyer in buy_accounts:
-            buyer_id = self._extract_value(buyer.get("accountId"))
-            busy_key = f"niro:account:busy:{buyer_id}"
-            if not await self.redis.exists(busy_key):
-                available_buyers.append(buyer)
-        
-        if not available_buyers:
-            # 全部繁忙时，节流日志输出
-            log_throttle_key = f"niro:log:busy_throttle:{task_id}"
-            if not await self.redis.exists(log_throttle_key):
-                logger.debug(f"⏳ [账号: {acc_name}] 下单账号均处于 Busy 状态，跳过本次撮合")
-                await self.redis.set(log_throttle_key, "1", ex=10)
-            return
+        # 3. 关联任务健康检查 (如果设置了 target_task_id)
+        if target_task_id:
+            heartbeat_key = "niro:task:heartbeat"
+            last_heartbeat = await self.redis.hget(heartbeat_key, str(target_task_id))
+            # 如果超过 60 秒没有心跳，视为失效
+            if not last_heartbeat or (int(time.time() * 1000) - int(last_heartbeat)) > 60000:
+                logger.error(f"🚨 [Task-ID: {task_id}] 关联的下单任务 [{target_task_id}] 已失效或未启动，路由中断")
+                
+                # 发送告警通知
+                goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                alert_title = "🚨 任务路由失效告警"
+                alert_desc = f"扫描任务: {goods_name} (ID: {task_id})\n" \
+                             f"关联下单任务 (ID: {target_task_id}) 状态异常\n" \
+                             f"原因: 下单任务未启动或已意外停止，请检查配置！"
+                self.notifier.send_textcard(alert_title, alert_desc, user_id=user_id)
+                return
 
         # 4. 饰品加锁与去重 (批量撮合)
-        # 获取任务配置的购买数量限制
         buy_count = int(task_data.get("buyCount") or 0)
         success_count = int(task_data.get("successCount") or 0)
         remaining_count = max(0, buy_count - success_count)
         
-        # 如果设置了购买上限且已达标，则跳过
         if buy_count > 0 and remaining_count <= 0:
             return
 
         pending_it_ids = []
         for it in matched_items:
-            # 如果已经达到了本次任务需要的剩余数量，停止撮合
             if buy_count > 0 and len(pending_it_ids) >= remaining_count:
                 break
                 
@@ -574,7 +654,6 @@ class AsyncBuffSpider:
             pending_key = f"niro:pending_purchase:{it_id}"
             lock_key = f"niro:lock:item:{it_id}"
             
-            # 双重去重与分布式锁
             if await self.redis.exists(pending_key): continue
             if await self.redis.set(lock_key, "locked", ex=60, nx=True):
                 if await self.redis.set(pending_key, "processing", ex=120, nx=True):
@@ -585,15 +664,41 @@ class AsyncBuffSpider:
         if not pending_it_ids:
             return
 
-        # 5. 非阻塞发起批量下单任务
-        buyer = random.choice(available_buyers)
-        # 补全 profile
-        if not buyer.get("profile"):
-            buyer["profile"] = BrowserHelper.create_profile(cookie=buyer.get("buffCookie"))
+        # 5. 分发购买信号
+        if target_task_id:
+            # 路由模式：推送到指定下单任务的队列
+            queue_key = f"niro:queue:trade:{target_task_id}"
+            signal_data = {
+                "task_id": task_id,
+                "sell_order_ids": pending_it_ids,
+                "timestamp": int(time.time())
+            }
+            await self.redis.rpush(queue_key, json.dumps(signal_data))
+            logger.warning(f"📡 [账号: {acc_name}] 匹配成功，已将信号路由至下单任务 [{target_task_id}] | 聚合数: {len(pending_it_ids)}")
+        else:
+            # 本地模式：指派绑定的下单账号执行
+            available_buyers = []
+            for buyer in buy_accounts:
+                buyer_id = self._extract_value(buyer.get("accountId"))
+                busy_key = f"niro:account:busy:{buyer_id}"
+                if not await self.redis.exists(busy_key):
+                    available_buyers.append(buyer)
             
-        logger.warning(f"🚀 [账号: {acc_name}] 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
-        # 核心：使用 create_task 异步运行，不阻塞主扫描循环
-        asyncio.create_task(self.async_buy_v3(pending_it_ids, buyer, task_data))
+            if not available_buyers:
+                log_throttle_key = f"niro:log:busy_throttle:{task_id}"
+                if not await self.redis.exists(log_throttle_key):
+                    logger.debug(f"⏳ [账号: {acc_name}] 下单账号均处于 Busy 状态，跳过本次撮合")
+                    await self.redis.set(log_throttle_key, "1", ex=10)
+                # 释放刚刚锁定的饰品
+                await self._release_items(pending_it_ids)
+                return
+
+            buyer = random.choice(available_buyers)
+            if not buyer.get("profile"):
+                buyer["profile"] = BrowserHelper.create_profile(cookie=buyer.get("buffCookie"))
+                
+            logger.warning(f"🚀 [账号: {acc_name}] 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
+            asyncio.create_task(self.async_buy_v3(pending_it_ids, buyer, task_data))
 
     async def async_buy_v3(self, sell_order_ids: List[str], account: Dict[str, Any], task_data: Dict[str, Any]):
         """

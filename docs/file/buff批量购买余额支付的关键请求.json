@@ -1,0 +1,605 @@
+{
+    "log": {
+        "version": "1.2",
+        "creator": {
+            "name": "WebInspector",
+            "version": "537.36"
+        },
+        "pages": [],
+        "entries": [
+            {
+                "request": {
+                    "method": "POST",
+                    "url": "https://buff.163.com/api/market/goods/batch_buy/preview",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": ":authority",
+                            "value": "buff.163.com"
+                        },
+                        {
+                            "name": ":method",
+                            "value": "POST"
+                        },
+                        {
+                            "name": ":path",
+                            "value": "/api/market/goods/batch_buy/preview"
+                        },
+                        {
+                            "name": ":scheme",
+                            "value": "https"
+                        },
+                        {
+                            "name": "accept",
+                            "value": "application/json, text/javascript, */*; q=0.01"
+                        },
+                        {
+                            "name": "accept-encoding",
+                            "value": "gzip, deflate, br, zstd"
+                        },
+                        {
+                            "name": "accept-language",
+                            "value": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"
+                        },
+                        {
+                            "name": "content-length",
+                            "value": "137"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "origin",
+                            "value": "https://buff.163.com"
+                        },
+                        {
+                            "name": "priority",
+                            "value": "u=1, i"
+                        },
+                        {
+                            "name": "referer",
+                            "value": "https://buff.163.com/goods/1119940?from=market"
+                        },
+                        {
+                            "name": "sec-ch-ua",
+                            "value": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\""
+                        },
+                        {
+                            "name": "sec-ch-ua-mobile",
+                            "value": "?0"
+                        },
+                        {
+                            "name": "sec-ch-ua-platform",
+                            "value": "\"Windows\""
+                        },
+                        {
+                            "name": "sec-fetch-dest",
+                            "value": "empty"
+                        },
+                        {
+                            "name": "sec-fetch-mode",
+                            "value": "cors"
+                        },
+                        {
+                            "name": "sec-fetch-site",
+                            "value": "same-origin"
+                        },
+                        {
+                            "name": "user-agent",
+                            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
+                        },
+                        {
+                            "name": "x-csrftoken",
+                            "value": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB9rg.jq8Zh9ce-z4ds_NaiDytwq0OM50"
+                        },
+                        {
+                            "name": "x-requested-with",
+                            "value": "XMLHttpRequest"
+                        }
+                    ],
+                    "queryString": [],
+                    "cookies": [],
+                    "headersSize": -1,
+                    "bodySize": 137,
+                    "postData": {
+                        "mimeType": "application/json",
+                        "text": "{\"game\":\"csgo\",\"goods_id\":1119940,\"sell_orders\":[\"3951074306-AB36-156531424\",\"3951074937-AB36-156531424\"],\"select_epay\":1,\"steamid\":null}"
+                    }
+                },
+                "response": {
+                    "status": 200,
+                    "statusText": "OK",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": "buff-cashier-trace-id",
+                            "value": "bfbb723f99c64ac3aa4e8a620f306f31"
+                        },
+                        {
+                            "name": "content-encoding",
+                            "value": "gzip"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "date",
+                            "value": "Wed, 21 Jan 2026 07:18:10 GMT"
+                        },
+                        {
+                            "name": "ntes-trace-id",
+                            "value": "56332df145fd36eb:56332df145fd36eb:0:0"
+                        },
+                        {
+                            "name": "server",
+                            "value": "nginx"
+                        },
+                        {
+                            "name": "x-envoy-upstream-service-time",
+                            "value": "2222"
+                        }
+                    ],
+                    "cookies": [],
+                    "content": {
+                        "size": 2910,
+                        "mimeType": "application/json",
+                        "text": "{\"code\":\"OK\",\"data\":{\"batch_id\":\"361d44bcd369471b8f56dad45441e68d\",\"pay_methods\":[{\"balance\":null,\"btn_clickable\":true,\"btn_text\":\"\\u786e\\u8ba4\\u4ed8\\u6b3e\",\"description\":\"\\u94f6\\u884c\\u5361\\u5feb\\u6377\\u652f\\u4ed8\",\"description_url\":\"https://buff.163.com/api/asset/get_pay_method_description/?query_from=cashier&pay_method=44&amount=3.8\",\"enough\":true,\"error\":null,\"error_entry\":null,\"free_pay\":false,\"free_pay_description\":\"\",\"icon\":\"https://market.fp.ps.netease.com/file/648c47a34cd4495a504332a6li5c1XHT04\",\"is_epay\":true,\"name\":\"\\u7f51\\u6613\\u652f\\u4ed8\",\"name_color_gray\":false,\"pay_fee_rate\":0,\"pay_method_sdks\":[\"nepay\"],\"price_with_pay_fee\":\"3.8\",\"real_price_without_discount\":\"3.8\",\"recommended\":true,\"selected\":false,\"value\":44},{\"balance\":\"4.25\",\"btn_clickable\":true,\"btn_text\":\"\\u786e\\u8ba4\\u4ed8\\u6b3e\",\"combine_pay_detail\":{\"bottom_hint\":\"\\u8be5\\u8ba2\\u5355\\u4e0d\\u652f\\u6301\\u652f\\u4ed8\\u5b9d\\u4f59\\u989d\",\"enable\":[{\"color\":\"#4773C8\",\"pay_method\":1,\"pay_method_text\":\"BUFF\\u4f59\\u989d\\uff08\\u53ef\\u63d0\\u73b0\\u5230\\u94f6\\u884c\\u5361\\uff09\",\"price\":\"4.25\"}],\"mid_description\":\"\\u652f\\u4ed8\\u672c\\u5355\\u9884\\u8ba1\\u4f7f\\u7528\\u7684\\u8d44\\u91d1\\u4e3a:\",\"title\":\"BUFF\\u53ef\\u7528\\u8d44\\u91d1\",\"used\":[{\"color\":\"#EEA20E\",\"pay_method\":1,\"pay_method_text\":\"BUFF\\u4f59\\u989d\\uff08\\u53ef\\u63d0\\u73b0\\u5230\\u94f6\\u884c\\u5361\\uff09\",\"price\":\"3.8\"}]},\"description\":\"\",\"ejzb_auth\":null,\"enough\":true,\"error\":null,\"error_entry\":null,\"free_password\":true,\"icon\":\"https://market.fp.ps.netease.com/file/695b58d4ade32a5618d6d6f3OXXcxQwE07\",\"name\":\"BUFF\\u53ef\\u7528\\u8d44\\u91d1\",\"name_color_gray\":false,\"pay_fee_rate\":0,\"price_with_pay_fee\":\"3.8\",\"real_enough\":true,\"real_price_without_discount\":\"3.8\",\"recommended\":false,\"selected\":true,\"switch_text\":null,\"switch_text_split\":null,\"value\":59},{\"balance\":null,\"btn_clickable\":true,\"btn_text\":\"\\u786e\\u8ba4\\u4ed8\\u6b3e\",\"enough\":true,\"error\":null,\"error_entry\":null,\"icon\":\"https://g.fp.ps.netease.com/market/file/5cc1647c5e6027b3d1dda549i5ViL5mH02\",\"name\":\"\\u5fae\\u4fe1\\u652f\\u4ed8\",\"name_color_gray\":false,\"pay_fee_rate\":0,\"pay_method_sdks\":[\"wechatpay\"],\"price_with_pay_fee\":\"3.8\",\"real_price_without_discount\":\"3.8\",\"recommended\":false,\"selected\":false,\"switch_text\":\"\\u4f7f\\u7528\\u7f51\\u6613\\u652f\\u4ed8\\u83b7\\u5f97\\u989d\\u5916\\u79ef\\u5206\",\"value\":6}],\"payment_tips\":\"\\u8d2d\\u4e70\\u540e\\u5356\\u5bb6\\u572812\\u5c0f\\u65f6\\u5185\\u5b8c\\u6210\\u53d1\\u8d27\\uff0c\\u672c\\u6b21\\u8d2d\\u4e70\\u9884\\u8ba1\\u83b7\\u5f97 4 \\u79ef\\u5206\\u5956\\u52b1\\u3002\",\"payment_tips_highlight\":\"\\u8d2d\\u4e70\\u540e\\u5356\\u5bb6\\u572812\\u5c0f\\u65f6\\u5185\\u5b8c\\u6210\\u53d1\\u8d27\\uff0c\\u672c\\u6b21\\u8d2d\\u4e70\\u9884\\u8ba1\\u83b7\\u5f97 <font color=\\\"#EEA20E\\\">4</font> \\u79ef\\u5206\\u5956\\u52b1\\uff0c\\u4f7f\\u7528\\u7f51\\u6613\\u652f\\u4ed8\\u6700\\u9ad8\\u53ef\\u989d\\u5916\\u83b7\\u5f97 <font color=\\\"#EEA20E\\\">2</font> \\u79ef\\u5206\\u5956\\u52b1\\u3002 \",\"price\":\"3.8\",\"rational_confirm\":null},\"msg\":null}\n"
+                    },
+                    "redirectURL": "",
+                    "headersSize": -1,
+                    "bodySize": -1,
+                    "_transferSize": 1457,
+                    "_error": null,
+                    "_fetchedViaServiceWorker": false
+                }
+            },
+            {
+                "request": {
+                    "method": "GET",
+                    "url": "https://buff.163.com/api/asset/get_pay_method_description/?hide_non_epay=false&query_from=cashier&pay_method=44&amount=3.8&_=1768979369911",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": ":authority",
+                            "value": "buff.163.com"
+                        },
+                        {
+                            "name": ":method",
+                            "value": "GET"
+                        },
+                        {
+                            "name": ":path",
+                            "value": "/api/asset/get_pay_method_description/?hide_non_epay=false&query_from=cashier&pay_method=44&amount=3.8&_=1768979369911"
+                        },
+                        {
+                            "name": ":scheme",
+                            "value": "https"
+                        },
+                        {
+                            "name": "accept",
+                            "value": "*/*"
+                        },
+                        {
+                            "name": "accept-encoding",
+                            "value": "gzip, deflate, br, zstd"
+                        },
+                        {
+                            "name": "accept-language",
+                            "value": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"
+                        },
+                        {
+                            "name": "priority",
+                            "value": "u=1, i"
+                        },
+                        {
+                            "name": "referer",
+                            "value": "https://buff.163.com/goods/1119940?from=market"
+                        },
+                        {
+                            "name": "sec-ch-ua",
+                            "value": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\""
+                        },
+                        {
+                            "name": "sec-ch-ua-mobile",
+                            "value": "?0"
+                        },
+                        {
+                            "name": "sec-ch-ua-platform",
+                            "value": "\"Windows\""
+                        },
+                        {
+                            "name": "sec-fetch-dest",
+                            "value": "empty"
+                        },
+                        {
+                            "name": "sec-fetch-mode",
+                            "value": "cors"
+                        },
+                        {
+                            "name": "sec-fetch-site",
+                            "value": "same-origin"
+                        },
+                        {
+                            "name": "user-agent",
+                            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
+                        },
+                        {
+                            "name": "x-requested-with",
+                            "value": "XMLHttpRequest"
+                        }
+                    ],
+                    "queryString": [
+                        {
+                            "name": "hide_non_epay",
+                            "value": "false"
+                        },
+                        {
+                            "name": "query_from",
+                            "value": "cashier"
+                        },
+                        {
+                            "name": "pay_method",
+                            "value": "44"
+                        },
+                        {
+                            "name": "amount",
+                            "value": "3.8"
+                        },
+                        {
+                            "name": "_",
+                            "value": "1768979369911"
+                        }
+                    ],
+                    "cookies": [],
+                    "headersSize": -1,
+                    "bodySize": 0
+                },
+                "response": {
+                    "status": 200,
+                    "statusText": "OK",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": "content-length",
+                            "value": "172"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "date",
+                            "value": "Wed, 21 Jan 2026 07:18:10 GMT"
+                        },
+                        {
+                            "name": "ntes-trace-id",
+                            "value": "f9766fdbc5640fcd:f9766fdbc5640fcd:0:0"
+                        },
+                        {
+                            "name": "server",
+                            "value": "nginx"
+                        },
+                        {
+                            "name": "x-envoy-upstream-service-time",
+                            "value": "120"
+                        }
+                    ],
+                    "cookies": [],
+                    "content": {
+                        "size": 172,
+                        "mimeType": "application/json",
+                        "text": "{\"code\":\"OK\",\"data\":{\"available_coupons\":[],\"description\":\"\\u4f59\\u989d\\uff088.01\\u5143\\uff09\",\"description_color\":\"#959595\",\"more_entry\":null,\"pay_method\":44},\"msg\":null}\n"
+                    },
+                    "redirectURL": "",
+                    "headersSize": -1,
+                    "bodySize": -1,
+                    "_transferSize": 486,
+                    "_error": null,
+                    "_fetchedViaServiceWorker": false
+                }
+            },
+            {
+                "request": {
+                    "method": "POST",
+                    "url": "https://buff.163.com/api/market/goods/buy",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": ":authority",
+                            "value": "buff.163.com"
+                        },
+                        {
+                            "name": ":method",
+                            "value": "POST"
+                        },
+                        {
+                            "name": ":path",
+                            "value": "/api/market/goods/buy"
+                        },
+                        {
+                            "name": ":scheme",
+                            "value": "https"
+                        },
+                        {
+                            "name": "accept",
+                            "value": "application/json, text/javascript, */*; q=0.01"
+                        },
+                        {
+                            "name": "accept-encoding",
+                            "value": "gzip, deflate, br, zstd"
+                        },
+                        {
+                            "name": "accept-language",
+                            "value": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"
+                        },
+                        {
+                            "name": "buff-cashier-trace-id",
+                            "value": "bfbb723f99c64ac3aa4e8a620f306f31"
+                        },
+                        {
+                            "name": "content-length",
+                            "value": "230"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "origin",
+                            "value": "https://buff.163.com"
+                        },
+                        {
+                            "name": "priority",
+                            "value": "u=1, i"
+                        },
+                        {
+                            "name": "referer",
+                            "value": "https://buff.163.com/goods/1119940?from=market"
+                        },
+                        {
+                            "name": "sec-ch-ua",
+                            "value": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\""
+                        },
+                        {
+                            "name": "sec-ch-ua-mobile",
+                            "value": "?0"
+                        },
+                        {
+                            "name": "sec-ch-ua-platform",
+                            "value": "\"Windows\""
+                        },
+                        {
+                            "name": "sec-fetch-dest",
+                            "value": "empty"
+                        },
+                        {
+                            "name": "sec-fetch-mode",
+                            "value": "cors"
+                        },
+                        {
+                            "name": "sec-fetch-site",
+                            "value": "same-origin"
+                        },
+                        {
+                            "name": "user-agent",
+                            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
+                        },
+                        {
+                            "name": "x-csrftoken",
+                            "value": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB9sw.Gvjijbu3MNpCKvJpYTns9xEG4vA"
+                        },
+                        {
+                            "name": "x-requested-with",
+                            "value": "XMLHttpRequest"
+                        }
+                    ],
+                    "queryString": [],
+                    "cookies": [],
+                    "headersSize": -1,
+                    "bodySize": 230,
+                    "postData": {
+                        "mimeType": "application/json",
+                        "text": "{\"game\":\"csgo\",\"goods_id\":1119940,\"sell_order_id\":\"3951074306-AB36-156531424\",\"price\":\"1.89\",\"batch\":1,\"pay_method\":59,\"allow_tradable_cooldown\":0,\"hide_non_epay\":false,\"batch_id\":\"361d44bcd369471b8f56dad45441e68d\",\"steamid\":null}"
+                    }
+                },
+                "response": {
+                    "status": 200,
+                    "statusText": "OK",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": "buff-cashier-trace-id",
+                            "value": "expired"
+                        },
+                        {
+                            "name": "content-encoding",
+                            "value": "gzip"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "date",
+                            "value": "Wed, 21 Jan 2026 07:18:12 GMT"
+                        },
+                        {
+                            "name": "ntes-trace-id",
+                            "value": "28410eb7f965250f:28410eb7f965250f:0:0"
+                        },
+                        {
+                            "name": "server",
+                            "value": "nginx"
+                        },
+                        {
+                            "name": "x-envoy-upstream-service-time",
+                            "value": "821"
+                        }
+                    ],
+                    "cookies": [],
+                    "content": {
+                        "size": 1808,
+                        "mimeType": "application/json",
+                        "text": "{\"code\":\"OK\",\"data\":{\"appid\":730,\"asset_info\":{\"action_link\":\"\",\"appid\":730,\"assetid\":\"49113500417\",\"classid\":\"7488632023\",\"contextid\":2,\"goods_id\":1119940,\"has_tradable_cooldown\":true,\"id\":\"M4311846371\",\"info\":{\"fraudwarnings\":null,\"icon_url\":\"https://market.fp.ps.netease.com/file/68c9f4a5c7ee471d4f08542dTSmJgobL06?fop=imageView/6/f/webp/q/75\",\"keychains\":[],\"stickers\":[],\"tournament_tags\":[]},\"instanceid\":\"1363818010\",\"paintwear\":\"\",\"tradable_cooldown_text\":\"7\\u5929\\u540e\\u53ef\\u53d6\\u56de\",\"tradable_unfrozen_time\":1769587200},\"bundle_info\":{},\"buyer_cancel_timeout\":null,\"buyer_cookie_invalid\":false,\"buyer_id\":\"U1078483952\",\"buyer_pay_time\":1768979892,\"buyer_send_offer_timeout\":-1,\"buyer_steamid\":\"76561198798382312\",\"buyer_steamid_text\":\"76561198798382312(Ailice)\",\"can_replace_asset\":false,\"can_show_fee_discount_coupon\":false,\"coupon_info\":null,\"coupon_infos\":null,\"created_at\":1768979892,\"deliver_expire_time\":null,\"deliver_expire_timeout\":-1,\"error_text\":null,\"fail_confirm\":null,\"fee\":\"0\",\"game\":\"csgo\",\"goods_id\":1119940,\"has_bargain\":false,\"has_sent_offer\":false,\"id\":\"260121T3649993441\",\"income\":\"0\",\"is_seller_asked_to_send_offer\":false,\"list_page_price\":\"1.89\",\"mode\":5,\"original_price\":null,\"pay_channel_fee\":\"0\",\"pay_expire_timeout\":-1,\"pay_method\":59,\"pay_method_text\":\"BUFF\\u53ef\\u7528\\u8d44\\u91d1\",\"price\":\"1.89\",\"price_with_pay_fee\":null,\"progress\":102,\"real_price\":\"1.89\",\"receive_expire_timeout\":-1,\"reward_points\":null,\"sell_order_id\":null,\"sell_price\":\"1.89\",\"seller_can_cancel\":false,\"seller_cookie_invalid\":false,\"seller_id\":\"U1093747311\",\"state\":\"PAYING\",\"state_text\":\"\\u8ba2\\u5355\\u72b6\\u6001\\u786e\\u8ba4\\u4e2d\",\"swap_asset_count\":0,\"trade_offer_trace_url\":null,\"trade_offer_url\":null,\"tradeofferid\":null,\"transact_time\":null,\"type\":1,\"updated_at\":1768979892},\"msg\":null}\n"
+                    },
+                    "redirectURL": "",
+                    "headersSize": -1,
+                    "bodySize": -1,
+                    "_transferSize": 1283,
+                    "_error": null,
+                    "_fetchedViaServiceWorker": false
+                }
+            },
+            {
+                "request": {
+                    "method": "POST",
+                    "url": "https://buff.163.com/api/market/goods/buy",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": ":authority",
+                            "value": "buff.163.com"
+                        },
+                        {
+                            "name": ":method",
+                            "value": "POST"
+                        },
+                        {
+                            "name": ":path",
+                            "value": "/api/market/goods/buy"
+                        },
+                        {
+                            "name": ":scheme",
+                            "value": "https"
+                        },
+                        {
+                            "name": "accept",
+                            "value": "application/json, text/javascript, */*; q=0.01"
+                        },
+                        {
+                            "name": "accept-encoding",
+                            "value": "gzip, deflate, br, zstd"
+                        },
+                        {
+                            "name": "accept-language",
+                            "value": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6"
+                        },
+                        {
+                            "name": "content-length",
+                            "value": "229"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "origin",
+                            "value": "https://buff.163.com"
+                        },
+                        {
+                            "name": "priority",
+                            "value": "u=1, i"
+                        },
+                        {
+                            "name": "referer",
+                            "value": "https://buff.163.com/goods/1119940?from=market"
+                        },
+                        {
+                            "name": "sec-ch-ua",
+                            "value": "\"Not(A:Brand\";v=\"8\", \"Chromium\";v=\"144\", \"Microsoft Edge\";v=\"144\""
+                        },
+                        {
+                            "name": "sec-ch-ua-mobile",
+                            "value": "?0"
+                        },
+                        {
+                            "name": "sec-ch-ua-platform",
+                            "value": "\"Windows\""
+                        },
+                        {
+                            "name": "sec-fetch-dest",
+                            "value": "empty"
+                        },
+                        {
+                            "name": "sec-fetch-mode",
+                            "value": "cors"
+                        },
+                        {
+                            "name": "sec-fetch-site",
+                            "value": "same-origin"
+                        },
+                        {
+                            "name": "user-agent",
+                            "value": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/144.0.0.0 Safari/537.36 Edg/144.0.0.0"
+                        },
+                        {
+                            "name": "x-csrftoken",
+                            "value": "ImZlNjA5ZTYzMzhiYWYzNWIyMmU0OTRjMGJiNTQ3ZjgxZmIyMDFkMzEi.aXB9tA.0zUed5govmQKWUX3zWoSX8vafBg"
+                        },
+                        {
+                            "name": "x-requested-with",
+                            "value": "XMLHttpRequest"
+                        }
+                    ],
+                    "queryString": [],
+                    "cookies": [],
+                    "headersSize": -1,
+                    "bodySize": 229,
+                    "postData": {
+                        "mimeType": "application/json",
+                        "text": "{\"game\":\"csgo\",\"goods_id\":1119940,\"sell_order_id\":\"3951074477-AB36-156531424\",\"price\":\"1.9\",\"batch\":1,\"pay_method\":59,\"allow_tradable_cooldown\":0,\"hide_non_epay\":false,\"batch_id\":\"361d44bcd369471b8f56dad45441e68d\",\"steamid\":null}"
+                    }
+                },
+                "response": {
+                    "status": 200,
+                    "statusText": "OK",
+                    "httpVersion": "http/2.0",
+                    "headers": [
+                        {
+                            "name": "buff-cashier-trace-id",
+                            "value": "expired"
+                        },
+                        {
+                            "name": "content-encoding",
+                            "value": "gzip"
+                        },
+                        {
+                            "name": "content-type",
+                            "value": "application/json"
+                        },
+                        {
+                            "name": "date",
+                            "value": "Wed, 21 Jan 2026 07:18:13 GMT"
+                        },
+                        {
+                            "name": "ntes-trace-id",
+                            "value": "828300f1073d0928:828300f1073d0928:0:0"
+                        },
+                        {
+                            "name": "server",
+                            "value": "nginx"
+                        },
+                        {
+                            "name": "x-envoy-upstream-service-time",
+                            "value": "832"
+                        }
+                    ],
+                    "cookies": [],
+                    "content": {
+                        "size": 1804,
+                        "mimeType": "application/json",
+                        "text": "{\"code\":\"OK\",\"data\":{\"appid\":730,\"asset_info\":{\"action_link\":\"\",\"appid\":730,\"assetid\":\"49113492682\",\"classid\":\"7488632023\",\"contextid\":2,\"goods_id\":1119940,\"has_tradable_cooldown\":true,\"id\":\"M4311845951\",\"info\":{\"fraudwarnings\":null,\"icon_url\":\"https://market.fp.ps.netease.com/file/68c9f4a5c7ee471d4f08542dTSmJgobL06?fop=imageView/6/f/webp/q/75\",\"keychains\":[],\"stickers\":[],\"tournament_tags\":[]},\"instanceid\":\"1363818010\",\"paintwear\":\"\",\"tradable_cooldown_text\":\"7\\u5929\\u540e\\u53ef\\u53d6\\u56de\",\"tradable_unfrozen_time\":1769587200},\"bundle_info\":{},\"buyer_cancel_timeout\":null,\"buyer_cookie_invalid\":false,\"buyer_id\":\"U1078483952\",\"buyer_pay_time\":1768979893,\"buyer_send_offer_timeout\":-1,\"buyer_steamid\":\"76561198798382312\",\"buyer_steamid_text\":\"76561198798382312(Ailice)\",\"can_replace_asset\":false,\"can_show_fee_discount_coupon\":false,\"coupon_info\":null,\"coupon_infos\":null,\"created_at\":1768979893,\"deliver_expire_time\":null,\"deliver_expire_timeout\":-1,\"error_text\":null,\"fail_confirm\":null,\"fee\":\"0\",\"game\":\"csgo\",\"goods_id\":1119940,\"has_bargain\":false,\"has_sent_offer\":false,\"id\":\"260121T3649993449\",\"income\":\"0\",\"is_seller_asked_to_send_offer\":false,\"list_page_price\":\"1.9\",\"mode\":5,\"original_price\":null,\"pay_channel_fee\":\"0\",\"pay_expire_timeout\":-1,\"pay_method\":59,\"pay_method_text\":\"BUFF\\u53ef\\u7528\\u8d44\\u91d1\",\"price\":\"1.9\",\"price_with_pay_fee\":null,\"progress\":102,\"real_price\":\"1.9\",\"receive_expire_timeout\":-1,\"reward_points\":null,\"sell_order_id\":null,\"sell_price\":\"1.9\",\"seller_can_cancel\":false,\"seller_cookie_invalid\":false,\"seller_id\":\"U1099744411\",\"state\":\"PAYING\",\"state_text\":\"\\u8ba2\\u5355\\u72b6\\u6001\\u786e\\u8ba4\\u4e2d\",\"swap_asset_count\":0,\"trade_offer_trace_url\":null,\"trade_offer_url\":null,\"tradeofferid\":null,\"transact_time\":null,\"type\":1,\"updated_at\":1768979893},\"msg\":null}\n"
+                    },
+                    "redirectURL": "",
+                    "headersSize": -1,
+                    "bodySize": -1,
+                    "_transferSize": 1287,
+                    "_error": null,
+                    "_fetchedViaServiceWorker": false
+                }
+            }
+        ]
+    }
+}

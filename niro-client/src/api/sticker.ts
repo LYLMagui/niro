@@ -1,17 +1,23 @@
-import request from '@/utils/request';
+import request from "@/utils/request";
+
+interface StickerListParams {
+  page: number;
+  pageSize: number;
+  name?: string;
+}
 
 export const stickerApi = {
   /**
    * 获取印花列表
    * @param params 查询参数
    */
-  getStickerList(params: any) {
-    return request.get('/buff/sticker/page', { 
+  getStickerList(params: StickerListParams) {
+    return request.get("/buff/sticker/page", {
       params: {
         pageNum: params.page,
         pageSize: params.pageSize,
-        keyword: params.name
-      }
+        keyword: params.name,
+      },
     });
   },
 
@@ -20,8 +26,8 @@ export const stickerApi = {
    * @param userId 用户ID
    */
   syncStickers(userId: number) {
-    return request.post('/buff/sticker/sync', null, {
-      params: { userId }
+    return request.post("/buff/sticker/sync", null, {
+      params: { userId },
     });
-  }
+  },
 };

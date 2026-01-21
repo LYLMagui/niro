@@ -69,7 +69,7 @@
     </t-aside>
 
     <!-- 主体内容区域 -->
-    <t-layout class="flex-1 flex flex-col overflow-hidden">
+    <t-layout class="flex flex-1 flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
       <t-header>
         <t-head-menu theme="light">
@@ -86,11 +86,11 @@
       </t-header>
 
       <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
-      <t-content 
-        class="flex-1 flex flex-col bg-gray-50"
+      <t-content
+        class="flex flex-1 flex-col bg-gray-50"
         :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
       >
-        <div :class="[activeValue === 'Logs' ? 'flex-1 overflow-hidden' : 'p-3 flex-1']">
+        <div :class="[activeValue === 'Logs' ? 'flex-1 overflow-hidden' : 'flex-1 p-3']">
           <router-view v-slot="{ Component }">
             <keep-alive include="Logs">
               <component :is="Component" />
@@ -99,9 +99,9 @@
         </div>
 
         <!-- 底部版权信息：日志页隐藏，其他页显示 -->
-        <t-footer 
+        <t-footer
           v-if="activeValue !== 'Logs'"
-          class="p-6 text-center text-xs text-gray-400 border-t border-gray-100 bg-white"
+          class="border-t border-gray-100 bg-white p-6 text-center text-xs text-gray-400"
         >
           Copyright @ 2024 Niro Control
         </t-footer>

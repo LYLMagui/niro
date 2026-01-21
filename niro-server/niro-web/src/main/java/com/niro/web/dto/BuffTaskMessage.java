@@ -1,6 +1,7 @@
 package com.niro.web.dto;
 
 import com.niro.web.enums.BuffAccountRoleEnum;
+import com.niro.web.enums.TaskRunModeEnum;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -28,6 +29,11 @@ public class BuffTaskMessage {
     private Long taskId;
 
     /**
+     * 运行模式
+     */
+    private TaskRunModeEnum runMode;
+
+    /**
      * 任务类型 (1: 炼金扫货, 2: 站内倒卖, 10: 分类商品同步)
      */
     private Integer taskType;
@@ -36,6 +42,11 @@ public class BuffTaskMessage {
      * 任务名称
      */
     private String name;
+
+    /**
+     * 关联的下单任务ID (仅 SCAN/BOTH 模式使用)
+     */
+    private Long targetTaskId;
 
     /**
      * 商品ID / 分类ID

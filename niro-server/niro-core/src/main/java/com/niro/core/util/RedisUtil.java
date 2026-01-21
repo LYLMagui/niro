@@ -6,6 +6,7 @@ import org.springframework.data.redis.connection.DataType;
 import org.springframework.data.redis.core.Cursor;
 import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.data.redis.core.ScanOptions;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.data.redis.core.ZSetOperations;
 import org.springframework.stereotype.Component;
 
@@ -22,7 +23,7 @@ import java.util.concurrent.TimeUnit;
 public class RedisUtil {
 
     private final RedisTemplate<String, Object> redisTemplate;
-    private final org.springframework.data.redis.core.StringRedisTemplate stringRedisTemplate;
+    private final StringRedisTemplate stringRedisTemplate;
 
     /** -------------------key相关操作--------------------- */
 

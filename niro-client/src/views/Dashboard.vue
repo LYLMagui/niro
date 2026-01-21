@@ -1,5 +1,5 @@
 <template>
-  <div class="p-6 space-y-6">
+  <div class="space-y-6 p-6">
     <!-- 顶部数据卡片区域，使用 Grid 布局 -->
     <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
       <!-- 卡片：今日爬取数量 -->
@@ -33,8 +33,8 @@
             v-if="!isRunning"
             theme="primary"
             size="medium"
-            @click="handleGlobalStart"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+            @click="handleGlobalStart"
           >
             启动任务
           </t-button>
@@ -42,8 +42,8 @@
             v-else
             theme="danger"
             size="medium"
-            @click="handleGlobalStop"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
+            @click="handleGlobalStop"
           >
             停止任务
           </t-button>
@@ -60,13 +60,13 @@
     <!-- 正在运行的任务 (智行风格进度条) -->
     <div v-if="runningTasks.length > 0" class="space-y-4">
       <div class="flex items-center justify-between">
-        <h3 class="text-lg font-bold text-gray-800 flex items-center">
+        <h3 class="flex items-center text-lg font-bold text-gray-800">
           <t-icon name="control-platform" class="mr-2 text-blue-600" />
           运行中的任务
         </h3>
         <t-link theme="primary" @click="$router.push('/tasks')">查看全部</t-link>
       </div>
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="grid grid-cols-1 gap-4 md:grid-cols-2">
         <TaskProgressCard
           v-for="task in runningTasks"
           :key="task.id"
@@ -77,7 +77,7 @@
     </div>
 
     <!-- 底部表格：最新商品动态 -->
-    <t-card :bordered="false" class="shadow-sm embedded-card">
+    <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
           <t-icon name="chart-bubble" class="mr-2 text-blue-600" />
@@ -110,11 +110,18 @@
         </template>
         <!-- 自定义时间列 -->
         <template #time="{ row }">
-          <span class="font-numeric text-gray-500 text-xs">{{ row.time }}</span>
+          <span class="font-numeric text-xs text-gray-500">{{ row.time }}</span>
         </template>
         <!-- 自定义状态列渲染 -->
         <template #status="{ row }">
-          <t-tag v-if="row.status === 'success'" theme="success" variant="light" class="compact-tag">成功</t-tag>
+          <t-tag
+            v-if="row.status === 'success'"
+            theme="success"
+            variant="light"
+            class="compact-tag"
+          >
+            成功
+          </t-tag>
           <t-tag v-else theme="warning" variant="light" class="compact-tag">处理中</t-tag>
         </template>
       </t-table>
@@ -197,5 +204,4 @@ const data = ref([
 ]);
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

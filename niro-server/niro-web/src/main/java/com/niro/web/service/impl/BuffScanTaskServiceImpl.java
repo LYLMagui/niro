@@ -5,6 +5,10 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.BetweenFormatter;
 import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.constant.BuffConstant;
@@ -18,12 +22,14 @@ import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.*;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -54,10 +60,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
 
-    @org.springframework.beans.factory.annotation.Value("${PROXY_URL:}")
+    @Value("${PROXY_URL:}")
     private String globalProxyUrl;
 
-    @org.springframework.beans.factory.annotation.Value("${ENABLE_PROXY:false}")
+    @Value("${ENABLE_PROXY:false}")
     private Boolean enableProxy;
 
     @Override
@@ -81,6 +87,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             }
             // 系统任务不需要关联商品，手动设置任务名
             task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
+            task.setRunMode(TaskRunModeEnum.SCAN); // 系统任务默认为扫描模式
+        } else if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
+            // 仅下单模式：任务名初始设为"下单任务"，保存后可根据需要更新
+            task.setName("下单任务");
         } else {
             // 校验商品是否存在
             BuffGoods goods = buffGoodsService.lambdaQuery()
@@ -89,6 +99,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             Assert.validateNull(goods, "商品不存在");
             // 默认任务名为商品名
             task.setName(goods.getName());
+            // 如果未指定模式，默认为全能模式
+            if (task.getRunMode() == null) {
+                task.setRunMode(TaskRunModeEnum.BOTH);
+            }
         }
 
         // 默认停止
@@ -97,6 +111,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setUserId(currentUserId);
 
         this.save(task);
+
+        // 仅下单模式任务，保存后更新名称包含其 ID，方便识别
+        if (TaskRunModeEnum.TRADE.equals(task.getRunMode())) {
+            task.setName("下单任务:" + task.getId());
+            this.updateById(task);
+        }
 
         // 保存账号关联
         saveTaskAccounts(task.getId(), currentUserId, param.getAccountIds());
@@ -152,6 +172,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 仅允许修改配置字段，不允许修改 goodsId
+        task.setRunMode(param.getRunMode());
+        if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
+            task.setName("下单任务:" + task.getId());
+        }
+        task.setTargetTaskId(param.getTargetTaskId());
+        task.setTargetTradeAccountId(param.getTargetTradeAccountId());
         task.setMaxPrice(param.getMaxPrice());
         task.setMinPaintwear(param.getMinPaintwear());
         task.setMaxPaintwear(param.getMaxPaintwear());
@@ -203,7 +229,31 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             return;
         }
 
-        // 普通任务校验
+        if (param.getRunMode() == null) {
+            throw new BusinessException("运行模式不能为空");
+        }
+
+        // TRADE 模式下商品ID、最高价格、最小利润等均非必填
+        if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
+             // 仅下单模式不再校验 listenerTag，也无需 targetTaskId
+            return;
+        }
+
+        // 非系统任务且非下单模式，商品ID不能为空
+        if (param.getGoodsId() == null) {
+            throw new BusinessException("非系统任务下，商品ID不能为空");
+        }
+
+        // 如果是扫描或全能模式，且有关联下单的需求，建议关联下单任务
+        // 这里不强制要求，但如果用户选了，我们需要确保下单任务存在
+        if (param.getTargetTaskId() != null) {
+            BuffScanTask targetTask = this.getById(param.getTargetTaskId());
+            if (targetTask == null || !TaskRunModeEnum.TRADE.equals(targetTask.getRunMode())) {
+                throw new BusinessException("关联的下单任务不存在或模式错误");
+            }
+        }
+
+        // 普通任务校验（非 TRADE 模式）
         // 如果设置了时间范围，则验证范围
         if (param.getScanIntervalMin() != null || param.getScanIntervalMax() != null) {
             if (param.getScanIntervalMin() != null && param.getScanIntervalMin() < 15) {
@@ -217,17 +267,20 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("普通扫描任务的间隔不能低于15秒");
         }
 
-        if (param.getGoodsId() == null) {
-            throw new BusinessException("非系统任务下，商品ID不能为空");
-        }
-
         if (TaskTypeEnum.SNIPING.getCode().equals(param.getTaskType())) {
-            if (param.getMaxPrice() == null) {
+            if (param.getMaxPrice() == null && !TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
                 throw new BusinessException("炼金扫货模式下，最高价格不能为空");
             }
         } else if (TaskTypeEnum.FLIPPING.getCode().equals(param.getTaskType())) {
-            if (param.getMinProfit() == null) {
+            if (param.getMinProfit() == null && !TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
                 throw new BusinessException("站内倒卖模式下，最小预期利润不能为空");
+            }
+        }
+
+        // 如果是 BOTH 模式，购买数量不能为空 (TRADE 模式由信号决定)
+        if (TaskRunModeEnum.BOTH.equals(param.getRunMode())) {
+            if (param.getBuyCount() == null || param.getBuyCount() <= 0) {
+                throw new BusinessException("全能模式下，购买数量必须大于0");
             }
         }
     }
@@ -416,9 +469,11 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         BuffTaskMessage.BuffTaskMessageBuilder messageBuilder = BuffTaskMessage.builder()
                 .taskId(task.getId())
+                .runMode(task.getRunMode())
                 .userId(task.getUserId())
                 .taskType(task.getTaskType())
                 .name(task.getName())
+                .targetTaskId(task.getTargetTaskId())
                 .goodsId(task.getGoodsId())
                 .maxPrice(task.getMaxPrice())
                 .minProfit(task.getMinProfit())
@@ -441,9 +496,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             String progressKey = BuffConstant.REDIS_TASK_STATS_PREFIX + task.getId();
             String progressJson = redisUtil.getToString(progressKey);
 
-            if (cn.hutool.core.util.StrUtil.isNotBlank(progressJson)) {
-                cn.hutool.json.JSONObject progress = cn.hutool.json.JSONUtil.parseObj(progressJson);
-                cn.hutool.json.JSONArray pendingCats = progress.getJSONArray("pending_categories");
+            if (StrUtil.isNotBlank(progressJson)) {
+                JSONObject progress = JSONUtil.parseObj(progressJson);
+                JSONArray pendingCats = progress.getJSONArray("pending_categories");
                 if (CollUtil.isNotEmpty(pendingCats)) {
                     log.info("任务 [{}] 发现未完成分片，共 {} 个分类，准备执行断点续传", task.getId(), pendingCats.size());
                     categoryIds = pendingCats.toList(Long.class);
@@ -538,7 +593,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         Page<BuffScanTask> taskPage = this.lambdaQuery()
                 .eq(!BuffConstant.ADMIN_USER_ID.equals(currentUserId), BuffScanTask::getUserId, currentUserId)
                 .eq(param.getStatus() != null, BuffScanTask::getStatus, param.getStatus())
-                .like(cn.hutool.core.util.StrUtil.isNotBlank(param.getKeyword()), BuffScanTask::getName, param.getKeyword())
+                .eq(param.getRunMode() != null, BuffScanTask::getRunMode, param.getRunMode())
+                .in(CollUtil.isNotEmpty(param.getTaskTypes()), BuffScanTask::getTaskType, param.getTaskTypes())
+                .like(StrUtil.isNotBlank(param.getKeyword()), BuffScanTask::getName, param.getKeyword())
                 .orderByDesc(BuffScanTask::getCreateTime)
                 .page(page);
 
@@ -595,15 +652,15 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                     // 补充实时统计信息
                     String statsKey = BuffConstant.REDIS_TASK_STATS_PREFIX + dto.getId();
                     String statsJson = redisUtil.getToString(statsKey);
-                    if (cn.hutool.core.util.StrUtil.isNotBlank(statsJson)) {
-                        dto.setStats(cn.hutool.json.JSONUtil.parse(statsJson));
+                    if (StrUtil.isNotBlank(statsJson)) {
+                        dto.setStats(JSONUtil.parse(statsJson));
                     }
 
                     // 补充实时状态信息 (v2.4.0 优先从 Redis 获取)
                     String statusKey = BuffConstant.REDIS_TASK_STATUS_PREFIX + dto.getId();
                     String statusJson = redisUtil.getToString(statusKey);
-                    if (cn.hutool.core.util.StrUtil.isNotBlank(statusJson)) {
-                        cn.hutool.json.JSONObject statusObj = cn.hutool.json.JSONUtil.parseObj(statusJson);
+                    if (StrUtil.isNotBlank(statusJson)) {
+                        JSONObject statusObj = JSONUtil.parseObj(statusJson);
                         dto.setRealtimeStatus(statusObj.getStr("status"));
                         dto.setLastError(statusObj.getStr("error"));
                     }
@@ -650,7 +707,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 校验分类是否存在
-        com.niro.web.entity.BuffGoodsCategory category = buffGoodsCategoryService.getById(categoryId);
+        BuffGoodsCategory category = buffGoodsCategoryService.getById(categoryId);
         Assert.validateNull(category, "分类不存在");
 
         // 检查是否已有该分类的同步任务
@@ -674,5 +731,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             task.setSuccessCount(0);
             this.save(task);
         }
+    }
+
+    @Override
+    public List<BuffScanTask> listTradeTasks() {
+        return this.lambdaQuery()
+                .eq(BuffScanTask::getRunMode, TaskRunModeEnum.TRADE)
+                .list();
     }
 }

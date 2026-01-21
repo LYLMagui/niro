@@ -29,25 +29,37 @@ export interface RequestInstance {
   request<T = unknown>(config: AxiosRequestConfig): Promise<T>;
 }
 
+type RequestMetadata = {
+  startTime: Date;
+};
+
+type RequestConfigWithMeta = InternalAxiosRequestConfig & {
+  metadata?: RequestMetadata;
+};
+
+const unwrap = <T>(response: AxiosResponse<Result<T>>) => response.data.data as T;
+
 const request: RequestInstance = {
   get: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.get<any, T>(url, config),
+    service.get<Result<T>, AxiosResponse<Result<T>>>(url, config).then(unwrap),
   post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.post<any, T>(url, data, config),
+    service.post<Result<T>, AxiosResponse<Result<T>>>(url, data, config).then(unwrap),
   put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.put<any, T>(url, data, config),
+    service.put<Result<T>, AxiosResponse<Result<T>>>(url, data, config).then(unwrap),
   delete: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.delete<any, T>(url, config),
-  request: <T = unknown>(config: AxiosRequestConfig) => service.request<any, T>(config),
+    service.delete<Result<T>, AxiosResponse<Result<T>>>(url, config).then(unwrap),
+  request: <T = unknown>(config: AxiosRequestConfig) =>
+    service.request<Result<T>, AxiosResponse<Result<T>>>(config).then(unwrap),
 };
 
 // 请求拦截器
 service.interceptors.request.use(
   (config: InternalAxiosRequestConfig) => {
     // 记录请求开始时间
-    (config as any).metadata = { startTime: new Date() };
+    const requestConfig = config as RequestConfigWithMeta;
+    requestConfig.metadata = { startTime: new Date() };
     console.log(`[Request Start] ${config.method?.toUpperCase()} ${config.url}`);
-    
+
     // 从 localStorage 获取 token
     const token = localStorage.getItem("niro-web-token");
     // 如果 token 存在，则添加到请求头
@@ -65,11 +77,13 @@ service.interceptors.request.use(
 
 // 响应拦截器
 service.interceptors.response.use(
-  (response: AxiosResponse<Result<any>>) => {
+  (response: AxiosResponse<Result<unknown>>) => {
     // 计算耗时
-    const metadata = (response.config as any).metadata;
-    const duration = new Date().getTime() - metadata.startTime.getTime();
-    console.log(`[Response End] ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`);
+    const metadata = (response.config as RequestConfigWithMeta).metadata;
+    const duration = metadata ? new Date().getTime() - metadata.startTime.getTime() : 0;
+    console.log(
+      `[Response End] ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`
+    );
 
     const res = response.data;
     const headers = response.headers;
@@ -94,25 +108,28 @@ service.interceptors.response.use(
       }
       return Promise.reject(new Error(res.message || "Error"));
     } else {
-      return res.data as any;
+      return response;
     }
   },
-  (error: AxiosError) => {
+  (error: AxiosError<Result<unknown>>) => {
     // 计算耗时（即使失败）
-    const metadata = (error.config as any).metadata;
-    const duration = metadata ? new Date().getTime() - metadata.startTime.getTime() : 'unknown';
-    console.error(`[Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${duration}ms`, error);
+    const metadata = (error.config as RequestConfigWithMeta | undefined)?.metadata;
+    const duration = metadata ? new Date().getTime() - metadata.startTime.getTime() : "unknown";
+    console.error(
+      `[Response Error] ${error.config?.method?.toUpperCase()} ${error.config?.url} - ${duration}ms`,
+      error
+    );
 
     const { response } = error;
     if (response) {
-      const data = response.data as Result;
+      const data = response.data as Result<unknown>;
       MessagePlugin.error(data.message || "系统异常，请联系管理员");
       if (response.status === 401) {
         console.log("Response Interceptor (Status 401): Redirecting to login...");
         localStorage.removeItem("niro-web-token");
         window.location.href = "/login";
       }
-    } else if (error.code === 'ECONNABORTED' && error.message.indexOf('timeout') !== -1) {
+    } else if (error.code === "ECONNABORTED" && error.message.indexOf("timeout") !== -1) {
       // 请求超时
       MessagePlugin.error("请求超时，请检查后端服务性能或网络状况");
     } else {
