@@ -305,7 +305,8 @@
                     size="small"
                     class="w-full"
                   >
-                    <t-radio-button value="BALANCE">余额</t-radio-button>
+                    <t-radio-button value="BALANCE">网易支付</t-radio-button>
+                    <t-radio-button value="BUFF_BALANCE">BUFF余额</t-radio-button>
                     <t-radio-button value="ALIPAY">支付宝</t-radio-button>
                     <t-radio-button value="WECHAT">微信</t-radio-button>
                   </t-radio-group>

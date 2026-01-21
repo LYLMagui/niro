@@ -6,8 +6,10 @@
       :header="dialogTitle"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
       :width="uiState.isCycleMode ? '720px' : '640px'"
+      placement="center"
       class="task-edit-dialog"
       :footer="false"
+      destroy-on-close
     >
       <div class="form-container">
         <t-form
@@ -18,19 +20,19 @@
           class="compact-form"
           label-align="right"
           scroll-to-first-error="smooth"
-          validation-trigger="blur"
+          validation-trigger="submit"
           prevent-submit-default
           @submit="handleSubmit"
         >
-          <div class="mb-3 rounded-lg border border-gray-100 bg-gray-50/50 p-5">
-            <t-form-item label="任务类型" name="taskType" class="mb-2">
+          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-4 pt-4 pb-6">
+            <t-form-item label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
                 <t-radio :value="0">炼金扫货</t-radio>
                 <t-radio :value="1">站内倒卖</t-radio>
               </t-radio-group>
             </t-form-item>
 
-            <t-form-item label="任务模式" class="mb-1.5">
+            <t-form-item label="任务模式">
               <t-tag v-if="formData.runMode === 'SCAN'" theme="primary" variant="light-outline">
                 仅扫描
               </t-tag>
@@ -55,46 +57,7 @@
               </template>
             </t-form-item>
 
-            <t-form-item
-              v-if="formData.runMode !== 'TRADE'"
-              label="关联下单任务"
-              name="targetTaskId"
-              class="mb-2"
-            >
-              <t-select
-                v-model="formData.targetTaskId"
-                filterable
-                placeholder="请选择关联的下单任务 (可选)"
-                :loading="tradeTasksLoading"
-                style="width: 320px"
-                @focus="fetchTradeTasks"
-              >
-                <t-option
-                  v-for="item in tradeTasks"
-                  :key="item.id"
-                  :value="item.id"
-                  :label="item.name"
-                >
-                  <div class="flex w-full items-center justify-between">
-                    <span class="font-medium">{{ item.name }}</span>
-                    <t-tag v-if="item.status === 1" theme="success" variant="light" size="small">
-                      运行中
-                    </t-tag>
-                    <t-tag v-else theme="default" variant="light" size="small">停止</t-tag>
-                  </div>
-                </t-option>
-              </t-select>
-              <template #tips>
-                选择一个运行中的下单任务，扫描结果将自动路由给该任务执行购买
-              </template>
-            </t-form-item>
-
-            <t-form-item
-              v-if="formData.runMode !== 'TRADE'"
-              label="选择商品"
-              name="goodsId"
-              class="mb-2"
-            >
+            <t-form-item label="选择商品" name="goodsId">
               <t-select
                 v-model="formData.goodsId"
                 filterable
@@ -116,10 +79,47 @@
             </t-form-item>
 
             <t-form-item
+              v-if="formData.runMode !== 'TRADE'"
+              label="关联下单任务"
+              name="targetTaskId"
+            >
+              <t-select
+                v-model="formData.targetTaskId"
+                filterable
+                placeholder="请选择关联的下单任务 (可选)"
+                :loading="tradeTasksLoading"
+                :disabled="!formData.goodsId"
+                style="width: 320px"
+                @focus="fetchTradeTasks"
+              >
+                <t-option
+                  v-for="item in tradeTasks"
+                  :key="item.id"
+                  :value="item.id"
+                  :label="item.name"
+                >
+                  <div class="flex w-full items-center justify-between">
+                    <span class="font-medium">{{ item.name }}</span>
+                    <t-tag v-if="item.status === 1" theme="success" variant="light" size="small">
+                      运行中
+                    </t-tag>
+                    <t-tag v-else theme="default" variant="light" size="small">停止</t-tag>
+                  </div>
+                </t-option>
+              </t-select>
+              <template #tips>
+                {{
+                  formData.goodsId
+                    ? "仅显示相同商品的任务。选择后，扫描结果将自动路由给该任务执行购买"
+                    : "请先选择商品以关联对应的下单任务"
+                }}
+              </template>
+            </t-form-item>
+
+            <t-form-item
               v-if="formData.taskType === 1 && formData.runMode !== 'TRADE'"
               label="预期利润"
               name="minProfit"
-              class="mb-1.5"
             >
               <t-input-number
                 v-model="formData.minProfit"
@@ -137,7 +137,6 @@
               v-if="formData.taskType === 0 && formData.runMode !== 'TRADE'"
               label="最高价格"
               name="maxPrice"
-              class="mb-1.5"
             >
               <t-input-number
                 v-model="formData.maxPrice"
@@ -154,7 +153,6 @@
               v-if="formData.taskType === 0 && formData.runMode !== 'TRADE'"
               label="磨损范围"
               name="wear"
-              class="mb-1.5"
             >
               <div class="flex items-center gap-3">
                 <t-input-number
@@ -182,10 +180,9 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.runMode !== 'SCAN' && formData.runMode !== 'TRADE'"
+              v-if="formData.runMode !== 'SCAN' || formData.targetTaskId"
               label="购买数量"
               name="buyCount"
-              class="mb-1.5"
             >
               <t-input-number
                 v-model="formData.buyCount"
@@ -196,7 +193,7 @@
               />
             </t-form-item>
 
-            <t-form-item label="执行账号" name="accountIds" class="mb-1.5">
+            <t-form-item label="执行账号" name="accountIds">
               <t-select
                 v-model="formData.accountIds"
                 multiple
@@ -245,49 +242,12 @@
               <template #tips>多选账号可实现多并发扫货，提高抢购成功率</template>
             </t-form-item>
 
-            <t-form-item
-              v-if="formData.runMode === 'SCAN'"
-              label="关联下单账号"
-              name="targetTradeAccountId"
-              class="mb-1.5"
-            >
-              <t-select
-                v-model="formData.targetTradeAccountId"
-                filterable
-                placeholder="请选择关联下单账号"
-                :loading="accountsLoading"
-                style="width: 320px"
-                @focus="fetchAccounts"
-              >
-                <t-option
-                  v-for="item in tradeAccounts"
-                  :key="item.id"
-                  :value="item.id"
-                  :label="item.accountName"
-                >
-                  <div class="flex w-full items-center justify-between">
-                    <span class="font-medium">{{ item.accountName }}</span>
-                    <t-tag
-                      v-if="item.status === 'NORMAL'"
-                      theme="success"
-                      variant="light"
-                      size="small"
-                    >
-                      在线
-                    </t-tag>
-                    <t-tag v-else theme="danger" variant="light" size="small">异常</t-tag>
-                  </div>
-                </t-option>
-              </t-select>
-              <template #tips>SCAN 模式必须关联一个 TRADE/BOTH 角色账号用于下单</template>
-            </t-form-item>
-
-            <t-form-item v-if="formData.runMode !== 'TRADE'" class="mb-0" label-width="0">
+            <t-form-item v-if="formData.runMode !== 'TRADE'" label-width="0">
               <div
-                class="schedule-group mt-1 w-full rounded-md border border-blue-100 bg-blue-50/50 p-3"
+                class="schedule-group mt-1 w-full rounded-md border border-blue-100 bg-blue-50/50 p-1.5"
               >
                 <!-- 顶部模式切换 -->
-                <div class="mb-3 flex items-center justify-between">
+                <div class="mb-1 flex items-center justify-between">
                   <div class="flex items-center gap-2 text-sm font-medium text-blue-700">
                     <t-icon name="time-filled" />
                     <span>计划配置</span>
@@ -308,7 +268,6 @@
                   name="cronExpression"
                   label-width="90px"
                   label-align="right"
-                  class=""
                 >
                   <div class="flex items-center gap-4">
                     <t-input
@@ -356,7 +315,7 @@
                   name="durationMinutes"
                   label-width="90px"
                   label-align="right"
-                  class="mt-3"
+                  class="mt-1"
                 >
                   <div class="flex items-center gap-4">
                     <t-input-number
@@ -405,7 +364,7 @@
                   name="scanInterval"
                   label-width="90px"
                   label-align="right"
-                  class="mt-3"
+                  class="mt-1"
                 >
                   <div class="flex items-center gap-4">
                     <t-input-number
@@ -443,7 +402,7 @@
 
                 <!-- 动态逻辑预览 -->
                 <div
-                  class="mt-2 rounded border border-blue-50 bg-white/80 p-2 text-[12px] leading-relaxed text-blue-600 shadow-sm"
+                  class="mt-1 rounded border border-blue-50 bg-white/80 p-2 text-[12px] leading-relaxed text-blue-600 shadow-sm"
                 >
                   <div class="flex items-start gap-1.5">
                     <t-icon name="info-circle" class="mt-0.5 shrink-0" />
@@ -455,7 +414,7 @@
           </div>
 
           <!-- 自定义底部按钮，用于触发表单提交 -->
-          <div class="flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <div class="mt-2 flex justify-end gap-3 border-t border-gray-100 pt-2">
             <t-button variant="outline" theme="default" @click="dialogVisible = false">
               取消
             </t-button>
@@ -471,8 +430,10 @@
       :header="dialogTitle"
       :confirm-btn="{ content: '提交', loading: submitLoading }"
       width="600px"
+      placement="center"
       class="task-edit-dialog"
       :footer="false"
+      destroy-on-close
     >
       <div class="form-container">
         <t-form
@@ -483,12 +444,12 @@
           class="compact-form"
           label-align="right"
           scroll-to-first-error="smooth"
-          validation-trigger="blur"
+          validation-trigger="submit"
           prevent-submit-default
           @submit="handleSubmit"
         >
-          <div class="mb-5 rounded-lg border border-gray-100 bg-gray-50/50 p-5">
-            <t-form-item label="任务类型" name="taskType" class="mb-2">
+          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-4 pt-4 pb-6">
+            <t-form-item label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
                 <t-radio :value="2">系统-分类同步</t-radio>
                 <t-radio :value="3">系统-商品同步</t-radio>
@@ -497,7 +458,7 @@
               </t-radio-group>
             </t-form-item>
 
-            <t-form-item label="执行账号" name="accountIds" class="mb-1.5">
+            <t-form-item label="执行账号" name="accountIds">
               <t-select
                 v-model="formData.accountIds"
                 multiple
@@ -547,7 +508,9 @@
             </t-form-item>
 
             <!-- 调度配置分组 -->
-            <div class="schedule-group mt-1 rounded-md border border-blue-100 bg-blue-50/50 p-2">
+            <div
+              class="schedule-group mt-0.5 rounded-md border border-blue-100 bg-blue-50/50 p-1.5"
+            >
               <div class="mb-1 flex items-center gap-2 text-sm font-medium text-blue-700">
                 <t-icon name="time-filled" />
                 <span>运行计划</span>
@@ -558,7 +521,6 @@
                 name="cronExpression"
                 label-width="90px"
                 label-align="right"
-                class="mb-4"
               >
                 <div class="flex items-center gap-4">
                   <t-input
@@ -615,7 +577,7 @@
           </div>
 
           <!-- 自定义底部按钮 -->
-          <div class="mt-6 flex justify-end gap-3 border-t border-gray-100 pt-4">
+          <div class="mt-2 flex justify-end gap-3 border-t border-gray-100 pt-2">
             <t-button variant="outline" theme="default" @click="systemDialogVisible = false">
               取消
             </t-button>
@@ -629,14 +591,14 @@
 
 <script setup lang="ts">
 import { goodsApi } from "@/api/goods";
-import { taskApi } from "@/api/task";
 import { settingsApi, type BuffAccount } from "@/api/settings";
+import { taskApi } from "@/api/task";
 import CronEditor from "@/components/CronEditor.vue";
 import type { GoodsSimple } from "@/types/goods";
 import type { BuffScanTask, TaskSaveParam } from "@/types/task";
 import cronParser from "cron-parser";
 import { MessagePlugin, type FormRules, type SelectValue } from "tdesign-vue-next";
-import { computed, reactive, ref, watch, nextTick } from "vue";
+import { computed, nextTick, reactive, ref, watch } from "vue";
 
 const emit = defineEmits(["success"]);
 
@@ -650,7 +612,7 @@ const tradeTasksLoading = ref(false);
 const fetchTradeTasks = async () => {
   tradeTasksLoading.value = true;
   try {
-    tradeTasks.value = await taskApi.getTradeTasks();
+    tradeTasks.value = await taskApi.getTradeTasks(formData.goodsId);
   } finally {
     tradeTasksLoading.value = false;
   }
@@ -810,9 +772,7 @@ const formData = reactive<any>({
   minProfit: 0,
   accountIds: [],
   runMode: "SCAN",
-  targetTradeAccountId: undefined,
   targetTaskId: undefined,
-  listenerTag: "",
 });
 
 // 账号过滤逻辑
@@ -825,62 +785,39 @@ const filteredAccounts = computed(() => {
   });
 });
 
-const tradeAccounts = computed(() => {
-  return accounts.value.filter((a) => a.role === "TRADE" || a.role === "BOTH");
-});
-
-const rules = computed<FormRules<TaskSaveParam>>(() => ({
+const rules = computed(() => ({
   accountIds: [{ required: true, message: "请选择执行账号", type: "error", trigger: "change" }],
-  targetTradeAccountId: [
-    {
-      required: formData.runMode === "SCAN",
-      message: "SCAN模式必须选择关联下单账号",
-      type: "error",
-      trigger: "change",
-    },
-  ],
   targetTaskId: [
     {
-      required: false, // 可选，但界面有 tips 引导
+      required: false,
       type: "error",
-      trigger: "change",
-    },
-  ],
-  listenerTag: [
-    {
-      required: formData.runMode === "TRADE",
-      message: "请输入监听标识",
-      type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
   goodsId: [
     {
-      required: formData.runMode !== "TRADE",
       validator: (val: any) => {
-        if (formData.taskType < 2 && formData.runMode !== "TRADE") return !!val;
+        if (formData.taskType < 2) return !!val;
         return true;
       },
       message: "请选择商品",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
   maxPrice: [
     {
-      required: formData.runMode !== "TRADE",
       validator: (val: any) => {
         if (formData.taskType === 0 && formData.runMode !== "TRADE") return !!val;
         return true;
       },
       message: "请输入最高价格",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
   minProfit: [
     {
-      required: formData.runMode !== "TRADE",
       validator: (val: any) => {
         if (formData.taskType === 1 && formData.runMode !== "TRADE")
           return val !== undefined && val !== null;
@@ -888,12 +825,11 @@ const rules = computed<FormRules<TaskSaveParam>>(() => ({
       },
       message: "请输入最小预期利润",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
   buyCount: [
     {
-      required: formData.runMode !== "SCAN" && formData.runMode !== "TRADE",
       validator: (val: any) => {
         if (formData.taskType < 2 && formData.runMode !== "SCAN" && formData.runMode !== "TRADE")
           return !!val;
@@ -901,19 +837,18 @@ const rules = computed<FormRules<TaskSaveParam>>(() => ({
       },
       message: "请输入购买数量",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
   scanInterval: [
     {
-      required: formData.runMode !== "TRADE",
       validator: (val: any) => {
         if (formData.taskType >= 2 || formData.runMode === "TRADE") return true;
         return !!val;
       },
       message: "请输入扫描间隔",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
     {
       validator: (val: any) => {
@@ -922,10 +857,19 @@ const rules = computed<FormRules<TaskSaveParam>>(() => ({
       },
       message: "扫描间隔不得低于 15 秒",
       type: "error",
-      trigger: "blur",
+      trigger: "submit",
     },
   ],
 }));
+
+// 监听商品变更，清空关联的下单任务
+watch(
+  () => formData.goodsId,
+  () => {
+    formData.targetTaskId = undefined;
+    tradeTasks.value = [];
+  }
+);
 
 // 监听运行模式切换
 watch(
@@ -1032,8 +976,7 @@ const resetForm = () => {
     taskType: 0,
     minProfit: 0,
     accountIds: [],
-    runMode: "SCAN",
-    targetTradeAccountId: undefined,
+    runMode: "BOTH",
     targetTaskId: undefined,
   });
   uiState.durationValue = 0;
@@ -1051,6 +994,9 @@ const handleAdd = (defaultMode: string = "SCAN") => {
   formData.runMode = defaultMode;
   dialogTitle.value = "新增任务";
   dialogVisible.value = true;
+  nextTick(() => {
+    formRef.value?.clearValidate();
+  });
   fetchAccounts();
 };
 
@@ -1059,6 +1005,9 @@ const handleAddSystem = () => {
   formData.taskType = 2;
   dialogTitle.value = "新增系统任务";
   systemDialogVisible.value = true;
+  nextTick(() => {
+    systemFormRef.value?.clearValidate();
+  });
   fetchAccounts();
 };
 
@@ -1092,13 +1041,24 @@ const handleEdit = (row: BuffScanTask) => {
   dialogTitle.value = "编辑任务";
   if (row.taskType >= 2) {
     systemDialogVisible.value = true;
+    nextTick(() => {
+      systemFormRef.value?.clearValidate();
+    });
   } else {
     dialogVisible.value = true;
+    nextTick(() => {
+      formRef.value?.clearValidate();
+    });
   }
   fetchAccounts();
 };
 
-const handleSubmit = async () => {
+const handleSubmit = async ({ validateResult, firstError }: any) => {
+  if (validateResult !== true) {
+    MessagePlugin.warning(firstError || "表单校验未通过");
+    return;
+  }
+
   submitLoading.value = true;
   try {
     // 构造纯净的提交数据，过滤掉冗余字段 (如 goodsIconUrl, status 等)
@@ -1113,7 +1073,6 @@ const handleSubmit = async () => {
       durationMinutes: formData.durationMinutes,
       restPeriod: formData.restPeriod,
       scanInterval: formData.scanInterval,
-      targetTradeAccountId: formData.targetTradeAccountId,
       scanIntervalMin: formData.scanIntervalMin,
       scanIntervalMax: formData.scanIntervalMax,
       taskType: formData.taskType,
@@ -1153,3 +1112,66 @@ defineExpose({
   handleEdit,
 });
 </script>
+
+<style scoped>
+/* 调整弹窗内边距，使其更紧凑 */
+:deep(.task-edit-dialog .t-dialog__body) {
+  padding: 4px 12px 8px;
+  max-height: 80vh;
+  overflow-y: auto;
+}
+
+:deep(.task-edit-dialog .t-dialog__header) {
+  padding: 12px 12px 4px;
+}
+
+:deep(.task-edit-dialog .t-dialog) {
+  max-height: 90vh;
+}
+
+/* 进一步压缩表单项间距 */
+:deep(.compact-form .t-form__item) {
+  margin-bottom: 18px; /* 适度增加间距，为错误提示预留空间 */
+}
+
+/* 当存在校验错误时，确保有足够间距且高度由内容撑开 */
+:deep(.compact-form .t-form__item.t-is-error) {
+  margin-bottom: 24px;
+}
+
+/* 压缩提示文本间距并确保不遮挡 */
+:deep(.compact-form .t-form__item .t-input__tips) {
+  margin-top: 4px;
+  margin-bottom: 2px;
+  line-height: 1.4;
+  position: relative !important;
+  display: block !important;
+  min-height: auto !important;
+}
+
+/* 错误信息样式优化：确保在 tips 下方且有清晰间距 */
+:deep(.compact-form .t-form__item .t-form__verify-message) {
+  margin-top: 4px;
+  margin-bottom: 2px;
+  line-height: 1.4;
+  position: relative !important;
+  display: block !important;
+  min-height: auto !important;
+  font-size: 12px;
+}
+
+/* 如果 verify-message 紧跟在 tips 后面，增加额外间距 */
+:deep(.compact-form .t-form__item .t-input__tips + .t-form__verify-message) {
+  margin-top: 4px;
+}
+
+/* 针对 schedule-group 内部的 form-item 特殊处理 */
+.schedule-group :deep(.t-form__item) {
+  margin-bottom: 12px; /* 从 8px 增加到 12px */
+}
+
+/* 移除末尾元素的边距压缩，防止报错信息溢出背景框 */
+.schedule-group :deep(.t-form__item:last-child) {
+  margin-bottom: 8px;
+}
+</style>

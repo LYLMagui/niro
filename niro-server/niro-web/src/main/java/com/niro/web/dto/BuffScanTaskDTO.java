@@ -69,11 +69,8 @@ public class BuffScanTaskDTO {
     @Schema(description = "扫描间隔(秒)")
     private Integer scanInterval;
 
-    @Schema(description = "关联的下单账号ID (仅 SCAN 模式任务使用)")
-    private Long targetTradeAccountId;
-
-    @Schema(description = "关联的下单账号名称")
-    private String targetTradeAccountName;
+    @Schema(description = "关联的下单任务ID (仅 SCAN/BOTH 模式使用)")
+    private Long targetTaskId;
 
     @Schema(description = "最小扫描间隔(秒)")
     private Integer scanIntervalMin;

@@ -41,7 +41,7 @@ export const taskApi = {
   /**
    * 获取所有下单模式的任务列表
    */
-  getTradeTasks() {
-    return request.get<BuffScanTask[]>("/task/trade-tasks");
+  getTradeTasks(goodsId?: number) {
+    return request.get<BuffScanTask[]>("/task/trade-tasks", { params: { goodsId } });
   },
 };

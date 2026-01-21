@@ -120,6 +120,11 @@ public class BuffTaskMessage {
     private List<AccountContext> accounts;
 
     /**
+     * 支付方式 (BALANCE, BUFF_BALANCE, ALIPAY, WECHAT)
+     */
+    private String paymentMethod;
+
+    /**
      * 允许下单的账号ID列表 (如果为空，则为仅扫描模式)
      */
     private List<Long> execAccountIds;

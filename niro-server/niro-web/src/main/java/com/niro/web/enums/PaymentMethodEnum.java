@@ -15,7 +15,8 @@ import lombok.Getter;
 @AllArgsConstructor
 public enum PaymentMethodEnum {
 
-    BALANCE("BALANCE", "余额"),
+    BALANCE("BALANCE", "余额/网易支付"),
+    BUFF_BALANCE("BUFF_BALANCE", "BUFF余额"),
     ALIPAY("ALIPAY", "支付宝"),
     WECHAT("WECHAT", "微信");
 

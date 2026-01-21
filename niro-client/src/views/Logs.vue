@@ -140,13 +140,34 @@
               <!-- 日志级别 -->
               <span
                 :class="getLevelClass(log.level)"
-                class="inline-block w-12 font-bold uppercase select-none"
+                class="inline-block w-14 font-bold uppercase select-none"
               >
                 {{ log.level }}
               </span>
 
+              <!-- IP & TraceId 标签 -->
+              <span v-if="log.ip" class="mr-2 inline-flex items-center">
+                <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400/80 border border-emerald-500/20">
+                  {{ log.ip }}
+                </span>
+              </span>
+              <span v-if="log.traceId" class="mr-2 inline-flex items-center">
+                <span 
+                  class="cursor-pointer rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-400/80 border border-purple-500/20 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                  @click="filterByKeyword(log.traceId)"
+                >
+                  {{ log.traceId }}
+                </span>
+              </span>
+
               <!-- 内容解析渲染 -->
-              <span :class="getMessageClass(log)" class="break-all whitespace-pre-wrap">
+              <span
+                :class="[
+                  getMessageClass(log),
+                  { 'order-step-breathe': isOrderStep(log.message) }
+                ]"
+                class="inline-block rounded-sm px-1 break-all whitespace-pre-wrap transition-all"
+              >
                 <template v-for="(part, i) in formatMessage(log.message)" :key="i">
                   <span
                     v-if="part.highlight"
@@ -178,19 +199,6 @@
                   </span>
                 </template>
               </span>
-
-              <!-- 右侧悬浮 TraceID -->
-              <div class="absolute top-0 right-2 hidden h-full items-center group-hover:flex">
-                <t-tag
-                  v-if="log.traceId"
-                  size="small"
-                  variant="dark"
-                  class="cursor-pointer bg-gray-700 text-gray-300 hover:bg-blue-600 hover:text-white"
-                  @click="filterByKeyword(log.traceId)"
-                >
-                  #{{ log.traceId }}
-                </t-tag>
-              </div>
             </div>
           </div>
         </div>
@@ -341,6 +349,7 @@ const parseLog = (log: LogItem) => {
     ...log,
     _account: accMatch ? accMatch[1] : null,
     _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
+    _ip: log.ip || (msg.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)?.[1]),
     _isDiscovery: isDiscovery,
   };
 };
@@ -374,7 +383,8 @@ const filteredLogs = computed(() => {
       const content = (
         (log.message || "") +
         (log._account || "") +
-        (log._traceId || "")
+        (log._traceId || "") +
+        (log._ip || "")
       ).toLowerCase();
 
       // 所有关键字都必须包含 (AND 逻辑)
@@ -389,8 +399,10 @@ const filteredLogs = computed(() => {
 const formatMessage = (message: string) => {
   if (!message) return [];
 
-  const cleanMessage = message
-    .replace(/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3}\s*\|\s*/, "")
+  let cleanMessage = message
+    // 再次加固：移除可能残余的类似 spiders.async_buff_spider:_trade_task_loop:436 - 的冗余信息
+    .replace(/^[a-zA-Z0-9_.]+:([a-zA-Z0-9_]+):(\d+)\s*-\s*/, "")
+    // 移除可能残余的 traceId/ip 标记格式（如果 messageContent 已经处理过，这里通常不会生效）
     .replace(/traceId:\s*([a-zA-Z0-9_-]{7,32})/gi, "[TraceId: $1]")
     .replace(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi, "[IP: $1]");
 
@@ -492,15 +504,16 @@ const formatTime = (ts: string) => {
 const getLevelClass = (level: string) => {
   switch (level?.toUpperCase()) {
     case "ERROR":
-      return "text-red-500";
+      return "text-red-500 font-black scale-110 origin-left";
     case "WARN":
-      return "text-yellow-500";
+    case "WARNING":
+      return "text-amber-500 font-bold";
     case "INFO":
-      return "text-blue-400";
+      return "text-blue-400 font-bold";
     case "DEBUG":
-      return "text-gray-500";
+      return "text-gray-500 font-medium";
     default:
-      return "text-gray-600";
+      return "text-gray-400";
   }
 };
 
@@ -511,9 +524,14 @@ const isSuccessLog = (message: string) => {
   );
 };
 
+const isOrderStep = (message: string) => {
+  return message && /步骤\s*\d+\/\d+/.test(message);
+};
+
 const getMessageClass = (log: any) => {
   if (log._isDiscovery) return "text-amber-400 font-bold not-italic";
   if (isSuccessLog(log.message)) return "text-green-400 font-medium";
+  if (isOrderStep(log.message)) return "text-blue-300 font-bold";
   return "text-gray-300";
 };
 
@@ -555,10 +573,40 @@ const connect = () => {
 
   eventSource.onmessage = (event) => {
     let logData: LogItem;
-    try {
-      logData = JSON.parse(event.data);
-    } catch (e) {
-      logData = { timestamp: new Date().toISOString(), level: "INFO", message: event.data };
+    const rawData = event.data;
+
+    if (!rawData) return;
+
+    // 尝试解析文本行格式：2026-01-21 23:35:38.420 | INFO     | spiders.async_buff_spider:async_buy_v3:946 - traceId: ... | ip: ... | message
+    const logPattern =
+      /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^\s-]+:[^\s-]+:\d+)\s*-\s*(.*)$/;
+    const match = rawData.match(logPattern);
+
+    if (match) {
+      const [, timestamp, level, location, rest] = match;
+      // 提取 traceId (如果有)
+      const traceMatch = rest.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
+      // 提取 ip (如果有)
+      const ipMatch = rest.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
+      
+      // 提取真正的消息内容 (去掉 traceId 和 ip 部分)
+      const messageContent = rest.replace(/traceId:\s*[a-zA-Z0-9_-]{7,32}\s*\|\s*/i, "").replace(/ip:\s*[\d.]+\s*\|\s*/i, "");
+
+      logData = {
+        timestamp: timestamp.trim(),
+        level: level.trim().toUpperCase(),
+        message: messageContent.trim(),
+        traceId: traceMatch ? traceMatch[1] : "",
+        ip: ipMatch ? ipMatch[1] : "",
+      };
+    } else {
+      // 降级：如果不是标准格式，按纯文本处理
+      logData = {
+        timestamp: new Date().toISOString(),
+        level: "INFO",
+        message: rawData,
+        traceId: "",
+      };
     }
 
     // 检查是否为“发现捡漏机会”
@@ -620,6 +668,26 @@ onUnmounted(() => eventSource?.close());
   }
   100% {
     box-shadow: inset 0 0 0 0 rgba(245, 158, 11, 0.1);
+  }
+}
+
+.order-step-breathe {
+  animation: order-step-breathe 3s infinite;
+  background-color: rgba(59, 130, 246, 0.1);
+}
+
+@keyframes order-step-breathe {
+  0% {
+    background-color: rgba(59, 130, 246, 0.05);
+    box-shadow: 0 0 0px rgba(59, 130, 246, 0);
+  }
+  50% {
+    background-color: rgba(59, 130, 246, 0.2);
+    box-shadow: 0 0 8px rgba(59, 130, 246, 0.3);
+  }
+  100% {
+    background-color: rgba(59, 130, 246, 0.05);
+    box-shadow: 0 0 0px rgba(59, 130, 246, 0);
   }
 }
 

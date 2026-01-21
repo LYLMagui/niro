@@ -96,11 +96,6 @@ public class BuffScanTask {
     private Integer scanInterval;
 
     /**
-     * 关联的下单账号ID (仅 SCAN 模式任务使用)
-     */
-    private Long targetTradeAccountId;
-
-    /**
      * 最小扫描间隔(秒)
      */
     private Integer scanIntervalMin;

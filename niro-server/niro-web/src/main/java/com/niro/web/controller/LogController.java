@@ -57,19 +57,11 @@ public class LogController {
         String userDir = System.getProperty("user.dir");
         log.info("🔍 正在尝试定位日志文件，当前工作目录: {}", userDir);
 
-        // 1. 尝试配置的路径
-        File file = new File(logPath);
-        if (!file.isAbsolute()) {
-            file = new File(userDir, logPath);
-        }
-        log.info("尝试路径 1 (配置路径): {}", file.getAbsolutePath());
-        if (file.exists()) return file;
-
-        // 2. 尝试从当前目录向上查找直到找到包含 niro-spider 的目录
+        // 尝试从当前目录向上查找直到找到包含 niro-spider 的目录
         File current = new File(userDir);
         while (current != null) {
             File spiderLogs = new File(current, "niro-spider/logs/niro_spider.log");
-            log.info("尝试路径 (向上查找): {}", spiderLogs.getAbsolutePath());
+            log.info("尝试路径 (向上查找 LOG): {}", spiderLogs.getAbsolutePath());
             if (spiderLogs.exists()) return spiderLogs;
             
             // 兼容可能直接在 niro-spider 目录下的情况
@@ -120,8 +112,10 @@ public class LogController {
         // 异步启动 Tailer
         executor.execute(() -> {
             try {
-                // 先发送一条连接成功消息
-                emitter.send(SseEmitter.event().data(">>> 连接日志服务成功，正在读取实时日志..."));
+                // 先发送一条连接成功消息 (对齐爬虫日志格式，方便前端统一解析)
+                String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                String successMsg = String.format("%s | INFO     | system.log:connect:0 - traceId: system | ip: 127.0.0.1 | >>> 连接日志服务成功，正在读取实时日志...", now);
+                emitter.send(SseEmitter.event().data(successMsg));
                 tailer.start();
             } catch (Exception e) {
                 // 忽略 "Client disconnected" 异常

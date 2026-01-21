@@ -55,6 +55,13 @@ public interface BuffAccountService extends IService<BuffAccount> {
     void checkAllCookies(Long userId);
 
     /**
+     * 内部接口：更新账号信息（供爬虫反馈或系统自检）
+     *
+     * @param dto 账号信息DTO
+     */
+    void reportAccountInfo(BuffAccountDTO dto);
+
+    /**
      * 内部接口：更新账号状态（供爬虫反馈或系统自检）
      *
      * @param id 账号ID

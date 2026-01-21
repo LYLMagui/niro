@@ -42,7 +42,6 @@ export interface BuffScanTask {
   createTime: string;
   updateTime: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTradeAccountId?: number;
   targetTaskId?: number;
 }
 
@@ -61,17 +60,16 @@ export interface TaskSaveParam {
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;
-  buyCount: number;
+  buyCount?: number;
   cronExpression?: string;
   durationMinutes?: number;
   restPeriod?: number;
   scanInterval?: number;
   scanIntervalMin?: number;
   scanIntervalMax?: number;
-  taskType: number;
+  taskType?: number;
   minProfit?: number;
   accountIds?: number[];
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTradeAccountId?: number;
   targetTaskId?: number;
 }

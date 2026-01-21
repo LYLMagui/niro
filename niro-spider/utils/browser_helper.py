@@ -19,7 +19,7 @@ class BrowserProfile:
             "User-Agent": self.user_agent,
             "cookie": self.cookie or "",
             "accept": "application/json, text/javascript, */*; q=0.01",
-            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
+            "accept-language": "zh-CN,zh;q=0.9,en;q=0.8,en-GB;q=0.7,en-US;q=0.6",
             "referer": referer,
             "sec-ch-ua": self.sec_ch_ua,
             "sec-ch-ua-mobile": "?0",
@@ -27,6 +27,7 @@ class BrowserProfile:
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
+            "priority": "u=1, i",
             "x-requested-with": "XMLHttpRequest",
         }
         return headers
@@ -42,27 +43,17 @@ class BrowserHelper:
     """
     浏览器工具类，负责指纹管理和 Profile 生成
     """
-    # 预设的指纹库
+    # 预设的指纹库 (对齐用户提供的 143 版本最新抓包数据)
     FINGERPRINTS = [
         {
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "sec_ch_ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
+            "sec_ch_ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
             "platform": "Windows"
         },
         {
-            "user_agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36",
-            "sec_ch_ua": '"Chromium";v="130", "Google Chrome";v="130", "Not?A_Brand";v="99"',
-            "platform": "macOS"
-        },
-        {
-            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0",
-            "sec_ch_ua": '"Microsoft Edge";v="129", "Not=A?Brand";v="8", "Chromium";v="129"',
+            "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36",
+            "sec_ch_ua": '"Google Chrome";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
             "platform": "Windows"
-        },
-        {
-            "user_agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-            "sec_ch_ua": '"Google Chrome";v="131", "Chromium";v="131", "Not_A Brand";v="24"',
-            "platform": "Linux"
         }
     ]
 

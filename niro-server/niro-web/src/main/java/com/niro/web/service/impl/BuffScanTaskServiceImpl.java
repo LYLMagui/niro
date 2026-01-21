@@ -22,6 +22,7 @@ import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.*;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.PaymentMethodEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
@@ -59,6 +60,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final BuffScanTaskAccountService buffScanTaskAccountService;
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
+    private final UserBuffSettingsService userBuffSettingsService;
 
     @Value("${PROXY_URL:}")
     private String globalProxyUrl;
@@ -89,8 +91,15 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
             task.setRunMode(TaskRunModeEnum.SCAN); // 系统任务默认为扫描模式
         } else if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
-            // 仅下单模式：任务名初始设为"下单任务"，保存后可根据需要更新
-            task.setName("下单任务");
+            // 仅下单模式：如果有关联商品，则使用商品名，否则设为"下单任务"
+            if (param.getGoodsId() != null) {
+                BuffGoods goods = buffGoodsService.lambdaQuery()
+                        .eq(BuffGoods::getGoodsId, param.getGoodsId())
+                        .one();
+                task.setName(goods != null ? goods.getName() : "下单任务");
+            } else {
+                task.setName("下单任务");
+            }
         } else {
             // 校验商品是否存在
             BuffGoods goods = buffGoodsService.lambdaQuery()
@@ -114,7 +123,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 仅下单模式任务，保存后更新名称包含其 ID，方便识别
         if (TaskRunModeEnum.TRADE.equals(task.getRunMode())) {
-            task.setName("下单任务:" + task.getId());
+            String originalName = task.getName();
+            if (originalName == null || originalName.equals("下单任务")) {
+                task.setName("下单任务:" + task.getId());
+            } else {
+                task.setName(originalName + " (下单:" + task.getId() + ")");
+            }
             this.updateById(task);
         }
 
@@ -174,10 +188,21 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 仅允许修改配置字段，不允许修改 goodsId
         task.setRunMode(param.getRunMode());
         if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
-            task.setName("下单任务:" + task.getId());
+            // 下单模式：重新生成名称
+            if (param.getGoodsId() != null) {
+                BuffGoods goods = buffGoodsService.lambdaQuery()
+                        .eq(BuffGoods::getGoodsId, param.getGoodsId())
+                        .one();
+                if (goods != null) {
+                    task.setName(goods.getName() + " (下单:" + task.getId() + ")");
+                } else {
+                    task.setName("下单任务:" + task.getId());
+                }
+            } else {
+                task.setName("下单任务:" + task.getId());
+            }
         }
         task.setTargetTaskId(param.getTargetTaskId());
-        task.setTargetTradeAccountId(param.getTargetTradeAccountId());
         task.setMaxPrice(param.getMaxPrice());
         task.setMinPaintwear(param.getMinPaintwear());
         task.setMaxPaintwear(param.getMaxPaintwear());
@@ -235,7 +260,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // TRADE 模式下商品ID、最高价格、最小利润等均非必填
         if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
-             // 仅下单模式不再校验 listenerTag，也无需 targetTaskId
+            // 仅下单模式不再校验 listenerTag，也无需 targetTaskId
             return;
         }
 
@@ -454,6 +479,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("任务启动失败：绑定的账号均不处于“正常”状态（可能正在校验或已冻结）");
         }
 
+        // 1.5 获取用户的支付设置
+        UserBuffSettings settings = userBuffSettingsService.lambdaQuery()
+                .eq(UserBuffSettings::getUserId, task.getUserId())
+                .one();
+        String paymentMethod = (settings != null && settings.getPaymentMethod() != null)
+                ? settings.getPaymentMethod().getCode()
+                : PaymentMethodEnum.BALANCE.getCode();
+
         // 2. 构建消息对象
         List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
                 .map(acc -> BuffTaskMessage.AccountContext.builder()
@@ -483,6 +516,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .restPeriod(task.getRestPeriod())
                 .buyCount(task.getBuyCount())
                 .successCount(task.getSuccessCount())
+                .paymentMethod(paymentMethod)
                 .accounts(accountContexts)
                 .execAccountIds(accounts.stream()
                         .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole()) || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))
@@ -689,6 +723,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(task.getTaskType()) + "】禁止删除");
         }
 
+        // 需求：如果下单任务被其他扫描任务绑定，则禁止删除
+        long bindCount = this.lambdaQuery()
+                .eq(BuffScanTask::getTargetTaskId, id)
+                .count();
+        if (bindCount > 0) {
+            throw new BusinessException("该任务已被其他扫描任务绑定为“目标下单任务”，请先解除绑定后再删除");
+        }
+
         this.removeById(id);
 
         // 删除账号关联
@@ -734,9 +776,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     @Override
-    public List<BuffScanTask> listTradeTasks() {
+    public List<BuffScanTask> listTradeTasks(Long goodsId) {
         return this.lambdaQuery()
                 .eq(BuffScanTask::getRunMode, TaskRunModeEnum.TRADE)
+                .eq(goodsId != null, BuffScanTask::getGoodsId, goodsId)
                 .list();
     }
 }

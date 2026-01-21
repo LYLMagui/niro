@@ -69,7 +69,8 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
 
     /**
      * 获取所有下单模式的任务列表
+     * @param goodsId 商品ID(可选，用于过滤相同商品的下单任务)
      * @return 任务列表
      */
-    List<BuffScanTask> listTradeTasks();
+    List<BuffScanTask> listTradeTasks(Long goodsId);
 }

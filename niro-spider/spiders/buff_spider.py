@@ -444,11 +444,25 @@ class BuffSpider:
             preview_data, trace_id = self.batch_buy_preview(goods_id, sell_order_ids)
             if not preview_data: return None
             
-            # 模拟官网逻辑：从 preview 响应中找到选中的支付方式的价格
-            selected_method = next((m for m in preview_data.get("pay_methods", []) if m.get("value") == int(pay_method)), None)
-            if not selected_method:
-                self.logger.error(f"❌ 预览失败: 不支持支付方式 {pay_method}")
-                return None
+            # 支付方式决策逻辑 (含余额不足自动切换)
+            pay_methods = preview_data.get("pay_methods", [])
+            selected_method = next((m for m in pay_methods if m.get("value") == int(pay_method)), None)
+            
+            # 核心改进：余额不足自动切换逻辑
+            if not selected_method or not selected_method.get("enough", False):
+                if int(pay_method) == BuffPaymentMethod.BUFF_BALANCE.value:
+                    self.logger.warning(f"⚠️ BUFF 余额不足或不可用，尝试自动切换至 网易支付/余额...")
+                    fallback_method = next((m for m in pay_methods if m.get("value") == BuffPaymentMethod.BALANCE.value), None)
+                    if fallback_method and fallback_method.get("enough", False):
+                        selected_method = fallback_method
+                        pay_method = BuffPaymentMethod.BALANCE
+                        self.logger.info(f"✅ 自动切换成功，当前支付方式: 网易支付/余额")
+                    else:
+                        self.logger.error(f"❌ BUFF 余额和网易支付均不足或不可用")
+                        return None
+                else:
+                    self.logger.error(f"❌ 预览失败: 支付方式 {pay_method} 余额不足或不可用")
+                    return None
             
             total_price = selected_method.get("price_with_pay_fee")
             
@@ -535,6 +549,13 @@ class BuffSpider:
                 "steamid": None
             }
             
+            headers = {
+                "x-csrftoken": self._get_csrf_token(),
+                "Content-Type": "application/json",
+                "X-Requested-With": "XMLHttpRequest",
+                "Origin": "https://buff.163.com"
+            }
+            
             self.logger.info(f"🚀 [批量下单-最终确认] 发起创建支付单 POST {url} | BatchID={batch_buy_id}")
             response = requests.post(self.host + url, headers=headers, json=payload, proxies=proxies, timeout=10)
             self._check_response(response)
@@ -545,6 +566,29 @@ class BuffSpider:
                 order_id = data.get("id")
                 state = data.get("state_text", "已创建")
                 self.logger.info(f"✨ [批量下单] 下单成功! 订单号: {order_id}, 状态: {state}")
+                
+                # --- 6. 通知卖家发货 (Notify Seller) ---
+                try:
+                    self.logger.info(f"🔔 [批量下单] 步骤 6/7: 通知卖家发货...")
+                    pay_method_desc = self._get_pay_method_description(pay_method)
+                    self._notify_buyer_to_send_offer(order_id, pay_method_desc, goods_id)
+                except Exception as ne:
+                    self.logger.warning(f"⚠️ [批量下单] 通知卖家失败: {ne}")
+
+                # --- 7. 刷新余额 (Refresh Balance) ---
+                try:
+                    self.logger.info(f"💰 [批量下单] 步骤 7/7: 刷新账号余额...")
+                    balance_info = self._refresh_account_balance()
+                    if balance_info:
+                        acc_id = account_id_var.get()
+                        self._report_account_info(
+                            acc_id, 
+                            balance=balance_info.get("balance"),
+                            pending_balance=balance_info.get("pending_balance")
+                        )
+                except Exception as be:
+                    self.logger.warning(f"⚠️ [批量下单] 刷新余额失败: {be}")
+
                 return data
             else:
                 error_msg = result.get("error") or result.get("msg") or "未知错误"
@@ -557,20 +601,87 @@ class BuffSpider:
             self.logger.error(f"❌ [批量下单] 异常: {e}")
             return None
 
-    def _get_csrf_token(self):
-        """从 Cookie 中提取 CSRF Token"""
-        try:
-            cookie = SimpleCookie()
-            cookie.load(self.profile.cookie or "")
-            if "csrf_token" in cookie:
-                token = cookie["csrf_token"].value
-                # logger.debug(f"Extracted CSRF Token: {token[:10]}...")
-                return token
-        except Exception as e:
-            logger.warning(f"解析 CSRF Token 失败: {e}")
+    def _notify_buyer_to_send_offer(self, order_id, pay_method_desc, goods_id):
+        """通知卖家发货 (模拟官网支付成功后的跳转行为)"""
+        url = f"https://buff.163.com/api/market/pay/notify_buyer_to_send_offer?_={int(time.time() * 1000)}"
+        params = {
+            "game": BuffGameType.CSGO.value,
+            "order_id": order_id,
+            "pay_method_desc": pay_method_desc
+        }
+        headers = self.profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+        headers.update({"X-Requested-With": "XMLHttpRequest"})
         
-        logger.warning("⚠️ 未能在 Cookie 中找到 csrf_token，下单可能会失败！")
+        try:
+            proxies = get_proxies()
+            res = requests.get(url, params=params, headers=headers, proxies=proxies, timeout=10).json()
+            if res.get("code") == "OK":
+                self.logger.info(f"✅ [支付通知] 已通知卖家发货: OrderID={order_id}")
+            else:
+                self.logger.warning(f"⚠️ [支付通知] 通知卖家发货失败: {res.get('msg')}")
+        except Exception as e:
+            self.logger.error(f"❌ [支付通知] 通知异常: {e}")
+
+    def _get_pay_method_description(self, pay_method):
+        """获取支付方式描述 (用于 notify_buyer_to_send_offer 接口)"""
+        method_map = {
+            BuffPaymentMethod.BALANCE.value: "网易支付/余额",
+            BuffPaymentMethod.BUFF_BALANCE.value: "BUFF余额",
+            BuffPaymentMethod.ALIPAY.value: "支付宝",
+            BuffPaymentMethod.WECHAT.value: "微信支付"
+        }
+        # 如果是枚举对象则取其值
+        val = pay_method.value if hasattr(pay_method, 'value') else int(pay_method)
+        return method_map.get(val, "网易支付/余额")
+
+    def _get_csrf_token(self):
+        """从 Cookie 中提取 CSRF Token (兼容 csrf_token 和 csrftoken)"""
+        if not self.profile or not self.profile.cookie:
+            return ""
+        import re
+        # 优先匹配 csrf_token，备选 csrftoken (对齐 async_buff_spider 逻辑)
+        match = re.search(r'(?:csrf_token|csrftoken)=([^;]+)', self.profile.cookie)
+        if match:
+            return match.group(1)
+        
+        logger.warning("⚠️ 未能在 Cookie 中找到 csrf_token/csrftoken，下单可能会失败！")
         return ""
+
+    def _refresh_account_balance(self):
+        """获取账号最新的余额信息"""
+        url = f"https://buff.163.com/api/asset/get_brief_asset/?_={int(time.time() * 1000)}"
+        headers = self.profile.get_headers(referer="https://buff.163.com/user-center/asset/pending_divide/")
+        headers.update({"X-Requested-With": "XMLHttpRequest"})
+        try:
+            proxies = get_proxies()
+            res = requests.get(url, headers=headers, proxies=proxies, timeout=10).json()
+            if res.get("code") == "OK":
+                data = res.get("data", {})
+                return {
+                    "balance": float(data.get("cash_amount", 0)),
+                    "pending_balance": float(data.get("pending_divide_amount", 0))
+                }
+        except Exception as e:
+            self.logger.error(f"❌ 刷新账号余额异常: {e}")
+        return None
+
+    def _report_account_info(self, acc_id, status=None, balance=None, pending_balance=None, warning_msg=None):
+        """向后端报告账号最新状态和余额"""
+        url = f"{settings.BACKEND_URL}/api/buff/account/report/status"
+        payload = {"id": acc_id}
+        if status: payload["status"] = status
+        if balance is not None: payload["balance"] = balance
+        if pending_balance is not None: payload["pendingBalance"] = pending_balance
+        if warning_msg: payload["warningMsg"] = warning_msg
+        
+        try:
+            resp = requests.post(url, json=payload, timeout=5)
+            if resp.status_code == 200:
+                self.logger.info(f"📊 [账号: {acc_id}] 状态/余额上报成功")
+            else:
+                self.logger.warning(f"⚠️ [账号: {acc_id}] 状态/余额上报失败: {resp.status_code}")
+        except Exception as e:
+            self.logger.error(f"❌ [账号: {acc_id}] 状态/余额上报异常: {e}")
 
 
 if __name__ == "__main__":

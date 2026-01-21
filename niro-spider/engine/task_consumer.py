@@ -105,10 +105,16 @@ class TaskConsumer:
         """定期更新任务心跳 (用于故障自愈)"""
         try:
             while True:
+                # 兼容旧版：哈希表存储
                 await self.redis.hset("niro:task:heartbeat", str(task_id), int(time.time() * 1000))
+                # 新版：独立 Key 存储，方便 EXISTS 检查
+                await self.redis.set(f"niro:task:alive:{task_id}", "1", ex=30)
                 await asyncio.sleep(20) # 缩短心跳间隔
         except asyncio.CancelledError:
-            pass
+            try:
+                await self.redis.delete(f"niro:task:alive:{task_id}")
+            except:
+                pass
         except Exception as e:
             logger.error(f"💓 [Heartbeat Error] TaskID: {task_id} | {e}")
 

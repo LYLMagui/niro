@@ -11,8 +11,8 @@ from engine.context import trace_id_var, task_id_var, account_id_var, account_na
 # 定义日志目录和文件
 LOG_DIR = os.getenv("LOG_DIR", "logs")
 LOG_FILE = os.path.join(LOG_DIR, "niro_spider.log")
-# 为 ELK 准备的结构化 JSON 日志文件
-LOG_FILE_JSON = os.path.join(LOG_DIR, "niro_spider.json")
+# 为 EFK 准备的结构化 JSON 日志文件 (Loguru 标准格式)
+LOG_FILE_JSON = os.path.join(LOG_DIR, "niro_spider_efk.json")
 
 def shanghai_time(*args):
     """
@@ -81,7 +81,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     logger.add(
         sys.stdout,
         level=log_level,
-        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | taskId: {extra[taskId]} | acc: {extra[accountName]} | <level>{message}</level>",
+        format="<green>{time:YYYY-MM-DD HH:mm:ss.SSS}</green> | <level>{level: <8}</level> | <cyan>{name}</cyan>:<cyan>{function}</cyan>:<cyan>{line}</cyan> - traceId: {extra[traceId]} | acc: {extra[accountName]} | <level>{message}</level>",
     )
 
     # 2. 文件输出 (普通文本，适合人工快速查阅)
@@ -93,10 +93,10 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
         level=log_level,
         encoding="utf-8",
         enqueue=True,  # 异步写入，线程安全
-        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip: {extra[ip]} | {message}",
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {name}:{function}:{line} - traceId: {extra[traceId]} | ip: {extra[ip]} | {message}",
     )
 
-    # 3. 结构化 JSON 输出 (专为 ELK/Filebeat 设计)
+    # 3. 结构化 JSON 输出 (专为 EFK 设计)
     logger.add(
         LOG_FILE_JSON,
         rotation="50 MB",
@@ -110,7 +110,7 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
 
     logger.info(f"🚀 Loguru 日志系统初始化完成 (强制时区: Asia/Shanghai, 系统时间: {pendulum.now().to_datetime_string()})")
     logger.info(f"📝 文本日志: {os.path.abspath(LOG_FILE)}")
-    logger.info(f"📊 JSON日志 (ELK 预备): {os.path.abspath(LOG_FILE_JSON)}")
+    logger.info(f"📊 EFK JSON日志: {os.path.abspath(LOG_FILE_JSON)}")
 
 def get_logger(name=None):
     """

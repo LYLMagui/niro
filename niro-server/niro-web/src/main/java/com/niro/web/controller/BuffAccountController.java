@@ -67,12 +67,12 @@ public class BuffAccountController {
         return Result.success();
     }
 
-    @Operation(summary = "更新账号状态 (爬虫反馈)")
+    @Operation(summary = "更新账号信息 (爬虫反馈)")
     @PostMapping("/report/status")
     public Result<Void> reportStatus(@RequestBody BuffAccountDTO dto) {
-        log.info("📥 收到账号状态反馈: id={}, status={}, msg={}", dto.getId(), dto.getStatus(), dto.getWarningMsg());
+        log.info("📥 收到账号反馈: id={}, status={}, balance={}", dto.getId(), dto.getStatus(), dto.getBalance());
         // 此接口通常由爬虫或内部服务调用，此处简单放行，实际可增加签名校验
-        buffAccountService.updateAccountStatus(dto.getId(), dto.getStatus(), dto.getWarningMsg());
+        buffAccountService.reportAccountInfo(dto);
         return Result.success();
     }
 }

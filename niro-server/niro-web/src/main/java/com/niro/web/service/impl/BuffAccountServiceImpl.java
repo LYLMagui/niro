@@ -308,6 +308,22 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
     }
 
     @Override
+    public void reportAccountInfo(BuffAccountDTO dto) {
+        if (dto.getId() == null) {
+            return;
+        }
+        
+        this.lambdaUpdate()
+                .set(dto.getStatus() != null, BuffAccount::getStatus, dto.getStatus())
+                .set(dto.getWarningMsg() != null, BuffAccount::getWarningMsg, dto.getWarningMsg())
+                .set(dto.getBalance() != null, BuffAccount::getBalance, dto.getBalance())
+                .set(dto.getPendingBalance() != null, BuffAccount::getPendingBalance, dto.getPendingBalance())
+                .set(BuffAccount::getLastCheckTime, LocalDateTime.now())
+                .eq(BuffAccount::getId, dto.getId())
+                .update();
+    }
+
+    @Override
     public void updateAccountStatus(Long id, BuffAccountStatusEnum status, String warningMsg) {
         this.lambdaUpdate()
                 .set(BuffAccount::getStatus, status)
