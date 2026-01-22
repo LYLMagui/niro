@@ -112,6 +112,28 @@ def setup_logging(log_dir=LOG_DIR, log_level="INFO"):
     logger.info(f"📝 文本日志: {os.path.abspath(LOG_FILE)}")
     logger.info(f"📊 EFK JSON日志: {os.path.abspath(LOG_FILE_JSON)}")
 
+    # 4. Redis 实时推送 (SSE)
+    # 避免循环依赖，在函数内部导入
+    def redis_sink(message):
+        try:
+            from storage.redis_pool import redis_client
+            if redis_client:
+                # 移除末尾换行符，因为 SSE 发送时会自动处理
+                msg = message.record["message"] if hasattr(message, "record") else str(message)
+                # 使用 format 后的完整消息
+                full_msg = message
+                redis_client.publish("niro:spider:logs", full_msg.strip())
+        except Exception:
+            pass # 忽略 Redis 发送失败，避免影响主业务
+
+    logger.add(
+        redis_sink,
+        level=log_level,
+        format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | {extra[ip]} | {extra[traceId]} | {extra[accountName]} | {message}",
+        enqueue=True, # 异步执行，不阻塞主线程
+    )
+    logger.info(f"📡 Redis 日志推送已启用 (Channel: niro:spider:logs)")
+
 def get_logger(name=None):
     """
     获取一个命名的 logger 实例
