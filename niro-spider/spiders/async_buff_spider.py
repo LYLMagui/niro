@@ -891,7 +891,7 @@ class AsyncBuffSpider:
                 await self._release_items(current_ids)
                 return
 
-            logger.info(f"✅ 预览成功 | 预估总价: ¥{preview_data.get('price')} | TraceID: {trace_id}")
+            logger.info(f"✅ 预览成功 | 预估总价: ¥{preview_data.get('price')}")
 
             # 动态获取支付方式 (从任务数据中提取)
             payment_method_str = task_data.get("paymentMethod", "BALANCE")
@@ -1156,9 +1156,9 @@ class AsyncBuffSpider:
             
             # 仅打印状态信息，不再打印 Response Body
             if data.get("code") != "OK":
-                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Failed!</red> | TraceID: {trace_id} | Code: {data.get('code')}")
+                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Failed!</red> | Code: {data.get('code')}")
             else:
-                logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Preview Success!</green> | TraceID: {trace_id}")
+                logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Preview Success!</green>")
             
             if data.get("code") == "OK":
                 return data.get("data"), trace_id, "OK"

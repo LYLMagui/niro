@@ -145,18 +145,29 @@
                 {{ log.level }}
               </span>
 
-              <!-- IP & TraceId 标签 -->
+              <!-- IP & TraceId & Account 标签 -->
               <span v-if="log.ip" class="mr-2 inline-flex items-center">
-                <span class="rounded bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-medium text-emerald-400/80 border border-emerald-500/20">
+                <span 
+                  class="cursor-pointer rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 border border-emerald-500/20 transition-colors hover:bg-emerald-500/20 hover:text-emerald-300"
+                  @click="filterByKeyword(log.ip)"
+                >
                   {{ log.ip }}
                 </span>
               </span>
               <span v-if="log.traceId" class="mr-2 inline-flex items-center">
                 <span 
-                  class="cursor-pointer rounded bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-400/80 border border-purple-500/20 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                  class="cursor-pointer rounded bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium text-purple-400/90 border border-purple-500/20 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
                   @click="filterByKeyword(log.traceId)"
                 >
                   {{ log.traceId }}
+                </span>
+              </span>
+              <span v-if="log.accountName" class="mr-2 inline-flex items-center">
+                <span 
+                  class="cursor-pointer rounded bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400/90 border border-blue-500/20 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                  @click="filterByKeyword(log.accountName)"
+                >
+                  {{ log.accountName }}
                 </span>
               </span>
 
@@ -347,7 +358,7 @@ const parseLog = (log: LogItem) => {
 
   return {
     ...log,
-    _account: accMatch ? accMatch[1] : null,
+    _account: log.accountName || (accMatch ? accMatch[1] : null),
     _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
     _ip: log.ip || (msg.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)?.[1]),
     _isDiscovery: isDiscovery,
@@ -577,35 +588,46 @@ const connect = () => {
 
     if (!rawData) return;
 
-    // 尝试解析文本行格式：2026-01-21 23:35:38.420 | INFO     | spiders.async_buff_spider:async_buy_v3:946 - traceId: ... | ip: ... | message
-    const logPattern =
-      /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^\s-]+:[^\s-]+:\d+)\s*-\s*(.*)$/;
-    const match = rawData.match(logPattern);
+    // 尝试解析文本行格式
+    // 1. 标准 6 段式 (Spider 日志): 时间 | 级别 | IP | TraceId | Account | Message
+    const standardPattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*(.*)$/;
+    // 2. 简易 3 段式 (系统或 Java 日志): 时间 | 级别 | Message
+    const simplePattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*(.*)$/;
 
-    if (match) {
-      const [, timestamp, level, location, rest] = match;
-      // 提取 traceId (如果有)
-      const traceMatch = rest.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
-      // 提取 ip (如果有)
-      const ipMatch = rest.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
-      
-      // 提取真正的消息内容 (去掉 traceId 和 ip 部分)
-      const messageContent = rest.replace(/traceId:\s*[a-zA-Z0-9_-]{7,32}\s*\|\s*/i, "").replace(/ip:\s*[\d.]+\s*\|\s*/i, "");
+    const standardMatch = rawData.match(standardPattern);
+    const simpleMatch = rawData.match(simplePattern);
 
+    if (standardMatch) {
+      const [, timestamp, level, ip, traceId, accountName, message] = standardMatch;
+      const trimmedAccount = accountName.trim();
       logData = {
         timestamp: timestamp.trim(),
         level: level.trim().toUpperCase(),
-        message: messageContent.trim(),
-        traceId: traceMatch ? traceMatch[1] : "",
-        ip: ipMatch ? ipMatch[1] : "",
+        ip: ip.trim(),
+        traceId: traceId.trim() === "-" || !traceId.trim() ? "" : traceId.trim(),
+        // 允许显示 System，但过滤掉空的和只有横杠的
+        accountName: trimmedAccount === "-" || !trimmedAccount ? "" : trimmedAccount,
+        message: message.trim(),
+      };
+    } else if (simpleMatch) {
+      const [, timestamp, level, message] = simpleMatch;
+      logData = {
+        timestamp: timestamp.trim(),
+        level: level.trim().toUpperCase(),
+        message: message.trim(),
+        ip: "",
+        traceId: "",
+        accountName: "",
       };
     } else {
       // 降级：如果不是标准格式，按纯文本处理
       logData = {
-        timestamp: new Date().toISOString(),
+        timestamp: new Date().toLocaleTimeString(),
         level: "INFO",
         message: rawData,
+        ip: "",
         traceId: "",
+        accountName: "",
       };
     }
 

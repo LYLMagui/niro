@@ -67,7 +67,7 @@ class TaskConsumer:
         # 1. 注入核心上下文
         set_context(trace_id=trace_id, task_id=task_id, user_id=user_id)
         
-        logger.info(f"📥 [New Task] Name: {task_data.get('name')} | TaskID: {task_id} | TraceID: {trace_id}")
+        logger.info(f"📥 [New Task] Name: {task_data.get('name')} | TaskID: {task_id}")
         
         # 2. 更新任务状态为“运行中”
         await self._update_task_status(task_id, "RUNNING")
