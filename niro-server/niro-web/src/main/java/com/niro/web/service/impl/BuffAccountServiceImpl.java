@@ -28,10 +28,12 @@ import com.niro.web.service.BuffScanTaskAccountService;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.niro.core.constant.UserAgentConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -142,6 +144,10 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             entity.setFailCount(0);
             entity.setWeight(dto.getWeight() == null ? 1 : dto.getWeight());
             entity.setLastCheckTime(LocalDateTime.now());
+            // 如果未设置 User-Agent，则随机绑定一个
+            if (StrUtil.isBlank(entity.getUserAgent())) {
+                entity.setUserAgent(UserAgentConstant.getRandomUserAgent());
+            }
         }
 
         saveOrUpdate(entity);
@@ -191,11 +197,16 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 .one();
         Assert.notNull(account, "账号不存在");
 
+        // 如果 User-Agent 为空，则随机绑定一个并更新
+        if (StrUtil.isBlank(account.getUserAgent())) {
+            account.setUserAgent(UserAgentConstant.getRandomUserAgent());
+        }
+
         try {
             // 调用 BUFF 接口验证 Cookie 有效性
             String url = "https://buff.163.com/account/api/steam/info?_=" + System.currentTimeMillis();
             HttpResponse response = HttpRequest.get(url)
-                    .header("User-Agent", account.getUserAgent() != null ? account.getUserAgent() : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("User-Agent", account.getUserAgent())
                     .header("Cookie", account.getBuffCookie())
                     .header("Referer", "https://buff.163.com/user-center/profile")
                     .header("X-Requested-With", "XMLHttpRequest")
@@ -339,9 +350,9 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
     private void updateBalance(BuffAccount account) {
         try {
             // 使用更详细的资产接口获取余额和待结算金额
-            String url = "https://buff.163.com/api/asset/get_brief_asset/?_=" + System.currentTimeMillis();
+            String url = "https://buff.163.com/api/asset/get_brief_asset/?with_pending_divide_amount=1&_=" + System.currentTimeMillis();
             HttpResponse response = HttpRequest.get(url)
-                    .header("User-Agent", account.getUserAgent() != null ? account.getUserAgent() : "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+                    .header("User-Agent", StrUtil.isNotBlank(account.getUserAgent()) ? account.getUserAgent() : UserAgentConstant.getRandomUserAgent())
                     .header("Cookie", account.getBuffCookie())
                     .header("Referer", "https://buff.163.com/user-center/asset/pending_divide/")
                     .header("X-Requested-With", "XMLHttpRequest")

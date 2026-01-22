@@ -6,6 +6,7 @@ import com.niro.web.dto.UserBuffSettingsDTO;
 import com.niro.web.dto.param.UserBuffSettingsParam;
 import com.niro.web.entity.UserBuffSettings;
 import com.niro.web.mapper.UserBuffSettingsMapper;
+import com.niro.web.service.EmailNotifyService;
 import com.niro.web.service.UserBuffSettingsService;
 import com.niro.web.service.WeComNotifyService;
 import lombok.RequiredArgsConstructor;
@@ -27,6 +28,7 @@ import java.time.LocalDateTime;
 public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMapper, UserBuffSettings> implements UserBuffSettingsService {
 
     private final WeComNotifyService weComNotifyService;
+    private final EmailNotifyService emailNotifyService;
 
     @Override
     public UserBuffSettingsDTO getByUserId(Long userId) {
@@ -60,6 +62,14 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
         settings.setWecomCorpsecret(param.getWecomCorpsecret());
         settings.setWecomAgentid(param.getWecomAgentid());
         settings.setWecomTouser(param.getWecomTouser());
+
+        settings.setEmailEnabled(param.getEmailEnabled());
+        settings.setEmailHost(param.getEmailHost());
+        settings.setEmailPort(param.getEmailPort());
+        settings.setEmailAccount(param.getEmailAccount());
+        settings.setEmailPassword(param.getEmailPassword());
+        settings.setEmailReceiver(param.getEmailReceiver());
+
         settings.setUpdateTime(LocalDateTime.now());
 
         if (isUpdate) {
@@ -73,5 +83,6 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
     public void sendTestNotify(Long userId) {
         log.info("用户 {} 触发发送测试通知", userId);
         weComNotifyService.sendText("🔔 这是一个测试通知！如果你看到这条消息，说明你的企业微信通知配置正确。✅", userId);
+        emailNotifyService.sendSimpleMail("Niro 测试通知", "🔔 这是一个测试通知！如果你看到这条消息，说明你的邮件通知配置正确。✅", userId);
     }
 }

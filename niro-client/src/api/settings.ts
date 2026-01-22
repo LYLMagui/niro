@@ -8,6 +8,12 @@ export interface UserBuffSettings {
   wecomCorpsecret?: string;
   wecomAgentid?: string;
   wecomTouser?: string;
+  emailEnabled?: boolean;
+  emailHost?: string;
+  emailPort?: number;
+  emailAccount?: string;
+  emailPassword?: string;
+  emailReceiver?: string;
 }
 
 export type BuffAccountRole = "SCAN" | "TRADE" | "BOTH";

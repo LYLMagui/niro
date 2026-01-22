@@ -155,7 +155,7 @@
                   <span v-else>****</span>
                 </div>
                 <div
-                  v-if="row.pendingBalance > 0"
+                  v-if="row.pendingBalance !== undefined && row.pendingBalance !== null"
                   class="font-numeric mt-1 text-[12px] leading-tight font-medium text-orange-500 antialiased"
                 >
                   <span v-if="balanceVisible">待结算: ¥{{ row.pendingBalance?.toFixed(2) }}</span>
@@ -266,7 +266,7 @@
                   <div class="mb-1 flex items-center justify-between text-[12px] text-[#86909c]">
                     <span>总资产</span>
                     <t-tooltip
-                      v-if="totalPendingBalance > 0"
+                      v-if="totalPendingBalance >= 0"
                       :content="`可用: ¥${totalBalance.toFixed(2)} | 待结: ¥${totalPendingBalance.toFixed(2)}`"
                     >
                       <span class="cursor-help text-[12px] font-medium text-orange-500 antialiased">
@@ -294,7 +294,7 @@
                 <span class="mr-2">交易配置</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
+              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
                 <t-form-item label="默认支付方式" name="paymentMethod">
                   <template #label>
                     <span class="text-[#86909c]">默认支付方式</span>
@@ -316,24 +316,28 @@
                   <span class="text-[13px] text-[#86909c]">企业微信通知</span>
                   <t-switch v-model="wecomEnabled" size="small" />
                 </div>
+                <div class="mt-3 flex items-center justify-between">
+                  <span class="text-[13px] text-[#86909c]">邮件通知</span>
+                  <t-switch v-model="formData.emailEnabled" size="small" />
+                </div>
               </t-form>
             </section>
 
             <!-- 参数详情 (折叠) -->
-            <section v-if="wecomEnabled">
+            <section v-if="wecomEnabled || formData.emailEnabled">
               <div
                 class="mb-3 flex items-center text-[13px] font-bold tracking-wider text-gray-700 uppercase"
               >
                 <span class="mr-2">通知参数</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form :data="formData" label-align="top" size="small" @submit="onSubmit">
+              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
                 <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
-                  <t-collapse-panel value="wecom" class="!bg-transparent">
+                  <t-collapse-panel v-if="wecomEnabled" value="wecom" class="!bg-transparent">
                     <template #header>
-                      <span class="text-[13px] text-[#86909c]">企业微信凭据</span>
+                      <span class="text-[13px] text-[#86909c]">企业微信配置</span>
                     </template>
-                    <div class="space-y-3 pt-2">
+                    <div class="config-panel-bg compact-form rounded-md p-3 mt-2">
                       <t-form-item label="CorpID" name="wecomCorpid">
                         <template #label><span class="text-[#86909c]">CorpID</span></template>
                         <t-input
@@ -371,6 +375,60 @@
                       </div>
                     </div>
                   </t-collapse-panel>
+
+                  <t-collapse-panel v-if="formData.emailEnabled" value="email" class="!bg-transparent">
+                    <template #header>
+                      <span class="text-[13px] text-[#86909c]">邮件通知配置</span>
+                    </template>
+                    <div class="config-panel-bg compact-form rounded-md p-3 mt-2">
+                      <div class="grid grid-cols-3 gap-3">
+                        <t-form-item label="SMTP服务器" name="emailHost" class="col-span-2">
+                          <template #label><span class="text-[#86909c]">SMTP服务器</span></template>
+                          <t-input
+                            v-model="formData.emailHost"
+                            placeholder="smtp.qq.com"
+                            @blur="(v: any) => handleInputTrim(v, formData, 'emailHost')"
+                          />
+                        </t-form-item>
+                        <t-form-item label="端口" name="emailPort">
+                          <template #label><span class="text-[#86909c]">端口</span></template>
+                          <t-input-number
+                            v-model="formData.emailPort"
+                            placeholder="465"
+                            theme="column"
+                            class="w-full"
+                          />
+                        </t-form-item>
+                      </div>
+                      <div class="grid grid-cols-2 gap-3">
+                        <t-form-item label="发件账号" name="emailAccount">
+                          <template #label><span class="text-[#86909c]">发件账号</span></template>
+                          <t-input
+                            v-model="formData.emailAccount"
+                            placeholder="example@qq.com"
+                            @blur="(v: any) => handleInputTrim(v, formData, 'emailAccount')"
+                          />
+                        </t-form-item>
+                        <t-form-item label="授权码/密码" name="emailPassword">
+                          <template #label><span class="text-[#86909c]">授权码/密码</span></template>
+                          <t-input
+                            v-model="formData.emailPassword"
+                            type="password"
+                            placeholder="******"
+                            @blur="(v: any) => handleInputTrim(v, formData, 'emailPassword')"
+                          />
+                        </t-form-item>
+                      </div>
+                      <t-form-item label="收件人" name="emailReceiver">
+                        <template #label><span class="text-[#86909c]">收件人</span></template>
+                        <t-input
+                          v-model="formData.emailReceiver"
+                          placeholder="receiver@example.com"
+                          @blur="(v: any) => handleInputTrim(v, formData, 'emailReceiver')"
+                        />
+                      </t-form-item>
+                    </div>
+                  </t-collapse-panel>
                 </t-collapse>
               </t-form>
             </section>
@@ -381,7 +439,7 @@
             <!-- 测试通知按钮 -->
             <div class="absolute top-[-28px] right-4">
               <t-button
-                v-if="wecomEnabled"
+                v-if="wecomEnabled || formData.emailEnabled"
                 variant="text"
                 theme="primary"
                 size="small"
@@ -528,6 +586,12 @@ const formData = reactive<UserBuffSettings>({
   wecomCorpsecret: "",
   wecomAgentid: "",
   wecomTouser: "@all",
+  emailEnabled: false,
+  emailHost: "",
+  emailPort: 465,
+  emailAccount: "",
+  emailPassword: "",
+  emailReceiver: "",
 });
 
 const fetchSettings = async () => {
@@ -537,6 +601,7 @@ const fetchSettings = async () => {
       Object.assign(formData, res);
       // 如果企业ID为空，默认收起通知配置
       wecomEnabled.value = !!res.wecomCorpid;
+      // 邮件通知开关直接绑定 formData.emailEnabled，无需额外处理
     }
   } catch (e) {
     console.error(e);
@@ -559,7 +624,7 @@ const onTestNotify = async () => {
   testNotifyLoading.value = true;
   try {
     await settingsApi.sendTestNotify();
-    MessagePlugin.success("测试通知已发送，请检查企业微信");
+    MessagePlugin.success("测试通知已发送，请检查企业微信或邮件");
   } finally {
     testNotifyLoading.value = false;
   }
@@ -596,6 +661,24 @@ const accountRules: Record<string, FormRule[]> = {
   buffCookie: [{ required: true, message: "Cookie 不能为空", type: "error" }],
   role: [{ required: true, message: "请选择角色", type: "error" }],
 };
+
+const formRules = computed<Record<string, FormRule[]>>(() => {
+  const rules: Record<string, FormRule[]> = {};
+  if (formData.emailEnabled) {
+    rules.emailHost = [{ required: true, message: "请输入SMTP服务器", type: "error", trigger: "blur" }];
+    rules.emailPort = [{ required: true, message: "请输入端口", type: "error", trigger: "blur" }];
+    rules.emailAccount = [{ required: true, message: "请输入发件账号", type: "error", trigger: "blur" }];
+    rules.emailPassword = [{ required: true, message: "请输入授权码", type: "error", trigger: "blur" }];
+    rules.emailReceiver = [{ required: true, message: "请输入收件人", type: "error", trigger: "blur" }];
+  }
+  if (wecomEnabled.value) {
+     rules.wecomCorpid = [{ required: true, message: "请输入CorpID", type: "error", trigger: "blur" }];
+     rules.wecomCorpsecret = [{ required: true, message: "请输入CorpSecret", type: "error", trigger: "blur" }];
+     rules.wecomAgentid = [{ required: true, message: "请输入AgentID", type: "error", trigger: "blur" }];
+     rules.wecomTouser = [{ required: true, message: "请输入接收人", type: "error", trigger: "blur" }];
+  }
+  return rules;
+});
 
 const accountColumns: PrimaryTableCol<TableRowData>[] = [
   {
@@ -828,5 +911,21 @@ onMounted(async () => {
   background-color: #fff !important;
   border-color: #0052d9 !important;
   box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1);
+}
+/* 配置面板背景 */
+.config-panel-bg {
+  background-color: #f9fafb;
+  border: 1px solid #dcdfe6;
+}
+/* 压缩表单间距 */
+.compact-form :deep(.t-form__item) {
+  margin-bottom: 12px;
+}
+.compact-form :deep(.t-form__item:last-child) {
+  margin-bottom: 0;
+}
+/* 修复数字输入框宽度溢出 */
+:deep(.t-input-number) {
+  width: 100%;
 }
 </style>

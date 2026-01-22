@@ -41,10 +41,10 @@ public class WebConfig implements WebMvcConfigurer {
         registry.addInterceptor(new SaInterceptor(handle -> {
             // 登录校验 -- 拦截所有路由，并排除白名单
             SaRouter.match("/**")
-                    .notMatch(API_WHITELIST)
-                    .notMatch(EXCLUDE_STATIC_SOURCE_PATH)
                     .check(r -> StpUtil.checkLogin());
-        })).addPathPatterns("/**");
+        })).addPathPatterns("/**")
+                .excludePathPatterns(API_WHITELIST)
+                .excludePathPatterns(EXCLUDE_STATIC_SOURCE_PATH);
         
         log.info(">>>>>> Sa-Token 拦截器注册完成 <<<<<<");
     }

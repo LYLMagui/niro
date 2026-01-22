@@ -24,7 +24,7 @@
           prevent-submit-default
           @submit="handleSubmit"
         >
-          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-4 pt-4 pb-6">
+          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
             <t-form-item label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
                 <t-radio :value="0">炼金扫货</t-radio>
@@ -45,14 +45,8 @@
               </t-tag>
               <t-tag v-else theme="success" variant="light-outline">全能模式</t-tag>
               <template #tips>
-                <span v-if="formData.runMode === 'SCAN'" class="text-blue-500">
-                  此模式下，任务仅会进行商品扫描并记录，不会执行购买操作
-                </span>
-                <span v-else-if="formData.runMode === 'TRADE'" class="text-orange-500">
+                <span v-if="formData.runMode === 'TRADE'" class="text-orange-500">
                   此模式下，任务将基于现有扫描结果执行下单，不占用扫描频率
-                </span>
-                <span v-else class="text-green-500">
-                  全能模式：扫描与下单同步进行，最全面的扫货方案
                 </span>
               </template>
             </t-form-item>
@@ -448,7 +442,7 @@
           prevent-submit-default
           @submit="handleSubmit"
         >
-          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-4 pt-4 pb-6">
+          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
             <t-form-item label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
                 <t-radio :value="2">系统-分类同步</t-radio>
@@ -1011,6 +1005,13 @@ const handleAddSystem = () => {
   fetchAccounts();
 };
 
+const openWithGoods = (goods: GoodsSimple) => {
+  handleAdd("SCAN");
+  formData.goodsId = goods.goodsId;
+  goodsOptions.value = [goods];
+  dialogTitle.value = `新增扫货任务 - ${goods.name}`;
+};
+
 const handleEdit = (row: BuffScanTask) => {
   resetForm();
   Object.assign(formData, row);
@@ -1027,15 +1028,38 @@ const handleEdit = (row: BuffScanTask) => {
   uiState.isCycleMode = !!row.restPeriod;
 
   const intervalMin = convertToUi(row.scanIntervalMin || 15, INTERVAL_FACTORS);
-  uiState.intervalMinValue = intervalMin.value;
-  uiState.intervalUnit = intervalMin.unit as any;
   const intervalMax = convertToUi(row.scanIntervalMax || 20, INTERVAL_FACTORS);
-  uiState.intervalMaxValue = intervalMax.value;
+
+  // 统一单位：取两者中较小的单位 (精度更高)，防止如 min=30s, max=60s(1m) 时显示为 30-1
+  const unitOrder = ["s", "m", "h", "d"];
+  const minIdx = unitOrder.indexOf(intervalMin.unit);
+  const maxIdx = unitOrder.indexOf(intervalMax.unit);
+
+  const finalUnit = minIdx <= maxIdx ? intervalMin.unit : intervalMax.unit;
+  const factor = INTERVAL_FACTORS[finalUnit as keyof typeof INTERVAL_FACTORS];
+
+  uiState.intervalUnit = finalUnit as any;
+  uiState.intervalMinValue = (row.scanIntervalMin || 15) / factor;
+  uiState.intervalMaxValue = (row.scanIntervalMax || 20) / factor;
 
   uiState.isCronImmediate = !row.cronExpression || row.cronExpression === "* * * * * ?";
 
   if (row.goodsId) {
     goodsOptions.value = [{ goodsId: row.goodsId, name: row.name } as any];
+  }
+
+  // 如果有关联任务，手动初始化选项，防止被 goodsId 的 watch 清空
+  if (row.targetTaskId) {
+    // 临时禁用 watch 效果或在 nextTick 中恢复
+    nextTick(async () => {
+      formData.targetTaskId = row.targetTaskId;
+      // 尝试获取关联任务详情以回显名称 (如果有 targetTaskName 字段最好，没有则尝试搜索)
+      if ((row as any).targetTaskName) {
+        tradeTasks.value = [{ id: row.targetTaskId, name: (row as any).targetTaskName } as any];
+      } else {
+        await fetchTradeTasks();
+      }
+    });
   }
 
   dialogTitle.value = "编辑任务";
@@ -1110,6 +1134,7 @@ defineExpose({
   handleAdd,
   handleAddSystem,
   handleEdit,
+  openWithGoods,
 });
 </script>
 
@@ -1131,12 +1156,12 @@ defineExpose({
 
 /* 进一步压缩表单项间距 */
 :deep(.compact-form .t-form__item) {
-  margin-bottom: 18px; /* 适度增加间距，为错误提示预留空间 */
+  margin-bottom: 12px; /* 适度增加间距，为错误提示预留空间 */
 }
 
 /* 当存在校验错误时，确保有足够间距且高度由内容撑开 */
 :deep(.compact-form .t-form__item.t-is-error) {
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 /* 压缩提示文本间距并确保不遮挡 */
@@ -1167,7 +1192,7 @@ defineExpose({
 
 /* 针对 schedule-group 内部的 form-item 特殊处理 */
 .schedule-group :deep(.t-form__item) {
-  margin-bottom: 12px; /* 从 8px 增加到 12px */
+  margin-bottom: 8px; /* 从 8px 增加到 12px */
 }
 
 /* 移除末尾元素的边距压缩，防止报错信息溢出背景框 */
