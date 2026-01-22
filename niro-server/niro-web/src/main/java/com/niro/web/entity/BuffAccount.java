@@ -100,6 +100,11 @@ public class BuffAccount {
     private Integer tradeSuccessCount;
 
     /**
+     * API配置信息(JSON)
+     */
+    private String apiConfig;
+
+    /**
      * 下单总数（用于计算成功率）
      */
     private Integer tradeTotalCount;

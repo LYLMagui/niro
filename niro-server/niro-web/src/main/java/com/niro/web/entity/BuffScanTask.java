@@ -129,4 +129,9 @@ public class BuffScanTask {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 平台特殊配置(JSON)
+     */
+    private String extraConfig;
 }

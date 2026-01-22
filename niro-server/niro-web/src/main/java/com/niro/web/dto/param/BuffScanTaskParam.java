@@ -3,6 +3,7 @@ package com.niro.web.dto.param;
 import java.math.BigDecimal;
 import java.util.List;
 
+import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.Min;
@@ -20,6 +21,9 @@ public class BuffScanTaskParam {
 
     @Schema(description = "任务ID (更新时必填)")
     private Long id;
+
+    @Schema(description = "所属平台", defaultValue = "BUFF")
+    private PlatformEnum platform = PlatformEnum.BUFF;
 
     @Schema(description = "运行模式", defaultValue = "SCAN")
     private TaskRunModeEnum runMode;
@@ -70,4 +74,7 @@ public class BuffScanTaskParam {
 
     @Schema(description = "绑定的账号ID列表")
     private List<Long> accountIds;
+
+    @Schema(description = "平台特殊配置 (JSON)")
+    private String extraConfig;
 }

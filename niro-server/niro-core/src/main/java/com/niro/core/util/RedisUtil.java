@@ -406,6 +406,8 @@ public class RedisUtil {
         redisTemplate.opsForHash().putAll(key, maps);
     }
 
+
+
     /**
      * 仅当hashKey不存在时才设置
      *

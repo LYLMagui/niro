@@ -23,10 +23,12 @@ import com.niro.web.entity.*;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.enums.PaymentMethodEnum;
+import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.*;
+import com.niro.web.service.strategy.PlatformStrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
@@ -61,11 +63,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
     private final UserBuffSettingsService userBuffSettingsService;
+    private final PlatformStrategyFactory platformStrategyFactory;
 
-    @Value("${PROXY_URL:}")
+    @Value("${proxy.global.url:}")
     private String globalProxyUrl;
 
-    @Value("${ENABLE_PROXY:false}")
+    @Value("${proxy.global.enable:false}")
     private Boolean enableProxy;
 
     @Override
@@ -457,152 +460,11 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     /**
-     * 将任务推送至 Redis 队列
+     * 将任务推送至 Redis 队列 (已废弃，逻辑迁移至 BuffTradeStrategyImpl)
      */
+    @Deprecated
     private void pushTaskToQueue(BuffScanTask task) {
-        // 1. 获取任务绑定的账号信息
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
-                .eq(BuffScanTaskAccount::getTaskId, task.getId())
-                .list();
-
-        if (CollUtil.isEmpty(rels)) {
-            throw new BusinessException(task.getName() + "未绑定执行账号");
-        }
-
-        List<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
-        // 只给 Python 端“精兵强将”：过滤掉 checking 或 frozen 状态的账号，只保留 NORMAL
-        List<BuffAccount> accounts = buffAccountService.listByIds(accountIds).stream()
-                .filter(acc -> BuffAccountStatusEnum.NORMAL.equals(acc.getStatus()))
-                .collect(Collectors.toList());
-
-        if (CollUtil.isEmpty(accounts)) {
-            throw new BusinessException("任务启动失败：绑定的账号均不处于“正常”状态（可能正在校验或已冻结）");
-        }
-
-        // 1.5 获取用户的支付设置
-        UserBuffSettings settings = userBuffSettingsService.lambdaQuery()
-                .eq(UserBuffSettings::getUserId, task.getUserId())
-                .one();
-        String paymentMethod = (settings != null && settings.getPaymentMethod() != null)
-                ? settings.getPaymentMethod().getCode()
-                : PaymentMethodEnum.BALANCE.getCode();
-
-        // 2. 构建消息对象
-        List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
-                .map(acc -> BuffTaskMessage.AccountContext.builder()
-                        .accountId(acc.getId())
-                        .accountName(acc.getAccountName())
-                        .buffCookie(acc.getBuffCookie())
-                        .proxy(Boolean.TRUE.equals(enableProxy) ? globalProxyUrl : null)
-                        .role(acc.getRole())
-                        .userAgent(acc.getUserAgent())
-                        .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
-                        .build())
-                .collect(Collectors.toList());
-
-        BuffTaskMessage.BuffTaskMessageBuilder messageBuilder = BuffTaskMessage.builder()
-                .taskId(task.getId())
-                .runMode(task.getRunMode())
-                .userId(task.getUserId())
-                .taskType(task.getTaskType())
-                .name(task.getName())
-                .targetTaskId(task.getTargetTaskId())
-                .goodsId(task.getGoodsId())
-                .maxPrice(task.getMaxPrice())
-                .minProfit(task.getMinProfit())
-                .scanIntervalMin(task.getScanIntervalMin())
-                .scanIntervalMax(task.getScanIntervalMax())
-                .durationMinutes(task.getDurationMinutes())
-                .restPeriod(task.getRestPeriod())
-                .buyCount(task.getBuyCount())
-                .successCount(task.getSuccessCount())
-                .paymentMethod(paymentMethod)
-                .accounts(accountContexts)
-                .execAccountIds(accounts.stream()
-                        .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole()) || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))
-                        .map(BuffAccount::getId)
-                        .collect(Collectors.toList()));
-
-        // 3. 处理系统任务的分片逻辑
-        if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
-            List<Long> categoryIds = null;
-            // 自愈逻辑：检查 Redis 中是否存在已有的分片进度
-            String progressKey = BuffConstant.REDIS_TASK_STATS_PREFIX + task.getId();
-            String progressJson = redisUtil.getToString(progressKey);
-
-            if (StrUtil.isNotBlank(progressJson)) {
-                JSONObject progress = JSONUtil.parseObj(progressJson);
-                JSONArray pendingCats = progress.getJSONArray("pending_categories");
-                if (CollUtil.isNotEmpty(pendingCats)) {
-                    log.info("任务 [{}] 发现未完成分片，共 {} 个分类，准备执行断点续传", task.getId(), pendingCats.size());
-                    categoryIds = pendingCats.toList(Long.class);
-                }
-            }
-
-            // 如果没有断点进度，则首次下发
-            if (CollUtil.isEmpty(categoryIds)) {
-                if (TaskTypeEnum.SYNC_CATEGORY.getCode().equals(task.getTaskType())) {
-                    // 同步分类树：下发所有一级分类
-                    categoryIds = buffGoodsCategoryService.lambdaQuery()
-                            .eq(BuffGoodsCategory::getParentId, 0)
-                            .list()
-                            .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
-                } else if (TaskTypeEnum.SYNC_GOODS.getCode().equals(task.getTaskType())) {
-                    // 同步商品：下发所有二级分类 (叶子节点)
-                    categoryIds = buffGoodsCategoryService.lambdaQuery()
-                            .gt(BuffGoodsCategory::getParentId, 0)
-                            .list()
-                            .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
-                } else if (TaskTypeEnum.SYNC_STICKER.getCode().equals(task.getTaskType())) {
-                    // 印花同步：下发所有分类（通常印花也是按照分类同步的，这里暂时对齐 SYNC_GOODS 的逻辑或根据实际需求调整）
-                    categoryIds = buffGoodsCategoryService.lambdaQuery()
-                            .gt(BuffGoodsCategory::getParentId, 0)
-                            .list()
-                            .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
-                }
-                log.info("任务 [{}] 首次下发，共 {} 个待处理分类", task.getId(), categoryIds != null ? categoryIds.size() : 0);
-            }
-
-            // 统一填充元数据
-            if (CollUtil.isNotEmpty(categoryIds)) {
-                List<BuffGoodsCategory> cats = buffGoodsCategoryService.listByIds(categoryIds);
-                // 仅下发数据库中存在的分类 ID
-                List<Long> validCategoryIds = cats.stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
-                messageBuilder.categoryIds(validCategoryIds);
-
-                Map<String, Map<String, String>> meta = new HashMap<>();
-                for (BuffGoodsCategory c : cats) {
-                    Map<String, String> info = new HashMap<>();
-                    info.put("name", c.getName());
-                    info.put("internalName", c.getInternalName());
-                    // 补充分类类型标识
-                    info.put("categoryType", c.getParentId() == 0 ? "category" : "category_leaf");
-                    meta.put(c.getId().toString(), info);
-                }
-                messageBuilder.categoryMeta(meta);
-
-                if (validCategoryIds.size() < categoryIds.size()) {
-                    log.warn("任务 [{}] 过滤掉 {} 个不存在的分类 ID", task.getId(), categoryIds.size() - validCategoryIds.size());
-                }
-            }
-        }
-
-        BuffTaskMessage message = messageBuilder.build();
-
-        // 4. 推送至 Redis (使用 List 作为队列，Python 端使用 BLPOP 弹出)
-        String queueName = getQueueName(task.getTaskType());
-        redisUtil.lRightPush(queueName, message);
-
-        // 5. 更新任务状态为正在处理 (4)
-        this.lambdaUpdate()
-                .set(BuffScanTask::getStatus, 4)
-                .eq(BuffScanTask::getId, task.getId())
-                .update();
-
-        // 6. 设置初始心跳，确保 TaskMonitor 不会立即误判
-        redisUtil.hPut(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString(), String.valueOf(System.currentTimeMillis()));
-
-        log.info("任务 [{}] 已推送至队列: {}", task.getId(), queueName);
+        // 逻辑已迁移至 BuffTradeStrategyImpl
     }
 
     private String getQueueName(Integer taskType) {

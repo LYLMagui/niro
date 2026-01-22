@@ -21,10 +21,13 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.PlatformEnum;
+import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffAccountMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
 import com.niro.web.service.BuffScanTaskAccountService;
+import com.niro.web.service.strategy.PlatformStrategyFactory;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -345,40 +348,11 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
     }
 
     /**
-     * 更新账号余额
+     * 更新账号余额 (已废弃，逻辑迁移至 BuffTradeStrategyImpl)
      */
+    @Deprecated
     private void updateBalance(BuffAccount account) {
-        try {
-            // 使用更详细的资产接口获取余额和待结算金额
-            String url = "https://buff.163.com/api/asset/get_brief_asset/?with_pending_divide_amount=1&_=" + System.currentTimeMillis();
-            HttpResponse response = HttpRequest.get(url)
-                    .header("User-Agent", StrUtil.isNotBlank(account.getUserAgent()) ? account.getUserAgent() : UserAgentConstant.getRandomUserAgent())
-                    .header("Cookie", account.getBuffCookie())
-                    .header("Referer", "https://buff.163.com/user-center/asset/pending_divide/")
-                    .header("X-Requested-With", "XMLHttpRequest")
-                    .timeout(5000)
-                    .execute();
-
-            String body = response.body();
-            JSONObject json = JSONUtil.parseObj(body);
-            if ("OK".equals(json.getStr("code"))) {
-                JSONObject data = json.getJSONObject("data");
-                if (data != null) {
-                    // cash_amount 是当前可用余额
-                    BigDecimal balance = data.getBigDecimal("cash_amount", BigDecimal.ZERO);
-                    // pending_divide_amount 是待结算金额
-                    BigDecimal pendingBalance = data.getBigDecimal("pending_divide_amount", BigDecimal.ZERO);
-                    
-                    account.setBalance(balance);
-                    account.setPendingBalance(pendingBalance);
-                    log.info("账号 [{}] 余额更新成功: balance={}, pending={}", account.getAccountName(), balance, pendingBalance);
-                }
-            } else {
-                log.warn("更新账号 [{}] 余额失败: {}", account.getAccountName(), json.getStr("msg"));
-            }
-        } catch (Exception e) {
-            log.warn("Update BUFF Balance Error, id: {}, error: {}", account.getId(), e.getMessage());
-        }
+        // 逻辑已迁移至 BuffTradeStrategyImpl
     }
 
     /**

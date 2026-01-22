@@ -1,5 +1,31 @@
 # Release Notes
 
+## 2026-01-22 (v2.22.0)
+- **多平台交易策略架构升级**:
+  - **策略模式重构**: 引入 `PlatformStrategyFactory` 及其对应的策略实现类，实现交易逻辑与具体平台的解耦，支持 BUFF 和 C5 平台。
+  - **平台参数支持**: 在 `BuffScanTaskParam` 和 `BuffAccountDTO` 中新增 `platform` 字段，默认支持 "BUFF" 并预留 "C5" 扩展。
+  - **统一配置扩展**: 引入 `apiConfig` 和 `extraConfig` 字段，支持不同平台个性化 API 配置（如 C5 的 API Key/Secret）。
+- **C5 平台初步集成**:
+  - **SDK 深度整合**: 整合 `niro-sdk` 模块中的 `C5ApiClient`，实现 C5 平台的任务下发骨架及策略分发验证。
+- **系统稳定性修复**:
+  - **编译与依赖修复**: 修复了多处因代码重构导致的 Import 缺失、方法名不匹配及 Lombok 注解处理器配置问题，确保后端服务正常启动。
+  - **Redis 工具类优化**: 修复 `RedisUtil` 中的重复方法定义，提升系统稳定性。
+
+## 2026-01-22 (v2.21.1)
+- **C5 SDK 架构升级与性能优化**:
+  - **模块化拆分**: 将庞大的 `C5ApiClient` 重构为 `Account`, `Market`, `Trade`, `Purchase`, `Inventory` 五大独立子模块，实现关注点分离。
+  - **虚拟线程引擎**: 全新设计 `C5HttpEngine` 核心组件，底层采用 JDK 21 `HttpClient` 并配置 `Executors.newVirtualThreadPerTaskExecutor()`，充分利用虚拟线程优势处理高并发 I/O。
+  - **连接池管理**: 摒弃短连接模式，原生支持 HTTP/2 与长连接复用，大幅降低网络握手开销。
+  - **JSON 性能提升**: 将序列化层从 Hutool 迁移至 Jackson，进一步提升数据编解码效率。
+
+## 2026-01-22 (v2.21.0)
+- **第三方 SDK 模块 (niro-sdk)**:
+  - **模块化架构**: 新增独立 Maven 模块 `niro-sdk`，解耦第三方平台对接逻辑，引入 Hutool、Jackson 等核心依赖。
+  - **C5 开放平台接入**:
+    - **核心组件**: 实现 `C5ApiClient` 统一客户端、`C5Config` 配置类及 `C5ApiException` 异常体系。
+    - **全接口覆盖**: 完整对接 C5 开放平台 17 个核心接口，涵盖账户查询、饰品搜索、求购管理、库存查询及交易下单等全链路功能。
+    - **模型封装**: 基于官方文档深度还原 `C5AssetInfo`、`C5ItemInfo` 等复杂数据模型，支持印花、磨损度、涂装种子等高精度字段解析。
+
 ## 2026-01-22 (v2.20.0)
 - **扫货任务可靠性与监控增强**:
   - **CSRF 校验自愈**: 实现了 Cookie 自动同步与全链路 CSRF 自动重试机制。当检测到跨环境或 Token 过期导致的校验失败时，爬虫将自动捕获新 Token 并立即重试，确保下单流程不中断。

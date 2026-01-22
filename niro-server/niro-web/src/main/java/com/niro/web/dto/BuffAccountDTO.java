@@ -2,6 +2,7 @@ package com.niro.web.dto;
 
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.PlatformEnum;
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -20,6 +21,8 @@ public class BuffAccountDTO {
     private Long id;
 
     private Long userId;
+
+    private PlatformEnum platform = PlatformEnum.BUFF;
 
     private String accountName;
 
@@ -56,6 +59,9 @@ public class BuffAccountDTO {
     private Integer tradeSuccessCount;
 
     private Integer tradeTotalCount;
+
+    @Schema(description = "API配置信息(JSON)")
+    private String apiConfig;
 
     @Schema(description = "当前绑定的任务ID (若有)")
     private Long boundTaskId;
