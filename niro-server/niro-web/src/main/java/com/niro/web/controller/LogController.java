@@ -5,22 +5,18 @@ import java.io.IOException;
 import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.data.redis.connection.RedisConnection;
-import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.data.redis.core.ReactiveRedisTemplate;
+import org.springframework.data.redis.listener.ChannelTopic;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.ServerSentEvent;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
-import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.niro.web.service.LogService;
 
@@ -28,6 +24,8 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import reactor.core.publisher.Flux;
+import reactor.core.scheduler.Schedulers;
 
 /**
  * 系统日志接口
@@ -43,7 +41,8 @@ import lombok.extern.slf4j.Slf4j;
 public class LogController {
 
     private final LogService logService;
-    private final StringRedisTemplate stringRedisTemplate;
+    // 使用 ReactiveRedisTemplate 进行响应式订阅
+    private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
     @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
     private String logPath;
@@ -81,94 +80,47 @@ public class LogController {
         return null;
     }
 
-    private final ExecutorService executor = Executors.newCachedThreadPool();
-
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
     @Operation(summary = "实时日志流 (SSE)")
-    public SseEmitter streamLogs() {
-        // 设置较长的超时时间 (例如 30 分钟)
-        SseEmitter emitter = new SseEmitter(30 * 60 * 1000L);
-
-        // 尝试多种可能的路径来定位日志文件
-        File logFile = findLogFile();
-        
-        if (logFile == null || !logFile.exists()) {
-            try {
-                String currentDir = System.getProperty("user.dir");
-                String errorMsg = String.format("❌ 无法定位日志文件。当前工作目录: %s, 配置路径: %s. 请检查 niro-spider 是否已启动并生成日志。", currentDir, logPath);
-                emitter.send(SseEmitter.event().data(errorMsg));
-                log.error(errorMsg);
-            } catch (Exception e) {
-                log.error("SSE发送失败", e);
-            }
-            return emitter;
-        }
-
-        log.info("📌 正在读取日志文件初始快照: {}", logFile.getAbsolutePath());
-
-        // 1. 发送初始快照 (最后 100 行)
-        try {
-            List<String> lastLines = readLastNLines(logFile, 100);
-            for (String line : lastLines) {
-                emitter.send(SseEmitter.event().data(line));
-            }
-            // 发送一条连接成功消息
-            String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-            String successMsg = String.format("%s | INFO     | system.log:connect:0 - traceId: system | ip: 127.0.0.1 | >>> 历史日志加载完毕，开始接收实时推送...", now);
-            emitter.send(SseEmitter.event().data(successMsg));
-        } catch (Exception e) {
-            log.error("读取初始日志失败", e);
-        }
-
-        // 2. 启动 Redis 订阅 (异步)
-        AtomicReference<RedisConnection> connectionRef = new AtomicReference<>();
-        
-        executor.execute(() -> {
-            try {
-                // 获取原始连接进行订阅 (阻塞操作)
-                stringRedisTemplate.execute((RedisConnection connection) -> {
-                    connectionRef.set(connection);
-                    log.info("📡 开始订阅 Redis 频道: niro:spider:logs");
+    public Flux<ServerSentEvent<String>> streamLogs() {
+        // 1. 构建初始快照流 (最后 100 行)
+        // 使用 Flux.defer 确保每次订阅都重新读取文件，并使用 boundedElastic 调度器执行阻塞 I/O
+        Flux<String> snapshotFlux = Flux.defer(() -> {
+            File logFile = findLogFile();
+            List<String> lines = new ArrayList<>();
+            
+            if (logFile != null && logFile.exists()) {
+                log.info("📌 正在读取日志文件初始快照: {}", logFile.getAbsolutePath());
+                try {
+                    lines.addAll(readLastNLines(logFile, 100));
                     
-                    connection.subscribe((message, pattern) -> {
-                        try {
-                            String body = new String(message.getBody(), StandardCharsets.UTF_8);
-                            // 实时推送
-                            emitter.send(SseEmitter.event().data(body));
-                        } catch (IOException e) {
-                            // 客户端断开，抛出异常中断订阅
-                            throw new RuntimeException("Client disconnected", e);
-                        }
-                    }, "niro:spider:logs".getBytes(StandardCharsets.UTF_8));
-                    
-                    return null;
-                });
-            } catch (Exception e) {
-                // 忽略 "Client disconnected" 造成的异常
-                if (e.getMessage() != null && !e.getMessage().contains("Client disconnected")) {
-                     log.warn("Redis subscription stopped: {}", e.getMessage());
+                    // 添加连接成功提示
+                    String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+                    String successMsg = String.format("%s | INFO     | system.log:connect:0 - traceId: system | ip: 127.0.0.1 | >>> 历史日志加载完毕，开始接收实时推送...", now);
+                    lines.add(successMsg);
+                } catch (Exception e) {
+                    log.error("读取初始日志失败", e);
+                    lines.add("读取初始日志失败: " + e.getMessage());
                 }
+            } else {
+                 String currentDir = System.getProperty("user.dir");
+                 String errorMsg = String.format("❌ 无法定位日志文件。当前工作目录: %s, 配置路径: %s. 请检查 niro-spider 是否已启动并生成日志。", currentDir, logPath);
+                 log.error(errorMsg);
+                 lines.add(errorMsg);
             }
-        });
-        
-        // 3. 资源释放
-        Runnable stopTask = () -> {
-            try {
-                RedisConnection c = connectionRef.get();
-                if (c != null && !c.isClosed()) {
-                    c.close(); // 强制关闭连接以中断 subscribe
-                    log.info("🔌 SSE 连接断开，已取消 Redis 订阅");
-                }
-            } catch (Exception e) {
-                log.error("Stop subscription error", e);
-            }
-        };
+            return Flux.fromIterable(lines);
+        }).subscribeOn(Schedulers.boundedElastic());
 
-        emitter.onCompletion(stopTask);
-        emitter.onTimeout(stopTask);
-        emitter.onError((e) -> stopTask.run());
+        // 2. 构建 Redis 实时订阅流
+        Flux<String> redisFlux = reactiveRedisTemplate.listenTo(ChannelTopic.of("niro:spider:logs"))
+                .map(message -> message.getMessage())
+                .doOnSubscribe(sub -> log.info("📡 开始订阅 Redis 频道: niro:spider:logs"))
+                .doOnCancel(() -> log.info("🔌 SSE 连接断开，已取消 Redis 订阅"))
+                .doFinally(signal -> log.debug("Redis subscription signal: {}", signal));
 
-        return emitter;
+        // 3. 合并流并转换为 ServerSentEvent
+        return Flux.concat(snapshotFlux, redisFlux)
+                .map(line -> ServerSentEvent.builder(line).build());
     }
 
     /**
