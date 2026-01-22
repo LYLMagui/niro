@@ -339,7 +339,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 } else {
                     long lastHeartbeat = Long.parseLong(heartbeats.get(taskIdStr).toString());
                     // 如果超过 5 分钟没有心跳，认为任务已丢失
-                    if (now - lastHeartbeat > 5 * 60 * 1000) {
+                    if (now - lastHeartbeat > 2 * 60 * 1000) {
                         log.warn("任务 [{}] 心跳过期 ({}ms)，准备重构队列", task.getId(), now - lastHeartbeat);
                         needReEnqueue = true;
                     }

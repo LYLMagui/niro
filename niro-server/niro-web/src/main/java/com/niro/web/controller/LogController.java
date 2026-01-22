@@ -1,13 +1,20 @@
 package com.niro.web.controller;
 
 import java.io.File;
+import java.io.IOException;
+import java.io.RandomAccessFile;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicReference;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.redis.connection.RedisConnection;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -17,7 +24,6 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import com.niro.web.service.LogService;
 
-import cn.hutool.core.io.file.Tailer;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
@@ -37,6 +43,7 @@ import lombok.extern.slf4j.Slf4j;
 public class LogController {
 
     private final LogService logService;
+    private final StringRedisTemplate stringRedisTemplate;
 
     @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
     private String logPath;
@@ -97,40 +104,63 @@ public class LogController {
             return emitter;
         }
 
-        log.info("📌 正在读取日志文件: {}", logFile.getAbsolutePath());
+        log.info("📌 正在读取日志文件初始快照: {}", logFile.getAbsolutePath());
 
-        // 使用 Hutool Tailer 监听文件末尾 (读取最后50行)
-        Tailer tailer = new Tailer(logFile, StandardCharsets.UTF_8, line -> {
-            try {
+        // 1. 发送初始快照 (最后 100 行)
+        try {
+            List<String> lastLines = readLastNLines(logFile, 100);
+            for (String line : lastLines) {
                 emitter.send(SseEmitter.event().data(line));
-            } catch (Exception e) {
-                // 发送失败通常意味着客户端断开，抛出异常以停止 Tailer
-                throw new RuntimeException("Client disconnected", e);
             }
-        }, 50, 1000);
+            // 发送一条连接成功消息
+            String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
+            String successMsg = String.format("%s | INFO     | system.log:connect:0 - traceId: system | ip: 127.0.0.1 | >>> 历史日志加载完毕，开始接收实时推送...", now);
+            emitter.send(SseEmitter.event().data(successMsg));
+        } catch (Exception e) {
+            log.error("读取初始日志失败", e);
+        }
 
-        // 异步启动 Tailer
+        // 2. 启动 Redis 订阅 (异步)
+        AtomicReference<RedisConnection> connectionRef = new AtomicReference<>();
+        
         executor.execute(() -> {
             try {
-                // 先发送一条连接成功消息 (对齐爬虫日志格式，方便前端统一解析)
-                String now = java.time.LocalDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS"));
-                String successMsg = String.format("%s | INFO     | system.log:connect:0 - traceId: system | ip: 127.0.0.1 | >>> 连接日志服务成功，正在读取实时日志...", now);
-                emitter.send(SseEmitter.event().data(successMsg));
-                tailer.start();
+                // 获取原始连接进行订阅 (阻塞操作)
+                stringRedisTemplate.execute((RedisConnection connection) -> {
+                    connectionRef.set(connection);
+                    log.info("📡 开始订阅 Redis 频道: niro:spider:logs");
+                    
+                    connection.subscribe((message, pattern) -> {
+                        try {
+                            String body = new String(message.getBody(), StandardCharsets.UTF_8);
+                            // 实时推送
+                            emitter.send(SseEmitter.event().data(body));
+                        } catch (IOException e) {
+                            // 客户端断开，抛出异常中断订阅
+                            throw new RuntimeException("Client disconnected", e);
+                        }
+                    }, "niro:spider:logs".getBytes(StandardCharsets.UTF_8));
+                    
+                    return null;
+                });
             } catch (Exception e) {
-                // 忽略 "Client disconnected" 异常
-                if (!"Client disconnected".equals(e.getMessage())) {
-                    log.warn("Tailer stopped: {}", e.getMessage());
+                // 忽略 "Client disconnected" 造成的异常
+                if (e.getMessage() != null && !e.getMessage().contains("Client disconnected")) {
+                     log.warn("Redis subscription stopped: {}", e.getMessage());
                 }
             }
         });
         
-        // 客户端断开或超时时停止 Tailer
+        // 3. 资源释放
         Runnable stopTask = () -> {
             try {
-                tailer.stop();
+                RedisConnection c = connectionRef.get();
+                if (c != null && !c.isClosed()) {
+                    c.close(); // 强制关闭连接以中断 subscribe
+                    log.info("🔌 SSE 连接断开，已取消 Redis 订阅");
+                }
             } catch (Exception e) {
-                log.error("Stop tailer error", e);
+                log.error("Stop subscription error", e);
             }
         };
 
@@ -139,5 +169,60 @@ public class LogController {
         emitter.onError((e) -> stopTask.run());
 
         return emitter;
+    }
+
+    /**
+     * 读取文件最后 N 行 (支持 UTF-8)
+     */
+    private List<String> readLastNLines(File file, int numLines) {
+        List<String> lines = new ArrayList<>();
+        if (numLines <= 0) return lines;
+
+        try (RandomAccessFile raf = new RandomAccessFile(file, "r")) {
+            long length = raf.length();
+            if (length == 0) return lines;
+
+            // 估算：假设一行平均 200 字节，100 行大约 20KB。
+            // 为了安全起见，我们预读多一点，比如 50KB。
+            // 如果 50KB 不够 100 行，我们目前简化处理，只返回这 50KB 里的行。
+            // 实际场景中，日志一行通常不会特别长，50KB 足够包含最后 100 行。
+            int bufferSize = 50 * 1024; // 50KB
+            long startPos = Math.max(0, length - bufferSize);
+            
+            // 移动指针并读取字节
+            raf.seek(startPos);
+            byte[] bytes = new byte[(int) (length - startPos)];
+            raf.readFully(bytes);
+            
+            // 整体解码为字符串
+            String content = new String(bytes, StandardCharsets.UTF_8);
+            
+            // 按换行符分割
+            // 这里的正则 split 可能会消耗一些性能，但对于 50KB 数据是可以接受的
+            String[] rawLines = content.split("\r?\n");
+            
+            // 过滤空行并添加到结果列表
+            for (String line : rawLines) {
+                // 如果 startPos 不是 0，第一行很可能是被截断的残缺行，应该丢弃
+                // 除非 bytes 恰好以换行符开始 (content第一个字符为空行或完整行的开始)
+                // 简单起见：如果不是从文件头读取，且 split 结果超过 1 行，丢弃第一行
+                if (startPos > 0 && lines.isEmpty() && rawLines.length > 1) {
+                    continue; 
+                }
+                if (!line.isEmpty()) {
+                    lines.add(line);
+                }
+            }
+            
+            // 截取最后 N 行
+            if (lines.size() > numLines) {
+                return lines.subList(lines.size() - numLines, lines.size());
+            }
+            return lines;
+            
+        } catch (IOException e) {
+            log.error("读取日志文件失败", e);
+        }
+        return lines;
     }
 }
