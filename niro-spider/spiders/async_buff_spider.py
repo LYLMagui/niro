@@ -2,7 +2,8 @@ import asyncio
 import time
 import random
 import json
-from typing import List, Dict, Any, Optional
+import uuid
+from typing import List, Dict, Any, Optional, Union
 import httpx
 from loguru import logger
 
@@ -84,40 +85,12 @@ class AsyncBuffSpider:
 
     async def _do_request(self, client: httpx.AsyncClient, method: str, url: str, headers: dict, attempt: int, return_raw: bool = False, **kwargs) -> Union[Dict[str, Any], httpx.Response]:
         try:
-            # 调试日志：强制打印完整请求头和参数 (级别提升至 warning 以便在控制台可见)
-            is_batch_buy = "batch_buy" in url
-            if is_batch_buy:
-                cookie_str = headers.get("cookie", "")
-                cookie_len = len(cookie_str)
-                safe_headers = {k: v for k, v in headers.items() if k.lower() != 'cookie'}
-                csrf_val = headers.get("x-csrftoken", "MISSING")
-                
-                # 记录详细的 CSRF 提取校验日志
-                logger.debug(f"🌐 [Request Dump] {method} {url}")
-                logger.debug(f"🌐 [Headers] {safe_headers}")
-                logger.debug(f"🌐 [CSRF Header] {csrf_val[:10]}...{csrf_val[-5:] if len(csrf_val)>5 else ''}")
-                
-                # 检查 CSRF Token 是否真的存在于 Cookie 中
-                if csrf_val != "MISSING":
-                    found_in_cookie = csrf_val in cookie_str
-                    logger.debug(f"🌐 [CSRF Check] Token in Cookie: {found_in_cookie}")
-                    if not found_in_cookie:
-                        # 如果没找到，打印一部分 cookie 以便分析（脱敏）
-                        import re
-                        parts = re.split(r';\s*', cookie_str)
-                        csrf_parts = [p for p in parts if "csrf" in p.lower()]
-                        logger.debug(f"🌐 [Cookie Debug] Found CSRF-related parts in cookie: {csrf_parts}")
-
-                logger.debug(f"🌐 [CookieLen] {cookie_len}")
-                logger.debug(f"🌐 [Body] {kwargs.get('json') or kwargs.get('params')}")
-
             response = await client.request(method, url, headers=headers, **kwargs)
             
             if response.status_code == 403:
                 # 记录 403 详细信息
-                if is_batch_buy:
-                    logger.error(f"❌ [403 Forbidden] 响应内容: {response.text[:200]}")
-                    logger.error(f"❌ [403 Forbidden] 请求头中 x-csrftoken: {headers.get('x-csrftoken')}")
+                logger.error(f"❌ [403 Forbidden] 响应内容: {response.text[:200]}")
+                logger.error(f"❌ [403 Forbidden] 请求头中 x-csrftoken: {headers.get('x-csrftoken')}")
             
             if response.status_code == 429:
                 logger.error(f"🚫 [429] 触发频率限制，等待重试 ({attempt + 1}/3)")
@@ -502,7 +475,7 @@ class AsyncBuffSpider:
             # 判断是否为纯监控模式 (无下单账号)
             is_monitor_only = not task_data.get("buy_accounts")
             status_text = "监控启动" if is_monitor_only else "扫描启动"
-            logger.info(f"👤 [账号: {acc_name}] {status_text} {'(周期模式: ' + str(duration_minutes) + '/' + str(rest_period) + 'min)' if is_cycle_mode else '(持续模式)'}")
+            logger.info(f"👤 {status_text} {'(周期模式: ' + str(duration_minutes) + '/' + str(rest_period) + 'min)' if is_cycle_mode else '(持续模式)'}")
 
             cycle_start_time = time.time()
             
@@ -516,14 +489,14 @@ class AsyncBuffSpider:
                     if is_cycle_mode:
                         elapsed_minutes = (time.time() - cycle_start_time) / 60
                         if elapsed_minutes >= duration_minutes:
-                            logger.info(f"😴 [账号: {acc_name}] 工作周期结束 ({duration_minutes}min)，进入强制休眠 ({rest_period}min)...")
+                            logger.info(f"😴 工作周期结束 ({duration_minutes}min)，进入强制休眠 ({rest_period}min)...")
                             # 休眠期间仍需响应取消信号
                             try:
                                 await asyncio.sleep(rest_period * 60)
                             except asyncio.CancelledError:
                                 raise
                             
-                            logger.info(f"⏰ [账号: {acc_name}] 休眠结束，重新开始工作周期")
+                            logger.info(f"⏰ 休眠结束，重新开始工作周期")
                             cycle_start_time = time.time()
                             continue
 
@@ -532,7 +505,7 @@ class AsyncBuffSpider:
                     if wait_time > 0:
                         # 静默处理：微小的等待不再打印 INFO 日志，改为 DEBUG
                         if wait_time > 1.0:
-                            logger.debug(f"🛡️ [账号: {acc_name}] 流量整形中：精准错峰等待 {int(wait_time * 1000)}ms")
+                            logger.debug(f"🛡️ 流量整形中：精准错峰等待 {int(wait_time * 1000)}ms")
                         await asyncio.sleep(wait_time)
 
                     # 1. 执行扫描
@@ -559,18 +532,18 @@ class AsyncBuffSpider:
                     
                     # 3. 周期扫描完成摘要
                     next_wait = random.uniform(interval_min, interval_max)
-                    logger.info(f"✅ [账号: {acc_name}] 周期扫描完成 | 响应: {int(latency)}ms | 下次准入: {next_wait:.1f}s后 | 状态: 安全 🛡️")
+                    logger.info(f"✅ 周期扫描完成 | 响应: {int(latency)}ms | 下次准入: {next_wait:.1f}s后 | 状态: 安全 🛡️")
                     
                     await asyncio.sleep(next_wait)
                     
                 except asyncio.CancelledError:
-                    logger.info(f"🛑 [账号: {acc_name}] 扫描任务已取消")
+                    logger.info(f"🛑 扫描任务已取消")
                     break
                 except Exception as e:
-                    logger.error(f"⚠️ [账号: {acc_name}] 扫描循环异常: {e}")
+                    logger.error(f"⚠️ 扫描循环异常: {e}")
                     await asyncio.sleep(interval_min)
         except Exception as e:
-            logger.exception(f"💥 [账号: 未知] 协程初始化失败: {e}")
+            logger.exception(f"💥 协程初始化失败: {e}")
 
     def _get_csrf_token(self, profile: BrowserProfile) -> str:
         """从 Cookie 中提取 CSRF Token (兼容 csrf_token 和 csrftoken)"""
@@ -602,7 +575,7 @@ class AsyncBuffSpider:
         if not profile:
             cookie = account.get("buffCookie")
             if not cookie:
-                logger.error(f"❌ [账号: {acc_name}] 下单失败：缺少 buffCookie")
+                logger.error(f"❌ 下单失败：缺少 buffCookie")
                 return "ERROR", "Missing buffCookie"
             profile = BrowserHelper.create_profile(cookie=cookie)
         
@@ -628,7 +601,7 @@ class AsyncBuffSpider:
             "Referer": f"https://buff.163.com/goods/{goods_id}?from=market"
         }
 
-        logger.info(f"🛒 [账号: {acc_name}] [发起购买] GoodsID={goods_id} | ItemID={item_id} | Price={price}")
+        logger.info(f"🛒 [发起购买] GoodsID={goods_id} | ItemID={item_id} | Price={price}")
         
         try:
             # 使用统一的 _request 逻辑，包含 HTML 预检和异常处理
@@ -637,7 +610,7 @@ class AsyncBuffSpider:
             if res_json.get("code") == "OK":
                 data = res_json.get("data", {})
                 order_id = data.get("id")
-                logger.info(f"✅ [账号: {acc_name}] 下单成功! 订单号: {order_id}")
+                logger.info(f"✅ 下单成功! 订单号: {order_id}")
                 
                 # 推送成功通知
                 goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
@@ -649,7 +622,7 @@ class AsyncBuffSpider:
             else:
                 error_msg = res_json.get("error") or res_json.get("msg") or "未知错误"
                 code = res_json.get("code")
-                logger.error(f"❌ [账号: {acc_name}] 下单失败: {code} - {error_msg}")
+                logger.error(f"❌ 下单失败: {code} - {error_msg}")
                 
                 # 风控判断 (根据实际 Buff 返回码调整)
                 if code in ["Risk Control", "Account Banned", "Action Forbidden"]:
@@ -658,10 +631,10 @@ class AsyncBuffSpider:
                 # 其他失败 (如库存不足、余额不足等)
                 return "FAILED", error_msg
         except LoginRequiredError:
-            logger.error(f"🔑 [账号: {acc_name}] Cookie 已失效，无法下单")
+            logger.error(f"🔑 Cookie 已失效，无法下单")
             raise
         except Exception as e:
-            logger.error(f"⚠️ [账号: {acc_name}] 下单请求异常: {e}")
+            logger.error(f"⚠️ 下单请求异常: {e}")
             return "ERROR", str(e)
 
     async def _process_items(self, task_data: Dict[str, Any], items: List[Dict[str, Any]], account: Dict[str, Any]):
@@ -707,7 +680,7 @@ class AsyncBuffSpider:
             for it in new_items:
                 await self.redis.set(f"niro:report:cache:{it.get('id')}", "1", ex=180)
 
-            logger.info(f"🔍 [账号: {acc_name}] [监控发现] 匹配到 {len(new_items)} 个挂单，已推送通知")
+            logger.info(f"🔍 [监控发现] 匹配到 {len(new_items)} 个挂单，已推送通知")
             
             try:
                 goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
@@ -831,9 +804,9 @@ class AsyncBuffSpider:
             }
             try:
                 await self.redis.rpush(queue_key, json.dumps(signal_data))
-                logger.warning(f"📤 [账号: {acc_name}] 匹配成功，已将信号发送至下单任务 [{target_task_id}] | 订单ID: {pending_it_ids}")
+                logger.warning(f"📤 匹配成功，已将信号发送至下单任务 [{target_task_id}] | 订单ID: {pending_it_ids}")
             except Exception as re:
-                logger.error(f"❌ [账号: {acc_name}] 推送下单信号至队列失败: {re}")
+                logger.error(f"❌ 推送下单信号至队列失败: {re}")
                 await self._release_items(pending_it_ids)
         else:
             # 本地模式：指派绑定的下单账号执行
@@ -866,7 +839,7 @@ class AsyncBuffSpider:
             if not buyer.get("profile"):
                 buyer["profile"] = BrowserHelper.create_profile(cookie=buyer.get("buffCookie"))
                 
-            logger.warning(f"🚀 [账号: {acc_name}] 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
+            logger.warning(f"🚀 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
             asyncio.create_task(self.async_buy_v3(pending_it_ids, buyer, task_data))
 
     async def async_buy_v3(self, sell_order_ids: List[str], account: Dict[str, Any], task_data: Dict[str, Any]):
@@ -876,6 +849,11 @@ class AsyncBuffSpider:
         """
         acc_id = self._extract_value(account.get("accountId"))
         acc_name = account.get("accountName") or "未知账号"
+        
+        # 设置账号级上下文
+        account_name_var.set(acc_name)
+        account_id_var.set(acc_id)
+        
         profile = account.get("profile")
         goods_id = self._extract_value(task_data.get("goodsId"))
         user_id = self._extract_value(task_data.get("userId"))
@@ -895,32 +873,32 @@ class AsyncBuffSpider:
                 await asyncio.sleep(guard_delay)
             
             # 微秒级抖动，模拟点击开始
-            await asyncio.sleep(random.uniform(0.1, 0.3))
+            await asyncio.sleep(random.uniform(0.1, 0.5))
 
             # --- 1. 批量预览 (Preview) ---
-            logger.info(f"🔍 [账号: {acc_name}] 步骤 1/5: 发起批量预览 | ID: {current_ids}")
+            logger.info(f"🔍 步骤 1/5: 发起批量预览 | ID: {current_ids}")
             preview_data, trace_id, error_code = await self._batch_buy_preview(goods_id, current_ids, profile)
             
             if error_code == "Already Paying":
-                logger.error(f"🚨 [账号: {acc_name}] 触发 Already Paying 熔断，标记 Busy 200s")
+                logger.error(f"🚨 触发 Already Paying 熔断，标记 Busy 200s")
                 await self.redis.set(busy_key, "1", ex=200)
                 await self._release_items(current_ids)
                 should_clear_busy = False
                 return
 
             if not preview_data:
-                logger.error(f"❌ [账号: {acc_name}] 批量预览失败: {error_code}")
+                logger.error(f"❌ 批量预览失败: {error_code}")
                 await self._release_items(current_ids)
                 return
 
-            logger.info(f"✅ [账号: {acc_name}] 预览成功 | 预估总价: ¥{preview_data.get('price')} | TraceID: {trace_id}")
+            logger.info(f"✅ 预览成功 | 预估总价: ¥{preview_data.get('price')} | TraceID: {trace_id}")
 
             # 动态获取支付方式 (从任务数据中提取)
             payment_method_str = task_data.get("paymentMethod", "BALANCE")
             try:
                 preferred_pay_method = getattr(BuffPaymentMethod, payment_method_str).value
             except (AttributeError, KeyError):
-                logger.warning(f"⚠️ [账号: {acc_name}] 未知支付方式: {payment_method_str}, 默认使用 BALANCE")
+                logger.warning(f"⚠️ 未知支付方式: {payment_method_str}, 默认使用 BALANCE")
                 preferred_pay_method = BuffPaymentMethod.BALANCE.value
             
             # 支付方式决策逻辑 (含余额不足自动切换)
@@ -931,19 +909,19 @@ class AsyncBuffSpider:
             # 如果首选支付方式不可用或余额不足，执行自动切换
             if not selected_method or not selected_method.get("enough", False):
                 if preferred_pay_method == BuffPaymentMethod.BUFF_BALANCE.value:
-                    logger.warning(f"⚠️ [账号: {acc_name}] BUFF 余额不足或不可用，尝试自动切换至 网易支付/余额...")
+                    logger.warning(f"⚠️ BUFF 余额不足或不可用，尝试自动切换至 网易支付/余额...")
                     fallback_method = next((m for m in pay_methods if m.get("value") == BuffPaymentMethod.BALANCE.value), None)
                     if fallback_method and fallback_method.get("enough", False):
                         selected_method = fallback_method
                         pay_method = BuffPaymentMethod.BALANCE.value
-                        logger.info(f"✅ [账号: {acc_name}] 自动切换成功，当前支付方式: 网易支付/余额")
+                        logger.info(f"✅ 自动切换成功，当前支付方式: 网易支付/余额")
                     else:
-                        logger.error(f"❌ [账号: {acc_name}] BUFF 余额和网易支付均不足或不可用")
+                        logger.error(f"❌ BUFF 余额和网易支付均不足或不可用")
                         await self._release_items(current_ids)
                         return
                 else:
                     # 提升日志级别为 ERROR，以便 UI 实时监控捕获
-                    logger.error(f"❌ [账号: {acc_name}] 支付方式 ({BuffPaymentMethod.get_label(preferred_pay_method)}) 余额不足或不可用")
+                    logger.error(f"❌ 支付方式 ({BuffPaymentMethod.get_label(preferred_pay_method)}) 余额不足或不可用")
                     await self._release_items(current_ids)
                     return
             
@@ -970,82 +948,87 @@ class AsyncBuffSpider:
             await asyncio.sleep(random.uniform(0.3, 0.6))
 
             # --- 2. 创建订单 (Create) ---
-            logger.info(f"📝 [账号: {acc_name}] 步骤 2/5: 准备预创建订单，待下单数量: {len(current_ids)}")
-            batch_buy_id = await self._batch_buy_create(goods_id, pay_method, total_price, len(current_ids), profile, trace_id)
-            if not batch_buy_id:
-                logger.error(f"❌ [账号: {acc_name}] 订单创建失败")
-                await self._release_items(current_ids)
-                return
-            
-            # 设置初始 Busy 标志
-            await self.redis.set(busy_key, "1", ex=200)
-            logger.info(f"✅ [账号: {acc_name}] 订单预创建成功 | BatchID: {batch_buy_id}")
+            batch_buy_id = None
+            if pay_method == BuffPaymentMethod.BUFF_BALANCE.value:
+                logger.info(f"💰 检测到纯 BUFF 余额支付 (59)，跳过订单预创建与支付流程")
+            else:
+                logger.info(f"📝 步骤 2/5: 准备预创建订单，待下单数量: {len(current_ids)}")
+                batch_buy_id = await self._batch_buy_create(goods_id, pay_method, total_price, len(current_ids), profile, trace_id)
+                if not batch_buy_id:
+                    logger.error(f"❌ 订单创建失败")
+                    await self._release_items(current_ids)
+                    return
+                
+                # 设置初始 Busy 标志
+                await self.redis.set(busy_key, "1", ex=200)
+                logger.info(f"✅ 订单预创建成功 | BatchID: {batch_buy_id}")
 
-            # --- 3. 支付预处理 (Pay Prep) ---
-            logger.info(f"💰 [账号: {acc_name}] 步骤 3/5: 发起支付预处理...")
-            await asyncio.sleep(random.uniform(0.5, 0.8))
-            pay_res = await self._batch_buy_pay(batch_buy_id, goods_id, profile)
-            if not pay_res or pay_res.get("code") != "OK":
-                logger.error(f"❌ [账号: {acc_name}] 支付预处理失败 | Msg: {pay_res.get('msg') if pay_res else 'Request Failed'}")
-                await self._release_items(current_ids)
-                return
-            
-            pay_data = pay_res.get("data", {})
-            if pay_data.get("auto_pay") is False:
-                epay_url = pay_data.get("elements", {}).get("url")
-                if epay_url:
-                    logger.warning(f"⚠️ [账号: {acc_name}] 需手动支付授权！延长 Busy 锁至 180s")
-                    await self.redis.set(busy_key, "1", ex=180) # 延长锁时间，给人工预留时间
-                    logger.warning(f"👉 支付链接: {epay_url}")
+                # --- 3. 支付预处理 (Pay Prep) ---
+                logger.info(f"💰 步骤 3/5: 发起支付预处理...")
+                await asyncio.sleep(random.uniform(0.5, 0.8))
+                pay_res = await self._batch_buy_pay(batch_buy_id, goods_id, profile)
+                if not pay_res or pay_res.get("code") != "OK":
+                    logger.error(f"❌ 支付预处理失败 | Msg: {pay_res.get('msg') if pay_res else 'Request Failed'}")
+                    await self._release_items(current_ids)
+                    return
+                
+                pay_data = pay_res.get("data", {})
+                if pay_data.get("auto_pay") is False:
+                    epay_url = pay_data.get("elements", {}).get("url")
+                    if epay_url:
+                        logger.warning(f"⚠️ 需手动支付授权！延长 Busy 锁至 180s")
+                        await self.redis.set(busy_key, "1", ex=180) # 延长锁时间，给人工预留时间
+                        logger.warning(f"👉 支付链接: {epay_url}")
+                        
+                        try:
+                            goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                            title = "⚠️ 需手动支付授权"
+                            description = f"账号: {acc_name}\n饰品: {goods_name}\n金额: ¥{total_price}\n状态: 等待人工操作"
+                            self.notifier.send_textcard(title, description, url=epay_url, btntxt="点击前往支付", user_id=user_id)
+                        except Exception as ne:
+                            logger.error(f"⚠️ 支付链接推送失败: {ne}")
+                
+                logger.info(f"💰 支付预处理完成，开始轮询支付状态...")
+
+                # --- 4. 轮询状态 (Polling Status) ---
+                logger.info(f"⏳ 步骤 4/5: 轮询支付状态...")
+                is_ready = False
+                for i in range(180):
+                    check_res = await self._batch_buy_check_state(batch_buy_id, goods_id, profile)
                     
-                    try:
-                        goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
-                        title = "⚠️ 需手动支付授权"
-                        description = f"账号: {acc_name}\n饰品: {goods_name}\n金额: ¥{total_price}\n状态: 等待人工操作"
-                        self.notifier.send_textcard(title, description, url=epay_url, btntxt="点击前往支付", user_id=user_id)
-                    except Exception as ne:
-                        logger.error(f"⚠️ 支付链接推送失败: {ne}")
-            
-            logger.info(f"💰 [账号: {acc_name}] 支付预处理完成，开始轮询支付状态...")
+                    if not check_res or check_res.get("code") != "OK":
+                        logger.warning(f"⚠️ 轮询支付状态异常 ({i}s): {check_res.get('msg') if check_res else 'Request Failed'}")
+                    
+                    state = check_res.get("data", {}).get("state") if check_res else None
+                    if state == 2:
+                        is_ready = True
+                        logger.info(f"✅ 支付状态已就绪 (耗时: {i}s)")
+                        break
+                    
+                    if state == 4:
+                        logger.error(f"❌ 支付失败或已关闭 (State: 4)")
+                        break
+                    
+                    if i > 0 and i % 10 == 0:
+                        logger.info(f"⏳ 支付状态轮询中... 当前状态: {state} ({i}s/180s)")
+                    
+                    await asyncio.sleep(1.0 + random.uniform(0, 0.2)) # 增加微小抖动
 
-            # --- 4. 轮询状态 (Polling Status) ---
-            logger.info(f"⏳ [账号: {acc_name}] 步骤 4/5: 轮询支付状态...")
-            is_ready = False
-            for i in range(180):
-                check_res = await self._batch_buy_check_state(batch_buy_id, goods_id, profile)
-                
-                if not check_res or check_res.get("code") != "OK":
-                    logger.warning(f"⚠️ [账号: {acc_name}] 轮询支付状态异常 ({i}s): {check_res.get('msg') if check_res else 'Request Failed'}")
-                
-                state = check_res.get("data", {}).get("state") if check_res else None
-                if state == 2:
-                    is_ready = True
-                    logger.info(f"✅ [账号: {acc_name}] 支付状态已就绪 (耗时: {i}s)")
-                    break
-                
-                if state == 4:
-                    logger.error(f"❌ [账号: {acc_name}] 支付失败或已关闭 (State: 4)")
-                    break
-                
-                if i > 0 and i % 10 == 0:
-                    logger.info(f"⏳ [账号: {acc_name}] 支付状态轮询中... 当前状态: {state} ({i}s/180s)")
-                
-                await asyncio.sleep(1.0 + random.uniform(0, 0.2)) # 增加微小抖动
-
-            if not is_ready:
-                logger.error(f"❌ [账号: {acc_name}] 支付状态轮询超时")
-                await self._release_items(current_ids)
-                return
+                if not is_ready:
+                    logger.error(f"❌ 支付状态轮询超时")
+                    await self._release_items(current_ids)
+                    return
 
             # --- 5. 最终确认 (Final Confirm) ---
-            logger.info(f"🚀 [账号: {acc_name}] 步骤 5/5: 发起最终确认请求 (对齐 JSON: 循环下单模式)...")
+            logger.info(f"🚀 步骤 5/5: 发起最终确认请求 (对齐 JSON: 循环下单模式)...")
             # 增加确认前的冷静期，模拟真人从支付完成回到页面的动作
             await asyncio.sleep(random.uniform(1.2, 2.0))
             
             url = "https://buff.163.com/api/market/goods/buy"
             successful_orders = []
-            import uuid
-            batch_id = uuid.uuid4().hex  # 生成随机 batch_id (对齐 JSON)
+            
+            # 优先从预览数据中获取 batch_id，如果没有则生成随机 ID
+            batch_id = preview_data.get("batch_id") or uuid.uuid4().hex
             
             # 协议核心修正：循环发起每个饰品的购买请求
             for i, it_id in enumerate(current_ids):
@@ -1061,11 +1044,14 @@ class AsyncBuffSpider:
                     "allow_tradable_cooldown": 0,
                     "hide_non_epay": False,
                     "batch_id": batch_id,
-                    "batch_buy_id": batch_buy_id,
                     "steamid": None
                 }
                 
-                logger.info(f"🚀 [账号: {acc_name}] 发起第 {i+1}/{len(current_ids)} 件确认 | ID: {it_id} | Price: {price_str}")
+                # 只有在非纯余额支付且有 batch_buy_id 时才添加该字段
+                if batch_buy_id:
+                    payload["batch_buy_id"] = batch_buy_id
+                
+                logger.info(f"🚀 发起第 {i+1}/{len(current_ids)} 件确认 | ID: {it_id} | Price: {price_str}")
                 
                 headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
                 headers.update({
@@ -1080,33 +1066,23 @@ class AsyncBuffSpider:
                     if res_json.get("code") == "OK":
                         order_id = res_json.get("data", {}).get("id")
                         successful_orders.append(order_id)
-                        logger.info(f"✨ [账号: {acc_name}] 第 {i+1} 件下单成功! 订单号: {order_id}")
+                        logger.info(f"✨ 第 {i+1} 件下单成功! 订单号: {order_id}")
                         
                         # 每件之间稍微停顿，模拟真人点击
                         if i < len(current_ids) - 1:
                             await asyncio.sleep(random.uniform(0.5, 1.0))
                     else:
                         error_msg = res_json.get("msg") or res_json.get("error") or "Unknown Error"
-                        logger.error(f"❌ [账号: {acc_name}] 第 {i+1} 件确认失败 | Msg: {error_msg}")
+                        logger.error(f"❌ 第 {i+1} 件确认失败 | Msg: {error_msg}")
                 except Exception as e:
-                    logger.error(f"💥 [账号: {acc_name}] 第 {i+1} 件确认异常: {e}")
+                    logger.error(f"💥 第 {i+1} 件确认异常: {e}")
 
             if successful_orders:
                 # 记录最后成功下单时间
                 self._last_buy_times[acc_id] = time.time()
                 
-                # --- 6. 通知卖家 (Notify) ---
-                logger.info(f"🔔 [账号: {acc_name}] 步骤 6/7: 通知卖家发货 (对齐 JSON: 批量通知模式)...")
-                # 优先调用批量单通知接口 (对齐 JSON Step 8)
-                await self._notify_bill_order(batch_buy_id, goods_id, profile)
-                
-                # 为了兼容性和保险，如果只有一单，也调用一下单个通知接口
-                if len(successful_orders) == 1:
-                    pay_method_desc = self._get_pay_method_description_local(pay_method)
-                    await self._notify_buyer_to_send_offer(successful_orders[0], pay_method_desc, goods_id, profile)
-                
-                # --- 7. 刷新余额 (Refresh Balance) ---
-                logger.info(f"💰 [账号: {acc_name}] 步骤 7/7: 刷新账号余额...")
+                # --- 6. 刷新余额 (Refresh Balance) ---
+                logger.info(f"💰 步骤 6/6: 刷新账号余额...")
                 balance_info = await self._refresh_account_balance(profile)
                 if balance_info:
                     await self._report_account_info(
@@ -1118,25 +1094,25 @@ class AsyncBuffSpider:
                 # 发送通知
                 goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
                 title = f"✨ 批量下单成功 ({len(successful_orders)}/{len(current_ids)}件)"
-                description = f"账号: {acc_name}\n饰品: {goods_name}\n状态: 已通知卖家发货"
+                description = f"账号: {acc_name}\n饰品: {goods_name}\n状态: 下单已完成，请在 App 中手动发送报价"
                 self.notifier.send_textcard(title, description, user_id=user_id)
             else:
-                logger.error(f"❌ [账号: {acc_name}] 批量下单全部失败")
+                logger.error(f"❌ 批量下单全部失败")
                 await self._release_items(current_ids)
 
         except Exception as e:
-            logger.exception(f"💥 [账号: {acc_name}] 异步下单链路崩溃: {e}")
+            logger.exception(f"💥 异步下单链路崩溃: {e}")
             await self._release_items(current_ids)
         finally:
             # --- 6. 强制余温冷却 (Post-Order Cooldown) ---
             # 成功下单后休息 1-2 分钟，确保账号安全
             cooldown = random.uniform(60.0, 120.0)
-            logger.info(f"🧊 [账号: {acc_name}] 下单任务结束，进入强制余温冷却 (1-2分钟): {cooldown:.2f}s")
+            logger.info(f"🧊 下单任务结束，进入强制余温冷却 (1-2分钟): {cooldown:.2f}s")
             await asyncio.sleep(cooldown)
             
             if should_clear_busy:
                 await self.redis.delete(busy_key)
-                logger.info(f"🔓 [账号: {acc_name}] Busy 锁已释放")
+                logger.info(f"🔓 Busy 锁已释放")
 
     async def _release_items(self, item_ids: List[str]):
         """统一释放饰品锁"""
@@ -1162,14 +1138,27 @@ class AsyncBuffSpider:
         }
         
         try:
-            # 使用 self._request 替代临时 httpx.AsyncClient，确保代理、Cookie 逻辑一致
+            # 构造完整请求头用于日志打印 (包含 Cookie)
+            full_headers = profile.get_headers(referer=headers.get("referer"))
+            full_headers.update(headers)
+            
+            # 打印详细预览请求信息 (完整 Headers，不打印 Response)
+            logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Preview Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
+            
             resp = await self._request("POST", url, profile, json=payload, headers=headers, return_raw=True)
             
             if isinstance(resp, dict): # 可能是重试失败返回的错误字典
+                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Request Failed (Dict Return)!</red>\nError: {resp.get('error')}")
                 return None, None, resp.get("error", "Request Failed")
 
             trace_id = resp.headers.get("buff-cashier-trace-id")
             data = resp.json()
+            
+            # 仅打印状态信息，不再打印 Response Body
+            if data.get("code") != "OK":
+                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Failed!</red> | TraceID: {trace_id} | Code: {data.get('code')}")
+            else:
+                logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Preview Success!</green> | TraceID: {trace_id}")
             
             if data.get("code") == "OK":
                 return data.get("data"), trace_id, "OK"
@@ -1203,7 +1192,22 @@ class AsyncBuffSpider:
             "referer": f"https://buff.163.com/goods/{goods_id}?from=market",
             "buff-cashier-trace-id": trace_id
         }
+        
+        # 构造完整请求头用于日志打印 (包含 Cookie)
+        full_headers = profile.get_headers(referer=headers.get("referer"))
+        full_headers.update(headers)
+        
+        # 打印详细请求信息 (完整 Headers，不打印 Response)
+        logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Create Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
+        
         res = await self._request("POST", url, profile, json=payload, headers=headers)
+        
+        # 仅打印状态信息，不再打印 Response Body
+        if res.get("code") != "OK":
+            logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Create Failed!</red> | Code: {res.get('code')}")
+        else:
+            logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Create Success!</green>")
+            
         return res.get("data", {}).get("batch_buy_id") if res.get("code") == "OK" else None
 
     async def _batch_buy_pay(self, batch_buy_id: str, goods_id: int, profile: BrowserProfile):
@@ -1225,63 +1229,11 @@ class AsyncBuffSpider:
             "hide_non_epay": "false",
             "query_from": "cashier",
             "pay_method": str(pay_method),
-            "amount": f"{amount:.2f}",
+            "amount": f"{float(amount):.2f}",
             "_": int(time.time() * 1000)
         }
         headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
         return await self._request("GET", url, profile, params=params, headers=headers)
-
-    async def _notify_buyer_to_send_offer(self, order_id: str, pay_method_desc: str, goods_id: int, profile: BrowserProfile):
-        """[Mission] 通知卖家发货 (单个订单 - GET)"""
-        url = "https://buff.163.com/api/market/pay/notify_buyer_to_send_offer"
-        params = {
-            "game": BuffGameType.CSGO.value,
-            "order_id": order_id,
-            "pay_method_desc": pay_method_desc,
-            "_": int(time.time() * 1000)
-        }
-        headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
-        headers.update({"X-Requested-With": "XMLHttpRequest"})
-        try:
-            res = await self._request("GET", url, profile, params=params, headers=headers)
-            return res
-        except Exception as e:
-            logger.error(f"❌ [订单: {order_id}] 通知卖家发货异常: {e}")
-            return None
-
-    async def _notify_bill_order(self, bill_order_id: str, goods_id: int, profile: BrowserProfile):
-        """[Mission] 通知卖家发货 (批量订单 - POST 对齐 JSON)"""
-        url = "https://buff.163.com/api/market/bill_order/notify_buyer_to_send_offer"
-        payload = {
-            "bill_order_id": bill_order_id,
-            "game": BuffGameType.CSGO.value
-        }
-        headers = {
-            "x-csrftoken": self._get_csrf_token(profile),
-            "content-type": "application/json",
-            "x-requested-with": "XMLHttpRequest",
-            "origin": "https://buff.163.com",
-            "referer": f"https://buff.163.com/goods/{goods_id}?from=market"
-        }
-        try:
-            res = await self._request("POST", url, profile, json=payload, headers=headers)
-            if res.get("code") == "OK":
-                logger.info(f"🔔 [批量订单: {bill_order_id}] 已通知卖家发货 (Batch)")
-            return res
-        except Exception as e:
-            logger.error(f"❌ [批量订单: {bill_order_id}] 通知卖家发货异常: {e}")
-            return None
-
-    def _get_pay_method_description_local(self, pay_method: Union[int, BuffPaymentMethod]):
-        """获取支付方式描述 (用于 notify_buyer_to_send_offer 接口)"""
-        method_map = {
-            BuffPaymentMethod.BALANCE.value: "网易支付/余额",
-            BuffPaymentMethod.BUFF_BALANCE.value: "BUFF余额",
-            BuffPaymentMethod.ALIPAY.value: "支付宝",
-            BuffPaymentMethod.WECHAT.value: "微信支付"
-        }
-        val = pay_method.value if hasattr(pay_method, 'value') else int(pay_method)
-        return method_map.get(val, "网易支付/余额")
 
     async def _refresh_account_balance(self, profile: BrowserProfile) -> Optional[Dict[str, float]]:
         """获取账号最新的余额信息"""
@@ -1313,8 +1265,8 @@ class AsyncBuffSpider:
             async with httpx.AsyncClient(timeout=5.0) as client:
                 resp = await client.post(url, json=payload)
                 if resp.status_code == 200:
-                    logger.info(f"📊 [账号: {acc_id}] 状态/余额上报成功")
+                    logger.info(f"📊 状态/余额上报成功")
                 else:
-                    logger.warning(f"⚠️ [账号: {acc_id}] 状态/余额上报失败: {resp.status_code}")
+                    logger.warning(f"⚠️ 状态/余额上报失败: {resp.status_code}")
         except Exception as e:
-            logger.error(f"❌ [账号: {acc_id}] 状态/余额上报异常: {e}")
+            logger.error(f"❌ 状态/余额上报异常: {e}")

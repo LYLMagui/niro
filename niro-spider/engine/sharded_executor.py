@@ -286,7 +286,7 @@ class ShardedSpiderExecutor:
                 cat_name = cat_meta.get("name") or f"ID:{cat_id}"
                 
                 progress = (i / total_shard_count) * 100
-                logger.info(f"� [账号: {account_name}] 进度: {progress:.1f}% ({i}/{total_shard_count}) | 账号TPS: {current_tps:.2f} | 处理分类: {cat_name}")
+                logger.info(f" 进度: {progress:.1f}% ({i}/{total_shard_count}) | 账号TPS: {current_tps:.2f} | 处理分类: {cat_name}")
                 
                 # 执行抓取
                 success = False
@@ -297,10 +297,10 @@ class ShardedSpiderExecutor:
                     account_processed_goods += processed_count
                 except AccountInvalidException as ae:
                     # 429/401 异常，重新抛出以触发主循环的重平衡逻辑
-                    logger.warning(f"⚠️ [账号: {account_name}] 账号失效 ({ae.reason})，停止该分片并触发重平衡")
+                    logger.warning(f"⚠️ 账号失效 ({ae.reason})，停止该分片并触发重平衡")
                     raise ae
                 except Exception as ce:
-                    logger.exception(f"❌ [账号: {account_name}] 处理分类 {cat_name} 时发生未捕获异常: {ce}")
+                    logger.exception(f"❌ 处理分类 {cat_name} 时发生未捕获异常: {ce}")
                 
                 if success:
                     processed_cats.append(cat_id)
@@ -310,12 +310,12 @@ class ShardedSpiderExecutor:
                     # 更新进度
                     await self._update_progress()
                 else:
-                    logger.warning(f"⚠️ [账号: {account_name}] 处理分类失败或跳过: {cat_name}")
+                    logger.warning(f"⚠️ 处理分类失败或跳过: {cat_name}")
 
                 # 模拟人类操作的休息时间 (抓完一个分类后暂停 20-30 秒)
                 if i < total_shard_count - 1:
                     sleep_time = random.uniform(20, 30)
-                    logger.info(f"💤 [账号: {account_name}] 完成一个分类，休息 {sleep_time:.2f} 秒...")
+                    logger.info(f"💤 完成一个分类，休息 {sleep_time:.2f} 秒...")
                     slept = 0
                     while slept < sleep_time:
                         await self._check_stop_signal(raise_exception=True)
@@ -326,7 +326,7 @@ class ShardedSpiderExecutor:
         except (AccountInvalidException, TaskStoppedException):
             raise
         except Exception as e:
-            logger.error(f"[账号: {account_name}] 抓取异常: {e}")
+            logger.error(f"抓取异常: {e}")
             
         return processed_cats
 
@@ -359,7 +359,7 @@ class ShardedSpiderExecutor:
             
             # 模拟人类随机延迟
             delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-            logger.info(f"⏳ [账号: {account_name}] 第 {page_num} 页印花等待 {delay:.2f} 秒...")
+            logger.info(f"⏳ 第 {page_num} 页印花等待 {delay:.2f} 秒...")
             
             # 延迟期间检查停止信号
             slept = 0
@@ -380,7 +380,7 @@ class ShardedSpiderExecutor:
                 # 印花按页抓取，直接入库
                 save_func = get_save_sticker_func()
                 await save_func(data.items)
-                logger.info(f"✅ [账号: {account_name}] 成功同步第 {page_num} 页印花 ({len(data.items)} 条)")
+                logger.info(f"✅ 成功同步第 {page_num} 页印花 ({len(data.items)} 条)")
                 return True
             
             return False
@@ -388,7 +388,7 @@ class ShardedSpiderExecutor:
             raise AccountInvalidException(acc_id, str(le), [page_num])
         except Exception as e:
             if isinstance(e, AccountInvalidException): raise e
-            logger.error(f"❌ [账号: {account_name}] 同步印花第 {page_num} 页失败: {e}")
+            logger.error(f"❌ 同步印花第 {page_num} 页失败: {e}")
             return False
 
     async def _crawl_category_tree(self, account: Dict[str, Any], p_cat_id: int, limiter: AsyncLimiter) -> bool:
@@ -405,10 +405,10 @@ class ShardedSpiderExecutor:
         type_name = cat_meta.get("name")
         
         if not type_internal:
-            logger.error(f"❌ [账号: {account_name}] Payload 中缺失分类 {p_cat_id} 的元数据，跳过该分类")
+            logger.error(f"❌ Payload 中缺失分类 {p_cat_id} 的元数据，跳过该分类")
             return True # 返回 True 表示处理完成 (尽管是失败的)，防止主循环死循环
 
-        logger.info(f"🚀 [账号: {account_name}] 正在同步分类树: {type_name} ({type_internal})")
+        logger.info(f"🚀 正在同步分类树: {type_name} ({type_internal})")
         
         headers = {
             "Cookie": account["buffCookie"],
@@ -430,12 +430,12 @@ class ShardedSpiderExecutor:
             max_pages = 50 if is_other else 20
             
             consecutive_empty_count = 0 # 连续无新数据的页数
-            logger.info(f"📊 [账号: {account_name}] 分类同步启动: {type_name}, 预设最大页数: {max_pages}")
+            logger.info(f"📊 分类同步启动: {type_name}, 预设最大页数: {max_pages}")
 
             while page <= max_pages:
                 # 模拟人类随机延迟
                 delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-                logger.info(f"⏳ [账号: {account_name}] 第 {page}/{max_pages} 页等待 {delay:.2f} 秒...")
+                logger.info(f"⏳ 第 {page}/{max_pages} 页等待 {delay:.2f} 秒...")
                 
                 # 延迟期间检查停止信号
                 slept = 0
@@ -475,21 +475,18 @@ class ShardedSpiderExecutor:
                 
                 try:
                     data = response.json()
+                except json.JSONDecodeError as e:
+                    logger.error(f"❌ JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
+                    break
                 except Exception as e:
-                    logger.error(f"❌ [账号: {account_name}] JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
-                    raise AccountInvalidException(acc_id, "Invalid JSON Response", [p_cat_id])
-                
-                if data.get("code") != "OK":
-                    msg = data.get('msg', 'Unknown API Error')
-                    logger.error(f"❌ [账号: {account_name}] API 错误: {msg}")
-                    return False
-                
-                # 解析子分类
-                items = data.get("data", {}).get("items", [])
-                if not items:
-                    logger.info(f"ℹ️ [账号: {account_name}] 第 {page} 页无数据")
-                    if page == 1:
-                        return False
+                    if "code" in str(e):
+                        msg = str(e)
+                        logger.error(f"❌ API 错误: {msg}")
+                        break
+                    raise e
+
+                if not data or not data.get("data", {}).get("items"):
+                    logger.info(f"ℹ️ 第 {page} 页无数据")
                     break
 
                 page_new_categories = []
@@ -510,17 +507,17 @@ class ShardedSpiderExecutor:
                 # 检查去重后的新数据
                 if not page_new_categories:
                     consecutive_empty_count += 1
-                    logger.info(f"ℹ️ [账号: {account_name}] 第 {page} 页无新分类 (连续 {consecutive_empty_count} 页)")
+                    logger.info(f"ℹ️ 第 {page} 页无新分类 (连续 {consecutive_empty_count} 页)")
                 else:
                     consecutive_empty_count = 0 # 重置计数
                     # 保存到 Redis
                     if self.redis_async:
                         await self.redis_async.rpush(redis_key, *[json.dumps(c, ensure_ascii=False) for c in page_new_categories])
-                        logger.info(f"💾 [账号: {account_name}] 第 {page} 页抓取到 {len(page_new_categories)} 个新分类，已暂存 Redis")
+                        logger.info(f"💾 第 {page} 页抓取到 {len(page_new_categories)} 个新分类，已暂存 Redis")
                 
                 # 连续 3 页无新数据，认为已获取所有二级分类
                 if consecutive_empty_count >= 3:
-                    logger.info(f"✅ [账号: {account_name}] 连续 3 页无新数据，判定已获取所有二级分类，提前结束")
+                    logger.info(f"✅ 连续 3 页无新数据，判定已获取所有二级分类，提前结束")
                     break
                 
                 page += 1
@@ -533,7 +530,7 @@ class ShardedSpiderExecutor:
                     all_sub_categories = [json.loads(i) for i in stored_items]
                     save_func = get_save_category_func()
                     await save_func(all_sub_categories)
-                    logger.info(f"✅ [账号: {account_name}] 成功同步 {len(all_sub_categories)} 个子分类入库")
+                    logger.info(f"✅ 成功同步 {len(all_sub_categories)} 个子分类入库")
                     has_data = True
                     await self.redis_async.delete(redis_key)
             
@@ -541,7 +538,7 @@ class ShardedSpiderExecutor:
             
         except Exception as e:
             if isinstance(e, AccountInvalidException): raise e
-            logger.error(f"❌ [账号: {account_name}] 同步分类树失败: {e}")
+            logger.error(f"❌ 同步分类树失败: {e}")
             return False
 
     async def _crawl_category_goods(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> (bool, int):
@@ -559,7 +556,7 @@ class ShardedSpiderExecutor:
         cat_type = cat_meta.get("categoryType") or "category"
         
         if not internal_name:
-            logger.error(f"❌ [账号: {account_name}] Payload 中缺失分类 {cat_name} 的元数据，跳过该分类")
+            logger.error(f"❌ Payload 中缺失分类 {cat_name} 的元数据，跳过该分类")
             return True, 0 
 
         headers = {
@@ -581,13 +578,13 @@ class ShardedSpiderExecutor:
             total_pages = 1 
             max_safe_pages = 2000 
 
-            logger.info(f"🚀 [账号: {account_name}] 商品同步启动: {cat_name} ({internal_name}) | 版本: {self.sync_tag}")
+            logger.info(f"🚀 商品同步启动: {cat_name} ({internal_name}) | 版本: {self.sync_tag}")
 
             while page <= total_pages and page <= max_safe_pages:
                 # 模拟人类随机延迟
                 delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
                 page_info = f"{page}/{total_pages}" if total_pages > 1 else f"{page}"
-                logger.info(f"⏳ [账号: {account_name}] 第 {page_info} 页等待 {delay:.2f} 秒...")
+                logger.info(f"⏳ 第 {page_info} 页等待 {delay:.2f} 秒...")
                 
                 # 延迟期间检查停止信号
                 slept = 0
@@ -628,12 +625,12 @@ class ShardedSpiderExecutor:
                 try:
                     data = response.json()
                 except Exception as e:
-                    logger.error(f"❌ [账号: {account_name}] JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
+                    logger.error(f"❌ JSON 解析失败: {e}, 响应内容: {resp_text[:100]}...")
                     raise AccountInvalidException(acc_id, "Invalid JSON Response", [category_id])
                 
                 if data.get("code") != "OK":
                     msg = data.get('msg', 'Unknown API Error')
-                    logger.error(f"❌ [账号: {account_name}] API 错误: {msg}")
+                    logger.error(f"❌ API 错误: {msg}")
                     return False, total_processed_count 
                 
                 items = data.get("data", {}).get("items", [])
@@ -647,7 +644,7 @@ class ShardedSpiderExecutor:
                     
                     old_hash = await self.redis_async.get(hash_key)
                     if old_hash and old_hash == current_hash:
-                        logger.info(f"⏭️ [账号: {account_name}] 分类 {cat_name} 数据未变动 (Hash 命中)，跳过后续同步")
+                        logger.info(f"⏭️ 分类 {cat_name} 数据未变动 (Hash 命中)，跳过后续同步")
                         # Hash 命中，更新该分类下所有商品的 tag，防止被误删
                         await self._touch_category_tag(category_id, cat_name)
                         return True, 0
@@ -660,12 +657,12 @@ class ShardedSpiderExecutor:
                     api_total = data.get("data", {}).get("total_page")
                     if api_total:
                         total_pages = min(api_total, max_safe_pages)
-                        logger.info(f"📊 [账号: {account_name}] 检测到商品总页数: {total_pages}")
+                        logger.info(f"📊 检测到商品总页数: {total_pages}")
                     else:
-                        logger.warning(f"⚠️ [账号: {account_name}] 无法获取总页数，可能该分类下无商品")
+                        logger.warning(f"⚠️ 无法获取总页数，可能该分类下无商品")
 
                 if not items:
-                    logger.info(f"ℹ️ [账号: {account_name}] 第 {page} 页无数据")
+                    logger.info(f"ℹ️ 第 {page} 页无数据")
                     if page == 1:
                         return False, total_processed_count 
                     break
@@ -682,42 +679,29 @@ class ShardedSpiderExecutor:
 
             # --- 全部分页抓取完成后，执行批量保存 ---
             if total_processed_count > 0 and self.redis_async:
-                logger.info(f"💾 [账号: {account_name}] 分类 {cat_name} 抓取完毕，开始批量入库 {total_processed_count} 条数据...")
+                logger.info(f"💾 分类 {cat_name} 抓取完毕，开始批量入库 {total_processed_count} 条数据...")
                 
                 # 从 Redis 读取所有暂存数据
-                all_data_raw = await self.redis_async.lrange(redis_key, 0, -1)
-                all_items = [json.loads(d) for d in all_data_raw]
+                stored_items = await self.redis_async.lrange(redis_key, 0, -1)
+                if not stored_items:
+                    return True, 0
                 
-                # 映射字段，确保包含 save_goods_batch 需要的全部信息
-                page_goods = []
-                for item in all_items:
-                    page_goods.append({
-                        "id": item["id"],
-                        "name": item["name"],
-                        "market_hash_name": item.get("market_hash_name"),
-                        "short_name": item.get("short_name"),
-                        "goods_info": item.get("goods_info", {})
-                    })
-
-                # 批量保存
+                page_goods = [json.loads(i) for i in stored_items]
+                
+                # 批量保存商品
                 save_func, _ = get_save_goods_func()
                 rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
-                logger.info(f"✅ [账号: {account_name}] 分类 {cat_name} 入库成功: {rows} 条受影响")
+                logger.info(f"✅ 分类 {cat_name} 入库成功: {rows} 条受影响")
                 
                 # 清理 Redis 暂存数据
                 await self.redis_async.delete(redis_key)
-
-            # 5. 执行增量清理（仅在该分类完整同步成功后执行）
-            _, delete_func = get_save_goods_func()
-            await delete_func(category_id, self.sync_tag, cat_name)
-            
+                
             return True, total_processed_count
             
         except AccountInvalidException as ae:
-            # 发生 429/401，严禁执行清理逻辑，直接向上抛出
             raise ae
         except Exception as e:
-                logger.error(f"❌ [账号: {account_name}] 同步分类 {cat_name} 商品失败: {e}")
+                logger.error(f"❌ 同步分类 {cat_name} 商品失败: {e}")
                 return False, total_processed_count
 
     async def _touch_category_tag(self, category_id: int, cat_name: str):

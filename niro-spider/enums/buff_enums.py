@@ -6,8 +6,8 @@ class BuffPaymentMethod(IntEnum):
     ALIPAY = 3
     WECHAT = 6
     UNION_PAY = 7
-    BALANCE = 44  # 余额/网易支付
-    BUFF_BALANCE = 59  # 纯BUFF余额支付
+    BALANCE = 44
+    BUFF_BALANCE = 59
 
     @classmethod
     def get_label(cls, value: int) -> str:
@@ -16,7 +16,7 @@ class BuffPaymentMethod(IntEnum):
             cls.ALIPAY: "支付宝",
             cls.WECHAT: "微信",
             cls.UNION_PAY: "银联",
-            cls.BALANCE: "余额/网易支付",
+            cls.BALANCE: "网易支付",
             cls.BUFF_BALANCE: "BUFF余额"
         }
         return mapping.get(value, f"未知({value})")

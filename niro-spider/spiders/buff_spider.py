@@ -567,17 +567,9 @@ class BuffSpider:
                 state = data.get("state_text", "已创建")
                 self.logger.info(f"✨ [批量下单] 下单成功! 订单号: {order_id}, 状态: {state}")
                 
-                # --- 6. 通知卖家发货 (Notify Seller) ---
+                # --- 6. 刷新余额 (Refresh Balance) ---
                 try:
-                    self.logger.info(f"🔔 [批量下单] 步骤 6/7: 通知卖家发货...")
-                    pay_method_desc = self._get_pay_method_description(pay_method)
-                    self._notify_buyer_to_send_offer(order_id, pay_method_desc, goods_id)
-                except Exception as ne:
-                    self.logger.warning(f"⚠️ [批量下单] 通知卖家失败: {ne}")
-
-                # --- 7. 刷新余额 (Refresh Balance) ---
-                try:
-                    self.logger.info(f"💰 [批量下单] 步骤 7/7: 刷新账号余额...")
+                    self.logger.info(f"💰 [批量下单] 步骤 6/6: 刷新账号余额...")
                     balance_info = self._refresh_account_balance()
                     if balance_info:
                         acc_id = account_id_var.get()
@@ -600,39 +592,6 @@ class BuffSpider:
         except Exception as e:
             self.logger.error(f"❌ [批量下单] 异常: {e}")
             return None
-
-    def _notify_buyer_to_send_offer(self, order_id, pay_method_desc, goods_id):
-        """通知卖家发货 (模拟官网支付成功后的跳转行为)"""
-        url = f"https://buff.163.com/api/market/pay/notify_buyer_to_send_offer?_={int(time.time() * 1000)}"
-        params = {
-            "game": BuffGameType.CSGO.value,
-            "order_id": order_id,
-            "pay_method_desc": pay_method_desc
-        }
-        headers = self.profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
-        headers.update({"X-Requested-With": "XMLHttpRequest"})
-        
-        try:
-            proxies = get_proxies()
-            res = requests.get(url, params=params, headers=headers, proxies=proxies, timeout=10).json()
-            if res.get("code") == "OK":
-                self.logger.info(f"✅ [支付通知] 已通知卖家发货: OrderID={order_id}")
-            else:
-                self.logger.warning(f"⚠️ [支付通知] 通知卖家发货失败: {res.get('msg')}")
-        except Exception as e:
-            self.logger.error(f"❌ [支付通知] 通知异常: {e}")
-
-    def _get_pay_method_description(self, pay_method):
-        """获取支付方式描述 (用于 notify_buyer_to_send_offer 接口)"""
-        method_map = {
-            BuffPaymentMethod.BALANCE.value: "网易支付/余额",
-            BuffPaymentMethod.BUFF_BALANCE.value: "BUFF余额",
-            BuffPaymentMethod.ALIPAY.value: "支付宝",
-            BuffPaymentMethod.WECHAT.value: "微信支付"
-        }
-        # 如果是枚举对象则取其值
-        val = pay_method.value if hasattr(pay_method, 'value') else int(pay_method)
-        return method_map.get(val, "网易支付/余额")
 
     def _get_csrf_token(self):
         """从 Cookie 中提取 CSRF Token (兼容 csrf_token 和 csrftoken)"""
@@ -677,11 +636,11 @@ class BuffSpider:
         try:
             resp = requests.post(url, json=payload, timeout=5)
             if resp.status_code == 200:
-                self.logger.info(f"📊 [账号: {acc_id}] 状态/余额上报成功")
+                self.logger.info(f"📊 状态/余额上报成功")
             else:
-                self.logger.warning(f"⚠️ [账号: {acc_id}] 状态/余额上报失败: {resp.status_code}")
+                self.logger.warning(f"⚠️ 状态/余额上报失败: {resp.status_code}")
         except Exception as e:
-            self.logger.error(f"❌ [账号: {acc_id}] 状态/余额上报异常: {e}")
+            self.logger.error(f"❌ 状态/余额上报异常: {e}")
 
 
 if __name__ == "__main__":
