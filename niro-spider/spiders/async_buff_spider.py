@@ -6,6 +6,7 @@ import uuid
 from typing import List, Dict, Any, Optional, Union
 import httpx
 from loguru import logger
+from collections import deque
 
 from engine.context import set_context, account_id_var, account_name_var
 from utils.browser_helper import BrowserHelper, BrowserProfile
@@ -31,6 +32,11 @@ class AsyncBuffSpider:
         )
         # 记录账号上一次成功下单的时间戳，用于 Sequential Guard
         self._last_buy_times = {}
+        
+        # TPS 计算相关：改为按 account_id 隔离的字典
+        # key: account_id, value: deque[(timestamp, count)]
+        self._account_history = {}
+        self._start_time = time.time()
 
     async def close(self):
         await self.client.aclose()
@@ -77,16 +83,20 @@ class AsyncBuffSpider:
                     follow_redirects=True,
                     verify=False # 某些代理可能需要关闭验证
                 ) as proxy_client:
-                    return await self._do_request(proxy_client, method, url, final_headers, attempt, return_raw=return_raw, **kwargs)
+                    return await self._do_request(proxy_client, method, url, final_headers, attempt, profile, return_raw=return_raw, **kwargs)
             else:
-                return await self._do_request(client, method, url, final_headers, attempt, return_raw=return_raw, **kwargs)
+                return await self._do_request(client, method, url, final_headers, attempt, profile, return_raw=return_raw, **kwargs)
         
         return {"error": "MAX_RETRIES_EXCEEDED"}
 
-    async def _do_request(self, client: httpx.AsyncClient, method: str, url: str, headers: dict, attempt: int, return_raw: bool = False, **kwargs) -> Union[Dict[str, Any], httpx.Response]:
+    async def _do_request(self, client: httpx.AsyncClient, method: str, url: str, headers: dict, attempt: int, profile: BrowserProfile, return_raw: bool = False, **kwargs) -> Union[Dict[str, Any], httpx.Response]:
         try:
             response = await client.request(method, url, headers=headers, **kwargs)
             
+            # 立即同步服务器下发的新 Cookie (如 CSRF Token)，确保后续请求携带最新凭证
+            if profile:
+                profile.update_cookies(response.cookies)
+
             if response.status_code == 403:
                 # 记录 403 详细信息
                 logger.error(f"❌ [403 Forbidden] 响应内容: {response.text[:200]}")
@@ -95,7 +105,7 @@ class AsyncBuffSpider:
             if response.status_code == 429:
                 logger.error(f"🚫 [429] 触发频率限制，等待重试 ({attempt + 1}/3)")
                 await asyncio.sleep(2 ** attempt + random.random())
-                return await self._do_request(client, method, url, headers, attempt + 1, return_raw=return_raw, **kwargs) if attempt < 2 else {"error": "RATE_LIMITED"}
+                return await self._do_request(client, method, url, headers, attempt + 1, profile, return_raw=return_raw, **kwargs) if attempt < 2 else {"error": "RATE_LIMITED"}
             
             # 如果要求返回原始 Response，直接返回（不进行 code/html 检查，由调用方处理）
             if return_raw:
@@ -516,6 +526,21 @@ class AsyncBuffSpider:
                     
                     # 2. 处理结果与行情展示
                     if items:
+                        # 计算动态 RPM (基于最近 60s 记录) - 按账号隔离
+                        if account_id not in self._account_history:
+                            self._account_history[account_id] = deque(maxlen=100)
+                        
+                        history_queue = self._account_history[account_id]
+                        history_queue.append((time.time(), 1)) # 记录本次请求
+                        
+                        # 计算该账号最近 60s 内的请求总数
+                        now = time.time()
+                        current_rpm = 0
+                        
+                        for ts, count in history_queue:
+                            if now - ts <= 60:
+                                current_rpm += count
+                        
                         # 无论是否命中，都输出行情概览
                         current_min_price = float(items[0].get("price", 0))
                         price_diff = current_min_price - max_price
@@ -524,7 +549,7 @@ class AsyncBuffSpider:
                         
                         goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
                         logger.info(
-                            f"💰 [行情] {goods_name} | 最低: ¥{current_min_price:.2f} | 目标: ≤¥{max_price:.2f} | 差距: {diff_str} {status_icon}"
+                            f"💰 [行情] {goods_name} | 最低: ¥{current_min_price:.2f} | 目标: ≤¥{max_price:.2f} | 差距: {diff_str} {status_icon} | RPM: {current_rpm}/m"
                         )
                         
                         # 处理匹配逻辑
@@ -648,10 +673,23 @@ class AsyncBuffSpider:
         buy_accounts = task_data.get("buy_accounts") or []
         target_task_id = self._extract_value(task_data.get("targetTaskId"))
         
-        # 1. 价格过滤
+        # 获取当前任务配置的支付方式
+        payment_method_str = task_data.get("paymentMethod", "BALANCE")
+        try:
+            target_pay_method = getattr(BuffPaymentMethod, payment_method_str).value
+        except (AttributeError, KeyError):
+            target_pay_method = BuffPaymentMethod.BALANCE.value
+
+        # 1. 价格过滤与支付方式匹配
         if int(task_type) == 1:
             matched_items = []
             for it in items:
+                # 检查支付方式匹配
+                supported_methods = it.get("supported_pay_methods", [])
+                # 如果挂单明确指定了支付方式列表，且不包含目标支付方式，则过滤
+                if supported_methods and target_pay_method not in supported_methods:
+                    continue
+
                 buy_price = self._get_float(it.get("price"), 0.0)
                 ref_price = self._get_float(it.get("sell_min_price"), 0.0)
                 if ref_price <= 0:
@@ -661,7 +699,16 @@ class AsyncBuffSpider:
                     it["estimated_profit"] = profit
                     matched_items.append(it)
         else:
-            matched_items = [it for it in items if self._get_float(it.get("price"), 0.0) <= max_price]
+            matched_items = []
+            for it in items:
+                # 检查支付方式匹配
+                supported_methods = it.get("supported_pay_methods", [])
+                if supported_methods and target_pay_method not in supported_methods:
+                    continue
+                
+                if self._get_float(it.get("price"), 0.0) <= max_price:
+                    matched_items.append(it)
+        
         if not matched_items:
             return
 
@@ -714,13 +761,13 @@ class AsyncBuffSpider:
                     # 如果没有心跳，再检查一下该任务是否正在监听队列 (作为刚启动时的容错)
                     queue_key = f"niro:queue:trade:{target_task_id}"
                     # 注意：BLPOP 不会产生 key，所以这里我们只能依赖心跳或手动查询任务状态
-                    # 此时我们可以尝试降级检查旧心跳
-                    old_heartbeat_key = "niro:task:heartbeat"
-                    last_heartbeat = await self.redis.hget(old_heartbeat_key, str(target_task_id))
-                    
-                    if not last_heartbeat or (int(time.time() * 1000) - int(last_heartbeat)) > 60000:
-                        # 双重检查都失败，才判定离线
-                        skip_reason = f"目标终端离线 (Task {target_task_id} 无心跳)"
+                # 此时我们可以尝试降级检查旧心跳
+                old_heartbeat_key = "niro:task:heartbeat"
+                last_heartbeat = await self.redis.hget(old_heartbeat_key, str(target_task_id))
+                
+                if not last_heartbeat or (int(time.time() * 1000) - int(last_heartbeat)) > 120000: # 延长至2分钟
+                    # 双重检查都失败，才判定离线
+                    skip_reason = f"目标终端离线 (Task {target_task_id} 无心跳)"
             else:
                 # 本地模式检查是否有可用账号
                 any_available = False
@@ -1053,29 +1100,43 @@ class AsyncBuffSpider:
                 
                 logger.info(f"🚀 发起第 {i+1}/{len(current_ids)} 件确认 | ID: {it_id} | Price: {price_str}")
                 
-                headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
-                headers.update({
-                    "x-csrftoken": self._get_csrf_token(profile),
-                    "Content-Type": "application/json",
-                    "X-Requested-With": "XMLHttpRequest",
-                    "Accept": "application/json, text/javascript, */*; q=0.01"
-                })
+                # 增加 CSRF 自动重试循环
+                for attempt in range(2):
+                    headers = profile.get_headers(referer=f"https://buff.163.com/goods/{goods_id}?from=market")
+                    headers.update({
+                        "x-csrftoken": self._get_csrf_token(profile),
+                        "Content-Type": "application/json",
+                        "X-Requested-With": "XMLHttpRequest",
+                        "Accept": "application/json, text/javascript, */*; q=0.01"
+                    })
 
-                try:
-                    res_json = await self._request("POST", url, profile, json=payload, headers=headers)
-                    if res_json.get("code") == "OK":
-                        order_id = res_json.get("data", {}).get("id")
-                        successful_orders.append(order_id)
-                        logger.info(f"✨ 第 {i+1} 件下单成功! 订单号: {order_id}")
+                    try:
+                        res_json = await self._request("POST", url, profile, json=payload, headers=headers)
                         
-                        # 每件之间稍微停顿，模拟真人点击
-                        if i < len(current_ids) - 1:
-                            await asyncio.sleep(random.uniform(0.5, 1.0))
-                    else:
-                        error_msg = res_json.get("msg") or res_json.get("error") or "Unknown Error"
-                        logger.error(f"❌ 第 {i+1} 件确认失败 | Msg: {error_msg}")
-                except Exception as e:
-                    logger.error(f"💥 第 {i+1} 件确认异常: {e}")
+                        # CSRF 重试逻辑
+                        if res_json.get("code") == "CSRF Verification Error":
+                            if attempt == 0:
+                                logger.warning(f"🔄 捕获 CSRF 校验失败 (Confirm #{i+1})，Cookie 已自动更新，正在发起重试...")
+                                continue
+                            else:
+                                logger.error(f"🔑 CSRF 校验连续失败 (Confirm #{i+1}) | Code: {res_json.get('code')}")
+
+                        if res_json.get("code") == "OK":
+                            order_id = res_json.get("data", {}).get("id")
+                            successful_orders.append(order_id)
+                            logger.info(f"✨ 第 {i+1} 件下单成功! 订单号: {order_id}")
+                            
+                            # 每件之间稍微停顿，模拟真人点击
+                            if i < len(current_ids) - 1:
+                                await asyncio.sleep(random.uniform(0.5, 1.0))
+                            break # 成功则退出重试循环
+                        else:
+                            error_msg = res_json.get("msg") or res_json.get("error") or "Unknown Error"
+                            logger.error(f"❌ 第 {i+1} 件确认失败 | Msg: {error_msg}")
+                            if attempt == 1: # 如果是最后一次尝试且失败
+                                pass
+                    except Exception as e:
+                        logger.error(f"💥 第 {i+1} 件确认异常: {e}")
 
             if successful_orders:
                 # 记录最后成功下单时间
@@ -1129,48 +1190,60 @@ class AsyncBuffSpider:
             "select_epay": 1,  # 补全关键字段：支付渠道预选
             "steamid": None
         }
-        headers = {
-            "x-csrftoken": self._get_csrf_token(profile),
-            "content-type": "application/json",
-            "x-requested-with": "XMLHttpRequest",
-            "origin": "https://buff.163.com",
-            "referer": f"https://buff.163.com/goods/{goods_id}?from=market"
-        }
         
-        try:
-            # 构造完整请求头用于日志打印 (包含 Cookie)
-            full_headers = profile.get_headers(referer=headers.get("referer"))
-            full_headers.update(headers)
+        # 增加 CSRF 自动重试循环 (最多重试 1 次)
+        for attempt in range(2):
+            headers = {
+                "x-csrftoken": self._get_csrf_token(profile),
+                "content-type": "application/json",
+                "x-requested-with": "XMLHttpRequest",
+                "origin": "https://buff.163.com",
+                "referer": f"https://buff.163.com/goods/{goods_id}?from=market"
+            }
             
-            # 打印详细预览请求信息 (完整 Headers，不打印 Response)
-            logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Preview Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
-            
-            resp = await self._request("POST", url, profile, json=payload, headers=headers, return_raw=True)
-            
-            if isinstance(resp, dict): # 可能是重试失败返回的错误字典
-                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Request Failed (Dict Return)!</red>\nError: {resp.get('error')}")
-                return None, None, resp.get("error", "Request Failed")
+            try:
+                # 构造完整请求头用于日志打印 (包含 Cookie)
+                full_headers = profile.get_headers(referer=headers.get("referer"))
+                full_headers.update(headers)
+                
+                # 仅在第一次尝试时打印，避免刷屏
+                if attempt == 0:
+                    logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Preview Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
+                
+                resp = await self._request("POST", url, profile, json=payload, headers=headers, return_raw=True)
+                
+                if isinstance(resp, dict): # 可能是重试失败返回的错误字典
+                    logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Request Failed (Dict Return)!</red>\nError: {resp.get('error')}")
+                    return None, None, resp.get("error", "Request Failed")
 
-            trace_id = resp.headers.get("buff-cashier-trace-id")
-            data = resp.json()
-            
-            # 仅打印状态信息，不再打印 Response Body
-            if data.get("code") != "OK":
-                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Failed!</red> | Code: {data.get('code')}")
-            else:
-                logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Preview Success!</green>")
-            
-            if data.get("code") == "OK":
-                return data.get("data"), trace_id, "OK"
-            
-            # 如果是 CSRF 错误，打印部分 cookie 方便排查
-            if data.get("code") == "CSRF Verification Error":
-                logger.error(f"🔑 CSRF 校验失败 | Cookie长度: {len(profile.cookie) if profile.cookie else 0} | Token提取: {'成功' if self._get_csrf_token(profile) else '失败'}")
-            
-            return None, trace_id, data.get("code")
-        except Exception as e:
-            logger.exception(f"💥 _batch_buy_preview 异常: {e}")
-            return None, None, str(e)
+                trace_id = resp.headers.get("buff-cashier-trace-id")
+                data = resp.json()
+                
+                # CSRF 重试逻辑：如果是 CSRF 错误，且是第一次尝试，则重试
+                # (因为 _request 内部已经调用了 profile.update_cookies，下次循环时 _get_csrf_token 会拿到新 Token)
+                if data.get("code") == "CSRF Verification Error":
+                    if attempt == 0:
+                        logger.warning(f"🔄 捕获 CSRF 校验失败，Cookie 已自动更新，正在发起重试...")
+                        continue
+                    else:
+                        # 如果重试后依然失败，打印详细诊断信息
+                        logger.error(f"🔑 CSRF 校验连续失败 | Cookie长度: {len(profile.cookie) if profile.cookie else 0} | Token提取: {'成功' if self._get_csrf_token(profile) else '失败'}")
+                
+                # 仅打印状态信息，不再打印 Response Body
+                if data.get("code") != "OK":
+                    logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Preview Failed!</red> | Code: {data.get('code')}")
+                else:
+                    logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Preview Success!</green>")
+                
+                if data.get("code") == "OK":
+                    return data.get("data"), trace_id, "OK"
+                
+                return None, trace_id, data.get("code")
+            except Exception as e:
+                logger.exception(f"💥 _batch_buy_preview 异常: {e}")
+                return None, None, str(e)
+        
+        return None, None, "CSRF Retry Failed"
 
     async def _batch_buy_create(self, goods_id: int, pay_method: int, total_price: Any, num: int, profile: BrowserProfile, trace_id: str):
         """[Mission] 异步版创建"""
@@ -1184,31 +1257,45 @@ class AsyncBuffSpider:
             "num": str(num),                    # 修正：必须是 str 字符串
             "steamid": None
         }
-        headers = {
-            "x-csrftoken": self._get_csrf_token(profile),
-            "content-type": "application/json",
-            "x-requested-with": "XMLHttpRequest",
-            "origin": "https://buff.163.com",
-            "referer": f"https://buff.163.com/goods/{goods_id}?from=market",
-            "buff-cashier-trace-id": trace_id
-        }
         
-        # 构造完整请求头用于日志打印 (包含 Cookie)
-        full_headers = profile.get_headers(referer=headers.get("referer"))
-        full_headers.update(headers)
-        
-        # 打印详细请求信息 (完整 Headers，不打印 Response)
-        logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Create Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
-        
-        res = await self._request("POST", url, profile, json=payload, headers=headers)
-        
-        # 仅打印状态信息，不再打印 Response Body
-        if res.get("code") != "OK":
-            logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Create Failed!</red> | Code: {res.get('code')}")
-        else:
-            logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Create Success!</green>")
+        # 增加 CSRF 自动重试循环
+        for attempt in range(2):
+            headers = {
+                "x-csrftoken": self._get_csrf_token(profile),
+                "content-type": "application/json",
+                "x-requested-with": "XMLHttpRequest",
+                "origin": "https://buff.163.com",
+                "referer": f"https://buff.163.com/goods/{goods_id}?from=market",
+                "buff-cashier-trace-id": trace_id
+            }
             
-        return res.get("data", {}).get("batch_buy_id") if res.get("code") == "OK" else None
+            # 构造完整请求头用于日志打印 (包含 Cookie)
+            full_headers = profile.get_headers(referer=headers.get("referer"))
+            full_headers.update(headers)
+            
+            # 仅在第一次尝试时打印，避免刷屏
+            if attempt == 0:
+                logger.info(f"<cyan><b>[DEBUG]</b></cyan> <yellow>Batch Create Request:</yellow>\nURL: {url}\nPayload: {json.dumps(payload, indent=2, ensure_ascii=False)}\nHeaders: {json.dumps(full_headers, indent=2)}")
+            
+            res = await self._request("POST", url, profile, json=payload, headers=headers)
+            
+            # CSRF 重试逻辑
+            if res.get("code") == "CSRF Verification Error":
+                if attempt == 0:
+                    logger.warning(f"🔄 捕获 CSRF 校验失败 (Create)，Cookie 已自动更新，正在发起重试...")
+                    continue
+                else:
+                    logger.error(f"🔑 CSRF 校验连续失败 (Create) | Code: {res.get('code')}")
+            
+            # 仅打印状态信息，不再打印 Response Body
+            if res.get("code") != "OK":
+                logger.error(f"<red><b>[DEBUG]</b></red> <red>Batch Create Failed!</red> | Code: {res.get('code')}")
+            else:
+                logger.success(f"<green><b>[DEBUG]</b></green> <green>Batch Create Success!</green>")
+                
+            return res.get("data", {}).get("batch_buy_id") if res.get("code") == "OK" else None
+            
+        return None
 
     async def _batch_buy_pay(self, batch_buy_id: str, goods_id: int, profile: BrowserProfile):
         """[Mission] 异步版支付预处理"""

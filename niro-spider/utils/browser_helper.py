@@ -1,5 +1,6 @@
 import random
 from typing import Optional, Dict
+import httpx
 
 class BrowserProfile:
     """
@@ -31,6 +32,26 @@ class BrowserProfile:
             "x-requested-with": "XMLHttpRequest",
         }
         return headers
+
+    def update_cookies(self, new_cookies: httpx.Cookies):
+        """
+        同步更新 Cookie：合并新下发的 Cookie 字段，保留旧字段
+        """
+        # 1. 将现有 Cookie 字符串解析为字典
+        current_cookies = {}
+        if self.cookie:
+            for item in self.cookie.split(';'):
+                if '=' in item:
+                    key, value = item.strip().split('=', 1)
+                    current_cookies[key] = value
+        
+        # 2. 将 httpx.Cookies (Set-Cookie) 合并进来
+        # httpx.Cookies 行为类似于字典，直接迭代即可获取所有新键值对
+        for key, value in new_cookies.items():
+            current_cookies[key] = value
+            
+        # 3. 序列化回字符串
+        self.cookie = "; ".join([f"{k}={v}" for k, v in current_cookies.items()])
 
     def update_cookie(self, new_cookie: str):
         """
