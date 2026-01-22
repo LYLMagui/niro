@@ -810,31 +810,70 @@ class AsyncBuffSpider:
             pass
 
         # 4. 饰品加锁与去重 (批量撮合)
-        buy_count = int(task_data.get("buyCount") or 0)
-        success_count = int(task_data.get("successCount") or 0)
-        remaining_count = max(0, buy_count - success_count)
+        # buy_count = int(task_data.get("buyCount") or 0)
+        # success_count = int(task_data.get("successCount") or 0)
+        # remaining_count = max(0, buy_count - success_count)
         
-        if buy_count > 0 and remaining_count <= 0:
-            return
+        # if buy_count > 0 and remaining_count <= 0:
+        #     return
 
         pending_it_ids = []
+        quota_key = f"niro:task:quota:{task_id}"
+
         for it in matched_items:
-            if buy_count > 0 and len(pending_it_ids) >= remaining_count:
-                break
-                
+            # if buy_count > 0 and len(pending_it_ids) >= remaining_count:
+            #     break
+            
+            # 1. 【新增】尝试申请配额
+            # 只有设置了 buyCount 的任务才会有配额 Key，如果没有 Key (例如不限量任务)，decr 会变成 -1
+            # 所以我们需要先判断一下配额 Key 是否存在，或者简单地允许不限量任务不做检查？
+            # 根据后端逻辑，只有 buyCount > 0 才会 set quotaKey。
+            # 如果 quotaKey 不存在 (decr 返回 -1)，说明是不限量任务或者 Key 过期/未初始化。
+            # 为了稳健，我们可以先假设如果不限量任务，就不走这个逻辑。
+            # 但用户指令要求明确，我们按照指令逻辑写。
+            
+            # 注意：Redis 的 decr 如果 key 不存在，会先设为 0 再减 1，返回 -1。
+            # 这会导致不限量的任务直接 break。
+            # 因此需要判断 task_data 中是否有 buyCount > 0。
+            
+            buy_count = int(task_data.get("buyCount") or 0)
+            if buy_count > 0:
+                remaining = await self.redis.decr(quota_key)
+                if remaining < 0:
+                    # 票发完了：把刚才减成负数的 1 加回去，并打断循环
+                    await self.redis.incr(quota_key)
+                    logger.info(f"🛑 [任务 {task_id}] 配额已满，停止匹配更多饰品")
+                    break
+            
             it_id = it.get("id")
             pending_key = f"niro:pending_purchase:{it_id}"
             lock_key = f"niro:lock:item:{it_id}"
             
             try:
-                if await self.redis.exists(pending_key): continue
+                if await self.redis.exists(pending_key): 
+                    # 已经被处理了，如果扣了配额要退回去
+                    if buy_count > 0:
+                        await self.redis.incr(quota_key)
+                    continue
+                
                 if await self.redis.set(lock_key, "locked", ex=60, nx=True):
                     if await self.redis.set(pending_key, "processing", ex=120, nx=True):
                         pending_it_ids.append(it_id)
                     else:
                         await self.redis.delete(lock_key)
+                        # 加锁 pending 失败，退票
+                        if buy_count > 0:
+                            await self.redis.incr(quota_key)
+                else:
+                    # 加锁 lock 失败，退票
+                    if buy_count > 0:
+                        await self.redis.incr(quota_key)
+                        
             except Exception as re:
                 logger.error(f"⚠️ [任务ID: {task_id}] 饰品加锁操作异常 (Redis): {re}")
+                # 异常退票
+                if buy_count > 0:
+                    await self.redis.incr(quota_key)
                 continue
 
         if not pending_it_ids:
@@ -889,6 +928,65 @@ class AsyncBuffSpider:
             logger.warning(f"🚀 发现机会，指派 [{buyer.get('accountName')}] 发起异步批量下单 (聚合数: {len(pending_it_ids)})")
             asyncio.create_task(self.async_buy_v3(pending_it_ids, buyer, task_data))
 
+    async def _report_order_result(self, task_data: Dict[str, Any], account: Dict[str, Any], item_id: str,
+                                   status: int, error_msg: str, order_id: str = "", price: float = 0.0,
+                                   goods_name: str = "", market_hash_name: str = "", goods_img: str = "",
+                                   paintwear: float = 0.0, extra_info: Dict = None):
+        """
+        [Mission] 上报订单结果到 Redis
+        """
+        try:
+            user_id = self._extract_value(task_data.get("userId"))
+            task_id = self._extract_value(task_data.get("taskId")) or self._extract_value(task_data.get("targetTaskId"))
+            account_id = self._extract_value(account.get("accountId"))
+            
+            report_data = {
+                "platform": "BUFF",
+                "userId": int(user_id) if user_id else 0,
+                "taskId": int(task_id) if task_id else 0,
+                "accountId": int(account_id) if account_id else 0,
+                "goodsName": goods_name,
+                "marketHashName": market_hash_name,
+                "goodsImg": goods_img,
+                "price": price,
+                "paintwear": paintwear,
+                "orderId": order_id,
+                "status": status, # 1成功, 2失败
+                "errorMsg": error_msg,
+                "errorCode": "", # 可选
+                "extraInfo": extra_info or {},
+                "timestamp": int(time.time() * 1000)
+            }
+            
+            # 异步推送到 Redis 列表
+            key = "niro:order:report"
+            await self.redis.lpush(key, json.dumps(report_data, ensure_ascii=False))
+            logger.info(f"📤 [订单上报] 已推送订单结果: {order_id} | Status: {status}")
+
+            if status == 2: # 失败
+                quota_key = f"niro:task:quota:{task_id}"
+                # 注意：这里我们只恢复1个配额，因为 _report_order_result 是针对单个订单/商品调用的
+                # 只有当任务设置了 buyCount 时才恢复
+                # 我们可以尝试去获取任务信息，或者直接根据 task_id 操作
+                # 由于 _report_order_result 没有传入 buyCount 信息，我们只能假定存在 quota_key 就 incr
+                # 或者更稳妥地，我们先检查 key 是否存在
+                # 考虑到性能，直接 incr 也行，反正如果没有初始化这个 key，incr 会变成 1，也不会有大问题（只要 backend 逻辑能处理）
+                # 但为了严谨，最好还是判断一下 key 是否存在。
+                # 简化逻辑：直接 incr，如果 key 不存在会新建，但通常如果不限量的任务我们不会初始化这个 key。
+                # 如果是不限量的任务，incr 后 key 变成正数，对逻辑无影响（decr 会变成 -1，-2 等）。
+                # 只有当 key 是正数且被减到 0 时才会触发限制。
+                
+                # 为了避免给不限量的任务产生垃圾 key，我们最好确认一下。
+                # 但这里没有 task_data 的完整信息（参数里有 task_data，可以取）
+                
+                buy_count = int(task_data.get("buyCount") or 0)
+                if buy_count > 0:
+                    await self.redis.incr(quota_key)
+                    logger.info(f"🔄 订单 {order_id} 失败，已自动恢复 1 个购买配额")
+            
+        except Exception as e:
+            logger.error(f"❌ [订单上报] 异常: {e}")
+
     async def async_buy_v3(self, sell_order_ids: List[str], account: Dict[str, Any], task_data: Dict[str, Any]):
         """
         [Mission] 异步化重写 buy_v3 (五步核心流程) - 优化版
@@ -929,12 +1027,25 @@ class AsyncBuffSpider:
             if error_code == "Already Paying":
                 logger.error(f"🚨 触发 Already Paying 熔断，标记 Busy 200s")
                 await self.redis.set(busy_key, "1", ex=200)
+                
+                # 批量退票：本次尝试了多少个，就退多少个
+                buy_count = int(task_data.get("buyCount") or 0)
+                if buy_count > 0:
+                    quota_key = f"niro:task:quota:{self._extract_value(task_data.get('taskId'))}"
+                    await self.redis.incrby(quota_key, len(current_ids))
+                    
                 await self._release_items(current_ids)
                 should_clear_busy = False
                 return
 
             if not preview_data:
                 logger.error(f"❌ 批量预览失败: {error_code}")
+                # 批量退票：本次尝试了多少个，就退多少个
+                buy_count = int(task_data.get("buyCount") or 0)
+                if buy_count > 0:
+                    quota_key = f"niro:task:quota:{self._extract_value(task_data.get('taskId'))}"
+                    await self.redis.incrby(quota_key, len(current_ids))
+                    
                 await self._release_items(current_ids)
                 return
 
@@ -1126,6 +1237,22 @@ class AsyncBuffSpider:
                             successful_orders.append(order_id)
                             logger.info(f"✨ 第 {i+1} 件下单成功! 订单号: {order_id}")
                             
+                            # 触发异步上报 (成功)
+                            goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                            market_hash_name = self._extract_value(task_data.get("marketHashName")) or goods_name
+                            goods_img = self._extract_value(task_data.get("iconUrl")) or ""
+                            
+                            asyncio.create_task(self._report_order_result(
+                                task_data, account, it_id,
+                                status=1, # 成功
+                                error_msg="",
+                                order_id=order_id,
+                                price=float(price_str),
+                                goods_name=goods_name,
+                                market_hash_name=market_hash_name,
+                                goods_img=goods_img
+                            ))
+                            
                             # 每件之间稍微停顿，模拟真人点击
                             if i < len(current_ids) - 1:
                                 await asyncio.sleep(random.uniform(0.5, 1.0))
@@ -1133,6 +1260,22 @@ class AsyncBuffSpider:
                         else:
                             error_msg = res_json.get("msg") or res_json.get("error") or "Unknown Error"
                             logger.error(f"❌ 第 {i+1} 件确认失败 | Msg: {error_msg}")
+                            
+                            # 触发异步上报 (失败)
+                            goods_name = self._extract_value(task_data.get("name")) or "未知饰品"
+                            market_hash_name = self._extract_value(task_data.get("marketHashName")) or goods_name
+                            goods_img = self._extract_value(task_data.get("iconUrl")) or ""
+                            
+                            asyncio.create_task(self._report_order_result(
+                                task_data, account, it_id,
+                                status=2, # 失败
+                                error_msg=f"下单失败: {error_msg}",
+                                price=float(price_str),
+                                goods_name=goods_name,
+                                market_hash_name=market_hash_name,
+                                goods_img=goods_img
+                            ))
+                            
                             if attempt == 1: # 如果是最后一次尝试且失败
                                 pass
                     except Exception as e:
@@ -1162,7 +1305,15 @@ class AsyncBuffSpider:
                 await self._release_items(current_ids)
 
         except Exception as e:
-            logger.exception(f"💥 异步下单链路崩溃: {e}")
+            logger.exception(f"❌ 批量下单流程异常: {e}")
+            # 批量退票：本次尝试了多少个，就退多少个
+            buy_count = int(task_data.get("buyCount") or 0)
+            if buy_count > 0:
+                quota_key = f"niro:task:quota:{self._extract_value(task_data.get('taskId'))}"
+                try:
+                    await self.redis.incrby(quota_key, len(current_ids))
+                except:
+                    pass
             await self._release_items(current_ids)
         finally:
             # --- 6. 强制余温冷却 (Post-Order Cooldown) ---

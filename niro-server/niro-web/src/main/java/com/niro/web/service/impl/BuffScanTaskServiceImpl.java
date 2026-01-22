@@ -11,6 +11,7 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.niro.core.constant.BuffConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
@@ -27,6 +28,7 @@ import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
+import com.niro.web.mapper.TradeOrderRecordMapper;
 import com.niro.web.service.*;
 import com.niro.web.service.strategy.PlatformStrategyFactory;
 import lombok.RequiredArgsConstructor;
@@ -64,6 +66,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final WeComNotifyService weComNotifyService;
     private final UserBuffSettingsService userBuffSettingsService;
     private final PlatformStrategyFactory platformStrategyFactory;
+    private final TradeOrderRecordMapper tradeOrderRecordMapper;
 
     @Value("${proxy.global.url:}")
     private String globalProxyUrl;
@@ -378,6 +381,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         if (BuffConstant.TASK_STATUS_RUNNING.equals(status)) {
             // 清除可能存在的停止信号
             redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id);
+
+            // 初始化任务配额 (防超买)
+            if (task.getBuyCount() != null && task.getBuyCount() > 0) {
+                int currentSuccess = task.getSuccessCount() != null ? task.getSuccessCount() : 0;
+                int quota = Math.max(0, task.getBuyCount() - currentSuccess);
+                String quotaKey = "niro:task:quota:" + id;
+                redisUtil.set(quotaKey, quota);
+                log.info("任务 [{}] 配额已初始化: {}", id, quota);
+            }
+
             pushTaskToQueue(task);
 
             // 构建详细启动通知
@@ -410,6 +423,52 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             // 从 Redis 心跳中移除
             redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
             weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName() + " (ID: " + task.getId() + ")", task.getUserId());
+        }
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void syncTaskProgress(Long taskId) {
+        if (taskId == null) return;
+
+        // 1. 查询该任务下的成功订单总数
+        Long actualSuccessCount = tradeOrderRecordMapper.selectCount(
+                Wrappers.<TradeOrderRecord>lambdaQuery()
+                        .eq(TradeOrderRecord::getTaskId, taskId)
+                        .eq(TradeOrderRecord::getStatus, 1) // 1=成功
+        );
+
+        BuffScanTask task = this.getById(taskId);
+        if (task == null) {
+            log.warn("同步进度失败，任务不存在: {}", taskId);
+            return;
+        }
+
+        // 2. 更新任务进度
+        task.setSuccessCount(actualSuccessCount.intValue());
+        this.updateById(task);
+        log.info("任务 [{}] 进度已同步: {} / {}", taskId, actualSuccessCount, task.getBuyCount());
+
+        // 3. 检查是否自动完结
+        // 只有当设置了购买数量且大于0时才检查
+        if (task.getBuyCount() != null && task.getBuyCount() > 0) {
+            if (actualSuccessCount >= task.getBuyCount()) {
+                // 如果任务正在运行，则停止它
+                if (BuffConstant.TASK_STATUS_RUNNING.equals(task.getStatus()) || Integer.valueOf(4).equals(task.getStatus())) {
+                    log.info("任务 [{}] 已达到购买目标 ({} >= {})，自动停止", taskId, actualSuccessCount, task.getBuyCount());
+
+                    task.setStatus(BuffConstant.TASK_STATUS_STOPPED);
+                    this.updateById(task);
+
+                    // 设置停止信号
+                    redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + taskId, "1", 5, TimeUnit.MINUTES);
+                    redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, taskId.toString());
+
+                    // 发送通知
+                    weComNotifyService.sendText("🏁 任务自动完成: " + task.getName() + " (ID: " + taskId + ")\n" +
+                            "📦 进度: " + actualSuccessCount + " / " + task.getBuyCount(), task.getUserId());
+                }
+            }
         }
     }
 

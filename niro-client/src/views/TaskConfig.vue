@@ -1015,6 +1015,10 @@ const openWithGoods = (goods: GoodsSimple) => {
 const handleEdit = (row: BuffScanTask) => {
   resetForm();
   Object.assign(formData, row);
+  // 确保 accountIds 是数组，防止多选组件报错
+  if (!formData.accountIds) {
+    formData.accountIds = [];
+  }
 
   // 初始化 UI 状态
   const duration = convertToUi(row.durationMinutes || 0, DURATION_FACTORS);

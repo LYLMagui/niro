@@ -44,6 +44,14 @@ public interface BuffScanTaskService extends IService<BuffScanTask> {
     void taskCallback(BuffScanTask task);
 
     /**
+     * 同步任务进度
+     * 根据订单表统计实际成功数量，并更新任务进度。若达到购买目标则自动停止任务。
+     *
+     * @param taskId 任务ID
+     */
+    void syncTaskProgress(Long taskId);
+
+    /**
      * 分页查询任务
      * @param param 查询参数
      * @return 分页结果

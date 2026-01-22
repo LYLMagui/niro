@@ -54,6 +54,26 @@ public class BuffTaskMessage {
     private Long goodsId;
 
     /**
+     * 商品中文名称
+     */
+    private String goodsName;
+
+    /**
+     * 商品 Market Hash Name
+     */
+    private String marketHashName;
+
+    /**
+     * 商品图片 URL
+     */
+    private String iconUrl;
+
+    /**
+     * 全局代理 URL (如果启用)
+     */
+    private String proxyUrl;
+
+    /**
      * 最高价格 (炼金模式)
      */
     private BigDecimal maxPrice;

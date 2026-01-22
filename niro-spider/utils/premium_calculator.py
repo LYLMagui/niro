@@ -1,7 +1,4 @@
 from typing import List, Dict, Optional
-from sqlalchemy import select
-from storage.database import async_session_factory
-from storage.models import BuffSticker
 from dto.buff_dto import BuffStickerInfo
 from utils.logger import get_logger
 import time
@@ -24,18 +21,9 @@ class PremiumCalculator:
             if now - cache_item["timestamp"] < cls.CACHE_EXPIRE:
                 return cache_item["price"]
 
-        # 缓存不存在或已过期，从数据库查询
-        async with async_session_factory() as session:
-            try:
-                stmt = select(BuffSticker).where(BuffSticker.sticker_id == sticker_id)
-                result = await session.execute(stmt)
-                sticker = result.scalar_one_or_none()
-                price = float(sticker.price) if sticker else 0.0
-                cls._price_cache[sticker_id] = {"price": price, "timestamp": now}
-                return price
-            except Exception as e:
-                logger.error(f"❌ 获取印花价格失败 [ID: {sticker_id}]: {e}")
-                return 0.0
+        # 缓存不存在或已过期
+        # V2.4.0 移除 Python 端数据库查询，后续需改为从 Redis 获取或由 Java 端下发
+        return 0.0
 
     @classmethod
     async def calculate_item_sticker_value(cls, stickers: List[BuffStickerInfo]) -> Dict:

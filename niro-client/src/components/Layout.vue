@@ -50,6 +50,14 @@
           任务配置
         </t-menu-item>
 
+        <!-- 菜单项：订单记录 -->
+        <t-menu-item value="OrderRecord">
+          <template #icon>
+            <history-icon />
+          </template>
+          订单记录
+        </t-menu-item>
+
         <!-- 菜单项：运行日志 -->
         <t-menu-item value="Logs">
           <template #icon>
@@ -115,6 +123,7 @@ import { computed, h } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
   DashboardIcon,
+  HistoryIcon,
   ServerIcon,
   ViewListIcon,
   UserCircleIcon,

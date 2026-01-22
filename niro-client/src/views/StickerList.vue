@@ -3,7 +3,7 @@
     <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
-          <t-icon name="view-module" class="mr-2 text-blue-600" />
+          <t-icon name="assignment" class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">印花价值管理</span>
           <t-tag theme="primary" variant="light" class="ml-4">数据同步频率：由任务配置管理</t-tag>
         </div>

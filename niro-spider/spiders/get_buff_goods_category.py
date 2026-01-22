@@ -1,28 +1,20 @@
-import sys
-import os
+import json
+import time
 from typing import List, Dict, Any
-from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy import func
+from loguru import logger
+from storage.redis_pool import redis_async as global_redis_client
 
-# 修复模块导入路径
-current_dir = os.path.dirname(os.path.abspath(__file__))
-parent_dir = os.path.dirname(current_dir)
-if parent_dir not in sys.path:
-    sys.path.insert(0, parent_dir)
+# --- 业务逻辑 ---
 
-from storage.models import BuffGoodsCategory
-from storage.database import async_session_factory
-from utils.logger import get_logger
-
-logger = get_logger(__name__)
-
-async def save_categories(categories: List[Dict]):
-    """保存抓取到的分类数据 (UPSERT)
+async def save_categories(categories: List[Dict], redis_async: Any = None):
+    """保存抓取到的分类数据 (Redis 上报)
     
-    由 ShardedSpiderExecutor 调用，负责将抓取到的分类树数据写入数据库。
+    由 ShardedSpiderExecutor 调用，负责将抓取到的分类树数据推送到 Redis 队列。
     """
     if not categories:
         return
+
+    redis_client = redis_async or global_redis_client
 
     db_items = []
     for item in categories:
@@ -40,22 +32,20 @@ async def save_categories(categories: List[Dict]):
     if not db_items:
         return
 
-    async with async_session_factory() as session:
-        try:
-            stmt = insert(BuffGoodsCategory).values(db_items)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['internal_name'],
-                set_={
-                    'name': stmt.excluded.name,
-                    'category_type': stmt.excluded.category_type,
-                    'full_internal_name': stmt.excluded.full_internal_name,
-                    'parent_id': stmt.excluded.parent_id,
-                    'update_time': func.now()
-                }
-            )
-            await session.execute(stmt)
-            await session.commit()
-            logger.info(f"✅ 成功保存 {len(db_items)} 个分类数据")
-        except Exception as e:
-            await session.rollback()
-            logger.error(f"❌ 保存分类失败: {e}")
+    # 构建上报消息
+    message = {
+        "type": "CATEGORY_LIST",
+        "timestamp": int(time.time()),
+        "data": db_items
+    }
+
+    try:
+        # 推送到 Redis List
+        if redis_client:
+            await redis_client.rpush("niro:data:report", json.dumps(message, ensure_ascii=False))
+            logger.info(f"✅ 已上报 {len(db_items)} 条分类数据到 Redis")
+        else:
+            logger.error("❌ 未提供 Redis 客户端，无法上报分类数据")
+    except Exception as e:
+        logger.error(f"❌ 上报分类数据失败: {e}")
+

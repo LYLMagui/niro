@@ -7,7 +7,7 @@
         <t-card :bordered="false" class="embedded-card h-full shadow-sm">
           <template #title>
             <div class="flex items-center">
-              <t-icon name="user-setting" class="mr-2 text-blue-600" />
+              <t-icon name="setting" class="mr-2 text-blue-600" />
               <span class="text-lg font-bold text-gray-800">BUFF 账号管理</span>
             </div>
           </template>

@@ -37,19 +37,19 @@ type RequestConfigWithMeta = InternalAxiosRequestConfig & {
   metadata?: RequestMetadata;
 };
 
-const unwrap = <T>(response: AxiosResponse<Result<T>>) => response.data.data as T;
+const unwrap = <T>(response: AxiosResponse<T>) => response.data;
 
 const request: RequestInstance = {
   get: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.get<Result<T>, AxiosResponse<Result<T>>>(url, config).then(unwrap),
+    service.get<T, AxiosResponse<T>>(url, config).then(unwrap),
   post: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.post<Result<T>, AxiosResponse<Result<T>>>(url, data, config).then(unwrap),
+    service.post<T, AxiosResponse<T>>(url, data, config).then(unwrap),
   put: <T = unknown>(url: string, data?: unknown, config?: AxiosRequestConfig) =>
-    service.put<Result<T>, AxiosResponse<Result<T>>>(url, data, config).then(unwrap),
+    service.put<T, AxiosResponse<T>>(url, data, config).then(unwrap),
   delete: <T = unknown>(url: string, config?: AxiosRequestConfig) =>
-    service.delete<Result<T>, AxiosResponse<Result<T>>>(url, config).then(unwrap),
+    service.delete<T, AxiosResponse<T>>(url, config).then(unwrap),
   request: <T = unknown>(config: AxiosRequestConfig) =>
-    service.request<Result<T>, AxiosResponse<Result<T>>>(config).then(unwrap),
+    service.request<T, AxiosResponse<T>>(config).then(unwrap),
 };
 
 // 请求拦截器
@@ -77,7 +77,7 @@ service.interceptors.request.use(
 
 // 响应拦截器
 service.interceptors.response.use(
-  (response: AxiosResponse<Result<unknown>>) => {
+  (response: AxiosResponse<any>) => {
     // 计算耗时
     const metadata = (response.config as RequestConfigWithMeta).metadata;
     const duration = metadata ? new Date().getTime() - metadata.startTime.getTime() : 0;
@@ -87,6 +87,9 @@ service.interceptors.response.use(
 
     const res = response.data;
     const headers = response.headers;
+    
+    // Debug log
+    // console.log(`[Response Data] ${response.config.url}`, res);
 
     // 检查响应头中是否有新的 token，如果有则更新
     const newToken =
@@ -95,19 +98,25 @@ service.interceptors.response.use(
       localStorage.setItem("niro-web-token", newToken);
     }
 
-    if (res.code !== 0) {
+    // 如果响应结构是标准的 Result 结构且 code 不为 0，则认为是业务错误
+    // 注意：修改后的 Controller 直接返回 Page 或 Map，没有 code 字段，所以这里要兼容
+    if (res && typeof res === 'object' && 'code' in res && res.code !== 0) {
       console.error("[Business Error]", res);
       MessagePlugin.error(res.message || "系统未知错误");
-
+      
       // 401: 未登录或 Token 过期
       if (res.code === 401) {
         console.log("Response Interceptor (200 OK -> Code 401): Redirecting to login...");
         localStorage.removeItem("niro-web-token");
-        // 可以重定向到登录页
         window.location.href = "/login";
       }
       return Promise.reject(new Error(res.message || "Error"));
     } else {
+      // 正常响应（可能是 Result 结构且 code=0，或者是直接的数据对象）
+      // 如果是 Result 结构，解包 data；如果是直接数据，直接返回
+      if (res && typeof res === 'object' && 'code' in res && res.code === 0) {
+          return { ...response, data: res.data }; // 模拟解包，传递给 unwrap
+      }
       return response;
     }
   },

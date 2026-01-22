@@ -3,7 +3,7 @@
     <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
-          <t-icon name="task-1" class="mr-2 text-blue-600" />
+          <t-icon name="server" class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">任务管理</span>
         </div>
       </template>
@@ -119,8 +119,13 @@
         </template>
 
         <template #progress="{ row }">
-          <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
-          <span v-else>-</span>
+          <template v-if="row.runMode === 'TRADE'">
+            <span class="text-gray-400">-</span>
+          </template>
+          <template v-else>
+            <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
+            <span v-else>-</span>
+          </template>
         </template>
 
         <template #accounts="{ row }">

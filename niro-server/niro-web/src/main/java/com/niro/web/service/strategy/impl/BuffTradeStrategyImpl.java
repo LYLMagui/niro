@@ -43,6 +43,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     private final BuffAccountService buffAccountService;
     private final UserBuffSettingsService userBuffSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
+    private final BuffGoodsService buffGoodsService;
 
     @Value("${proxy.global.enable:false}")
     private Boolean enableProxy;
@@ -96,13 +97,30 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 ? settings.getPaymentMethod().getCode()
                 : PaymentMethodEnum.BALANCE.getCode();
 
+        // 1.8 获取商品元数据 (新增：解耦 Python 读库依赖)
+        String marketHashName = null;
+        String goodsName = task.getName();
+        String iconUrl = null;
+        if (task.getGoodsId() != null && task.getGoodsId() > 0) {
+            BuffGoods goods = buffGoodsService.lambdaQuery()
+                    .eq(BuffGoods::getGoodsId, task.getGoodsId())
+                    .one();
+            if (goods != null) {
+                marketHashName = goods.getMarketHashName();
+                goodsName = goods.getName();
+                iconUrl = goods.getIconUrl();
+            }
+        }
+        
+        String finalProxyUrl = Boolean.TRUE.equals(enableProxy) ? globalProxyUrl : null;
+
         // 2. 构建消息对象
         List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
                 .map(acc -> BuffTaskMessage.AccountContext.builder()
                         .accountId(acc.getId())
                         .accountName(acc.getAccountName())
                         .buffCookie(acc.getBuffCookie())
-                        .proxy(Boolean.TRUE.equals(enableProxy) ? globalProxyUrl : null)
+                        .proxy(finalProxyUrl)
                         .role(acc.getRole())
                         .userAgent(acc.getUserAgent())
                         .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
@@ -117,6 +135,10 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .name(task.getName())
                 .targetTaskId(task.getTargetTaskId())
                 .goodsId(task.getGoodsId())
+                .goodsName(goodsName)           // 新增
+                .marketHashName(marketHashName) // 新增
+                .iconUrl(iconUrl)               // 新增
+                .proxyUrl(finalProxyUrl)        // 新增
                 .maxPrice(task.getMaxPrice())
                 .minProfit(task.getMinProfit())
                 .scanIntervalMin(task.getScanIntervalMin())

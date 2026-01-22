@@ -1,5 +1,11 @@
 # Release Notes
 
+## 2026-01-23 (v2.22.1)
+- **系统稳定性修复**:
+  - **任务配置前端修复**: 修复了编辑任务时因 `accountIds` 数据为空导致的多选组件渲染异常 (`Cannot read properties of null`)。
+  - **数据库解耦**: 物理移除了 Python 爬虫端的数据库依赖模块 (`storage/database.py`, `storage/models.py`)，彻底转向基于 Redis 的无状态架构。
+  - **数据存储规范**: 移除了 `buff_goods` 表中的非元数据字段（如 `sell_min_price`, `sell_num` 等），确保商品表仅存储纯净元数据。
+
 ## 2026-01-22 (v2.22.0)
 - **多平台交易策略架构升级**:
   - **策略模式重构**: 引入 `PlatformStrategyFactory` 及其对应的策略实现类，实现交易逻辑与具体平台的解耦，支持 BUFF 和 C5 平台。

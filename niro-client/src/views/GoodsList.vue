@@ -4,7 +4,7 @@
     <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
-          <t-icon name="view-list" class="mr-2 text-blue-600" />
+          <t-icon name="shop" class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">商品列表</span>
         </div>
       </template>

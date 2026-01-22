@@ -4,6 +4,7 @@ import os
 import httpx
 import asyncio
 import time
+import json
 from typing import List, Dict, Any, Optional
 from pydantic import BaseModel, Field, AliasPath, ConfigDict
 
@@ -13,15 +14,12 @@ parent_dir = os.path.dirname(current_dir)
 if parent_dir not in sys.path:
     sys.path.insert(0, parent_dir)
 
-from storage.models import BuffSticker
-from storage.database import async_session_factory
-from sqlalchemy import func
-from sqlalchemy.dialects.postgresql import insert
 from config.constants import GAME_CSGO, CATEGORY_STICKER, TAB_SELLING
 from config.settings import CRAWL_INTERVAL_MIN, CRAWL_INTERVAL_MAX
 from utils.logger import get_logger, setup_logging, account_name_var, account_id_var, task_id_var
 from utils.browser_helper import BrowserHelper, BrowserProfile
 from utils.exception_handler import LoginRequiredError
+from storage.redis_pool import redis_async as global_redis_client
 
 logger = get_logger(__name__)
 
@@ -95,40 +93,33 @@ async def fetch_stickers_api(client: httpx.AsyncClient, page_num: int = 1, profi
         logger.error(f"抓取印花第 {page_num} 页失败: {e}")
         return None
 
-async def upsert_stickers(stickers: List[BuffStickerItem]):
-    """批量更新印花数据 (异步 UPSERT)"""
-    if not stickers:
+async def upsert_stickers(items: List[BuffStickerItem], redis_async: Any = None):
+    """保存印花数据 (Redis 上报)"""
+    if not items:
+        return
+
+    redis_client = redis_async or global_redis_client
+
+    # 1. 过滤非印花类型的杂项
+    valid_items = [item.model_dump() for item in items if item.item_type == 'csgo_sticker']
+    if not valid_items:
         return
         
-    # 转换为字典列表
-    values = []
-    for item in stickers:
-        values.append({
-            "sticker_id": item.sticker_id,
-            "name": item.name,
-            "image_url": item.image_url,
-            "price": item.price,
-            "sell_num": item.sell_num
-        })
-        
-    async with async_session_factory() as session:
-        try:
-            stmt = insert(BuffSticker).values(values)
-            stmt = stmt.on_conflict_do_update(
-                index_elements=['sticker_id'],
-                set_={
-                    'price': stmt.excluded.price,
-                    'name': stmt.excluded.name,
-                    'image_url': stmt.excluded.image_url,
-                    'sell_num': stmt.excluded.sell_num,
-                    'update_time': func.now()
-                }
-            )
-            await session.execute(stmt)
-            await session.commit()
-        except Exception as e:
-            await session.rollback()
-            logger.error(f"❌ 更新印花数据失败: {e}")
+    # 2. 构建上报消息
+    message = {
+        "type": "STICKER_LIST",
+        "timestamp": int(time.time()),
+        "data": valid_items
+    }
+    
+    try:
+        if redis_client:
+            await redis_client.rpush("niro:data:report", json.dumps(message, ensure_ascii=False))
+            logger.info(f"✅ 已上报 {len(valid_items)} 个印花数据到 Redis")
+        else:
+            logger.error("❌ 未提供 Redis 客户端，无法上报印花数据")
+    except Exception as e:
+        logger.error(f"❌ 上报印花数据失败: {e}")
 
 async def run_sticker_sync(user_id: int = 1, task_id: int = None):
     """执行同步印花主逻辑 (Async Entry)"""

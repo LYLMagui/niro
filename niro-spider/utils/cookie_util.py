@@ -7,7 +7,7 @@ project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
-# from storage.database import Session  # v2.4.0 废弃同步数据库查询
+# V2.4.0: 数据库模块已移除
 from config import settings
 from utils.logger import get_logger
 

@@ -1,9 +1,6 @@
 requests
 python-dotenv
 redis
-sqlalchemy
-asyncpg
-psycopg2-binary
 apscheduler
 jmespath
 loguru

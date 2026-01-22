@@ -1,12 +1,14 @@
 package com.niro.web.entity;
 
+import java.time.LocalDateTime;
+
 import com.baomidou.mybatisplus.annotation.IdType;
+import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import lombok.Data;
+import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
 
-import java.time.LocalDateTime;
-import java.time.LocalTime;
+import lombok.Data;
 
 /**
  *
@@ -15,7 +17,7 @@ import java.time.LocalTime;
  * @date 2025/12/21
  */
 @Data
-@TableName("buff_goods")
+@TableName(value = "buff_goods", autoResultMap = true)
 public class BuffGoods {
     /**
      * 主键
@@ -62,6 +64,18 @@ public class BuffGoods {
      * 原始图标url
      */
     private String originalIconUrl;
+
+    /**
+     * 标签JSON数据
+     */
+    @TableField(typeHandler = JacksonTypeHandler.class)
+    private Object tags;
+
+    /**
+     * 最后同步版本标识
+     */
+    private String lastSyncTag;
+
     /**
      * 创建时间
      */

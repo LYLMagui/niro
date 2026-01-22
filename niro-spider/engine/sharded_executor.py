@@ -23,8 +23,8 @@ def get_save_category_func():
     return save_categories
 
 def get_save_goods_func():
-    from spiders.get_buff_goods import save_goods_batch, delete_stale_goods
-    return save_goods_batch, delete_stale_goods
+    from spiders.get_buff_goods import save_goods_batch
+    return save_goods_batch
 
 def get_save_sticker_func():
     from spiders.buff_sticker_spider import upsert_stickers
@@ -379,7 +379,7 @@ class ShardedSpiderExecutor:
             if data and data.items:
                 # 印花按页抓取，直接入库
                 save_func = get_save_sticker_func()
-                await save_func(data.items)
+                await save_func(data.items, self.redis_async)
                 logger.info(f"✅ 成功同步第 {page_num} 页印花 ({len(data.items)} 条)")
                 return True
             
@@ -529,7 +529,7 @@ class ShardedSpiderExecutor:
                 if stored_items:
                     all_sub_categories = [json.loads(i) for i in stored_items]
                     save_func = get_save_category_func()
-                    await save_func(all_sub_categories)
+                    await save_func(all_sub_categories, self.redis_async)
                     logger.info(f"✅ 成功同步 {len(all_sub_categories)} 个子分类入库")
                     has_data = True
                     await self.redis_async.delete(redis_key)
@@ -645,8 +645,6 @@ class ShardedSpiderExecutor:
                     old_hash = await self.redis_async.get(hash_key)
                     if old_hash and old_hash == current_hash:
                         logger.info(f"⏭️ 分类 {cat_name} 数据未变动 (Hash 命中)，跳过后续同步")
-                        # Hash 命中，更新该分类下所有商品的 tag，防止被误删
-                        await self._touch_category_tag(category_id, cat_name)
                         return True, 0
                     
                     # 记录新 Hash
@@ -689,7 +687,7 @@ class ShardedSpiderExecutor:
                 page_goods = [json.loads(i) for i in stored_items]
                 
                 # 批量保存商品
-                save_func, _ = get_save_goods_func()
+                save_func = get_save_goods_func()
                 rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
                 logger.info(f"✅ 分类 {cat_name} 入库成功: {rows} 条受影响")
                 
@@ -703,21 +701,6 @@ class ShardedSpiderExecutor:
         except Exception as e:
                 logger.error(f"❌ 同步分类 {cat_name} 商品失败: {e}")
                 return False, total_processed_count
-
-    async def _touch_category_tag(self, category_id: int, cat_name: str):
-        """Hash 命中时，更新该分类下所有商品的 sync_tag，防止被误删"""
-        from storage.database import async_session_factory
-        from storage.models import BuffGoods
-        from sqlalchemy import update
-        async with async_session_factory() as session:
-            try:
-                stmt = update(BuffGoods).where(BuffGoods.category_id == category_id).values(last_sync_tag=self.sync_tag)
-                await session.execute(stmt)
-                await session.commit()
-                logger.info(f"🏷️ [分类: {cat_name}] Hash 命中，已刷新全量 Tag 为 {self.sync_tag}")
-            except Exception as e:
-                await session.rollback()
-                logger.error(f"❌ 更新分类 {cat_name} Tag 失败: {e}")
 
     async def _handle_account_failure(self, exc: AccountInvalidException):
         """处理账号失效：剔除账号、通知后端、回收任务"""
