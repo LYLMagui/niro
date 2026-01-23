@@ -36,6 +36,7 @@ class BrowserProfile:
     def update_cookies(self, new_cookies: httpx.Cookies):
         """
         同步更新 Cookie：合并新下发的 Cookie 字段，保留旧字段
+        注意：如果有同名 Key，新值会覆盖旧值 (Last-Write-Wins)
         """
         # 1. 将现有 Cookie 字符串解析为字典
         current_cookies = {}

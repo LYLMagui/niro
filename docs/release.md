@@ -1,5 +1,36 @@
 # Release Notes
 
+## 2026-01-23 (v2.24.3)
+- **爬虫数据上报与监控修复**:
+  - **数据入库修复**: 修复了 `niro-server` 在消费爬虫数据时，因 Hutool JSONObject 与 Jackson 序列化冲突导致的 PostgreSQL 数据入库失败问题（空表问题修复）。
+  - **Redis 锁泄露修复**: 修复了 `get_buff_goods.py` 在推送数据到 Redis 队列时未正确释放锁导致的死锁风险，引入 `try...finally` 块确保资源释放。
+  - **RPM 监控优化**: 优化了爬虫分片执行器的性能监控指标，将瞬时 TPS (Transactions Per Second) 升级为 60秒滑动窗口的 RPM (Requests Per Minute)，提供更平滑准确的速率展示。
+  - **异常处理增强**: 修复了 `sharded_executor.py` 中的 `NameError` 变量未定义错误，并处理了数据保存函数返回 0 时的逻辑分支，防止静默数据丢失。
+
+## 2026-01-23 (v2.24.2)
+- **系统任务分片修复**:
+  - **分片下发逻辑修正**: 修复了 `BuffTradeStrategyImpl` 中在创建系统任务（如商品同步）时，未将计算出的 `categoryIds` 传递给消息队列的问题。
+  - **元数据缺失修复**: 修复了系统任务 Payload 中缺失 `categoryMeta` 导致爬虫端因无法获取 `internalName` 而跳过抓取的问题。现在后端会在下发任务时自动查询并封装分类的元数据（名称、内部标识等）。
+  - **空分片告警**: 在后端分片下发逻辑中新增了日志监控，当分片计算结果为空时会输出警告日志，便于快速定位问题。
+
+## 2026-01-23 (v2.24.1)
+- **系统任务断点续传**:
+  - **进度持久化**: 在 `sharded_executor.py` 中引入 Redis 进度记录机制。每当 Worker 完成一个分类抓取，即实时将 `category_id` 写入 Redis Set 并续期 7 天。
+  - **智能续传**: 任务启动时自动检测是否存在历史进度 Key。若存在，自动过滤已完成的分类，仅对剩余分类进行补抓，彻底解决了因意外中断（重启/网络故障）导致的大型任务重复执行问题。
+
+## 2026-01-23 (v2.24.0)
+- **爬虫分片执行器深度优化 (Phase 2)**:
+  - **并行消费架构**: 完成了 `sharded_executor.py` 的生产者-消费者模式改造。引入 `asyncio.Queue` 解耦任务分发与执行，支持单个账号下的多 Worker 并发抓取 (默认并发数 3)，显著提升了任务吞吐量。
+  - **并发控制**: 使用 `asyncio.Semaphore` 实现精细化的并发限流，并配合动态休息机制，在提升效率的同时兼顾账号风控安全。
+- **CSRF 自动修复增强**:
+  - **预热机制**: 在 `async_buy_v3` 下单流程中新增了“预热逻辑”。在发起关键 POST 请求前，模拟人类行为访问市场首页并获取最新的 `Set-Cookie`，彻底解决了因 Token 过期导致的首次请求死锁问题。
+  - **Cookie 策略优化**: 升级 `BrowserProfile` 的 Cookie 更新算法，确保在合并 Cookie 时遵循 Last-Write-Wins 原则，优先使用服务端下发的最新凭证。
+
+## 2026-01-23 (v2.23.0)
+- **爬虫分片执行器深度优化 (Phase 1)**:
+  - **智能重试机制**: 在 `sharded_executor.py` 核心抓取链路引入 `tenacity` 装饰器，针对 `Timeout` 和 `ConnectionError` 等网络异常实现指数退避重试 (Exponential Backoff)，显著提升弱网环境下的任务成功率。
+  - **死信队列 (DLQ)**: 构建了基于 Redis 的死信队列机制。当分类抓取重试耗尽后，自动将失败的 `category_id` 隔离至 `failed_categories` 队列并触发 Critical 告警，防止单点故障阻塞整体任务，保障数据完整性。
+
 ## 2026-01-23 (v2.22.1)
 - **系统稳定性修复**:
   - **任务配置前端修复**: 修复了编辑任务时因 `accountIds` 数据为空导致的多选组件渲染异常 (`Cannot read properties of null`)。

@@ -352,7 +352,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 }
 
                 if (needReEnqueue) {
-                    pushTaskToQueue(task);
+                    platformStrategyFactory.getStrategy(PlatformEnum.BUFF).handleTask(task);
                 }
             } catch (Exception e) {
                 log.error("处理任务 [{}] 自愈时发生异常", task.getId(), e);
@@ -391,7 +391,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 log.info("任务 [{}] 配额已初始化: {}", id, quota);
             }
 
-            pushTaskToQueue(task);
+            platformStrategyFactory.getStrategy(PlatformEnum.BUFF).handleTask(task);
 
             // 构建详细启动通知
             StringBuilder sb = new StringBuilder();
@@ -518,26 +518,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());
     }
 
-    /**
-     * 将任务推送至 Redis 队列 (已废弃，逻辑迁移至 BuffTradeStrategyImpl)
-     */
-    @Deprecated
-    private void pushTaskToQueue(BuffScanTask task) {
-        // 逻辑已迁移至 BuffTradeStrategyImpl
-    }
-
-    private String getQueueName(Integer taskType) {
-        if (TaskTypeEnum.SNIPING.getCode().equals(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_HIGH;
-        }
-        if (TaskTypeEnum.isSystemTask(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_MEDIUM;
-        }
-        if (TaskTypeEnum.FLIPPING.getCode().equals(taskType)) {
-            return BuffConstant.REDIS_TASK_QUEUE_MEDIUM;
-        }
-        return BuffConstant.REDIS_TASK_QUEUE_LOW;
-    }
+    // 方法已移除，逻辑迁移至 BuffTradeStrategyImpl
 
     @Override
     public Page<BuffScanTaskDTO> pageTask(TaskQueryParam param) {

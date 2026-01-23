@@ -13,9 +13,9 @@
     # Redis配置
     data:
       redis:
-        host: ${REDIS_HOST:106.53.11.158}
+        host: ${REDIS_HOST:localhost}
         port: ${REDIS_PORT:6379}
-        password: ${REDIS_PASSWORD:Lyl010430.}
+        password: ${REDIS_PASSWORD:password}
         timeout: 30000ms
         connect-timeout: 30000ms
         # Redisson 特有配置
@@ -24,11 +24,13 @@
           ping-connection-interval: 30000
   
     elasticsearch:
-      uris: ${ELASTICSEARCH_URIS:http://106.53.11.158:9200}
+      uris: ${ELASTICSEARCH_URIS:http://localhost:9200}
 
   
   # 日志配置
   logging:
+    charset:
+      console: GBK
     level:
       com.buff: debug
       org.springframework: info

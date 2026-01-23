@@ -15,7 +15,6 @@ import java.util.stream.Collectors;
  * 平台策略工厂
  */
 @Component
-@RequiredArgsConstructor
 public class PlatformStrategyFactory {
 
     private final Map<PlatformEnum, IPlatformStrategy> strategyMap = new ConcurrentHashMap<>();

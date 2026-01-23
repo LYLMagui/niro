@@ -9,6 +9,7 @@ from contextvars import ContextVar
 import httpx
 from aiolimiter import AsyncLimiter
 from collections import deque
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type, before_sleep_log
 
 from engine.context import trace_id_var, task_id_var, account_id_var, account_name_var
 from utils.browser_helper import BrowserProfile
@@ -50,6 +51,7 @@ class ShardedSpiderExecutor:
         self.account_limiters: Dict[int, AsyncLimiter] = {}
         self.pending_categories: Set[int] = set()
         self.finished_categories: Set[int] = set()
+        self.category_retry_counts: Dict[int, int] = {} # [新增] 失败重试计数器
         self.task_id: Optional[int] = None
         self.user_id: Optional[int] = None
         self.task_type: Optional[int] = None
@@ -121,6 +123,29 @@ class ShardedSpiderExecutor:
         # 重置任务状态
         self.pending_categories = set(category_ids)
         self.finished_categories = set()
+
+        # [新增] 断点续传逻辑
+        if self.redis_async:
+            progress_key = f"niro:task:progress:{self.task_id}"
+            finished_history = set()
+            # 检查 Key 是否存在
+            if await self.redis_async.exists(progress_key):
+                raw_members = await self.redis_async.smembers(progress_key)
+                if raw_members:
+                    finished_history = {int(m) for m in raw_members}
+                    # 计算剩余任务
+                    self.pending_categories = self.pending_categories - finished_history
+                    logger.info(f"🔄 [Task-ID: {self.task_id}] 检测到历史进度: 已完成 {len(finished_history)} 个，剩余 {len(self.pending_categories)} 个，准备续传...")
+            
+            # 如果剩余为 0，直接结束
+            if not self.pending_categories:
+                if not category_ids:
+                    logger.warning(f"⚠️ [Task-ID: {self.task_id}] 初始分类列表为空！请检查后端任务下发逻辑或数据库分类表。")
+                else:
+                    logger.info(f"✅ [Task-ID: {self.task_id}] 任务已全部完成 (基于历史进度)")
+                
+                await self._callback_status(2)
+                return
         self.active_accounts = {acc["accountId"]: acc for acc in accounts}
         self.account_shards = {} # 初始化分片映射
         self._start_time = time.time()
@@ -178,6 +203,18 @@ class ShardedSpiderExecutor:
 
         logger.info(f"🏁 [Task-ID: {self.task_id}] 分片抓取结束。完成: {len(self.finished_categories)}, 剩余: {len(self.pending_categories)}")
         
+        # [新增] 任务成功完成后清理进度 Key
+        if final_status == 2 and self.redis_async:
+            progress_key = f"niro:task:progress:{self.task_id}"
+            await self.redis_async.delete(progress_key)
+        
+        # 检查死信队列
+        if self.redis_async:
+            dlq_key = f"niro:task:{self.task_id}:failed_categories"
+            failed_count = await self.redis_async.llen(dlq_key)
+            if failed_count > 0:
+                logger.critical(f"💀 [Task-ID: {self.task_id}] 任务存在 {failed_count} 个死信分类，请检查 Redis 队列: {dlq_key}")
+
         # 回调后端更新状态
         await self._callback_status(final_status)
 
@@ -252,81 +289,158 @@ class ShardedSpiderExecutor:
         return shards
 
     async def _execute_account_shard(self, account_id: int, category_ids: List[int]):
-        """执行单个账号的分片抓取"""
+        """执行单个账号的分片抓取 (生产者-消费者模式)"""
         account = self.active_accounts[account_id]
         limiter = self.account_limiters[account_id]
         raw_name = account.get("accountName")
-        # 移除 Acc- 前缀，仅保留纯账号标识
-        account_name = raw_name.replace("Acc-", "") if raw_name else f"{account_id}"
+        account_name = raw_name.replace("Acc-", "") if raw_name else f"{acc_id}"
         
         # 设置协程隔离上下文
         account_id_var.set(account_id)
         account_name_var.set(account_name)
         
+        # 初始化队列与信号量
+        queue = asyncio.Queue()
+        concurrency = 3 # 限制并发数为 3
+        semaphore = asyncio.Semaphore(concurrency)
+        
         processed_cats = []
         total_shard_count = len(category_ids)
-        account_processed_goods = 0
+        # 进度追踪 (使用 list 包装以在闭包中修改)
+        progress_tracker = {"processed": 0, "success": 0}
+        
         shard_start_time = time.time()
+        shard_exception = None # 用于捕获 Worker 中的致命异常
+        recent_history = deque() # [新增] 用于存储最近 60 秒的请求时间戳
+        
+        # --- 消费者 (Worker) ---
+        async def worker():
+            nonlocal shard_exception
+            while True:
+                try:
+                    # 如果已有致命异常，快速消费队列并退出
+                    if shard_exception:
+                        try:
+                            _ = queue.get_nowait()
+                            queue.task_done()
+                        except asyncio.QueueEmpty:
+                            break
+                        continue
+
+                    try:
+                        cat_id = await queue.get()
+                    except asyncio.CancelledError:
+                        break
+                    
+                    try:
+                        async with semaphore:
+                            # 检查停止信号
+                            if await self._check_stop_signal(raise_exception=False):
+                                queue.task_done()
+                                continue
+                            
+                            if shard_exception: 
+                                queue.task_done()
+                                continue
+
+                            # 获取元数据用于日志
+                            categories_meta = self.task_data.get("categoryMeta") or {}
+                            cat_meta = categories_meta.get(str(cat_id)) or {}
+                            cat_name = cat_meta.get("name") or f"ID:{cat_id}"
+                            
+                            idx = progress_tracker["processed"]
+                            progress = (idx / total_shard_count) * 100
+                            elapsed = time.time() - shard_start_time
+                            
+                            # [新增] 计算最近 1 分钟实时 RPM (Requests Per Minute)
+                            now = time.time()
+                            while recent_history and recent_history[0] < now - 60:
+                                recent_history.popleft()
+                            
+                            # 模仿扫货任务的逻辑：直接统计最近 60s 内的请求数，不进行除法归一化
+                            current_rpm = len(recent_history)
+
+                            if account_id in self.active_accounts:
+                                # 前端可能仍使用 current_tps 字段，这里存 RPM 数值
+                                self.active_accounts[account_id]["current_tps"] = current_rpm
+
+                            logger.info(f"🔄 [Worker] 进度: {progress:.1f}% ({idx}/{total_shard_count}) | RPM: {current_rpm}/m | 处理分类: {cat_name}")
+
+                            # 执行抓取
+                            success, p_count = await self._crawl_category(account, cat_id, limiter)
+                            
+                            # [新增] 记录请求时间戳 (无论成功与否)
+                            recent_history.append(time.time())
+                            
+                            if success:
+                                processed_cats.append(cat_id)
+                                self.finished_categories.add(cat_id)
+                                if cat_id in self.pending_categories:
+                                    self.pending_categories.remove(cat_id)
+                                progress_tracker["success"] += 1
+                                await self._update_progress()
+
+                                # [新增] Redis 持久化进度
+                                if self.redis_async:
+                                    progress_key = f"niro:task:progress:{self.task_id}"
+                                    await self.redis_async.sadd(progress_key, cat_id)
+                                    await self.redis_async.expire(progress_key, 86400 * 7) # 续期 7 天
+
+                                    # 成功后清除重试计数
+                                    if cat_id in self.category_retry_counts:
+                                        del self.category_retry_counts[cat_id]
+                            else:
+                                # [新增] 失败重试逻辑
+                                current_retry = self.category_retry_counts.get(cat_id, 0) + 1
+                                self.category_retry_counts[cat_id] = current_retry
+                                
+                                if current_retry >= 3: # 最大重试 3 次
+                                    logger.error(f"❌ 分类 {cat_name} (ID:{cat_id}) 重试次数耗尽 ({current_retry}/3)，移入死信队列")
+                                    if cat_id in self.pending_categories:
+                                        self.pending_categories.remove(cat_id) # 放弃该任务，避免死循环
+                                    
+                                    # 写入 Redis 死信队列
+                                    if self.redis_async:
+                                        dlq_key = f"niro:task:dlq:{self.task_id}"
+                                        await self.redis_async.rpush(dlq_key, cat_id)
+                                else:
+                                    logger.warning(f"⚠️ 分类 {cat_name} 处理失败，将在下一轮重试 ({current_retry}/3)")
+
+                    except AccountInvalidException as ae:
+                        logger.warning(f"⚠️ 账号失效 ({ae.reason})，触发分片熔断")
+                        shard_exception = ae
+                    except Exception as e:
+                        logger.exception(f"❌ Worker 异常: {e}")
+                    finally:
+                        progress_tracker["processed"] += 1
+                        queue.task_done()
+                        
+                        # 模拟休息 (Worker 级)
+                        if not shard_exception and idx < total_shard_count - 1:
+                            # 并发模式下适当减少休息时间
+                            await asyncio.sleep(random.uniform(5, 10))
+
+                except asyncio.CancelledError:
+                    break
+        
+        # --- 生产者 (Producer) ---
+        for cat_id in category_ids:
+            queue.put_nowait(cat_id)
+            
+        # 启动 Workers
+        workers = [asyncio.create_task(worker()) for _ in range(concurrency)]
         
         try:
-            for i, cat_id in enumerate(category_ids):
-                # 每次处理新分类前检查停止信号
-                await self._check_stop_signal(raise_exception=True)
-
-                # 计算进度与 TPS
-                elapsed = time.time() - shard_start_time
-                current_tps = account_processed_goods / elapsed if elapsed > 0 else 0
-                # 更新到 active_accounts 供 _update_progress 使用
-                if account_id in self.active_accounts:
-                    self.active_accounts[account_id]["current_tps"] = round(current_tps, 2)
-                
-                # 获取分类名称用于日志
-                categories_meta = self.task_data.get("categoryMeta") or {}
-                cat_meta = categories_meta.get(str(cat_id)) or {}
-                cat_name = cat_meta.get("name") or f"ID:{cat_id}"
-                
-                progress = (i / total_shard_count) * 100
-                logger.info(f" 进度: {progress:.1f}% ({i}/{total_shard_count}) | 账号TPS: {current_tps:.2f} | 处理分类: {cat_name}")
-                
-                # 执行抓取
-                success = False
-                processed_count = 0
-                try:
-                    # 修改 _crawl_category 以返回 (success, processed_count)
-                    success, processed_count = await self._crawl_category(account, cat_id, limiter)
-                    account_processed_goods += processed_count
-                except AccountInvalidException as ae:
-                    # 429/401 异常，重新抛出以触发主循环的重平衡逻辑
-                    logger.warning(f"⚠️ 账号失效 ({ae.reason})，停止该分片并触发重平衡")
-                    raise ae
-                except Exception as ce:
-                    logger.exception(f"❌ 处理分类 {cat_name} 时发生未捕获异常: {ce}")
-                
-                if success:
-                    processed_cats.append(cat_id)
-                    self.finished_categories.add(cat_id)
-                    if cat_id in self.pending_categories:
-                        self.pending_categories.remove(cat_id)
-                    # 更新进度
-                    await self._update_progress()
-                else:
-                    logger.warning(f"⚠️ 处理分类失败或跳过: {cat_name}")
-
-                # 模拟人类操作的休息时间 (抓完一个分类后暂停 20-30 秒)
-                if i < total_shard_count - 1:
-                    sleep_time = random.uniform(20, 30)
-                    logger.info(f"💤 完成一个分类，休息 {sleep_time:.2f} 秒...")
-                    slept = 0
-                    while slept < sleep_time:
-                        await self._check_stop_signal(raise_exception=True)
-                        chunk = min(2, sleep_time - slept)
-                        await asyncio.sleep(chunk)
-                        slept += chunk
-                        
-        except (AccountInvalidException, TaskStoppedException):
-            raise
+            await queue.join()
         except Exception as e:
-            logger.error(f"抓取异常: {e}")
+            logger.error(f"Shard Execution Interrupted: {e}")
+        finally:
+            for w in workers:
+                w.cancel()
+            await asyncio.gather(*workers, return_exceptions=True)
+            
+        if shard_exception:
+            raise shard_exception
             
         return processed_cats
 
@@ -391,6 +505,12 @@ class ShardedSpiderExecutor:
             logger.error(f"❌ 同步印花第 {page_num} 页失败: {e}")
             return False
 
+    @retry(
+        stop=stop_after_attempt(3),
+        wait=wait_exponential(multiplier=1, min=2, max=10),
+        retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout, ConnectionError)),
+        before_sleep=before_sleep_log(logger, "WARNING")
+    )
     async def _crawl_category_tree(self, account: Dict[str, Any], p_cat_id: int, limiter: AsyncLimiter) -> bool:
         """同步分类树逻辑：抓取一级分类下的所有二级分类"""
         acc_id = account["accountId"]
@@ -581,8 +701,13 @@ class ShardedSpiderExecutor:
             logger.info(f"🚀 商品同步启动: {cat_name} ({internal_name}) | 版本: {self.sync_tag}")
 
             while page <= total_pages and page <= max_safe_pages:
-                # 模拟人类随机延迟
-                delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
+                # 模拟人类随机延迟 (分段变速策略)
+                if page <= 5:
+                    delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
+                else:
+                    # 深分页加速 (12s - 16s)
+                    delay = random.uniform(12.0, 16.0)
+                
                 page_info = f"{page}/{total_pages}" if total_pages > 1 else f"{page}"
                 logger.info(f"⏳ 第 {page_info} 页等待 {delay:.2f} 秒...")
                 
@@ -673,33 +798,50 @@ class ShardedSpiderExecutor:
                 total_processed_count += len(items)
                 self._processed_count += len(items)
                 self._processed_history.append((time.time(), len(items)))
+                
+                # 5. 分批落库机制 (每 5 页保存一次)
+                if page % 5 == 0 and self.redis_async:
+                    stored_items = await self.redis_async.lrange(redis_key, 0, -1)
+                    if stored_items:
+                        page_goods = [json.loads(i) for i in stored_items]
+                        save_func = get_save_goods_func()
+                        saved_count = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
+                        
+                        if saved_count > 0:
+                            await self.redis_async.delete(redis_key)
+                            logger.info(f"🔄 [分批保存] 已处理前 {page} 页数据 ({len(page_goods)} 条)")
+                        else:
+                            logger.warning(f"⚠️ [分批保存] 写入失败 (0条)，保留 Redis 暂存数据以供重试")
+
                 page += 1
 
-            # --- 全部分页抓取完成后，执行批量保存 ---
+            # --- 全部分页抓取完成后，执行批量保存 (处理剩余数据) ---
             if total_processed_count > 0 and self.redis_async:
-                logger.info(f"💾 分类 {cat_name} 抓取完毕，开始批量入库 {total_processed_count} 条数据...")
-                
-                # 从 Redis 读取所有暂存数据
+                # 从 Redis 读取剩余暂存数据
                 stored_items = await self.redis_async.lrange(redis_key, 0, -1)
-                if not stored_items:
-                    return True, 0
-                
-                page_goods = [json.loads(i) for i in stored_items]
-                
-                # 批量保存商品
-                save_func = get_save_goods_func()
-                rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
-                logger.info(f"✅ 分类 {cat_name} 入库成功: {rows} 条受影响")
-                
-                # 清理 Redis 暂存数据
-                await self.redis_async.delete(redis_key)
+                if stored_items:
+                    logger.info(f"💾 分类 {cat_name} 抓取完毕，开始入库剩余 {len(stored_items)} 条数据...")
+                    page_goods = [json.loads(i) for i in stored_items]
+                    
+                    # 批量保存商品
+                    save_func = get_save_goods_func()
+                    rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
+                    
+                    if rows > 0:
+                        logger.info(f"✅ 分类 {cat_name} 剩余数据入库成功: {rows} 条受影响")
+                        # 清理 Redis 暂存数据
+                        await self.redis_async.delete(redis_key)
+                    else:
+                        logger.error(f"❌ 分类 {cat_name} 数据入库失败 (0条)，保留 Redis 数据")
+                else:
+                    logger.info(f"✅ 分类 {cat_name} 抓取完毕 (数据已全部分批入库)")
                 
             return True, total_processed_count
             
         except AccountInvalidException as ae:
             raise ae
         except Exception as e:
-                logger.error(f"❌ 同步分类 {cat_name} 商品失败: {e}")
+                logger.error(f"❌ 同步分类 {cat_name} 商品失败: {repr(e)}")
                 return False, total_processed_count
 
     async def _handle_account_failure(self, exc: AccountInvalidException):

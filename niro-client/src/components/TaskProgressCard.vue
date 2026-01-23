@@ -1,151 +1,163 @@
 <template>
   <t-card
     :bordered="false"
-    class="task-progress-card shadow-sm transition-shadow duration-300 hover:shadow-md"
+    class="task-progress-card group relative flex flex-col overflow-visible rounded-2xl border border-gray-100 bg-white p-6 transition-all duration-300 hover:-translate-y-1 hover:shadow-lg"
   >
-    <div class="flex items-center space-x-6">
-      <!-- 左侧：状态环 -->
-      <div class="relative flex-shrink-0">
-        <t-progress
-          theme="circle"
-          :percentage="isSystemTask ? task.stats?.percentage || 0 : progressPercentage"
-          :status="progressStatus"
-          :size="80"
-          :stroke-width="6"
+    <!-- Header: 商品/任务信息 + 操作区 -->
+    <div class="flex items-start justify-between p-3">
+      <div class="flex items-center gap-3">
+        <!-- 商品图片 -->
+        <div
+          class="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 shadow-sm p-1"
         >
-          <template #label>
-            <div class="flex flex-col items-center">
-              <span class="text-xs text-gray-400">{{ statusText }}</span>
-              <span v-if="isSystemTask" class="text-lg font-bold" :class="statusColorClass">
-                {{ task.stats?.finished || 0 }}/{{ task.stats?.total || 0 }}
-              </span>
-              <span v-else class="text-lg font-bold" :class="statusColorClass">
-                {{ task.successCount }}/{{ task.buyCount }}
-              </span>
-            </div>
-          </template>
-        </t-progress>
-        <!-- 呼吸灯效果，仅在运行中显示 -->
-        <div v-if="task.status === 1" class="absolute -top-1 -right-1">
-          <span class="relative flex h-3 w-3">
-            <span
-              class="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75"
-            ></span>
-            <span class="relative inline-flex h-3 w-3 rounded-full bg-green-500"></span>
-          </span>
+          <t-image
+            :src="task.goodsIconUrl"
+            class="h-full w-full object-cover"
+            :lazy="true"
+            fit="contain"
+          />
+        </div>
+        <!-- 标题与类型 -->
+        <div class="flex flex-col">
+          <div class="flex items-center gap-2">
+            <h3 class="max-w-[180px] truncate text-lg font-bold text-gray-900" :title="task.name">
+              {{ task.name }}
+            </h3>
+          </div>
+          <div class="flex items-center gap-2 text-xs">
+            <t-tag size="small" variant="light" theme="primary" class="px-1.5 py-0.5">
+              {{ taskTypeName }}
+            </t-tag>
+            <span class="text-gray-400">ID: {{ task.id }}</span>
+          </div>
         </div>
       </div>
 
-      <!-- 右侧：任务详情与步骤 -->
-      <div class="flex-grow space-y-3">
-        <div class="flex items-center justify-between">
-          <div class="flex items-center space-x-2">
-            <t-avatar :image="task.goodsIconUrl" size="small" shape="round" />
-            <span class="max-w-[200px] truncate text-base font-bold text-gray-800">
-              {{ task.name }}
-            </span>
-            <t-tag size="small" variant="light-outline" theme="primary">{{ taskTypeName }}</t-tag>
-          </div>
-          <div class="flex items-center space-x-2">
-            <t-button
-              v-if="task.status === 0"
-              theme="primary"
-              variant="text"
-              size="small"
-              @click="$emit('start', task.id)"
-            >
-              <template #icon><t-icon name="play-circle" /></template>
-              启动
-            </t-button>
-            <t-button
-              v-if="task.status === 1"
-              theme="danger"
-              variant="text"
-              size="small"
-              @click="$emit('stop', task.id)"
-            >
-              <template #icon><t-icon name="stop-circle" /></template>
-              停止
-            </t-button>
-            <t-dropdown :options="moreOptions" @click="handleMoreClick">
-              <t-button variant="text" shape="square" size="small">
-                <t-icon name="more" />
-              </t-button>
-            </t-dropdown>
-          </div>
-        </div>
+      <!-- 右侧操作区 -->
+      <div class="flex items-center gap-2">
+        <!-- 状态标签 -->
+        <t-tag :theme="statusTheme" variant="light-outline" class="font-medium">
+          <template #icon>
+            <span :class="['mr-1 inline-block h-1.5 w-1.5 rounded-full', statusDotClass]"></span>
+          </template>
+          {{ statusText }}
+        </t-tag>
 
-        <!-- 步骤条：智行风格，紧凑横向 -->
+        <!-- 操作按钮 -->
+        <div class="flex items-center gap-1 pl-2">
+          <t-button
+            v-if="task.status === 0 || task.status === 3"
+            theme="primary"
+            shape="circle"
+            variant="text"
+            @click.stop="$emit('start', task.id)"
+          >
+            <template #icon><t-icon name="play-circle" size="large" /></template>
+          </t-button>
+
+          <t-button
+            v-if="task.status === 1 || task.status === 4"
+            theme="danger"
+            size="small"
+            variant="text"
+            @click.stop="$emit('stop', task.id)"
+          >
+            <template #icon><t-icon name="stop-circle" size="large" /></template>
+            停止
+          </t-button>
+
+          <t-dropdown :options="moreOptions" @click="handleMoreClick">
+            <t-button variant="text" shape="circle">
+              <template #icon><t-icon name="more" /></template>
+            </t-button>
+          </t-dropdown>
+        </div>
+      </div>
+    </div>
+
+    <!-- Body: 关键指标卡片 -->
+    <div class="mt-4 grid grid-cols-3 divide-x divide-gray-200 rounded-xl bg-gray-50/80 p-3">
+      <!-- 指标1: 进度 -->
+      <div class="flex flex-col items-center justify-center px-2">
+        <div class="text-lg font-bold text-gray-900">
+          <span v-if="isSystemTask">
+            {{ task.stats?.finished || 0 }}/{{ task.stats?.total || 0 }}
+          </span>
+          <span v-else>{{ task.successCount }}/{{ task.buyCount }}</span>
+        </div>
+        <!-- 进度条可视化 -->
+        <div class="mt-1 w-full max-w-[80px]">
+          <t-progress
+            theme="line"
+            stroke-width="2px"
+            :percentage="isSystemTask ? task.stats?.percentage || 0 : progressPercentage"
+            :show-label="false"
+            :status="progressStatus"
+          />
+        </div>
+        <div class="mt-0.5 text-[10px] text-gray-500">完成进度</div>
+      </div>
+
+      <!-- 指标2: 价格/利润 -->
+      <div class="flex flex-col items-center justify-center overflow-hidden px-2">
+        <div class="w-full truncate text-center text-lg font-bold text-blue-600">
+          <template v-if="task.taskType === 2">{{ task.minProfit }}%</template>
+          <template v-else>¥{{ task.maxPrice }}</template>
+        </div>
+        <div class="text-[10px] text-gray-500">
+          {{ task.taskType === 2 ? "预期利润" : "限制价格" }}
+        </div>
+      </div>
+
+      <!-- 指标3: 延迟/间隔 -->
+      <div class="flex flex-col items-center justify-center overflow-hidden px-2">
+        <div class="flex w-full items-center justify-center gap-1 text-lg font-bold text-gray-900">
+          <t-icon name="time" size="small" class="flex-shrink-0 text-gray-400" />
+          <span class="truncate">{{ scanIntervalShortText }}</span>
+        </div>
+        <div class="text-[10px] text-gray-500">扫描间隔</div>
+      </div>
+    </div>
+
+    <!-- Footer: 账号与步骤 -->
+    <div class="mt-4 flex items-center justify-between p-1">
+      <!-- 左侧：账号头像组 -->
+      <div class="flex -space-x-2 pl-1">
+        <t-tooltip v-for="(name, index) in displayAccountNames" :key="index" :content="name">
+          <t-avatar
+            size="24px"
+            :style="{ border: '2px solid #fff', backgroundColor: '#f3f4f6', color: '#374151' }"
+            class="cursor-pointer text-[10px] font-bold ring-2 ring-white transition-transform hover:z-10 hover:scale-110"
+          >
+            {{ name.charAt(0).toUpperCase() }}
+          </t-avatar>
+        </t-tooltip>
+        <div
+          v-if="hiddenAccountCount > 0"
+          class="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[10px] text-gray-500 ring-2 ring-white"
+        >
+          +{{ hiddenAccountCount }}
+        </div>
+      </div>
+
+      <!-- 右侧：步骤条或状态信息 -->
+      <div class="flex-1 pl-4 flex justify-center">
+        <!-- 系统任务显示 TPS -->
+        <div v-if="isSystemTask" class="text-xs font-medium text-blue-600">
+          TPS: {{ task.stats?.tps || 0 }} 条/秒
+        </div>
+        <!-- 普通任务显示步骤条 -->
         <t-steps
-          v-if="!isSystemTask"
+          v-else
           :current="currentStep"
           theme="dot"
           size="small"
-          class="custom-steps"
+          class="compact-steps max-w-[400px]"
         >
           <t-step-item title="排队" />
           <t-step-item title="扫描" />
-          <t-step-item title="匹配" />
           <t-step-item title="下单" />
-          <t-step-item title="成功" />
         </t-steps>
-
-        <!-- 系统任务进度条 -->
-        <div v-else class="space-y-2 py-1">
-          <div class="flex items-center justify-between text-xs text-gray-500">
-            <span>分片处理进度</span>
-            <span class="font-bold text-blue-600">TPS: {{ task.stats?.tps || 0 }}条/秒</span>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <div
-              v-for="(name, index) in task.accountNames"
-              :key="index"
-              class="min-w-[100px] flex-1"
-            >
-              <div class="mb-0.5 flex items-center justify-between text-[10px]">
-                <span class="max-w-[60px] truncate">{{ name }}</span>
-                <span>{{ getAccountProgress(name) }}%</span>
-              </div>
-              <t-progress
-                :percentage="getAccountProgress(name)"
-                size="small"
-                :show-info="false"
-                :stroke-width="4"
-                theme="line"
-                :color="getAvatarColor(index)"
-              />
-            </div>
-          </div>
-        </div>
-
-        <!-- 底部：账号状态与统计 -->
-        <div class="flex items-center justify-between border-t border-gray-50 pt-2">
-          <div class="flex -space-x-2 overflow-hidden">
-            <t-tooltip v-for="(name, index) in task.accountNames" :key="index" :content="name">
-              <t-avatar
-                size="20px"
-                :style="{ backgroundColor: getAvatarColor(index), border: '2px solid #fff' }"
-                class="cursor-pointer transition-transform hover:z-10 hover:scale-110"
-              >
-                {{ name.charAt(0) }}
-              </t-avatar>
-            </t-tooltip>
-            <span v-if="(task.accountNames?.length || 0) > 3" class="pl-3 text-xs text-gray-400">
-              等 {{ task.accountNames?.length || 0 }} 个账号
-            </span>
-          </div>
-          <div class="flex items-center space-x-4 text-xs text-gray-500">
-            <span class="flex items-center">
-              <t-icon name="time" class="mr-1" />
-              {{ scanIntervalText }}
-            </span>
-            <span class="flex items-center font-medium text-blue-600">
-              <t-icon name="money" class="mr-1" />
-              <template v-if="task.taskType === 2">利: {{ task.minProfit }}%</template>
-              <template v-else>≤ ¥{{ task.maxPrice }}</template>
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   </t-card>
@@ -160,11 +172,6 @@ const props = defineProps<{
 }>();
 
 const isSystemTask = computed(() => props.task.taskType >= 2);
-
-const getAccountProgress = (accountName: string) => {
-  if (!props.task.stats?.account_stats) return 0;
-  return props.task.stats.account_stats[accountName]?.percentage || 0;
-};
 
 const emit = defineEmits(["start", "stop", "edit", "delete"]);
 
@@ -185,6 +192,20 @@ const progressPercentage = computed(() => {
   return Math.min(Math.round((props.task.successCount / props.task.buyCount) * 100), 100);
 });
 
+// TDesign Progress 状态
+const progressStatus = computed(() => {
+  switch (props.task.status) {
+    case 1:
+      return "active";
+    case 2:
+      return "success";
+    case 3:
+      return "error";
+    default:
+      return undefined;
+  }
+});
+
 // 状态文字
 const statusText = computed(() => {
   switch (props.task.status) {
@@ -203,33 +224,35 @@ const statusText = computed(() => {
   }
 });
 
-// 状态颜色
-const statusColorClass = computed(() => {
+// 状态主题色 (Tag Theme)
+const statusTheme = computed(() => {
   switch (props.task.status) {
-    case 0:
-      return "text-gray-400";
     case 1:
-      return "text-green-500";
+      return "success";
+    case 4:
+      return "warning";
     case 2:
-      return "text-blue-500";
+      return "primary";
     case 3:
-      return "text-red-500";
+      return "danger";
     default:
-      return "text-gray-400";
+      return "default";
   }
 });
 
-// TDesign Progress 状态
-const progressStatus = computed(() => {
+// 状态圆点颜色 (Dot Class)
+const statusDotClass = computed(() => {
   switch (props.task.status) {
     case 1:
-      return "active";
+      return "bg-green-500 animate-pulse";
+    case 4:
+      return "bg-orange-500 animate-pulse";
     case 2:
-      return "success";
+      return "bg-blue-500";
     case 3:
-      return "error";
+      return "bg-red-500";
     default:
-      return undefined;
+      return "bg-gray-400";
   }
 });
 
@@ -243,11 +266,20 @@ const currentStep = computed(() => {
 });
 
 // 扫描间隔描述
-const scanIntervalText = computed(() => {
+const scanIntervalShortText = computed(() => {
   if (props.task.scanIntervalMin && props.task.scanIntervalMax) {
     return `${props.task.scanIntervalMin}-${props.task.scanIntervalMax}s`;
   }
   return `${props.task.scanInterval || 15}s`;
+});
+
+// 账号显示逻辑 (最多显示 5 个)
+const displayAccountNames = computed(() => {
+  return props.task.accountNames?.slice(0, 5) || [];
+});
+
+const hiddenAccountCount = computed(() => {
+  return (props.task.accountNames?.length || 0) - 5;
 });
 
 // 更多操作
@@ -269,30 +301,35 @@ const handleMoreClick = (data: any) => {
   if (data.value === "edit") emit("edit", props.task.id);
   if (data.value === "delete") emit("delete", props.task.id);
 };
-
-// 生成头像颜色
-const colors = ["#0052D9", "#00A870", "#ED7B2F", "#E34D59", "#662D91"];
-const getAvatarColor = (index: number) => colors[index % colors.length];
 </script>
 
 <style scoped>
-.task-progress-card {
-  background: #ffffff;
-  border-radius: 12px;
-}
-
-:deep(.custom-steps .t-steps-item__title) {
+/* 覆盖 TDesign Steps 样式，使其更紧凑 */
+:deep(.compact-steps .t-steps-item__title) {
   font-size: 12px;
   color: #8c8c8c;
+  margin-bottom: 0 !important;
+  line-height: 1.2;
 }
 
-:deep(.custom-steps .t-steps-item--process .t-steps-item__title) {
+:deep(.compact-steps .t-steps-item--process .t-steps-item__title) {
   font-weight: bold;
   color: #0052d9;
 }
 
-:deep(.t-steps-item__dot) {
-  width: 6px;
-  height: 6px;
+:deep(.compact-steps .t-steps-item__icon) {
+  width: 16px;
+  height: 16px;
+  min-width: 16px;
+  font-size: 10px;
+}
+
+:deep(.compact-steps .t-steps-item__inner) {
+  padding-bottom: 0 !important;
+}
+
+/* 移除多余的边距 */
+:deep(.t-card__body) {
+  padding: 0;
 }
 </style>

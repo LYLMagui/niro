@@ -154,11 +154,12 @@ public class LogController {
             String[] rawLines = content.split("\r?\n");
             
             // 过滤空行并添加到结果列表
+            boolean firstLineSkipped = false;
             for (String line : rawLines) {
                 // 如果 startPos 不是 0，第一行很可能是被截断的残缺行，应该丢弃
                 // 除非 bytes 恰好以换行符开始 (content第一个字符为空行或完整行的开始)
-                // 简单起见：如果不是从文件头读取，且 split 结果超过 1 行，丢弃第一行
-                if (startPos > 0 && lines.isEmpty() && rawLines.length > 1) {
+                if (startPos > 0 && !firstLineSkipped && rawLines.length > 1) {
+                    firstLineSkipped = true;
                     continue; 
                 }
                 if (!line.isEmpty()) {

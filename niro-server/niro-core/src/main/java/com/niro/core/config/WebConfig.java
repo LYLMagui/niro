@@ -50,13 +50,13 @@ public class WebConfig implements WebMvcConfigurer {
     }
 
     private static final String[] API_WHITELIST = {
-           "/user/login",
-           "/user/register",
-           "/log/stream",
-           "/buff/account/report/status",
-           "/task/callback/status",
-           "/test/**",
-           "/api/buff/account/report/status"
+        "/user/login",
+        "/user/register",
+        "/log/stream",
+        "/buff/account/report/status",
+        "/task/callback/status",
+        "/test/**",
+        "/api/buff/account/report/status"
     };
 
     private static final String[] EXCLUDE_STATIC_SOURCE_PATH = {

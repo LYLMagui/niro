@@ -23,57 +23,60 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
     
     # 分布式状态锁：以 category_id 为键，避免多个账号同时在更新同一个分类下的商品
     lock_key = f"niro:lock:goods_sync:{category_id}"
+    lock_acquired = False
     
-    # 尝试获取 Redis 锁，有效期 60 秒
-    if redis_client:
-        if not await redis_client.set(lock_key, "locked", ex=60, nx=True):
-            logger.warning(f"⏳ 另一个账号正在执行分类 [分类: {display_name}] 商品保存，跳过本次写入")
-            return 0
-    
-    # 1. 过滤和转换数据 (只保留元数据字段)
-    filtered_goods_list = []
-    seen_ids = set()
-    
-    for g in goods_list:
-        g_id = g.get('id') or g.get('goods_id')
-        if not g_id or g_id in seen_ids:
-            continue
-        seen_ids.add(g_id)
-        
-        goods_info = g.get('goods_info', {})
-        info = goods_info.get('info', {})
-        tags = info.get('tags', {})
-        
-        item = {
-            "goods_id": g_id,
-            "name": g.get("name"),
-            "market_hash_name": g.get("market_hash_name"),
-            "short_name": g.get("short_name"),
-            "icon_url": goods_info.get("icon_url"),
-            "original_icon_url": goods_info.get("original_icon_url"),
-            "category_id": category_id,
-            "rarity": tags.get("rarity", {}).get("internal_name"),
-            "exterior": tags.get("exterior", {}).get("internal_name"),
-            "tags": tags
-        }
-        filtered_goods_list.append(item)
-            
-    if not filtered_goods_list:
-        return 0
-
-    # 2. 构建上报消息
-    message = {
-        "type": "GOODS_LIST",
-        "timestamp": int(time.time()),
-        "data": filtered_goods_list,
-        "meta": {
-            "categoryId": category_id,
-            "categoryName": category_name,
-            "syncTag": sync_tag
-        }
-    }
-
     try:
+        # 尝试获取 Redis 锁，有效期 60 秒
+        if redis_client:
+            if await redis_client.set(lock_key, "locked", ex=60, nx=True):
+                lock_acquired = True
+            else:
+                logger.warning(f"⏳ 另一个账号正在执行分类 [分类: {display_name}] 商品保存，跳过本次写入")
+                return 0
+        
+        # 1. 过滤和转换数据 (只保留元数据字段)
+        filtered_goods_list = []
+        seen_ids = set()
+        
+        for g in goods_list:
+            g_id = g.get('id') or g.get('goods_id')
+            if not g_id or g_id in seen_ids:
+                continue
+            seen_ids.add(g_id)
+            
+            goods_info = g.get('goods_info', {})
+            info = goods_info.get('info', {})
+            tags = info.get('tags', {})
+            
+            item = {
+                "goods_id": g_id,
+                "name": g.get("name"),
+                "market_hash_name": g.get("market_hash_name"),
+                "short_name": g.get("short_name"),
+                "icon_url": goods_info.get("icon_url"),
+                "original_icon_url": goods_info.get("original_icon_url"),
+                "category_id": category_id,
+                "rarity": tags.get("rarity", {}).get("internal_name"),
+                "exterior": tags.get("exterior", {}).get("internal_name"),
+                "tags": tags
+            }
+            filtered_goods_list.append(item)
+            
+        if not filtered_goods_list:
+            return 0
+
+        # 2. 构建上报消息
+        message = {
+            "type": "GOODS_LIST",
+            "timestamp": int(time.time()),
+            "data": filtered_goods_list,
+            "meta": {
+                "categoryId": category_id,
+                "categoryName": category_name,
+                "syncTag": sync_tag
+            }
+        }
+
         # 推送到 Redis List
         if redis_client:
             await redis_client.rpush("niro:data:report", json.dumps(message, ensure_ascii=False))
@@ -81,8 +84,12 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
         else:
             logger.error("❌ 未提供 Redis 客户端，无法上报商品数据")
             
+        return len(filtered_goods_list)
+
     except Exception as e:
         logger.error(f"❌ 上报商品数据失败: {e}")
         return 0
-
-    return len(filtered_goods_list)
+    finally:
+        # 主动释放锁
+        if lock_acquired and redis_client:
+            await redis_client.delete(lock_key)

@@ -27,7 +27,9 @@ import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -111,20 +113,20 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 iconUrl = goods.getIconUrl();
             }
         }
-        
+
         String finalProxyUrl = Boolean.TRUE.equals(enableProxy) ? globalProxyUrl : null;
 
         // 2. 构建消息对象
         List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
                 .map(acc -> BuffTaskMessage.AccountContext.builder()
-                        .accountId(acc.getId())
-                        .accountName(acc.getAccountName())
-                        .buffCookie(acc.getBuffCookie())
-                        .proxy(finalProxyUrl)
-                        .role(acc.getRole())
-                        .userAgent(acc.getUserAgent())
-                        .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
-                        .build())
+                .accountId(acc.getId())
+                .accountName(acc.getAccountName())
+                .buffCookie(acc.getBuffCookie())
+                .proxy(finalProxyUrl)
+                .role(acc.getRole())
+                .userAgent(acc.getUserAgent())
+                .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
+                .build())
                 .collect(Collectors.toList());
 
         BuffTaskMessage.BuffTaskMessageBuilder messageBuilder = BuffTaskMessage.builder()
@@ -135,10 +137,10 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .name(task.getName())
                 .targetTaskId(task.getTargetTaskId())
                 .goodsId(task.getGoodsId())
-                .goodsName(goodsName)           // 新增
+                .goodsName(goodsName) // 新增
                 .marketHashName(marketHashName) // 新增
-                .iconUrl(iconUrl)               // 新增
-                .proxyUrl(finalProxyUrl)        // 新增
+                .iconUrl(iconUrl) // 新增
+                .proxyUrl(finalProxyUrl) // 新增
                 .maxPrice(task.getMaxPrice())
                 .minProfit(task.getMinProfit())
                 .scanIntervalMin(task.getScanIntervalMin())
@@ -187,7 +189,32 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                             .stream().map(BuffGoodsCategory::getId).collect(Collectors.toList());
                 }
             }
-            messageBuilder.categoryMeta(null); // 此处简化，原逻辑中 categoryMeta 可能需要保留，但这里为了解耦暂不传入或需重新查询
+
+            if (CollUtil.isNotEmpty(categoryIds)) {
+                log.info("系统任务 [{}] 下发分类分片: {} 个", task.getId(), categoryIds.size());
+
+                // 构造 categoryMeta，供 Python 端获取分类元数据 (如 internalName)
+                List<BuffGoodsCategory> categories = buffGoodsCategoryService.listByIds(categoryIds);
+                if (CollUtil.isNotEmpty(categories)) {
+                    Map<String, BuffTaskMessage.CategoryMeta> categoryMeta = new HashMap<>();
+                    for (BuffGoodsCategory cat : categories) {
+                        BuffTaskMessage.CategoryMeta meta = BuffTaskMessage.CategoryMeta.builder()
+                                .name(cat.getName())
+                                .internalName(cat.getInternalName())
+                                .categoryType(cat.getCategoryType())
+                                .build();
+                        categoryMeta.put(String.valueOf(cat.getId()), meta);
+                    }
+                    messageBuilder.categoryMeta(categoryMeta);
+                } else {
+                    messageBuilder.categoryMeta(null);
+                }
+            } else {
+                log.warn("系统任务 [{}] 未找到可执行的分类分片！", task.getId());
+                messageBuilder.categoryMeta(null);
+            }
+
+            messageBuilder.categoryIds(categoryIds);
         }
 
         BuffTaskMessage message = messageBuilder.build();
@@ -222,7 +249,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                     .execute();
 
             String body = response.body();
-            
+
             // 校验响应内容是否为 JSON
             if (body == null || body.trim().startsWith("<!DOCTYPE") || body.trim().startsWith("<html")) {
                 log.warn("BUFF Cookie Check Failed: Response is HTML (Redirect to Login), id: {}", account.getId());
@@ -249,23 +276,23 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
             String code = json.getStr("code");
             account.setLastCheckTime(LocalDateTime.now());
-            
+
             if ("OK".equals(code)) {
                 // Cookie 有效，解析数据
                 JSONObject data = json.getJSONObject("data");
                 if (data != null && data.getJSONArray("items") != null && !data.getJSONArray("items").isEmpty()) {
                     JSONObject item = data.getJSONArray("items").getJSONObject(0);
-                    
+
                     // 权限校验逻辑: 若 trade_url_state 不为 0 或 api_key_state 不为 2，强制降级
                     Integer tradeUrlState = item.getInt("trade_url_state");
                     Integer apiKeyState = item.getInt("api_key_state");
-                    
+
                     if ((tradeUrlState != null && tradeUrlState != 0) || (apiKeyState != null && apiKeyState != 2)) {
-                        String reason = (tradeUrlState != null && tradeUrlState != 0) 
-                            ? "交易链接失效 (" + item.getStr("trade_url_state_desc", "状态异常") + ")" 
-                            : "API Key 状态异常 (" + item.getStr("api_key_state_text", "无效") + ")";
+                        String reason = (tradeUrlState != null && tradeUrlState != 0)
+                                ? "交易链接失效 (" + item.getStr("trade_url_state_desc", "状态异常") + ")"
+                                : "API Key 状态异常 (" + item.getStr("api_key_state_text", "无效") + ")";
                         log.warn("BUFF 账号权限校验未通过, id: {}, reason: {}", account.getId(), reason);
-                        
+
                         // 强制降级为 SCAN
                         if (account.getRole() != BuffAccountRoleEnum.SCAN) {
                             account.setRole(BuffAccountRoleEnum.SCAN);
@@ -283,14 +310,14 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                         }
                     }
                 }
-                
+
                 // 如果之前是失效状态，恢复为正常
                 if (account.getStatus() == BuffAccountStatusEnum.INVALID) {
                     account.setStatus(BuffAccountStatusEnum.NORMAL);
                 }
                 account.setWarningMsg("");
                 account.setFailCount(0);
-                
+
                 // 顺便更新一下余额
                 updateBalance(account);
             } else {
@@ -306,7 +333,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
             account.setWarningMsg("网络请求或解析失败: " + e.getMessage());
             account.setFailCount(account.getFailCount() + 1);
         }
-        
+
         buffAccountService.updateById(account);
     }
 
@@ -334,7 +361,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                     BigDecimal balance = data.getBigDecimal("cash_amount", BigDecimal.ZERO);
                     // pending_divide_amount 是待结算金额
                     BigDecimal pendingBalance = data.getBigDecimal("pending_divide_amount", BigDecimal.ZERO);
-                    
+
                     account.setBalance(balance);
                     account.setPendingBalance(pendingBalance);
                     log.info("账号 [{}] 余额更新成功: balance={}, pending={}", account.getAccountName(), balance, pendingBalance);

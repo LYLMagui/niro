@@ -114,10 +114,10 @@ public class BuffTaskMessage {
     private List<Long> categoryIds;
 
     /**
-     * 分类元数据 (Map<categoryId, {name: "xxx", internalName: "xxx"}>)
+     * 分类元数据 (Map<categoryId, CategoryMeta>)
      * 用于前端直接下发元数据，避免 Spider 再次查询数据库
      */
-    private Map<String, Map<String, String>> categoryMeta;
+    private Map<String, CategoryMeta> categoryMeta;
 
     /**
      * 分片页码范围 (用于分片抓取)
@@ -148,6 +148,27 @@ public class BuffTaskMessage {
      * 允许下单的账号ID列表 (如果为空，则为仅扫描模式)
      */
     private List<Long> execAccountIds;
+
+    @Data
+    @Builder
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class CategoryMeta {
+        /**
+         * 分类名称
+         */
+        private String name;
+
+        /**
+         * 内部标识 (如 weapon_ak47)
+         */
+        private String internalName;
+
+        /**
+         * 分类类型 (type/weapon)
+         */
+        private String categoryType;
+    }
 
     @Data
     @Builder

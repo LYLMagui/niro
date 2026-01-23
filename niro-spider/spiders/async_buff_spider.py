@@ -1004,6 +1004,33 @@ class AsyncBuffSpider:
         user_id = self._extract_value(task_data.get("userId"))
         busy_key = f"niro:account:busy:{acc_id}"
         
+        # === [新增] CSRF 预热逻辑 ===
+        # 目的：解决首次请求因 CSRF Token 过期/缺失导致的死锁问题
+        # 行为：模拟人类打开市场页面，获取最新的 Set-Cookie
+        try:
+            if profile:
+                preheat_url = "https://buff.163.com/market/csgo"
+                # 随机延迟 1.5 - 2.5 秒，模拟页面加载等待
+                preheat_delay = random.uniform(1.5, 2.5)
+                logger.info(f"🔥 [预热] 正在访问市场首页以刷新 CSRF Token (延迟: {preheat_delay:.2f}s)")
+                await asyncio.sleep(preheat_delay)
+                
+                # 构造 GET 请求
+                headers = profile.get_headers(referer="https://buff.163.com/")
+                
+                # 使用一次性 client 避免污染全局状态
+                async with httpx.AsyncClient(timeout=10, http2=True) as client:
+                    resp = await client.get(preheat_url, headers=headers)
+                    if resp.status_code == 200:
+                        # 关键：更新 Profile 中的 Cookie
+                        profile.update_cookies(resp.cookies)
+                        logger.info(f"✅ [预热] CSRF Token 刷新成功 | Cookie len: {len(profile.cookie)}")
+                    else:
+                        logger.warning(f"⚠️ [预热] 访问市场首页失败: {resp.status_code}")
+        except Exception as e:
+            logger.error(f"❌ [预热] 预热逻辑发生异常 (不影响后续流程): {e}")
+        # === [结束] ===
+
         current_ids = list(sell_order_ids)
         trace_id = None
         should_clear_busy = True 

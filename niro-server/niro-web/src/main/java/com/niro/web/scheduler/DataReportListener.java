@@ -114,7 +114,11 @@ public class DataReportListener implements ApplicationRunner {
             goods.setCategoryId(obj.getLong("category_id"));
             goods.setRarity(obj.getStr("rarity"));
             goods.setExterior(obj.getStr("exterior"));
-            goods.setTags(obj.getJSONObject("tags"));
+            // 转换 Hutool JSONObject 为纯 Map，避免 Jackson 序列化异常
+            JSONObject tagsJson = obj.getJSONObject("tags");
+            if (tagsJson != null) {
+                goods.setTags(tagsJson.toBean(java.util.HashMap.class));
+            }
             goods.setLastSyncTag(syncTag);
             
             list.add(goods);
