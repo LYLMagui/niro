@@ -6,7 +6,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://prod-db-cluster:5432/buff_prod?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    url: jdbc:postgresql://prod-db-cluster:5432/buff_prod?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&stringtype=unspecified
     username: ${DB_USERNAME:buff_prod}
     password: ${DB_PASSWORD:ENC(prod_password_encrypted)}
 

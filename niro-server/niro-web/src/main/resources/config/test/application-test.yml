@@ -6,7 +6,7 @@ spring:
   
   # 数据库配置
   datasource:
-    url: jdbc:postgresql://test-db-server:5432/buff_test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+    url: jdbc:postgresql://test-db-server:5432/buff_test?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8&stringtype=unspecified
     username: ${DB_USERNAME:buff_test}
     password: ${DB_PASSWORD:buff_test}
 

@@ -6,13 +6,13 @@ from storage.redis_pool import redis_async as global_redis_client
 
 # --- 业务逻辑 ---
 
-async def save_categories(categories: List[Dict], redis_async: Any = None):
+async def save_categories(categories: List[Dict], redis_async: Any = None, parent_id: int = 0) -> bool:
     """保存抓取到的分类数据 (Redis 上报)
     
     由 ShardedSpiderExecutor 调用，负责将抓取到的分类树数据推送到 Redis 队列。
     """
     if not categories:
-        return
+        return True
 
     redis_client = redis_async or global_redis_client
 
@@ -26,11 +26,11 @@ async def save_categories(categories: List[Dict], redis_async: Any = None):
             'internal_name': internal_name,
             'category_type': item.get('category_type', 'type'),
             'full_internal_name': internal_name,
-            'parent_id': item.get('parent_id', 0)
+            'parent_id': parent_id
         })
 
     if not db_items:
-        return
+        return True
 
     # 构建上报消息
     message = {
@@ -44,8 +44,11 @@ async def save_categories(categories: List[Dict], redis_async: Any = None):
         if redis_client:
             await redis_client.rpush("niro:data:report", json.dumps(message, ensure_ascii=False))
             logger.info(f"✅ 已上报 {len(db_items)} 条分类数据到 Redis")
+            return True
         else:
             logger.error("❌ 未提供 Redis 客户端，无法上报分类数据")
+            return False
     except Exception as e:
         logger.error(f"❌ 上报分类数据失败: {e}")
+        return False
 

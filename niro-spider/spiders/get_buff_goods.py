@@ -56,6 +56,7 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
                 "icon_url": goods_info.get("icon_url"),
                 "original_icon_url": goods_info.get("original_icon_url"),
                 "category_id": category_id,
+                "internal_name": tags.get("weapon", {}).get("internal_name") or tags.get("type", {}).get("internal_name"),
                 "rarity": tags.get("rarity", {}).get("internal_name"),
                 "exterior": tags.get("exterior", {}).get("internal_name"),
                 "tags": tags

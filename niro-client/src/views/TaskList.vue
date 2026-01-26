@@ -34,8 +34,8 @@
               @change="fetchData"
             >
               <t-option label="停止" :value="0" />
-              <t-option label="运行中" :value="1" />
-              <t-option label="执行中" :value="4" />
+              <t-option label="待运行" :value="1" />
+              <t-option label="运行中" :value="4" />
               <t-option label="已完成" :value="2" />
               <t-option label="异常" :value="3" />
             </t-select>
@@ -151,7 +151,7 @@
           <!-- 下单模式语义化展示 -->
           <template v-if="row.runMode === 'TRADE'">
             <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-            <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
+            <t-tag v-else-if="row.status === 1" theme="success">待运行</t-tag>
             <t-tag v-else-if="row.status === 4" theme="warning" variant="light">
               <template #icon><t-loading size="small" inherit-color /></template>
               监听中
@@ -162,7 +162,7 @@
           <!-- 其他模式展示 -->
           <template v-else>
             <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-            <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
+            <t-tag v-else-if="row.status === 1" theme="success">待运行</t-tag>
             <t-tag v-else-if="row.status === 4" theme="warning">
               {{ !row.accountNames || row.accountNames.length === 0 ? "监控中" : "执行中" }}
             </t-tag>

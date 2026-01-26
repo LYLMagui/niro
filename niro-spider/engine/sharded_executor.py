@@ -159,6 +159,9 @@ class ShardedSpiderExecutor:
 
         logger.info(f"🚀 [Task-ID: {self.task_id}] 启动分片执行器: {task_data.get('name')}, 账号数: {len(accounts)}, 待处理分类: {len(category_ids)}")
 
+        # 回调后端更新状态为运行中
+        await self._callback_status(1)
+
         final_status = 2 # 默认完成
         try:
             while self.pending_categories and self.active_accounts:
@@ -301,7 +304,9 @@ class ShardedSpiderExecutor:
         
         # 初始化队列与信号量
         queue = asyncio.Queue()
-        concurrency = 3 # 限制并发数为 3
+        # [优化] 将并发数从 3 降低为 1，避免多 Worker 同时请求导致请求频率过快触发 429
+        # 如果需要更高并发，应通过增加账号数量来实现，而不是单账号高并发
+        concurrency = 1 
         semaphore = asyncio.Semaphore(concurrency)
         
         processed_cats = []
@@ -366,11 +371,12 @@ class ShardedSpiderExecutor:
 
                             logger.info(f"🔄 [Worker] 进度: {progress:.1f}% ({idx}/{total_shard_count}) | RPM: {current_rpm}/m | 处理分类: {cat_name}")
 
-                            # 执行抓取
-                            success, p_count = await self._crawl_category(account, cat_id, limiter)
+                            # 执行抓取，传入 recent_history 以便内部实时更新 RPM
+                            success, p_count = await self._crawl_category(account, cat_id, limiter, request_history=recent_history)
                             
-                            # [新增] 记录请求时间戳 (无论成功与否)
-                            recent_history.append(time.time())
+                            # 注意：内部已经更新了 recent_history，这里不需要再次 append
+                            # 如果内部没有更新（比如抛出异常），这里可能需要补充，但为了避免复杂，
+                            # 我们假设内部函数负责所有请求相关的计数。
                             
                             if success:
                                 processed_cats.append(cat_id)
@@ -444,19 +450,19 @@ class ShardedSpiderExecutor:
             
         return processed_cats
 
-    async def _crawl_category(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> (bool, int):
+    async def _crawl_category(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter, request_history: Optional[deque] = None) -> (bool, int):
         """实际抓取逻辑 (适配不同任务类型)"""
         if self.task_type == 2: # 同步分类
-            return await self._crawl_category_tree(account, category_id, limiter), 0
+            return await self._crawl_category_tree(account, category_id, limiter, request_history=request_history), 0
         elif self.task_type == 3: # 同步商品
-            return await self._crawl_category_goods(account, category_id, limiter)
+            return await self._crawl_category_goods(account, category_id, limiter, request_history=request_history)
         elif self.task_type == 4: # 同步印花
-            return await self._crawl_stickers(account, category_id, limiter), 0
+            return await self._crawl_stickers(account, category_id, limiter, request_history=request_history), 0
         else:
             logger.error(f"Unknown task type: {self.task_type}")
             return False, 0
 
-    async def _crawl_stickers(self, account: Dict[str, Any], page_num: int, limiter: AsyncLimiter) -> bool:
+    async def _crawl_stickers(self, account: Dict[str, Any], page_num: int, limiter: AsyncLimiter, request_history: Deque[float] = None) -> bool:
         """同步印花逻辑：抓取指定页码的印花 (此时 category_id 被视为 page_num)"""
         acc_id = account["accountId"]
         raw_name = account.get("accountName")
@@ -473,7 +479,18 @@ class ShardedSpiderExecutor:
             
             # 模拟人类随机延迟
             delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-            logger.info(f"⏳ 第 {page_num} 页印花等待 {delay:.2f} 秒...")
+            
+            # [新增] RPM 计算与日志
+            rpm = 0
+            if request_history is not None:
+                now = time.time()
+                while request_history and request_history[0] < now - 60:
+                    request_history.popleft()
+                rpm = len(request_history)
+                # 更新到 account 对象以便前端展示 (可选)
+                account["current_tps"] = rpm
+                
+            logger.info(f"⏳ [印花] 第 {page_num} 页等待 {delay:.2f} 秒... | RPM: {rpm}/m")
             
             # 延迟期间检查停止信号
             slept = 0
@@ -484,6 +501,10 @@ class ShardedSpiderExecutor:
                 slept += chunk
             
             async with limiter:
+                # 记录请求
+                if request_history is not None:
+                    request_history.append(time.time())
+                    
                 if proxy:
                     async with httpx.AsyncClient(proxy=proxy, timeout=10.0, verify=False) as proxy_client:
                         data = await fetch_stickers_api(proxy_client, page_num=page_num, profile=profile)
@@ -493,9 +514,13 @@ class ShardedSpiderExecutor:
             if data and data.items:
                 # 印花按页抓取，直接入库
                 save_func = get_save_sticker_func()
-                await save_func(data.items, self.redis_async)
-                logger.info(f"✅ 成功同步第 {page_num} 页印花 ({len(data.items)} 条)")
-                return True
+                save_success = await save_func(data.items, self.redis_async)
+                if save_success:
+                    logger.info(f"✅ 成功同步第 {page_num} 页印花 ({len(data.items)} 条)")
+                    return True
+                else:
+                    logger.error(f"❌ 同步印花第 {page_num} 页失败: 保存数据失败")
+                    return False
             
             return False
         except LoginRequiredError as le:
@@ -511,7 +536,7 @@ class ShardedSpiderExecutor:
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError, httpx.ReadTimeout, ConnectionError)),
         before_sleep=before_sleep_log(logger, "WARNING")
     )
-    async def _crawl_category_tree(self, account: Dict[str, Any], p_cat_id: int, limiter: AsyncLimiter) -> bool:
+    async def _crawl_category_tree(self, account: Dict[str, Any], p_cat_id: int, limiter: AsyncLimiter, request_history: Deque[float] = None) -> bool:
         """同步分类树逻辑：抓取一级分类下的所有二级分类"""
         acc_id = account["accountId"]
         raw_name = account.get("accountName")
@@ -555,7 +580,17 @@ class ShardedSpiderExecutor:
             while page <= max_pages:
                 # 模拟人类随机延迟
                 delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-                logger.info(f"⏳ 第 {page}/{max_pages} 页等待 {delay:.2f} 秒...")
+                
+                # [新增] RPM 计算与日志
+                rpm = 0
+                if request_history is not None:
+                    now = time.time()
+                    while request_history and request_history[0] < now - 60:
+                        request_history.popleft()
+                    rpm = len(request_history)
+                    account["current_tps"] = rpm
+                    
+                logger.info(f"⏳ [{type_name}] 第 {page}/{max_pages} 页等待 {delay:.2f} 秒... | RPM: {rpm}/m")
                 
                 # 延迟期间检查停止信号
                 slept = 0
@@ -566,6 +601,10 @@ class ShardedSpiderExecutor:
                     slept += chunk
 
                 async with limiter:
+                    # 记录请求
+                    if request_history is not None:
+                        request_history.append(time.time())
+                        
                     url = "https://buff.163.com/api/market/goods"
                     params = {
                         "game": "csgo",
@@ -605,7 +644,8 @@ class ShardedSpiderExecutor:
                         break
                     raise e
 
-                if not data or not data.get("data", {}).get("items"):
+                items = data.get("data", {}).get("items")
+                if not data or not items:
                     logger.info(f"ℹ️ 第 {page} 页无数据")
                     break
 
@@ -635,9 +675,10 @@ class ShardedSpiderExecutor:
                         await self.redis_async.rpush(redis_key, *[json.dumps(c, ensure_ascii=False) for c in page_new_categories])
                         logger.info(f"💾 第 {page} 页抓取到 {len(page_new_categories)} 个新分类，已暂存 Redis")
                 
-                # 连续 3 页无新数据，认为已获取所有二级分类
-                if consecutive_empty_count >= 3:
-                    logger.info(f"✅ 连续 3 页无新数据，判定已获取所有二级分类，提前结束")
+                # 动态设置提前退出的阈值：Other 分类为 5 页，其他为 3 页
+                threshold = 5 if is_other else 3
+                if consecutive_empty_count >= threshold:
+                    logger.info(f"✅ 连续 {consecutive_empty_count} 页无新数据 (阈值: {threshold})，判定已获取所有二级分类，提前结束")
                     break
                 
                 page += 1
@@ -649,19 +690,24 @@ class ShardedSpiderExecutor:
                 if stored_items:
                     all_sub_categories = [json.loads(i) for i in stored_items]
                     save_func = get_save_category_func()
-                    await save_func(all_sub_categories, self.redis_async)
-                    logger.info(f"✅ 成功同步 {len(all_sub_categories)} 个子分类入库")
-                    has_data = True
-                    await self.redis_async.delete(redis_key)
+                    save_success = await save_func(all_sub_categories, self.redis_async, parent_id=p_cat_id)
+                    
+                    if save_success:
+                        logger.info(f"✅ 成功同步 {len(all_sub_categories)} 个子分类入库")
+                        has_data = True
+                        await self.redis_async.delete(redis_key)
+                    else:
+                        logger.error(f"❌ 同步子分类入库失败，保留 Redis 数据")
+                        return False
             
             return has_data
             
         except Exception as e:
             if isinstance(e, AccountInvalidException): raise e
-            logger.error(f"❌ 同步分类树失败: {e}")
+            logger.exception(f"❌ 同步分类树失败: {e}")
             return False
 
-    async def _crawl_category_goods(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter) -> (bool, int):
+    async def _crawl_category_goods(self, account: Dict[str, Any], category_id: int, limiter: AsyncLimiter, request_history: Deque[float] = None) -> (bool, int):
         """同步分类商品逻辑：抓取分类下的所有商品 (支持增量更新与 Hash 跳过)"""
         acc_id = account["accountId"]
         raw_name = account.get("accountName")
@@ -702,14 +748,19 @@ class ShardedSpiderExecutor:
 
             while page <= total_pages and page <= max_safe_pages:
                 # 模拟人类随机延迟 (分段变速策略)
-                if page <= 5:
-                    delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
-                else:
-                    # 深分页加速 (12s - 16s)
-                    delay = random.uniform(12.0, 16.0)
-                
+                delay = random.uniform(self.scan_interval_min, self.scan_interval_max)
                 page_info = f"{page}/{total_pages}" if total_pages > 1 else f"{page}"
-                logger.info(f"⏳ 第 {page_info} 页等待 {delay:.2f} 秒...")
+                
+                # [新增] RPM 计算与日志
+                rpm = 0
+                if request_history is not None:
+                    now = time.time()
+                    while request_history and request_history[0] < now - 60:
+                        request_history.popleft()
+                    rpm = len(request_history)
+                    account["current_tps"] = rpm
+
+                logger.info(f"⏳ [{cat_name}] 第 {page_info} 页等待 {delay:.2f} 秒... | RPM: {rpm}/m")
                 
                 # 延迟期间检查停止信号
                 slept = 0
@@ -720,6 +771,10 @@ class ShardedSpiderExecutor:
                     slept += chunk
 
                 async with limiter:
+                    # 记录请求
+                    if request_history is not None:
+                        request_history.append(time.time())
+
                     url = "https://buff.163.com/api/market/goods"
                     params = {
                         "game": "csgo",
@@ -836,6 +891,12 @@ class ShardedSpiderExecutor:
                 else:
                     logger.info(f"✅ 分类 {cat_name} 抓取完毕 (数据已全部分批入库)")
                 
+                # [Fix] 最终检查：如果 Redis 中仍有暂存数据，说明保存失败，任务应标记为失败
+                remaining = await self.redis_async.llen(redis_key)
+                if remaining > 0:
+                    logger.error(f"❌ 分类 {cat_name} 仍有 {remaining} 条数据滞留 Redis 未入库，标记为任务失败")
+                    return False, total_processed_count
+
             return True, total_processed_count
             
         except AccountInvalidException as ae:

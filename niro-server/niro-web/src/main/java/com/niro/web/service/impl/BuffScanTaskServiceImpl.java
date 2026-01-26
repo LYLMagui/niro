@@ -80,6 +80,8 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         validateParam(param);
         Long currentUserId = StpUtil.getLoginIdAsLong();
         BuffScanTask task = BeanUtil.copyProperties(param, BuffScanTask.class);
+        task.setCreateTime(LocalDateTime.now());
+        task.setUpdateTime(LocalDateTime.now());
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
             // 权限校验：仅管理员可创建系统任务
@@ -217,6 +219,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setDurationMinutes(param.getDurationMinutes());
         task.setRestPeriod(param.getRestPeriod());
         task.setScanInterval(param.getScanInterval());
+        task.setUpdateTime(LocalDateTime.now());
 
         // 如果修改了任务类型，且改为系统任务，需要校验唯一性
         if (param.getTaskType() != null && !param.getTaskType().equals(task.getTaskType())) {
@@ -375,10 +378,19 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         task.setStatus(status);
+        task.setUpdateTime(LocalDateTime.now());
         this.updateById(task);
 
         // 如果是开启任务，则推送至 Redis 队列
         if (BuffConstant.TASK_STATUS_RUNNING.equals(status)) {
+            // 校验任务是否绑定了执行账号
+            long accountCount = buffScanTaskAccountService.lambdaQuery()
+                    .eq(BuffScanTaskAccount::getTaskId, id)
+                    .count();
+            if (accountCount == 0) {
+                throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
+            }
+
             // 清除可能存在的停止信号
             redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id);
 

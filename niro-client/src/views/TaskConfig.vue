@@ -780,7 +780,7 @@ const filteredAccounts = computed(() => {
 });
 
 const rules = computed(() => ({
-  accountIds: [{ required: true, message: "请选择执行账号", type: "error", trigger: "change" }],
+  accountIds: [{ required: false, message: "请选择执行账号", type: "error", trigger: "change" }],
   targetTaskId: [
     {
       required: false,

@@ -29,7 +29,7 @@
         <postgresql.version>42.7.7</postgresql.version>
         <druid.version>1.2.20</druid.version>
         <redis.version>3.2.1</redis.version>
-        <redisson.version>3.44.0</redisson.version>
+        <redisson.version>3.45.0</redisson.version>
         <elasticsearch.version>8.11.1</elasticsearch.version>
         <rabbitmq.version>3.1.1</rabbitmq.version>
         <kafka.version>3.0.13</kafka.version>

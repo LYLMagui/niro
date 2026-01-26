@@ -93,17 +93,17 @@ async def fetch_stickers_api(client: httpx.AsyncClient, page_num: int = 1, profi
         logger.error(f"抓取印花第 {page_num} 页失败: {e}")
         return None
 
-async def upsert_stickers(items: List[BuffStickerItem], redis_async: Any = None):
+async def upsert_stickers(items: List[BuffStickerItem], redis_async: Any = None) -> bool:
     """保存印花数据 (Redis 上报)"""
     if not items:
-        return
+        return True
 
     redis_client = redis_async or global_redis_client
 
     # 1. 过滤非印花类型的杂项
     valid_items = [item.model_dump() for item in items if item.item_type == 'csgo_sticker']
     if not valid_items:
-        return
+        return True
         
     # 2. 构建上报消息
     message = {
@@ -116,10 +116,13 @@ async def upsert_stickers(items: List[BuffStickerItem], redis_async: Any = None)
         if redis_client:
             await redis_client.rpush("niro:data:report", json.dumps(message, ensure_ascii=False))
             logger.info(f"✅ 已上报 {len(valid_items)} 个印花数据到 Redis")
+            return True
         else:
             logger.error("❌ 未提供 Redis 客户端，无法上报印花数据")
+            return False
     except Exception as e:
         logger.error(f"❌ 上报印花数据失败: {e}")
+        return False
 
 async def run_sticker_sync(user_id: int = 1, task_id: int = None):
     """执行同步印花主逻辑 (Async Entry)"""

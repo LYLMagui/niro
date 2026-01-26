@@ -7,6 +7,7 @@ import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import org.apache.ibatis.type.JdbcType;
 
 import lombok.Data;
 
@@ -68,7 +69,7 @@ public class BuffGoods {
     /**
      * 标签JSON数据
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = JacksonTypeHandler.class, jdbcType = JdbcType.OTHER)
     private Object tags;
 
     /**

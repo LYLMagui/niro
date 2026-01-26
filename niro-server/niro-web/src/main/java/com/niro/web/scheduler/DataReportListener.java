@@ -2,15 +2,26 @@ package com.niro.web.scheduler;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
+
+import jakarta.annotation.PreDestroy;
 
 import org.springframework.boot.ApplicationArguments;
 import org.springframework.boot.ApplicationRunner;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Component;
 
+import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.niro.web.dto.report.BuffGoodsCategoryReportDTO;
+import com.niro.web.dto.report.BuffGoodsReportDTO;
+import com.niro.web.dto.report.BuffStickerReportDTO;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffGoodsCategory;
 import com.niro.web.entity.BuffSticker;
@@ -18,10 +29,8 @@ import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffStickerService;
 
+import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -41,6 +50,7 @@ public class DataReportListener implements ApplicationRunner {
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffStickerService buffStickerService;
+    private final ObjectMapper objectMapper;
 
     private static final String REDIS_KEY_DATA_REPORT = "niro:data:report";
     private volatile boolean running = true;
@@ -57,9 +67,11 @@ public class DataReportListener implements ApplicationRunner {
     private void consumeMessage() {
         while (running) {
             try {
-                // 阻塞式获取消息
-                String message = stringRedisTemplate.opsForList().rightPop(REDIS_KEY_DATA_REPORT, 5, TimeUnit.SECONDS);
+                // 阻塞式获取消息 (左进右出 -> FIFO: Python rpush, Java leftPop)
+                String message = stringRedisTemplate.opsForList().leftPop(REDIS_KEY_DATA_REPORT, 5, TimeUnit.SECONDS);
                 if (message != null) {
+                    // 打印前200个字符用于调试
+                    log.info("📥 [DataReport] 收到上报数据 (len={}): {}", message.length(), message.length() > 200 ? message.substring(0, 200) + "..." : message);
                     handleMessage(message);
                 }
             } catch (Exception e) {
@@ -75,15 +87,21 @@ public class DataReportListener implements ApplicationRunner {
 
     private void handleMessage(String message) {
         try {
-            JSONObject json = JSONUtil.parseObj(message);
-            String type = json.getStr("type");
+            JsonNode rootNode = objectMapper.readTree(message);
+            String type = rootNode.has("type") ? rootNode.get("type").asText() : "";
+            JsonNode dataNode = rootNode.get("data");
+            JsonNode metaNode = rootNode.get("meta");
             
+            if (dataNode == null || dataNode.isEmpty()) {
+                return;
+            }
+
             if ("GOODS_LIST".equals(type)) {
-                handleGoodsList(json);
+                handleGoodsList(dataNode, metaNode);
             } else if ("CATEGORY_LIST".equals(type)) {
-                handleCategoryList(json.getJSONArray("data"));
+                handleCategoryList(dataNode);
             } else if ("STICKER_LIST".equals(type)) {
-                handleStickerList(json.getJSONArray("data"));
+                handleStickerList(dataNode);
             } else {
                 log.warn("收到未知类型的上报数据: {}", type);
             }
@@ -93,125 +111,131 @@ public class DataReportListener implements ApplicationRunner {
         }
     }
 
-    private void handleGoodsList(JSONObject json) {
-        JSONArray data = json.getJSONArray("data");
-        JSONObject meta = json.getJSONObject("meta");
-        String syncTag = meta != null ? meta.getStr("syncTag") : null;
+    private void handleGoodsList(JsonNode dataNode, JsonNode metaNode) {
+        try {
+            List<BuffGoodsReportDTO> dtoList = objectMapper.convertValue(dataNode, new TypeReference<List<BuffGoodsReportDTO>>() {});
+            if (CollUtil.isEmpty(dtoList)) return;
 
-        if (CollUtil.isEmpty(data)) return;
-        List<BuffGoods> list = new ArrayList<>();
-        
-        for (Object item : data) {
-            JSONObject obj = (JSONObject) item;
-            BuffGoods goods = new BuffGoods();
-            // 映射字段 (Python 下划线 -> Java 驼峰/字段)
-            goods.setGoodsId(obj.getLong("goods_id"));
-            goods.setName(obj.getStr("name"));
-            goods.setMarketHashName(obj.getStr("market_hash_name"));
-            goods.setShortName(obj.getStr("short_name"));
-            goods.setIconUrl(obj.getStr("icon_url"));
-            goods.setOriginalIconUrl(obj.getStr("original_icon_url"));
-            goods.setCategoryId(obj.getLong("category_id"));
-            goods.setRarity(obj.getStr("rarity"));
-            goods.setExterior(obj.getStr("exterior"));
-            // 转换 Hutool JSONObject 为纯 Map，避免 Jackson 序列化异常
-            JSONObject tagsJson = obj.getJSONObject("tags");
-            if (tagsJson != null) {
-                goods.setTags(tagsJson.toBean(java.util.HashMap.class));
+            String syncTag = (metaNode != null && metaNode.has("syncTag")) ? metaNode.get("syncTag").asText() : null;
+            List<BuffGoods> list = new ArrayList<>();
+
+            for (BuffGoodsReportDTO dto : dtoList) {
+                BuffGoods goods = BeanUtil.copyProperties(dto, BuffGoods.class);
+                
+                // 特殊处理
+                goods.setLastSyncTag(syncTag);
+                
+                list.add(goods);
             }
-            goods.setLastSyncTag(syncTag);
-            
-            list.add(goods);
-        }
-        
-        if (CollUtil.isNotEmpty(list)) {
-            for (BuffGoods goods : list) {
-                try {
-                    BuffGoods exist = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId, goods.getGoodsId()).one();
-                    if (exist != null) {
-                        goods.setId(exist.getId());
-                        buffGoodsService.updateById(goods);
-                    } else {
-                        buffGoodsService.save(goods);
+
+            // 批量处理逻辑
+            if (CollUtil.isNotEmpty(list)) {
+                Set<Long> goodsIds = list.stream().map(BuffGoods::getGoodsId).collect(Collectors.toSet());
+                
+                // 1. 批量查询存在的记录
+                List<BuffGoods> exists = buffGoodsService.lambdaQuery()
+                        .in(BuffGoods::getGoodsId, goodsIds)
+                        .select(BuffGoods::getId, BuffGoods::getGoodsId)
+                        .list();
+                
+                Map<Long, Long> existMap = exists.stream()
+                        .collect(Collectors.toMap(BuffGoods::getGoodsId, BuffGoods::getId));
+                
+                // 2. 填充 ID 以便更新
+                for (BuffGoods goods : list) {
+                    if (existMap.containsKey(goods.getGoodsId())) {
+                        goods.setId(existMap.get(goods.getGoodsId()));
                     }
-                } catch (Exception e) {
-                    log.error("保存商品失败: {}", goods.getGoodsId(), e);
                 }
+                
+                // 3. 批量保存或更新
+                buffGoodsService.saveOrUpdateBatch(list);
+                log.info("✅ 批量处理商品数据: {} 条", list.size());
             }
-            log.info("✅ 批量处理商品数据: {} 条", list.size());
+
+        } catch (Exception e) {
+            log.error("处理商品列表失败", e);
         }
     }
 
-    private void handleCategoryList(JSONArray data) {
-        if (CollUtil.isEmpty(data)) return;
-        List<BuffGoodsCategory> list = new ArrayList<>();
-        
-        for (Object item : data) {
-            JSONObject obj = (JSONObject) item;
-            BuffGoodsCategory cat = new BuffGoodsCategory();
-            cat.setName(obj.getStr("name"));
-            cat.setInternalName(obj.getStr("internal_name"));
-            cat.setCategoryType(obj.getStr("category_type"));
-            cat.setFullInternalName(obj.getStr("full_internal_name"));
-            cat.setParentId(obj.getLong("parent_id"));
-            list.add(cat);
-        }
+    private void handleCategoryList(JsonNode dataNode) {
+        try {
+            List<BuffGoodsCategoryReportDTO> dtoList = objectMapper.convertValue(dataNode, new TypeReference<List<BuffGoodsCategoryReportDTO>>() {});
+            if (CollUtil.isEmpty(dtoList)) return;
 
-        for (BuffGoodsCategory cat : list) {
-            try {
-                // 根据 internalName 查重
-                BuffGoodsCategory exist = buffGoodsCategoryService.lambdaQuery()
-                        .eq(BuffGoodsCategory::getInternalName, cat.getInternalName())
-                        .one();
-                
-                if (exist != null) {
-                    cat.setId(exist.getId());
-                    buffGoodsCategoryService.updateById(cat);
-                } else {
-                    buffGoodsCategoryService.save(cat);
-                }
-            } catch (Exception e) {
-                log.error("保存分类失败: {}", cat.getInternalName(), e);
+            List<BuffGoodsCategory> list = new ArrayList<>();
+            for (BuffGoodsCategoryReportDTO dto : dtoList) {
+                list.add(BeanUtil.copyProperties(dto, BuffGoodsCategory.class));
             }
+
+            if (CollUtil.isNotEmpty(list)) {
+                Set<String> internalNames = list.stream().map(BuffGoodsCategory::getInternalName).collect(Collectors.toSet());
+                
+                // 1. 批量查询存在的记录
+                List<BuffGoodsCategory> exists = buffGoodsCategoryService.lambdaQuery()
+                        .in(BuffGoodsCategory::getInternalName, internalNames)
+                        .select(BuffGoodsCategory::getId, BuffGoodsCategory::getInternalName)
+                        .list();
+                
+                Map<String, Long> existMap = exists.stream()
+                        .collect(Collectors.toMap(BuffGoodsCategory::getInternalName, BuffGoodsCategory::getId));
+                
+                // 2. 填充 ID
+                for (BuffGoodsCategory cat : list) {
+                    if (existMap.containsKey(cat.getInternalName())) {
+                        cat.setId(existMap.get(cat.getInternalName()));
+                    }
+                }
+                
+                // 3. 批量保存
+                buffGoodsCategoryService.saveOrUpdateBatch(list);
+                log.info("✅ 批量处理分类数据: {} 条", list.size());
+            }
+        } catch (Exception e) {
+            log.error("处理分类列表失败", e);
         }
-        log.info("✅ 批量处理分类数据: {} 条", list.size());
     }
 
-    private void handleStickerList(JSONArray data) {
-        if (CollUtil.isEmpty(data)) return;
-        List<BuffSticker> list = new ArrayList<>();
-        
-        for (Object item : data) {
-            JSONObject obj = (JSONObject) item;
-            BuffSticker sticker = new BuffSticker();
-            sticker.setStickerId(obj.getLong("sticker_id"));
-            sticker.setName(obj.getStr("name"));
-            sticker.setImageUrl(obj.getStr("image_url"));
-            sticker.setPrice(obj.getBigDecimal("price"));
-            sticker.setSellNum(obj.getInt("sell_num"));
-            list.add(sticker);
-        }
+    private void handleStickerList(JsonNode dataNode) {
+        try {
+            List<BuffStickerReportDTO> dtoList = objectMapper.convertValue(dataNode, new TypeReference<List<BuffStickerReportDTO>>() {});
+            if (CollUtil.isEmpty(dtoList)) return;
 
-        for (BuffSticker sticker : list) {
-            try {
-                BuffSticker exist = buffStickerService.lambdaQuery()
-                        .eq(BuffSticker::getStickerId, sticker.getStickerId())
-                        .one();
-                
-                if (exist != null) {
-                    sticker.setId(exist.getId());
-                    buffStickerService.updateById(sticker);
-                } else {
-                    buffStickerService.save(sticker);
-                }
-            } catch (Exception e) {
-                log.error("保存印花失败: {}", sticker.getStickerId(), e);
+            List<BuffSticker> list = new ArrayList<>();
+            for (BuffStickerReportDTO dto : dtoList) {
+                list.add(BeanUtil.copyProperties(dto, BuffSticker.class));
             }
+
+            if (CollUtil.isNotEmpty(list)) {
+                Set<Long> stickerIds = list.stream().map(BuffSticker::getStickerId).collect(Collectors.toSet());
+                
+                // 1. 批量查询存在的记录
+                List<BuffSticker> exists = buffStickerService.lambdaQuery()
+                        .in(BuffSticker::getStickerId, stickerIds)
+                        .select(BuffSticker::getId, BuffSticker::getStickerId)
+                        .list();
+                
+                Map<Long, Long> existMap = exists.stream()
+                        .collect(Collectors.toMap(BuffSticker::getStickerId, BuffSticker::getId));
+                
+                // 2. 填充 ID
+                for (BuffSticker sticker : list) {
+                    if (existMap.containsKey(sticker.getStickerId())) {
+                        sticker.setId(existMap.get(sticker.getStickerId()));
+                    }
+                }
+                
+                // 3. 批量保存
+                buffStickerService.saveOrUpdateBatch(list);
+                log.info("✅ 批量处理印花数据: {} 条", list.size());
+            }
+        } catch (Exception e) {
+            log.error("处理印花列表失败", e);
         }
-        log.info("✅ 批量处理印花数据: {} 条", list.size());
     }
 
     // Spring 容器销毁时停止线程
+    @PreDestroy
     public void destroy() {
         this.running = false;
         executorService.shutdown();
