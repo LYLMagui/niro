@@ -880,7 +880,7 @@ class ShardedSpiderExecutor:
                     
                     # 批量保存商品
                     save_func = get_save_goods_func()
-                    rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name)
+                    rows = await save_func(page_goods, category_id, self.redis_async, self.sync_tag, cat_name, internal_name)
                     
                     if rows > 0:
                         logger.info(f"✅ 分类 {cat_name} 剩余数据入库成功: {rows} 条受影响")

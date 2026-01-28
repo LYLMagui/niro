@@ -28,6 +28,9 @@ public class BuffGoodsReportDTO {
     @JsonProperty("category_id")
     private Long categoryId;
 
+    @JsonProperty("internal_name")
+    private String internalName;
+
     private String rarity;
     private String exterior;
     

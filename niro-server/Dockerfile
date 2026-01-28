@@ -5,10 +5,13 @@ WORKDIR /app
 ENV MAVEN_OPTS="-Xmx1024m"
 COPY pom.xml .
 COPY maven-settings.xml .
+COPY niro-sdk/pom.xml niro-sdk/
 COPY niro-core/pom.xml niro-core/
 COPY niro-web/pom.xml niro-web/
 # 预下载依赖 (使用阿里云镜像加速)
 RUN mvn dependency:go-offline -s maven-settings.xml -B
+
+COPY niro-sdk/src niro-sdk/src
 COPY niro-core/src niro-core/src
 COPY niro-web/src niro-web/src
 RUN mvn clean package -s maven-settings.xml -DskipTests

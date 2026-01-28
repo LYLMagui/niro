@@ -8,7 +8,7 @@ from storage.redis_pool import redis_async as global_redis_client
 
 # --- 业务逻辑 ---
 
-async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None, sync_tag: str = None, category_name: str = None):
+async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_async: Any = None, sync_tag: str = None, category_name: str = None, internal_name: str = None):
     """批量保存商品数据 (Redis 上报)
     
     由 ShardedSpiderExecutor 调用，负责将抓取到的商品数据推送到 Redis 队列。
@@ -48,6 +48,11 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
             info = goods_info.get('info', {})
             tags = info.get('tags', {})
             
+            # 优先从 tags 获取，如果为空则使用传入的 internal_name
+            g_internal_name = tags.get("weapon", {}).get("internal_name") or tags.get("type", {}).get("internal_name")
+            if not g_internal_name and internal_name:
+                g_internal_name = internal_name
+            
             item = {
                 "goods_id": g_id,
                 "name": g.get("name"),
@@ -56,7 +61,7 @@ async def save_goods_batch(goods_list: List[Dict], category_id: int = 0, redis_a
                 "icon_url": goods_info.get("icon_url"),
                 "original_icon_url": goods_info.get("original_icon_url"),
                 "category_id": category_id,
-                "internal_name": tags.get("weapon", {}).get("internal_name") or tags.get("type", {}).get("internal_name"),
+                "internal_name": g_internal_name,
                 "rarity": tags.get("rarity", {}).get("internal_name"),
                 "exterior": tags.get("exterior", {}).get("internal_name"),
                 "tags": tags
