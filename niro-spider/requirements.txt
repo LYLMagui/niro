@@ -7,7 +7,7 @@ loguru
 pydantic
 tenacity
 pendulum
-httpx
+httpx[http2]
 async-timeout
 aiolimiter
 boltons
