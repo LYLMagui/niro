@@ -70,7 +70,7 @@
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>
-            
+
             <!-- Dotenv 支持 -->
             <dependency>
                 <groupId>me.paulschwarz</groupId>
@@ -122,13 +122,13 @@
                 <artifactId>commons-lang3</artifactId>
                 <version>${commons-lang3.version}</version>
             </dependency>
-            
+
             <dependency>
                 <groupId>cn.hutool</groupId>
                 <artifactId>hutool-all</artifactId>
                 <version>${hutool.version}</version>
             </dependency>
-            
+
             <!-- 数据库相关 -->
             <!-- PostgreSQL驱动 -->
             <dependency>
@@ -136,14 +136,14 @@
                 <artifactId>postgresql</artifactId>
                 <version>${postgresql.version}</version>
             </dependency>
-            
+
             <!-- Druid连接池 -->
             <dependency>
                 <groupId>com.alibaba</groupId>
                 <artifactId>druid-spring-boot-starter</artifactId>
                 <version>${druid.version}</version>
             </dependency>
-            
+
             <!-- 缓存中间件 -->
             <!-- Redis -->
             <dependency>
@@ -151,14 +151,14 @@
                 <artifactId>spring-boot-starter-data-redis</artifactId>
                 <version>${spring-boot.version}</version>
             </dependency>
-            
+
             <!-- Redisson分布式锁 -->
             <dependency>
                 <groupId>org.redisson</groupId>
                 <artifactId>redisson-spring-boot-starter</artifactId>
                 <version>${redisson.version}</version>
             </dependency>
-            
+
             <!-- 搜索引擎 -->
             <!-- Elasticsearch -->
             <dependency>
@@ -166,7 +166,7 @@
                 <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
                 <version>${spring-boot.version}</version>
             </dependency>
-            
+
             <!-- 消息队列 -->
             <!-- RabbitMQ -->
             <dependency>
@@ -174,7 +174,7 @@
                 <artifactId>spring-boot-starter-amqp</artifactId>
                 <version>${spring-boot.version}</version>
             </dependency>
-            
+
             <!-- JSON处理 -->
             <!-- Gson -->
             <dependency>
@@ -182,7 +182,7 @@
                 <artifactId>gson</artifactId>
                 <version>${gson.version}</version>
             </dependency>
-            
+
             <!-- 安全认证 -->
             <!-- JWT -->
             <dependency>
@@ -190,14 +190,14 @@
                 <artifactId>java-jwt</artifactId>
                 <version>${jwt.version}</version>
             </dependency>
-            
+
             <!-- 参数校验 -->
             <dependency>
                 <groupId>org.springframework.boot</groupId>
                 <artifactId>spring-boot-starter-validation</artifactId>
                 <version>${spring-boot.version}</version>
             </dependency>
-            
+
             <!-- API文档 -->
             <!-- Knife4j - 基于SpringDoc的增强API文档 -->
             <dependency>
@@ -238,7 +238,7 @@
                     <artifactId>spring-boot-maven-plugin</artifactId>
                     <version>${spring-boot.version}</version>
                 </plugin>
-                
+
                 <plugin>
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-compiler-plugin</artifactId>
@@ -271,6 +271,17 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
+            </plugin>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>repackage</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
