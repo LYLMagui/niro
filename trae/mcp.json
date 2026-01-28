@@ -1,0 +1,39 @@
+{
+  "mcpServers": {
+    "fetch": {
+      "url": "https://mcp.api-inference.modelscope.net/0e69b7660c5449/sse",
+      "command": null,
+      "args": null,
+      "env": null,
+      "headers": null
+    },
+    "chrome-devtools": {
+      "args": [
+        "chrome-devtools-mcp@latest"
+      ],
+      "command": "npx"
+    },
+    "postgres": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://niro-admin:Lyl010430.@106.53.11.158:5432/niro"
+      ],
+      "command": "npx"
+    },
+    "redis": {
+      "args": [
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://:Lyl010430.@106.53.11.158:6379"
+      ],
+      "command": "npx"
+    },
+    "EnhancedBing": {
+      "args": [
+        "bing-cn-mcp-enhanced"
+      ],
+      "command": "npx"
+    }
+  }
+}

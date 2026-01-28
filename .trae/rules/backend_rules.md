@@ -1,26 +1,20 @@
-# 后端开发规范 (Spring Boot 3 + MP)
+# Niro 后端工程军规
 
-## 1. 技术栈与约束
-- **核心**：JDK 21 + Spring Boot 3.x。
-- **ORM**：MyBatis-Plus。禁止 XML/手写 SQL，统一 `lambdaQuery()` 链式写法。
-- **注入**：构造函数注入 + `@RequiredArgsConstructor`，禁止 `@Autowired`。
-- **工具**：优先 `Hutool`（BeanUtil 转换、判空等）。禁止 VO，统一使用 DTO。
-- **类引用**：除非类名冲突，否则禁止使用全包名路径！
-- **统一查询风格**：mp的查询风格统一为 `userBuffSettingsService.lambdaQuery().eq(...).one()` 形式
-## 2. 分层与结构
-- **层级**：`controller` (入参校验) -> `service` (业务逻辑) -> `mapper` (数据访问)。
-- **规范**：`XxxService` 接口 + `XxxServiceImpl` 实现。`XxxDTO` 后缀，`XxxEnum` 枚举。
-- **响应**：直接返回实体，由框架统一封装为 `Result<T>`。
+## 1. 依赖与注入 (Strict Dependency)
+- **构造注入**：严禁使用 `@Autowired`，统一使用 `@RequiredArgsConstructor` + `private final` 字段。
+- **工具选型**：判空、集合操作、对象拷贝强制使用 `Hutool`；严禁自造轮子。
+- **类名引用**：禁止使用全路径类名（如 `com.niro.Xxx`），必须通过 `import` 引入。
 
-## 3. 数据库与一致性
-- **分页**：统一使用 `Page<T>`。
-- **删除**：必须逻辑删除 (`@TableLogic`)，操作后判断影响行数。
-- **校验**：JSR303 (`@Valid`)。
-- **异常**：`@RestControllerAdvice` 全局捕获，业务中禁止滥用 `try-catch`。
+## 2. 数据库与 ORM (MyBatis-Plus)
+- **链式查询**：统一使用 `xxxService.lambdaQuery().eq(...).one()`，禁止使用老旧的 `QueryWrapper`。
+- **软删除**：所有删除操作必须通过 `@TableLogic` 逻辑删除。执行 `delete` 后必须断言 `rows > 0`。
+- **JSON处理**：PG JSONB 字段查询允许使用 `@Select`，但必须在 Mapper 层封装，禁止污染 Service。
 
-## 5. 公共组件与工具
-- **断言工具**：`com.niro.core.util.Assert`。用于业务校验，抛出 `BusinessException`。
-- **Redis工具**：`com.niro.core.util.RedisUtil`。封装常用 Redis 操作。
-- **业务异常**：`com.niro.core.exception.BusinessException`。统一业务错误处理。
-- **常量定义**：`com.niro.core.constant.BuffConstant`。存放业务相关的通用常量。
-- **响应封装**：`com.niro.core.result.Result`。所有接口必须通过框架自动封装为此结构，拦截器已经实现自动封装，只需要返回具体的数据就行！
+## 3. 异常与业务逻辑 (Business Logic)
+- **业务断言**：禁止使用 `if (x == null) throw...`。统一使用项目内置断言：`Assert.notNull(obj, "错误消息")`。
+- **异常捕获**：业务代码严禁捕获 `Exception`，由 `@RestControllerAdvice` 统一处理。
+- **响应封装**：拦截器已处理 `Result` 封装，Controller 仅需返回数据对象或 `void`。
+
+## 4. 扫货业务专项 (Domain Specific)
+- **高并发保护**：涉及余额变更、订单创建，必须通过 `RedisUtil` 实现分布式锁，防止并发超卖。
+- **风控规避**：所有涉及 `BuffAccount` 的操作必须包含异常计数逻辑，失败后强制调用 `accountService.markFailed()`。
