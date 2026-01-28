@@ -139,7 +139,7 @@ class AsyncBuffSpider:
         except LoginRequiredError:
             raise
         except Exception as e:
-            logger.error(f"🌐 [请求异常] {url} 错误: {e}")
+            logger.error(f"🌐 [请求异常] {url} 错误: {repr(e)}")
             if attempt >= 2:
                 raise
             await asyncio.sleep(1)

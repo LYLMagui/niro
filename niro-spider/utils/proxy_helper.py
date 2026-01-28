@@ -89,6 +89,10 @@ def get_proxies():
     # 1. 优先使用全局单点代理
     proxy_url = getattr(settings, 'PROXY_URL', None)
     if proxy_url:
+        # 自动补全协议头 (httpx 必须要求)
+        if "://" not in proxy_url:
+            proxy_url = f"http://{proxy_url}"
+            
         proxies = {
             "http": proxy_url,
             "https": proxy_url
