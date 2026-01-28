@@ -17,6 +17,7 @@ from utils.exception_handler import LoginRequiredError
 from storage.redis_pool import redis_async as redis_client_async
 from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX
 from config.settings import BACKEND_URL
+from utils.proxy_helper import get_proxies
 
 # 动态导入蜘蛛逻辑中的保存方法 (避免循环依赖)
 def get_save_category_func():
@@ -468,6 +469,10 @@ class ShardedSpiderExecutor:
         raw_name = account.get("accountName")
         account_name = raw_name.replace("Acc-", "") if raw_name else f"{acc_id}"
         proxy = account.get("proxy")
+        # 如果账号未配置独立代理，尝试使用全局代理
+        if not proxy:
+            proxies = get_proxies()
+            proxy = proxies.get("http") if proxies else None
         
         from spiders.buff_sticker_spider import fetch_stickers_api
         
@@ -506,7 +511,7 @@ class ShardedSpiderExecutor:
                     request_history.append(time.time())
                     
                 if proxy:
-                    async with httpx.AsyncClient(proxy=proxy, timeout=10.0, verify=False) as proxy_client:
+                    async with httpx.AsyncClient(proxy=proxy, timeout=10.0, verify=False, http2=True) as proxy_client:
                         data = await fetch_stickers_api(proxy_client, page_num=page_num, profile=profile)
                 else:
                     data = await fetch_stickers_api(self.client, page_num=page_num, profile=profile)
@@ -560,6 +565,10 @@ class ShardedSpiderExecutor:
             "User-Agent": account.get("userAgent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
         }
         proxy = account.get("proxy")
+        # 如果账号未配置独立代理，尝试使用全局代理
+        if not proxy:
+            proxies = get_proxies()
+            proxy = proxies.get("http") if proxies else None
         
         processed_in_type = set()
         redis_key = f"niro:spider:temp:category:{self.task_id}:{p_cat_id}"
@@ -615,7 +624,7 @@ class ShardedSpiderExecutor:
                     }
                     
                     if proxy:
-                        async with httpx.AsyncClient(proxy=proxy, timeout=self.client.timeout, verify=False) as proxy_client:
+                        async with httpx.AsyncClient(proxy=proxy, timeout=self.client.timeout, verify=False, http2=True) as proxy_client:
                             response = await proxy_client.get(url, headers=headers, params=params)
                     else:
                         response = await self.client.get(url, headers=headers, params=params)
@@ -730,6 +739,10 @@ class ShardedSpiderExecutor:
             "User-Agent": account.get("userAgent")
         }
         proxy = account.get("proxy")
+        # 如果账号未配置独立代理，尝试使用全局代理
+        if not proxy:
+            proxies = get_proxies()
+            proxy = proxies.get("http") if proxies else None
         
         redis_key = f"niro:spider:temp:goods:{self.task_id}:{category_id}"
         hash_key = f"niro:spider:hash:category:{category_id}"
@@ -785,7 +798,7 @@ class ShardedSpiderExecutor:
                     }
                     
                     if proxy:
-                        async with httpx.AsyncClient(proxy=proxy, timeout=self.client.timeout, verify=False) as proxy_client:
+                        async with httpx.AsyncClient(proxy=proxy, timeout=self.client.timeout, verify=False, http2=True) as proxy_client:
                             response = await proxy_client.get(url, headers=headers, params=params)
                     else:
                         response = await self.client.get(url, headers=headers, params=params)
