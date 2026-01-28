@@ -76,4 +76,24 @@ public class UserBuffSettingsDTO {
      * 邮件接收人
      */
     private String emailReceiver;
+
+    /**
+     * C5 API Key
+     */
+    private String c5ApiKey;
+
+    /**
+     * C5 Secret Key
+     */
+    private String c5SecretKey;
+
+    /**
+     * C5 交易链接
+     */
+    private String c5TradeUrl;
+
+    /**
+     * Steam 交易链接
+     */
+    private String steamTradeUrl;
 }

@@ -1,33 +1,472 @@
 package com.niro.web.service.strategy.impl;
 
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.config.C5Config;
+import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
+import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
+import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
+import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
+import com.niro.web.dto.UserBuffSettingsDTO;
 import com.niro.web.entity.BuffAccount;
+import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
+import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.PlatformEnum;
+import com.niro.web.mapper.BuffScanTaskMapper;
+import com.niro.web.mapper.TradeOrderRecordMapper;
+import com.niro.web.scheduler.C5TaskScheduler;
+import com.niro.web.service.BuffGoodsService;
+import com.niro.web.service.UserBuffSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
+import lombok.Data;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
+import org.springframework.beans.factory.annotation.Value;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
- * C5 平台策略实现 (占位)
+ * C5 平台策略实现
+ * <p>
+ * 核心策略：Market Depth (市场深度) 锚点定价
+ * 不依赖 Buff 参考价，仅根据 C5 实时在售列表的分布情况，动态计算安全买入价。
+ * </p>
  */
 @Slf4j
 @Component
+@RequiredArgsConstructor
 public class C5TradeStrategyImpl implements IPlatformStrategy {
+
+    private final C5TaskScheduler c5TaskScheduler;
+    private final UserBuffSettingsService userBuffSettingsService;
+    private final BuffGoodsService buffGoodsService;
+    private final TradeOrderRecordMapper tradeOrderRecordMapper;
+    private final BuffScanTaskMapper buffScanTaskMapper;
+
+    @Value("${c5.base-url:https://openapi.c5game.com}")
+    private String c5BaseUrl;
+
+    // 客户端缓存 (UserId -> Client)
+    private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     @Override
     public PlatformEnum getPlatform() {
         return PlatformEnum.C5;
     }
 
+    private C5ApiClient getClient(Long userId) {
+        return clientCache.computeIfAbsent(userId, uid -> {
+            UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(uid);
+            if (settings == null) {
+                throw new com.niro.core.exception.BusinessException("用户配置不存在");
+            }
+            if (StrUtil.isBlank(settings.getC5ApiKey())) {
+                throw new com.niro.core.exception.BusinessException("C5 API Key 未配置");
+            }
+            C5Config config = new C5Config()
+                    .setApiKey(settings.getC5ApiKey())
+                    .setSecretKey(settings.getC5SecretKey())
+                    .setBaseUrl(c5BaseUrl);
+            return new C5ApiClient(config);
+        });
+    }
+
     @Override
     public void handleTask(BuffScanTask task) {
-        log.info("[C5] 收到任务启动请求: {}", task.getName());
-        // TODO: 调用 C5 SDK 创建任务
+        // 传递 executeTrade 作为业务逻辑回调
+        c5TaskScheduler.start(task, this::executeTrade);
     }
 
     @Override
     public void syncAccountBalance(BuffAccount account) {
-        log.info("[C5] 收到余额同步请求: {}", account.getAccountName());
-        // TODO: 调用 C5 SDK 查询余额
+        try {
+            C5ApiClient client = getClient(account.getUserId());
+            com.niro.sdk.c5.response.C5BalanceResponse balance = client.getAccount().getBalance(
+                    new com.niro.sdk.c5.request.account.C5AccountBalanceRequest().setAccountType(0)
+            );
+            if (balance != null && balance.getBalance() != null) {
+                account.setBalance(balance.getBalance());
+                log.info("账号 [{}] C5 余额同步成功: {}", account.getAccountName(), balance.getBalance());
+            }
+        } catch (Exception e) {
+            log.error("同步 C5 余额失败: {}", e.getMessage());
+        }
+    }
+
+    /**
+     * 执行 C5 交易核心逻辑
+     * <p>
+     * 1. 解析动态配置 (Anchor, SafeMargin)
+     * 2. 并行全量搜索 (不设价格上限)
+     * 3. 深度锚点算法计算 DynamicLimit
+     * 4. 批量下单 (Batch Buy)
+     * </p>
+     */
+    public void executeTrade(BuffScanTask task) {
+        // 0. 校验任务状态
+        if (task.getBuyCount() != null && task.getBuyCount() > 0) {
+            int currentSuccess = task.getSuccessCount() != null ? task.getSuccessCount() : 0;
+            if (currentSuccess >= task.getBuyCount()) {
+                log.info("任务 [{}] 已完成购买目标 ({}/{})，停止执行", task.getId(), currentSuccess, task.getBuyCount());
+                c5TaskScheduler.complete(task.getId());
+                return;
+            }
+        }
+
+        // 1. 准备参数与配置
+        BuffGoods goods = buffGoodsService.getById(task.getGoodsId());
+        if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
+            log.error("任务 [{}] 商品无效", task.getId());
+            c5TaskScheduler.stop(task.getId());
+            return;
+        }
+        String marketHashName = goods.getMarketHashName();
+        StrategyConfig config = parseConfig(task.getExtraConfig());
+
+        final C5ApiClient client = getClient(task.getUserId());
+
+        // 2. 并行搜索 (不传 MaxPrice 以获取市场全貌)
+        // 注意：为了获取锚点，我们需要看到比用户限价更高的商品，所以这里 maxPrice 传 null
+        CompletableFuture<List<C5ProductSearchResponse.ProductItem>> manualFuture = CompletableFuture.supplyAsync(() ->
+                searchProducts(client, marketHashName, null, task.getMinPaintwear(), task.getMaxPaintwear(), 1)
+        );
+        CompletableFuture<List<C5ProductSearchResponse.ProductItem>> autoFuture = CompletableFuture.supplyAsync(() ->
+                searchProducts(client, marketHashName, null, task.getMinPaintwear(), task.getMaxPaintwear(), 2)
+        );
+
+        CompletableFuture.allOf(manualFuture, autoFuture).join();
+
+        List<C5ProductSearchResponse.ProductItem> allItems = new ArrayList<>();
+        try {
+            List<C5ProductSearchResponse.ProductItem> list = manualFuture.get();
+            if (CollUtil.isNotEmpty(list)) allItems.addAll(list);
+        } catch (Exception e) {
+            log.warn("任务 [{}] 搜索人工发货失败: {}", task.getId(), e.getMessage());
+        }
+        try {
+            List<C5ProductSearchResponse.ProductItem> list = autoFuture.get();
+            if (CollUtil.isNotEmpty(list)) allItems.addAll(list);
+        } catch (Exception e) {
+            log.warn("任务 [{}] 搜索自动发货失败: {}", task.getId(), e.getMessage());
+        }
+
+        if (CollUtil.isEmpty(allItems)) {
+            return;
+        }
+
+        // 3. 排序 (价格升序)
+        List<C5ProductSearchResponse.ProductItem> sortedItems = allItems.stream()
+                .filter(item -> item.getPrice() != null)
+                .sorted(Comparator.comparing(C5ProductSearchResponse.ProductItem::getPrice))
+                .collect(Collectors.toList());
+
+        // 4. 深度锚点算法 (Depth Anchor Algorithm)
+        BigDecimal dynamicMaxPrice = calculateDynamicLimit(task, sortedItems, config);
+
+        // 5. 最终筛选
+        List<C5ProductSearchResponse.ProductItem> qualifiedItems = sortedItems.stream()
+                .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0) // 硬上限
+                .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0)    // 动态上限
+                .filter(item -> checkWear(item, task))                              // 磨损范围
+                .collect(Collectors.toList());
+
+        if (CollUtil.isEmpty(qualifiedItems)) {
+            return;
+        }
+
+        // 6. 批量下单
+        // 计算本轮最大购买数
+        int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
+                ? (task.getBuyCount() - (task.getSuccessCount() != null ? task.getSuccessCount() : 0))
+                : 1; // 如果没限制数量，默认单次买1个? 或者无限? 这里保守处理，若无限则单次买1个
+        // 如果 remaining <= 0，前面已经拦截，但在并发下可能需要再次检查
+        if (remaining <= 0) return;
+
+        List<C5ProductSearchResponse.ProductItem> toBuyList = qualifiedItems.subList(0, Math.min(qualifiedItems.size(), remaining));
+        doBatchBuy(client, task, toBuyList, goods);
+    }
+
+    private boolean checkWear(C5ProductSearchResponse.ProductItem item, BuffScanTask task) {
+        // 如果没有磨损要求，直接通过
+        if (task.getMinPaintwear() == null && task.getMaxPaintwear() == null) {
+            return true;
+        }
+        
+        // 获取商品磨损
+        Double wearVal = null;
+        if (item.getAssetInfo() != null) {
+            wearVal = item.getAssetInfo().getWear();
+        } else if (item.getItemInfo() != null) {
+            // 有些时候磨损可能在 itemInfo? 通常在 assetInfo
+        }
+        
+        // 如果商品没有磨损信息 (如贴纸、箱子等)，视作符合条件 (或者根据业务需求过滤?)
+        // 这里假设如果用户设置了磨损区间，但商品无磨损，则不买
+        if (wearVal == null) {
+            return task.getMinPaintwear() == null && task.getMaxPaintwear() == null;
+        }
+
+        BigDecimal wear = BigDecimal.valueOf(wearVal);
+        
+        if (task.getMinPaintwear() != null && wear.compareTo(task.getMinPaintwear()) < 0) {
+            return false;
+        }
+        if (task.getMaxPaintwear() != null && wear.compareTo(task.getMaxPaintwear()) > 0) {
+            return false;
+        }
+        return true;
+    }
+
+    /**
+     * 计算动态上限 (Price Tier Anchoring)
+     */
+    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductSearchResponse.ProductItem> sortedProducts, StrategyConfig config) {
+        BigDecimal userMax = task.getMaxPrice();
+
+        // 深度不足，降级处理
+        if (sortedProducts.size() < config.minConcurrency) {
+            log.warn("任务 [{}] 市场深度不足 (当前: {}, 阈值: {}), 降级使用用户限价: {}",
+                    task.getId(), sortedProducts.size(), config.minConcurrency, userMax);
+            return userMax;
+        }
+
+        // 1. 提取价格阶梯 (去重 + 排序)
+        List<BigDecimal> priceTiers = sortedProducts.stream()
+                .map(C5ProductSearchResponse.ProductItem::getPrice)
+                .distinct()
+                .sorted()
+                .collect(Collectors.toList());
+
+        // 2. 确定锚点
+        BigDecimal anchorPrice;
+        double currentMargin = config.safeMargin;
+
+        if (priceTiers.size() > config.anchorTierIndex) {
+            // 正常情况：取第 N 个阶梯 (例如 anchorTierIndex=1, 取第2个价格)
+            anchorPrice = priceTiers.get(config.anchorTierIndex);
+        } else {
+            // 阶梯不足 (例如只有一种价格): 取第1个价格，并扩大安全边际
+            anchorPrice = priceTiers.get(0);
+            currentMargin = config.safeMargin * 1.5;
+            log.info("任务 [{}] 价格阶梯不足 ({}个), 启用保守模式 (Margin x1.5)", task.getId(), priceTiers.size());
+        }
+
+        // 3. 计算动态上限
+        BigDecimal safeRatio = BigDecimal.ONE.subtract(BigDecimal.valueOf(currentMargin));
+        BigDecimal dynamicLimit = anchorPrice.multiply(safeRatio);
+
+        // 4. 日志
+        // 为了日志简洁，只打印前5个阶梯
+        String tierLog = priceTiers.stream().limit(5).map(String::valueOf).collect(Collectors.joining(", "));
+        log.info("任务 [{}] 价格阶梯: [{}], 锚定: {}, 动态上限: {} (Margin={}%), 用户上限={}",
+                task.getId(), tierLog, anchorPrice, dynamicLimit, String.format("%.2f", currentMargin * 100), userMax);
+
+        return dynamicLimit;
+    }
+
+    private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductSearchResponse.ProductItem> items, BuffGoods goods) {
+        String batchId = IdUtil.fastSimpleUUID();
+        log.info("任务 [{}] 触发批量购买, 批次: {}, 数量: {}", task.getId(), batchId, items.size());
+
+        // 1. 预生成订单记录 (状态: 处理中)
+        List<TradeOrderRecord> records = new ArrayList<>();
+        List<C5BatchBuyRequest.BatchProduct> batchProducts = new ArrayList<>();
+        
+        // 获取 TradeUrl
+        UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(task.getUserId());
+        String tradeUrl = (settings != null) ? settings.getSteamTradeUrl() : null;
+
+        for (C5ProductSearchResponse.ProductItem item : items) {
+            String outTradeNo = IdUtil.getSnowflakeNextIdStr(); // 每个商品独立的流水号
+
+            // 构建请求项
+            C5BatchBuyRequest.BatchProduct bp = new C5BatchBuyRequest.BatchProduct();
+            bp.setProductId(Long.valueOf(item.getId()));
+            bp.setBuyPrice(item.getPrice());
+            bp.setOutTradeNo(outTradeNo);
+            batchProducts.add(bp);
+
+            // 构建数据库记录
+            TradeOrderRecord record = new TradeOrderRecord();
+            record.setUserId(task.getUserId());
+            record.setTaskId(task.getId());
+            record.setPlatform(PlatformEnum.C5.name());
+            record.setGoodsName(goods.getMarketHashName()); // 或 item.getMarketHashName()
+            record.setMarketHashName(goods.getMarketHashName());
+            record.setGoodsId(task.getGoodsId());
+            record.setPrice(item.getPrice());
+            record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
+            if (item.getAssetInfo() != null && item.getAssetInfo().getWear() != null) {
+                record.setPaintwear(BigDecimal.valueOf(item.getAssetInfo().getWear()));
+            }
+            record.setStatus(0); // 处理中
+            record.setCreateTime(LocalDateTime.now());
+            record.setUpdateTime(LocalDateTime.now());
+            record.setOutTradeNo(outTradeNo);
+            
+            records.add(record);
+        }
+
+        // 保存记录
+        for (TradeOrderRecord record : records) {
+            tradeOrderRecordMapper.insert(record);
+        }
+
+        // 2. 调用 API
+        try {
+            C5BatchBuyRequest req = new C5BatchBuyRequest()
+                    .setTradeUrl(tradeUrl)
+                    .setProductList(batchProducts);
+
+            C5BatchBuyResponse resp = client.getTrade().batchBuy(req);
+            
+            if (resp == null) {
+                markAllFailed(records, "API返回为空");
+                return;
+            }
+
+            int successCount = 0;
+
+            // 3. 处理成功项
+            if (CollUtil.isNotEmpty(resp.getSuccessList())) {
+                for (C5BatchBuyResponse.SuccessItem successItem : resp.getSuccessList()) {
+                    updateRecordStatus(records, successItem.getOutTradeNo(), 1, successItem.getOrderId(), null);
+                    successCount++;
+                }
+            }
+
+            // 4. 处理失败项
+            if (CollUtil.isNotEmpty(resp.getFailedList())) {
+                for (C5BatchBuyResponse.FailedItem failedItem : resp.getFailedList()) {
+                    String msg = "购买失败";
+                    if (failedItem.getErrorCode() != null || StrUtil.isNotBlank(failedItem.getErrorMsg())) {
+                        msg = StrUtil.format("购买失败 [Code: {}, Msg: {}]", failedItem.getErrorCode(), failedItem.getErrorMsg());
+                    }
+                    updateRecordStatus(records, failedItem.getOutTradeNo(), 2, null, msg);
+                }
+            }
+
+            // 5. 更新任务进度
+            if (successCount > 0) {
+                // 原子更新
+                buffScanTaskMapper.update(null, new LambdaUpdateWrapper<BuffScanTask>()
+                        .eq(BuffScanTask::getId, task.getId())
+                        .setSql("success_count = COALESCE(success_count, 0) + " + successCount));
+                
+                // 更新内存中的 task 对象以便后续逻辑使用
+                task.setSuccessCount((task.getSuccessCount() == null ? 0 : task.getSuccessCount()) + successCount);
+                
+                log.info("任务 [{}] 批次 {} 完成，成功: {}, 失败: {}", task.getId(), batchId, successCount, resp.getFailNum());
+                
+                // 检查自动完成
+                if (task.getBuyCount() != null && task.getSuccessCount() >= task.getBuyCount()) {
+                     c5TaskScheduler.complete(task.getId());
+                }
+            } else {
+                log.warn("任务 [{}] 批次 {} 全部失败", task.getId(), batchId);
+            }
+
+        } catch (Exception e) {
+            log.error("任务 [{}] 批量下单异常", task.getId(), e);
+            markAllFailed(records, "异常: " + e.getMessage());
+        }
+    }
+
+    private void updateRecordStatus(List<TradeOrderRecord> records, String outTradeNo, Integer status, String platformOrderId, String errorMsg) {
+        for (TradeOrderRecord record : records) {
+            if (StrUtil.equals(record.getOutTradeNo(), outTradeNo)) {
+                record.setStatus(status);
+                if (platformOrderId != null) {
+                    record.setOrderId(platformOrderId);
+                }
+                if (errorMsg != null) {
+                    record.setErrorMsg(errorMsg);
+                }
+                record.setUpdateTime(LocalDateTime.now());
+                tradeOrderRecordMapper.updateById(record);
+                break;
+            }
+        }
+    }
+
+    private void markAllFailed(List<TradeOrderRecord> records, String errorMsg) {
+        for (TradeOrderRecord record : records) {
+            record.setStatus(2);
+            record.setErrorMsg(errorMsg);
+            record.setUpdateTime(LocalDateTime.now());
+            tradeOrderRecordMapper.updateById(record);
+        }
+    }
+
+    /**
+     * 执行单个搜索请求
+     */
+    private List<C5ProductSearchResponse.ProductItem> searchProducts(C5ApiClient client, String marketHashName, BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, Integer delivery) {
+        try {
+            C5ProductSearchRequest req = new C5ProductSearchRequest()
+                    .setAppId(730) // CS2
+                    .setMarketHashName(marketHashName)
+                    .setPageNum(1)
+                    .setPageSize(20) // 每次取前20个
+                    .setMaxPrice(maxPrice) // 传 null 则不限制
+                    .setDelivery(delivery);
+
+            if (minWear != null) {
+                req.setMinWear(minWear.doubleValue());
+            }
+            if (maxWear != null) {
+                req.setMaxWear(maxWear.doubleValue());
+            }
+
+            C5ProductSearchResponse response = client.getMarket().searchProductsByHashName(req);
+            return response != null ? response.getList() : Collections.emptyList();
+        } catch (Exception e) {
+            // log.warn("C5搜索异常 [HashName={}, Delivery={}]: {}", marketHashName, delivery, e.getMessage());
+            return Collections.emptyList();
+        }
+    }
+    
+    private StrategyConfig parseConfig(String extraConfigJson) {
+        StrategyConfig config = new StrategyConfig();
+        if (StrUtil.isNotBlank(extraConfigJson)) {
+            try {
+                JSONObject json = JSONUtil.parseObj(extraConfigJson);
+                config.anchorTierIndex = json.getInt("anchorTierIndex", 1);
+                config.safeMargin = json.getDouble("safeMargin", 0.03);
+                config.minConcurrency = json.getInt("minConcurrency", 5);
+            } catch (Exception e) {
+                log.warn("解析 ExtraConfig 失败，使用默认值", e);
+            }
+        }
+        return config;
+    }
+
+    @Data
+    private static class StrategyConfig {
+        // 默认锚定第2个阶梯 (Index 1: 次低价)
+        private int anchorTierIndex = 1;
+
+        /**
+         * 安全边际 (Safe Margin)
+         * <p>
+         * 0.01-0.02 (1%-2%): 高流动性通货 (如钥匙、红线)
+         * 0.03-0.05 (3%-5%): [默认] 热门饰品，平衡成交率与抗跌
+         * 0.08+ (8%+): 低流动性/高价值饰品，深水防套
+         * </p>
+         */
+        private double safeMargin = 0.03;
+        private int minConcurrency = 5;
     }
 }

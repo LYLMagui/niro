@@ -25,14 +25,14 @@
           @submit="handleSubmit"
         >
           <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
-            <t-form-item label="任务类型" name="taskType">
+            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
                 <t-radio :value="0">炼金扫货</t-radio>
                 <t-radio :value="1">站内倒卖</t-radio>
               </t-radio-group>
             </t-form-item>
 
-            <t-form-item label="任务模式">
+            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务模式">
               <t-tag v-if="formData.runMode === 'SCAN'" theme="primary" variant="light-outline">
                 仅扫描
               </t-tag>
@@ -50,6 +50,29 @@
                 </span>
               </template>
             </t-form-item>
+
+            <!-- C5 专属策略配置 -->
+            <template v-if="formData.platform === PlatformEnum.C5">
+              <t-form-item label="安全边际">
+                <t-input-number
+                  v-model="c5Config.safeMargin"
+                  :min="0"
+                  :max="0.5"
+                  :step="0.01"
+                  theme="column"
+                  style="width: 160px"
+                  :format="(val) => `${(val * 100).toFixed(0)}%`"
+                />
+                <span class="ml-2 text-xs text-gray-400">建议 3%-5%</span>
+              </t-form-item>
+              <t-form-item label="锚定阶梯">
+                <t-select v-model="c5Config.anchorTierIndex" style="width: 160px">
+                  <t-option :value="0" label="最低价 (Top 1)" />
+                  <t-option :value="1" label="次低价 (Top 2)" />
+                  <t-option :value="2" label="第3阶梯 (Top 3)" />
+                </t-select>
+              </t-form-item>
+            </template>
 
             <t-form-item label="选择商品" name="goodsId">
               <t-select
@@ -73,7 +96,7 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.runMode !== 'TRADE'"
+              v-if="formData.runMode !== 'TRADE' && formData.platform !== PlatformEnum.C5"
               label="关联下单任务"
               name="targetTaskId"
             >
@@ -187,7 +210,7 @@
               />
             </t-form-item>
 
-            <t-form-item label="执行账号" name="accountIds">
+            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="执行账号" name="accountIds">
               <t-select
                 v-model="formData.accountIds"
                 multiple
@@ -361,23 +384,40 @@
                   class="mt-1"
                 >
                   <div class="flex items-center gap-4">
-                    <t-input-number
-                      v-model="uiState.intervalMinValue"
-                      :min="uiState.intervalUnit === 's' ? 15 : 1"
-                      :step="1"
-                      theme="column"
-                      style="width: 90px"
-                      @blur="handleIntervalMinBlur"
-                    />
-                    <span class="text-gray-400">至</span>
-                    <t-input-number
-                      v-model="uiState.intervalMaxValue"
-                      :min="uiState.intervalUnit === 's' ? 15 : 1"
-                      :step="1"
-                      theme="column"
-                      style="width: 90px"
-                      @blur="handleIntervalMaxBlur"
-                    />
+                    <!-- C5 平台: 固定间隔，无范围，最低 1s -->
+                    <template v-if="formData.platform === PlatformEnum.C5">
+                      <t-input-number
+                        v-model="uiState.intervalMinValue"
+                        :min="1"
+                        :step="1"
+                        theme="column"
+                        style="width: 120px"
+                        @blur="handleIntervalMinBlur"
+                        @change="(v) => { uiState.intervalMaxValue = v; }"
+                      />
+                    </template>
+                    
+                    <!-- BUFF 平台: 范围间隔 -->
+                    <template v-else>
+                      <t-input-number
+                        v-model="uiState.intervalMinValue"
+                        :min="uiState.intervalUnit === 's' ? 15 : 1"
+                        :step="1"
+                        theme="column"
+                        style="width: 90px"
+                        @blur="handleIntervalMinBlur"
+                      />
+                      <span class="text-gray-400">至</span>
+                      <t-input-number
+                        v-model="uiState.intervalMaxValue"
+                        :min="uiState.intervalUnit === 's' ? 15 : 1"
+                        :step="1"
+                        theme="column"
+                        style="width: 90px"
+                        @blur="handleIntervalMaxBlur"
+                      />
+                    </template>
+
                     <t-select
                       v-model="uiState.intervalUnit"
                       style="width: 80px"
@@ -388,7 +428,9 @@
                       <t-option label="小时" value="h" />
                       <t-option label="天" value="d" />
                     </t-select>
-                    <t-tooltip content="扫描间隔建议在 15-30 秒之间，过短容易触发风控。">
+                    <t-tooltip 
+                      :content="formData.platform === PlatformEnum.C5 ? 'C5平台限制: 10秒30次 (建议间隔 >= 1秒)' : '扫描间隔建议在 15-30 秒之间，过短容易触发风控。'"
+                    >
                       <t-icon name="help-circle" class="ml-1 cursor-help text-gray-400" />
                     </t-tooltip>
                   </div>
@@ -593,6 +635,7 @@ import type { BuffScanTask, TaskSaveParam } from "@/types/task";
 import cronParser from "cron-parser";
 import { MessagePlugin, type FormRules, type SelectValue } from "tdesign-vue-next";
 import { computed, nextTick, reactive, ref, watch } from "vue";
+import { PlatformEnum } from "@/enums/PlatformEnum";
 
 const emit = defineEmits(["success"]);
 
@@ -645,6 +688,13 @@ const uiState = reactive({
   isCycleMode: false,
   restValue: 5,
   restUnit: "m" as "m" | "h" | "d",
+});
+
+// --- C5 策略配置 ---
+const c5Config = reactive({
+  safeMargin: 0.03, // 默认 3%
+  anchorTierIndex: 1, // 默认 次低价
+  minConcurrency: 5,
 });
 
 // 单位换算系数 (基准: 分钟)
@@ -767,12 +817,24 @@ const formData = reactive<any>({
   accountIds: [],
   runMode: "SCAN",
   targetTaskId: undefined,
+  platform: PlatformEnum.BUFF,
 });
 
 // 账号过滤逻辑
 const filteredAccounts = computed(() => {
-  if (!formData.runMode) return accounts.value;
-  return accounts.value.filter((account) => {
+  let list = accounts.value;
+  
+  // 1. 平台过滤
+  if (formData.platform) {
+    // 假设 Account 对象有 platform 字段，若无则默认视为 BUFF
+    // 或者根据命名约定？这里优先使用字段
+    list = list.filter(a => (a.platform || PlatformEnum.BUFF) === formData.platform);
+  }
+
+  if (!formData.runMode) return list;
+  
+  // 2. 模式/角色过滤
+  return list.filter((account) => {
     if (formData.runMode === "TRADE") return account.role === "TRADE" || account.role === "BOTH";
     if (formData.runMode === "SCAN") return account.role === "SCAN" || account.role === "BOTH";
     return true; // BOTH 模式或默认
@@ -847,9 +909,11 @@ const rules = computed(() => ({
     {
       validator: (val: any) => {
         if (formData.taskType >= 2 || formData.runMode === "TRADE") return true;
+        // C5 平台限制放宽
+        if (formData.platform === PlatformEnum.C5) return val >= 1;
         return val >= 15;
       },
-      message: "扫描间隔不得低于 15 秒",
+      message: (val: any) => (formData.platform === PlatformEnum.C5 ? "扫描间隔不得低于 1 秒" : "扫描间隔不得低于 15 秒"),
       type: "error",
       trigger: "submit",
     },
@@ -900,10 +964,14 @@ const remoteSearchGoods = async (keyword: string) => {
   }
 };
 
+const getMinInterval = () => {
+  if (formData.platform === PlatformEnum.C5) return 1;
+  return formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
+};
+
 // --- 方法 ---
 const handleIntervalUnitChange = (unit: SelectValue) => {
-  const unitStr = unit as string;
-  const min = formData.taskType < 2 && unitStr === "s" ? 15 : 1;
+  const min = getMinInterval();
   if (uiState.intervalMinValue < min) {
     uiState.intervalMinValue = min;
   }
@@ -913,7 +981,7 @@ const handleIntervalUnitChange = (unit: SelectValue) => {
 };
 
 const handleIntervalMinBlur = () => {
-  const min = formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
+  const min = getMinInterval();
   if (uiState.intervalMinValue < min) {
     uiState.intervalMinValue = min;
   }
@@ -923,7 +991,7 @@ const handleIntervalMinBlur = () => {
 };
 
 const handleIntervalMaxBlur = () => {
-  const min = formData.taskType < 2 && uiState.intervalUnit === "s" ? 15 : 1;
+  const min = getMinInterval();
   if (uiState.intervalMaxValue < min) {
     uiState.intervalMaxValue = min;
   }
@@ -972,6 +1040,7 @@ const resetForm = () => {
     accountIds: [],
     runMode: "BOTH",
     targetTaskId: undefined,
+    platform: PlatformEnum.BUFF,
   });
   uiState.durationValue = 0;
   uiState.isDurationUnlimited = true;
@@ -983,9 +1052,26 @@ const resetForm = () => {
   goodsOptions.value = [];
 };
 
-const handleAdd = (defaultMode: string = "SCAN") => {
+const handleAdd = (defaultMode: string = "SCAN", platform: string = PlatformEnum.BUFF) => {
   resetForm();
-  formData.runMode = defaultMode;
+  formData.platform = platform;
+  
+  if (platform === PlatformEnum.C5) {
+    // C5 平台强制使用 炼金扫货模式 (taskType=0) 且为 全能模式 (BOTH) 以显示价格、磨损和购买数量
+    formData.taskType = 0;
+    formData.runMode = "BOTH";
+    // 默认间隔设为 1s
+    uiState.intervalMinValue = 1;
+    uiState.intervalMaxValue = 1;
+    uiState.intervalUnit = "s";
+  } else {
+    formData.runMode = defaultMode;
+    // 恢复默认间隔
+    uiState.intervalMinValue = 15;
+    uiState.intervalMaxValue = 20;
+    uiState.intervalUnit = "s";
+  }
+  
   dialogTitle.value = "新增任务";
   dialogVisible.value = true;
   nextTick(() => {
@@ -1012,12 +1098,30 @@ const openWithGoods = (goods: GoodsSimple) => {
   dialogTitle.value = `新增扫货任务 - ${goods.name}`;
 };
 
-const handleEdit = (row: BuffScanTask) => {
+const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => {
   resetForm();
   Object.assign(formData, row);
+  formData.platform = platform;
   // 确保 accountIds 是数组，防止多选组件报错
   if (!formData.accountIds) {
     formData.accountIds = [];
+  }
+
+  // 解析 C5 配置
+  if (platform === PlatformEnum.C5 && row.extraConfig) {
+    try {
+      const parsed = JSON.parse(row.extraConfig);
+      c5Config.safeMargin = parsed.safeMargin ?? 0.03;
+      c5Config.anchorTierIndex = parsed.anchorTierIndex ?? 1;
+      c5Config.minConcurrency = parsed.minConcurrency ?? 5;
+    } catch (e) {
+      console.error("解析 C5 配置失败", e);
+    }
+  } else {
+    // 重置默认值
+    c5Config.safeMargin = 0.03;
+    c5Config.anchorTierIndex = 1;
+    c5Config.minConcurrency = 5;
   }
 
   // 初始化 UI 状态
@@ -1108,7 +1212,13 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
       targetTaskId: formData.targetTaskId,
       accountIds: formData.accountIds,
       cronExpression: formData.cronExpression,
+      platform: formData.platform,
     };
+
+    // C5 平台特殊配置序列化
+    if (formData.platform === PlatformEnum.C5) {
+      data.extraConfig = JSON.stringify(c5Config);
+    }
 
     if (uiState.isCronImmediate) {
       data.cronExpression = "* * * * * ?";

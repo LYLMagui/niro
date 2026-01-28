@@ -14,9 +14,12 @@ import java.util.concurrent.TimeUnit;
 
 /**
  * 企业微信通知服务
+ *
+ * @author niro
+ * @since 2026-01-22
  */
-@Service
 @Slf4j
+@Service
 public class WeComNotifyService {
 
     private final RedisUtil redisUtil;

@@ -42,13 +42,14 @@
           印花价值
         </t-menu-item>
 
-        <!-- 菜单项：任务配置 -->
-        <t-menu-item value="TaskConfig">
+        <!-- 菜单项：任务配置 (拆分为子菜单) -->
+        <t-submenu title="任务配置" value="TaskConfig">
           <template #icon>
             <server-icon />
           </template>
-          任务配置
-        </t-menu-item>
+          <t-menu-item value="TaskConfigBUFF">BUFF平台</t-menu-item>
+          <t-menu-item value="TaskConfigC5">C5平台</t-menu-item>
+        </t-submenu>
 
         <!-- 菜单项：订单记录 -->
         <t-menu-item value="OrderRecord">

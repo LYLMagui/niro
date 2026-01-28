@@ -1,5 +1,14 @@
 # Release Notes
 
+## 2026-01-28 (v2.24.6)
+- **C5 平台交易策略完善与修复**:
+  - **核心逻辑修复**: 修复了 `C5TradeStrategyImpl` 中的类型转换错误（UserBuffSettingsDTO 误用作 Entity）及字符编码导致的中文乱码问题。
+  - **余额同步实现**: 完成了 `syncAccountBalance` 接口实现，支持通过 C5 SDK 实时同步账号余额及状态，确保交易策略的资金校验准确性。
+  - **数据模型增强**: 在 `TradeOrderRecord` 实体中补全了缺失的 `goodsId` 字段，解决了 C5 批量下单流程中的字段引用报错。
+- **系统编译与启动优化**:
+  - **Lombok 配置清理**: 移除了 `niro-web` 模块中冗余且冲突的 `maven-compiler-plugin` 配置，恢复了全局统一的注解处理器路径，彻底解决了 Getter/Setter 缺失导致的编译失败。
+  - **后端启动验证**: 成功在 JDK 21 环境下完成全模块编译与服务启动，验证了数据库连接池、Redis 订阅及任务调度器的初始化流程。
+
 ## 2026-01-26 (v2.24.5)
 - **系统稳定性与爬虫优化**:
   - **Redisson 组件升级**: 将 Redisson 版本从 `3.44.0` 升级至 `3.45.0`，修复了 Netty 线程中偶发的 `PubSubEntry.getQueue()` 空指针异常 (NPE)，提升了 Redis 消息订阅的稳定性。

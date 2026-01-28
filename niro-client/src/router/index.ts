@@ -39,10 +39,16 @@ const routes: RouteRecordRaw[] = [
         meta: { title: "印花价值", icon: "image" },
       },
       {
-        path: "tasks",
-        name: "TaskConfig",
+        path: "tasks/buff",
+        name: "TaskConfigBUFF",
         component: () => import("@/views/TaskList.vue"),
-        meta: { title: "任务配置", icon: "server" },
+        meta: { title: "BUFF任务", icon: "server", platform: "BUFF" },
+      },
+      {
+        path: "tasks/c5",
+        name: "TaskConfigC5",
+        component: () => import("@/views/TaskList.vue"),
+        meta: { title: "C5任务", icon: "server", platform: "C5" },
       },
       {
         path: "order-record",

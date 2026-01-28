@@ -4,6 +4,8 @@ export interface UserBuffSettings {
   id?: number;
   userId?: number;
   paymentMethod: "BALANCE" | "ALIPAY" | "WECHAT";
+  c5AppKey?: string;
+  steamTradeUrl?: string;
   wecomCorpid?: string;
   wecomCorpsecret?: string;
   wecomAgentid?: string;
@@ -30,6 +32,7 @@ export interface BuffAccount {
   id?: number;
   userId?: number;
   accountName: string;
+  platform?: string; // BUFF, C5
   buffCookie: string;
   role: BuffAccountRole;
   status: BuffAccountStatus;

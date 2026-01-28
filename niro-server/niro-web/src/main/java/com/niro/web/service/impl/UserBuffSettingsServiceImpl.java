@@ -70,6 +70,10 @@ public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMap
         settings.setEmailPassword(param.getEmailPassword());
         settings.setEmailReceiver(param.getEmailReceiver());
 
+        settings.setC5ApiKey(param.getC5ApiKey());
+        settings.setC5SecretKey(param.getC5SecretKey());
+        settings.setC5TradeUrl(param.getC5TradeUrl());
+
         settings.setUpdateTime(LocalDateTime.now());
 
         if (isUpdate) {

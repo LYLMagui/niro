@@ -43,6 +43,7 @@ export interface BuffScanTask {
   updateTime: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   targetTaskId?: number;
+  platform?: string;
 }
 
 export interface TaskQueryParam {
@@ -52,6 +53,7 @@ export interface TaskQueryParam {
   status?: number;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   taskTypes?: number[];
+  platform?: string;
 }
 
 export interface TaskSaveParam {
@@ -72,4 +74,5 @@ export interface TaskSaveParam {
   accountIds?: number[];
   runMode?: "SCAN" | "TRADE" | "BOTH";
   targetTaskId?: number;
+  platform?: string;
 }

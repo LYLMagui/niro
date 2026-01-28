@@ -10,9 +10,20 @@
 
       <!-- 顶部分类 Tabs -->
       <t-tabs v-model="activeTab" class="px-6" @change="handleTabChange">
-        <t-tab-panel value="SCAN" label="扫货扫描" />
-        <t-tab-panel value="TRADE" label="下单任务" />
-        <t-tab-panel v-if="isAdmin" value="SYSTEM" label="系统任务" />
+        <t-tab-panel 
+          value="SCAN" 
+          :label="currentPlatform === PlatformEnum.C5 ? '下单任务' : '扫货扫描'" 
+        />
+        <t-tab-panel 
+          v-if="currentPlatform !== PlatformEnum.C5" 
+          value="TRADE" 
+          label="下单任务" 
+        />
+        <t-tab-panel 
+          v-if="isAdmin && currentPlatform !== PlatformEnum.C5" 
+          value="SYSTEM" 
+          label="系统任务" 
+        />
       </t-tabs>
 
       <!-- 搜索与操作栏 -->
@@ -218,11 +229,16 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, computed, watch } from "vue";
+import { useRoute } from "vue-router";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import TaskConfig from "./TaskConfig.vue";
+import { PlatformEnum } from "@/enums/PlatformEnum";
+
+const route = useRoute();
+const currentPlatform = computed(() => (route.meta.platform as string) || PlatformEnum.BUFF);
 
 // 用户信息
 const userInfo = computed(() => {
@@ -271,9 +287,17 @@ const fetchData = async () => {
       queryParams.runMode = undefined;
       queryParams.taskTypes = [2, 3, 4, 5];
     } else {
-      queryParams.runMode = activeTab.value as any;
+      // BUFF 平台根据 Tab 区分，C5 平台统一使用 BOTH 模式 (全能模式)
+      if (currentPlatform.value === PlatformEnum.C5) {
+        queryParams.runMode = "BOTH";
+      } else {
+        queryParams.runMode = activeTab.value as any;
+      }
       queryParams.taskTypes = [0, 1];
     }
+    
+    // 注入平台参数
+    queryParams.platform = currentPlatform.value;
 
     const res = await taskApi.getPage(queryParams);
     dataList.value = res.records;
@@ -307,15 +331,29 @@ const resetQuery = () => {
 };
 
 const handleAdd = () => {
-  configRef.value?.handleAdd(activeTab.value);
+  configRef.value?.handleAdd(activeTab.value, currentPlatform.value);
 };
+
+// 监听平台切换
+watch(
+  () => currentPlatform.value,
+  (val) => {
+    if (val === PlatformEnum.C5) {
+      activeTab.value = "SCAN";
+    } else {
+      // 如果切换回 BUFF 且当前是 SYSTEM，可能需要重置？或者保持不变
+    }
+    queryParams.page = 1;
+    fetchData();
+  }
+);
 
 const handleAddSystem = () => {
   configRef.value?.handleAddSystem();
 };
 
 const handleEdit = (row: BuffScanTask) => {
-  configRef.value?.handleEdit(row);
+  configRef.value?.handleEdit(row, currentPlatform.value);
 };
 
 const handleStatus = async (row: BuffScanTask, status: number) => {

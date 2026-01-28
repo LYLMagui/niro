@@ -96,6 +96,11 @@ public class BuffScanTask {
     private Integer scanInterval;
 
     /**
+     * 所属平台 (BUFF/C5)
+     */
+    private String platform;
+
+    /**
      * 最小扫描间隔(秒)
      */
     private Integer scanIntervalMin;
@@ -134,4 +139,53 @@ public class BuffScanTask {
      * 平台特殊配置(JSON)
      */
     private String extraConfig;
+
+    public Long getId() { return id; }
+    public void setId(Long id) { this.id = id; }
+    public TaskRunModeEnum getRunMode() { return runMode; }
+    public void setRunMode(TaskRunModeEnum runMode) { this.runMode = runMode; }
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+    public Long getUserId() { return userId; }
+    public void setUserId(Long userId) { this.userId = userId; }
+    public Long getGoodsId() { return goodsId; }
+    public void setGoodsId(Long goodsId) { this.goodsId = goodsId; }
+    public BigDecimal getMaxPrice() { return maxPrice; }
+    public void setMaxPrice(BigDecimal maxPrice) { this.maxPrice = maxPrice; }
+    public BigDecimal getMinPaintwear() { return minPaintwear; }
+    public void setMinPaintwear(BigDecimal minPaintwear) { this.minPaintwear = minPaintwear; }
+    public BigDecimal getMaxPaintwear() { return maxPaintwear; }
+    public void setMaxPaintwear(BigDecimal maxPaintwear) { this.maxPaintwear = maxPaintwear; }
+    public Integer getBuyCount() { return buyCount; }
+    public void setBuyCount(Integer buyCount) { this.buyCount = buyCount; }
+    public Integer getSuccessCount() { return successCount; }
+    public void setSuccessCount(Integer successCount) { this.successCount = successCount; }
+    public Integer getStatus() { return status; }
+    public void setStatus(Integer status) { this.status = status; }
+    public String getCronExpression() { return cronExpression; }
+    public void setCronExpression(String cronExpression) { this.cronExpression = cronExpression; }
+    public Integer getDurationMinutes() { return durationMinutes; }
+    public void setDurationMinutes(Integer durationMinutes) { this.durationMinutes = durationMinutes; }
+    public Integer getRestPeriod() { return restPeriod; }
+    public void setRestPeriod(Integer restPeriod) { this.restPeriod = restPeriod; }
+    public Integer getScanInterval() { return scanInterval; }
+    public void setScanInterval(Integer scanInterval) { this.scanInterval = scanInterval; }
+    public String getPlatform() { return platform; }
+    public void setPlatform(String platform) { this.platform = platform; }
+    public Integer getScanIntervalMin() { return scanIntervalMin; }
+    public void setScanIntervalMin(Integer scanIntervalMin) { this.scanIntervalMin = scanIntervalMin; }
+    public Integer getScanIntervalMax() { return scanIntervalMax; }
+    public void setScanIntervalMax(Integer scanIntervalMax) { this.scanIntervalMax = scanIntervalMax; }
+    public Integer getTaskType() { return taskType; }
+    public void setTaskType(Integer taskType) { this.taskType = taskType; }
+    public BigDecimal getMinProfit() { return minProfit; }
+    public void setMinProfit(BigDecimal minProfit) { this.minProfit = minProfit; }
+    public Long getTargetTaskId() { return targetTaskId; }
+    public void setTargetTaskId(Long targetTaskId) { this.targetTaskId = targetTaskId; }
+    public LocalDateTime getCreateTime() { return createTime; }
+    public void setCreateTime(LocalDateTime createTime) { this.createTime = createTime; }
+    public LocalDateTime getUpdateTime() { return updateTime; }
+    public void setUpdateTime(LocalDateTime updateTime) { this.updateTime = updateTime; }
+    public String getExtraConfig() { return extraConfig; }
+    public void setExtraConfig(String extraConfig) { this.extraConfig = extraConfig; }
 }

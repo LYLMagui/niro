@@ -43,6 +43,11 @@ public class TradeOrderRecord {
     private Long accountId;
 
     /**
+     * 商品ID
+     */
+    private Long goodsId;
+
+    /**
      * 平台: BUFF, C5
      */
     private String platform;
@@ -66,6 +71,11 @@ public class TradeOrderRecord {
      * 平台侧订单号(如果下单失败可能为空)
      */
     private String orderId;
+
+    /**
+     * 系统内部请求流水号
+     */
+    private String outTradeNo;
 
     /**
      * 下单价格
@@ -97,6 +107,7 @@ public class TradeOrderRecord {
      */
     @TableField(typeHandler = JacksonTypeHandler.class)
     private Map<String, Object> extraInfo;
+    
 
     /**
      * 创建时间
@@ -107,4 +118,29 @@ public class TradeOrderRecord {
      * 更新时间
      */
     private LocalDateTime updateTime;
+
+    /**
+     * 批量购买成功数量
+     */
+    private Integer successCount;
+
+    /**
+     * 批量购买失败数量
+     */
+    private Integer failCount;
+
+    /**
+     * 实际支付金额(余额变动)
+     */
+    private BigDecimal realPayAmount;
+
+    /**
+     * 购买失败金额
+     */
+    private BigDecimal failedAmount;
+
+    /**
+     * 批量交易批次号
+     */
+    private String batchNo;
 }

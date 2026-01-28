@@ -286,6 +286,34 @@
               </div>
             </section>
 
+            <!-- 平台配置 -->
+            <section>
+              <div
+                class="mb-3 flex items-center text-[13px] font-bold tracking-wider text-gray-700 uppercase"
+              >
+                <span class="mr-2">平台配置</span>
+                <div class="h-[1px] flex-1 bg-gray-100"></div>
+              </div>
+              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
+                <t-form-item label="C5 AppKey" name="c5AppKey">
+                  <template #label><span class="text-[#86909c]">C5 AppKey</span></template>
+                  <t-input
+                    v-model="formData.c5AppKey"
+                    placeholder="请输入C5平台的AppKey"
+                    @blur="(v: any) => handleInputTrim(v, formData, 'c5AppKey')"
+                  />
+                </t-form-item>
+                <t-form-item label="Steam交易链接" name="steamTradeUrl">
+                  <template #label><span class="text-[#86909c]">Steam交易链接</span></template>
+                  <t-input
+                    v-model="formData.steamTradeUrl"
+                    placeholder="请输入Steam交易链接"
+                    @blur="(v: any) => handleInputTrim(v, formData, 'steamTradeUrl')"
+                  />
+                </t-form-item>
+              </t-form>
+            </section>
+
             <!-- 交易配置 -->
             <section>
               <div
@@ -582,6 +610,8 @@ const handleInputTrim = (val: any, target: any, key: string) => {
 
 const formData = reactive<UserBuffSettings>({
   paymentMethod: "BALANCE",
+  c5AppKey: "",
+  steamTradeUrl: "",
   wecomCorpid: "",
   wecomCorpsecret: "",
   wecomAgentid: "",

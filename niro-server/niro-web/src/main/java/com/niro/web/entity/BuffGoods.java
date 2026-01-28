@@ -85,5 +85,4 @@ public class BuffGoods {
      * 修改时间
      */
     private LocalDateTime updateTime;
-    
 }
