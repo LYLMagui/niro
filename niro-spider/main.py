@@ -28,9 +28,19 @@ def main():
     """
     setup_logging()
     
+    from config import settings
+    from utils.network_util import get_current_ip
+    
+    # 获取网络信息
+    current_ip = get_current_ip()
+    proxy_status = "Enabled" if settings.ENABLE_PROXY else "Disabled"
+    proxy_url = settings.PROXY_URL if settings.ENABLE_PROXY else "N/A"
+
     logger.info("==================================================")
     logger.info("🚀 Niro Spider v2.4.0 (Message-Driven) Starting...")
     logger.info("   Mode: Async / Redis-Blocked / Sharded")
+    logger.info(f"   Network: Proxy {proxy_status} ({proxy_url})")
+    logger.info(f"   Exit IP: {current_ip}")
     logger.info("==================================================")
     
     consumer = TaskConsumer()
