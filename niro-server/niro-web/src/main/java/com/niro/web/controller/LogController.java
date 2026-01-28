@@ -60,23 +60,37 @@ public class LogController {
      * 尝试在不同可能的相对路径下寻找日志文件
      */
     private File findLogFile() {
-        String userDir = System.getProperty("user.dir");
-        log.info("🔍 正在尝试定位日志文件，当前工作目录: {}", userDir);
+        // 1. 优先使用配置路径 (Docker 容器内绝对路径)
+        if (logPath.startsWith("/")) {
+            File configLogFile = new File(logPath);
+            log.info("🔍 正在检查配置路径 (Docker/Absolute): {}", configLogFile.getAbsolutePath());
+            if (configLogFile.exists()) {
+                return configLogFile;
+            }
+        }
 
-        // 尝试从当前目录向上查找直到找到包含 niro-spider 的目录
+        // 2. 尝试从当前目录向上查找 (开发环境相对路径)
+        String userDir = System.getProperty("user.dir");
+        log.info("🔍 正在尝试自动定位日志文件 (Relative)，当前工作目录: {}", userDir);
         File current = new File(userDir);
         while (current != null) {
             File spiderLogs = new File(current, "niro-spider/logs/niro_spider.log");
-            log.info("尝试路径 (向上查找 LOG): {}", spiderLogs.getAbsolutePath());
-            if (spiderLogs.exists()) return spiderLogs;
+            if (spiderLogs.exists()) {
+                log.info("✅ 找到日志文件: {}", spiderLogs.getAbsolutePath());
+                return spiderLogs;
+            }
             
             // 兼容可能直接在 niro-spider 目录下的情况
             File directLogs = new File(current, "logs/niro_spider.log");
-            if (directLogs.exists() && current.getName().equals("niro-spider")) return directLogs;
+            if (directLogs.exists() && current.getName().equals("niro-spider")) {
+                log.info("✅ 找到日志文件: {}", directLogs.getAbsolutePath());
+                return directLogs;
+            }
             
             current = current.getParentFile();
         }
 
+        log.warn("❌ 无法定位日志文件。当前工作目录: {}, 配置路径: {}. 请检查 niro-spider 是否已启动并生成日志。", userDir, logPath);
         return null;
     }
 
