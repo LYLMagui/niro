@@ -29,5 +29,5 @@ ENV TZ=Asia/Shanghai
 
 COPY --from=build /app/niro-web/target/*.jar app.jar
 EXPOSE 8080
-# 生产环境使用 prod profile
-ENTRYPOINT ["java", "-jar", "app.jar", "--spring.profiles.active=prod"]
+# 生产环境使用 prod profile (改为由外部环境变量控制)
+ENTRYPOINT ["java", "-jar", "app.jar"]

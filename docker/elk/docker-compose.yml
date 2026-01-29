@@ -98,4 +98,5 @@ volumes:
   es_data:
     name: es_data
   niro_shared_logs_test:
+    name: niro_shared_logs_test
     external: true # 引用主业务中的日志卷

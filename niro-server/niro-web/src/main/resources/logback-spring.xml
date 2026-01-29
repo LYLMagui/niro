@@ -13,38 +13,39 @@
         </encoder>
     </appender>
 
-    <!-- Test 环境 JSON 文件日志 -->
-    <springProfile name="test">
-        <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-            <file>/app/logs/java/niro_backend.json</file>
-            <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-                <fileNamePattern>/app/logs/java/niro_backend.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
-                <maxFileSize>50MB</maxFileSize>
-                <maxHistory>7</maxHistory>
-                <totalSizeCap>1GB</totalSizeCap>
-            </rollingPolicy>
-            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
-                <includeMdc>true</includeMdc>
-                <fieldNames>
-                    <timestamp>timestamp</timestamp>
-                    <level>level</level>
-                    <thread>thread</thread>
-                    <logger>class</logger>
-                    <message>message</message>
-                </fieldNames>
-                <!-- 显式包含 traceId，如果 MDC 中有的话 -->
-                <includeContext>false</includeContext>
-            </encoder>
-        </appender>
+    <!-- JSON 文件日志 (Global) -->
+    <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>/app/logs/java/niro_backend.json</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
+            <fileNamePattern>/app/logs/java/niro_backend.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+            <maxFileSize>50MB</maxFileSize>
+            <maxHistory>7</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <includeMdc>true</includeMdc>
+            <fieldNames>
+                <timestamp>timestamp</timestamp>
+                <level>level</level>
+                <thread>thread</thread>
+                <logger>class</logger>
+                <message>message</message>
+            </fieldNames>
+            <!-- 显式包含 traceId，如果 MDC 中有的话 -->
+            <includeContext>false</includeContext>
+        </encoder>
+    </appender>
 
+    <!-- Test/Prod 环境：同时输出 Console 和 JSON -->
+    <springProfile name="test | prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="JSON_FILE"/>
         </root>
     </springProfile>
 
-    <!-- 默认环境（dev） -->
-    <springProfile name="!test">
+    <!-- Dev 环境：仅输出 Console -->
+    <springProfile name="!test &amp; !prod">
         <root level="INFO">
             <appender-ref ref="CONSOLE"/>
         </root>
