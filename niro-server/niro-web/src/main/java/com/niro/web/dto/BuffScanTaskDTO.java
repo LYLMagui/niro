@@ -84,6 +84,12 @@ public class BuffScanTaskDTO {
     @Schema(description = "站内倒卖任务的最小预期利润")
     private BigDecimal minProfit;
 
+    @Schema(description = "安全边际")
+    private BigDecimal safetyMargin;
+
+    @Schema(description = "锚定阶梯")
+    private BigDecimal ladderStep;
+
     @Schema(description = "创建时间")
     private LocalDateTime createTime;
 

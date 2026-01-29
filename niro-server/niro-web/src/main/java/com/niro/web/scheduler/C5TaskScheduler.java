@@ -9,6 +9,7 @@ import java.util.concurrent.ScheduledFuture;
 import java.util.function.Consumer;
 
 import org.springframework.scheduling.TaskScheduler;
+import org.springframework.scheduling.Trigger;
 import org.springframework.scheduling.support.CronTrigger;
 import org.springframework.stereotype.Component;
 
@@ -18,6 +19,7 @@ import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.UserBuffSettingsService;
 
+import cn.hutool.core.util.RandomUtil;
 import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -69,15 +71,29 @@ public class C5TaskScheduler {
             // Cron 调度
             future = taskScheduler.schedule(runner, new CronTrigger(task.getCronExpression()));
             log.info("任务 [{}] 已注册 Cron 调度: {}", taskId, task.getCronExpression());
+        } else if (task.getScanInterval() != null && task.getScanInterval() > 0) {
+            // Fixed Rate 调度 (优先)
+            future = taskScheduler.scheduleAtFixedRate(runner, Duration.ofSeconds(task.getScanInterval()));
+            log.info("任务 [{}] 已注册 FixedRate 调度: {} 秒", taskId, task.getScanInterval());
+        } else if (task.getScanIntervalMin() != null && task.getScanIntervalMax() != null) {
+            // Random Range 调度 (Trigger 实现 FixedDelay + Random)
+            int min = Math.max(0, task.getScanIntervalMin());
+            int max = Math.max(min, task.getScanIntervalMax());
+
+            Trigger trigger = triggerContext -> {
+                Instant lastCompletion = triggerContext.lastCompletion();
+                if (lastCompletion == null) {
+                    return Instant.now();
+                }
+                int delay = RandomUtil.randomInt(min, max + 1);
+                return lastCompletion.plus(Duration.ofSeconds(delay));
+            };
+            future = taskScheduler.schedule(runner, trigger);
+            log.info("任务 [{}] 已注册 Random Trigger 调度: {}-{} 秒", taskId, min, max);
         } else {
-            // 固定间隔调度 (默认 1 秒或从任务配置读取)
-            int intervalSeconds = task.getScanInterval() != null && task.getScanInterval() > 0 
-                    ? task.getScanInterval() 
-                    : 1; // 默认为 1 秒
-            
-            // 使用 scheduleWithFixedDelay 确保上一次执行完再等 N 秒，避免堆积
-            future = taskScheduler.scheduleWithFixedDelay(runner, Duration.ofSeconds(intervalSeconds));
-            log.info("任务 [{}] 已注册固定间隔调度: {} 秒", taskId, intervalSeconds);
+            // 默认 Fixed Rate 1s
+            future = taskScheduler.scheduleAtFixedRate(runner, Duration.ofSeconds(1));
+            log.info("任务 [{}] 未配置间隔，使用默认 FixedRate 调度: 1 秒", taskId);
         }
 
         // 4. 存入 Map

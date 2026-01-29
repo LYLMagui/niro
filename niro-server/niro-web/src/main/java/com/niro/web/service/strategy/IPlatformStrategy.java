@@ -32,6 +32,15 @@ public interface IPlatformStrategy {
     void syncAccountBalance(BuffAccount account);
 
     /**
+     * 停止任务
+     *
+     * @param taskId 任务ID
+     */
+    default void stopTask(Long taskId) {
+        // 默认空实现，避免破坏现有实现类
+    }
+
+    /**
      * 获取平台代码
      *
      * @return 平台枚举

@@ -48,7 +48,7 @@ public class BuffScanTaskController {
 
     @PostMapping("/status/{id}/{status}")
     @Operation(summary = "更新任务状态 (0:停止 1:运行)")
-    public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status) {
+    public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status, @RequestParam(required = false) String platform) {
         buffScanTaskService.updateStatus(id, status);
     }
 

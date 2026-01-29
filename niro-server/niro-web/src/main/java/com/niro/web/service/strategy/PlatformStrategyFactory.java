@@ -1,15 +1,15 @@
 package com.niro.web.service.strategy;
 
-import com.niro.core.exception.BusinessException;
-import com.niro.web.enums.PlatformEnum;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Component;
-
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Function;
 import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
+import com.niro.core.exception.BusinessException;
+import com.niro.web.enums.PlatformEnum;
 
 /**
  * 平台策略工厂

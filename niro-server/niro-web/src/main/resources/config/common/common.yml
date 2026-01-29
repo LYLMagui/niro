@@ -11,3 +11,6 @@ spring:
   jackson:
     time-zone: GMT+8
     date-format: yyyy-MM-dd HH:mm:ss
+
+c5:
+  base-url: https://openapi.c5game.com

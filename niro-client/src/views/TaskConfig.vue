@@ -67,9 +67,9 @@
               </t-form-item>
               <t-form-item label="锚定阶梯">
                 <t-select v-model="c5Config.anchorTierIndex" style="width: 160px">
-                  <t-option :value="0" label="最低价 (Top 1)" />
-                  <t-option :value="1" label="次低价 (Top 2)" />
-                  <t-option :value="2" label="第3阶梯 (Top 3)" />
+                  <t-option :value="1" label="最低价 (Top 1)" />
+                  <t-option :value="2" label="次低价 (Top 2)" />
+                  <t-option :value="3" label="第3阶梯 (Top 3)" />
                 </t-select>
               </t-form-item>
             </template>
@@ -693,7 +693,7 @@ const uiState = reactive({
 // --- C5 策略配置 ---
 const c5Config = reactive({
   safeMargin: 0.03, // 默认 3%
-  anchorTierIndex: 1, // 默认 次低价
+  anchorTierIndex: 2, // 默认 次低价 (Top 2)
   minConcurrency: 5,
 });
 
@@ -913,7 +913,7 @@ const rules = computed(() => ({
         if (formData.platform === PlatformEnum.C5) return val >= 1;
         return val >= 15;
       },
-      message: (val: any) => (formData.platform === PlatformEnum.C5 ? "扫描间隔不得低于 1 秒" : "扫描间隔不得低于 15 秒"),
+      message: (val: any) => (formData.platform === PlatformEnum.C5 ? "最小扫描间隔不能低于1秒" : "最小扫描间隔不能低于15秒"),
       type: "error",
       trigger: "submit",
     },
@@ -1112,15 +1112,16 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     try {
       const parsed = JSON.parse(row.extraConfig);
       c5Config.safeMargin = parsed.safeMargin ?? 0.03;
-      c5Config.anchorTierIndex = parsed.anchorTierIndex ?? 1;
+      // 兼容旧数据 (0-based) 转为新数据 (1-based)
+      c5Config.anchorTierIndex = parsed.anchorTierIndex !== undefined ? parsed.anchorTierIndex + 1 : 2;
       c5Config.minConcurrency = parsed.minConcurrency ?? 5;
     } catch (e) {
       console.error("解析 C5 配置失败", e);
     }
   } else {
     // 重置默认值
-    c5Config.safeMargin = 0.03;
-    c5Config.anchorTierIndex = 1;
+    c5Config.safeMargin = (row as any).safetyMargin ?? 0.03;
+    c5Config.anchorTierIndex = (row as any).ladderStep ?? 2;
     c5Config.minConcurrency = 5;
   }
 
@@ -1213,6 +1214,9 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
       accountIds: formData.accountIds,
       cronExpression: formData.cronExpression,
       platform: formData.platform,
+      // C5 独立字段
+      safetyMargin: c5Config.safeMargin,
+      ladderStep: c5Config.anchorTierIndex,
     };
 
     // C5 平台特殊配置序列化

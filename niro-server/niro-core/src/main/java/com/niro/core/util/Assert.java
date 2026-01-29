@@ -1,5 +1,6 @@
 package com.niro.core.util;
 
+import cn.hutool.core.util.StrUtil;
 import com.niro.core.exception.BusinessException;
 import org.springframework.lang.Nullable;
 import org.springframework.util.CollectionUtils;
@@ -83,6 +84,18 @@ public class Assert {
      */
     public static void notEmpty(@Nullable Object[] array, String message) {
         if (ObjectUtils.isEmpty(array)) {
+            throw new BusinessException(message);
+        }
+    }
+
+    /**
+     * 断言字符串不能为空白
+     *
+     * @param text    字符串
+     * @param message 报错信息
+     */
+    public static void notBlank(@Nullable String text, String message) {
+        if (StrUtil.isBlank(text)) {
             throw new BusinessException(message);
         }
     }

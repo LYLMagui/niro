@@ -78,9 +78,9 @@ public class UserBuffSettingsDTO {
     private String emailReceiver;
 
     /**
-     * C5 API Key
+     * C5 App Key
      */
-    private String c5ApiKey;
+    private String c5AppKey;
 
     /**
      * C5 Secret Key

@@ -87,7 +87,7 @@ public class UserBuffSettings {
     /**
      * C5 API Key
      */
-    private String c5ApiKey;
+    private String c5AppKey;
 
     /**
      * C5 Secret Key

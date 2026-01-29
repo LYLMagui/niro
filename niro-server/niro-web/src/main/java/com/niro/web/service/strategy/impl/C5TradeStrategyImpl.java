@@ -62,6 +62,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     @Override
+    public void stopTask(Long taskId) {
+        c5TaskScheduler.stop(taskId);
+    }
+
+    @Override
     public PlatformEnum getPlatform() {
         return PlatformEnum.C5;
     }
@@ -72,11 +77,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (settings == null) {
                 throw new com.niro.core.exception.BusinessException("用户配置不存在");
             }
-            if (StrUtil.isBlank(settings.getC5ApiKey())) {
-                throw new com.niro.core.exception.BusinessException("C5 API Key 未配置");
+            if (StrUtil.isBlank(settings.getC5AppKey())) {
+                throw new com.niro.core.exception.BusinessException("C5 App Key 未配置");
             }
             C5Config config = new C5Config()
-                    .setApiKey(settings.getC5ApiKey())
+                    .setApiKey(settings.getC5AppKey())
                     .setSecretKey(settings.getC5SecretKey())
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
@@ -126,24 +131,24 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1. 准备参数与配置
-        BuffGoods goods = buffGoodsService.getById(task.getGoodsId());
+        BuffGoods goods = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId,task.getGoodsId()).one();
         if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
             log.error("任务 [{}] 商品无效", task.getId());
             c5TaskScheduler.stop(task.getId());
             return;
         }
         String marketHashName = goods.getMarketHashName();
-        StrategyConfig config = parseConfig(task.getExtraConfig());
+        StrategyConfig config = buildStrategyConfig(task);
 
         final C5ApiClient client = getClient(task.getUserId());
 
         // 2. 并行搜索 (不传 MaxPrice 以获取市场全貌)
         // 注意：为了获取锚点，我们需要看到比用户限价更高的商品，所以这里 maxPrice 传 null
         CompletableFuture<List<C5ProductSearchResponse.ProductItem>> manualFuture = CompletableFuture.supplyAsync(() ->
-                searchProducts(client, marketHashName, null, task.getMinPaintwear(), task.getMaxPaintwear(), 1)
+                searchProducts(client, marketHashName, new BigDecimal(300),null,null, 1)
         );
         CompletableFuture<List<C5ProductSearchResponse.ProductItem>> autoFuture = CompletableFuture.supplyAsync(() ->
-                searchProducts(client, marketHashName, null, task.getMinPaintwear(), task.getMaxPaintwear(), 2)
+                searchProducts(client, marketHashName, new BigDecimal(300), null,null, 2)
         );
 
         CompletableFuture.allOf(manualFuture, autoFuture).join();
@@ -179,7 +184,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         List<C5ProductSearchResponse.ProductItem> qualifiedItems = sortedItems.stream()
                 .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0) // 硬上限
                 .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0)    // 动态上限
-                .filter(item -> checkWear(item, task))                              // 磨损范围
+                // .filter(item -> checkWear(item, task))                              // 磨损范围
                 .collect(Collectors.toList());
 
         if (CollUtil.isEmpty(qualifiedItems)) {
@@ -429,7 +434,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (maxWear != null) {
                 req.setMaxWear(maxWear.doubleValue());
             }
-
+            log.info("requestBody:{}",JSONUtil.toJsonPrettyStr(req));
             C5ProductSearchResponse response = client.getMarket().searchProductsByHashName(req);
             return response != null ? response.getList() : Collections.emptyList();
         } catch (Exception e) {
@@ -438,11 +443,13 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
     }
     
-    private StrategyConfig parseConfig(String extraConfigJson) {
+    private StrategyConfig buildStrategyConfig(BuffScanTask task) {
         StrategyConfig config = new StrategyConfig();
-        if (StrUtil.isNotBlank(extraConfigJson)) {
+        
+        // 1. 先尝试解析 ExtraConfig (兼容旧数据)
+        if (StrUtil.isNotBlank(task.getExtraConfig())) {
             try {
-                JSONObject json = JSONUtil.parseObj(extraConfigJson);
+                JSONObject json = JSONUtil.parseObj(task.getExtraConfig());
                 config.anchorTierIndex = json.getInt("anchorTierIndex", 1);
                 config.safeMargin = json.getDouble("safeMargin", 0.03);
                 config.minConcurrency = json.getInt("minConcurrency", 5);
@@ -450,7 +457,23 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("解析 ExtraConfig 失败，使用默认值", e);
             }
         }
+        
+        // 2. 优先使用独立字段 (如果存在)
+        if (task.getSafetyMargin() != null) {
+            config.safeMargin = task.getSafetyMargin().doubleValue();
+        }
+        if (task.getLadderStep() != null) {
+            // 新字段 ladderStep 是 1-based (1=Top1)，转换为 0-based index
+            // 如果 ladderStep=1 -> index=0
+            config.anchorTierIndex = Math.max(0, task.getLadderStep().intValue() - 1);
+        }
+        
         return config;
+    }
+
+    private StrategyConfig parseConfig(String extraConfigJson) {
+        // Deprecated, replaced by buildStrategyConfig
+        return new StrategyConfig(); 
     }
 
     @Data

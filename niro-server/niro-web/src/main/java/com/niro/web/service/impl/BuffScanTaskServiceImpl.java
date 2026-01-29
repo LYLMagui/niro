@@ -21,6 +21,7 @@ import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RedisUtil;
 import com.niro.web.dto.BuffScanTaskDTO;
+import com.niro.web.dto.UserBuffSettingsDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffAccount;
@@ -287,7 +288,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 如果是扫描或全能模式，且有关联下单的需求，建议关联下单任务
         // 这里不强制要求，但如果用户选了，我们需要确保下单任务存在
-        if (param.getTargetTaskId() != null) {
+        if (param.getTargetTaskId() != null && PlatformEnum.BUFF.equals(param.getPlatform())) {
             BuffScanTask targetTask = this.getById(param.getTargetTaskId());
             if (targetTask == null || !TaskRunModeEnum.TRADE.equals(targetTask.getRunMode())) {
                 throw new BusinessException("关联的下单任务不存在或模式错误");
@@ -297,15 +298,21 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 普通任务校验（非 TRADE 模式）
         // 如果设置了时间范围，则验证范围
         if (param.getScanIntervalMin() != null || param.getScanIntervalMax() != null) {
-            if (param.getScanIntervalMin() != null && param.getScanIntervalMin() < 15) {
-                throw new BusinessException("最小扫描间隔不能低于15秒");
+            // C5 平台限制放宽至 1 秒，Buff 平台保持 15 秒
+            int minLimit = PlatformEnum.C5.equals(param.getPlatform()) ? 1 : 15;
+            if (param.getScanIntervalMin() != null && param.getScanIntervalMin() < minLimit) {
+                throw new BusinessException(String.format("最小扫描间隔不能低于%d秒", minLimit));
             }
             if (param.getScanIntervalMax() != null && param.getScanIntervalMin() != null && param.getScanIntervalMax() < param.getScanIntervalMin()) {
                 throw new BusinessException("最大扫描间隔不能小于最小扫描间隔");
             }
-        } else if (param.getScanInterval() != null && param.getScanInterval() < 15) {
+        } else if (param.getScanInterval() != null) {
             // 如果只设置了固定间隔，则验证固定间隔
-            throw new BusinessException("普通扫描任务的间隔不能低于15秒");
+            // C5 平台限制放宽至 1 秒，Buff 平台保持 15 秒
+            int minLimit = PlatformEnum.C5.equals(param.getPlatform()) ? 1 : 15;
+            if (param.getScanInterval() < minLimit) {
+                throw new BusinessException(String.format("普通扫描任务的间隔不能低于%d秒", minLimit));
+            }
         }
 
         if (TaskTypeEnum.SNIPING.getCode().equals(param.getTaskType())) {
@@ -362,7 +369,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 }
 
                 if (needReEnqueue) {
-                    platformStrategyFactory.getStrategy(PlatformEnum.BUFF).handleTask(task);
+                    platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).handleTask(task);
                 }
             } catch (Exception e) {
                 log.error("处理任务 [{}] 自愈时发生异常", task.getId(), e);
@@ -390,12 +397,20 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 如果是开启任务，则推送至 Redis 队列
         if (BuffConstant.TASK_STATUS_RUNNING.equals(status)) {
-            // 校验任务是否绑定了执行账号
-            long accountCount = buffScanTaskAccountService.lambdaQuery()
-                    .eq(BuffScanTaskAccount::getTaskId, id)
-                    .count();
-            if (accountCount == 0) {
-                throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
+            // 校验任务是否绑定了执行账号 (C5 平台无需绑定)
+            if (!PlatformEnum.C5.name().equals(task.getPlatform())) {
+                long accountCount = buffScanTaskAccountService.lambdaQuery()
+                        .eq(BuffScanTaskAccount::getTaskId, id)
+                        .count();
+                if (accountCount == 0) {
+                    throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
+                }
+            } else if (PlatformEnum.C5.name().equals(task.getPlatform())) {
+                // C5 平台启动校验
+                UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(task.getUserId());
+                Assert.notNull(settings, "用户配置不存在");
+                Assert.notBlank(settings.getC5AppKey(), "启动失败：未配置 C5 App Key，请前往个人中心设置");
+                Assert.notBlank(settings.getSteamTradeUrl(), "启动失败：未配置 Steam 交易链接，请前往个人中心设置");
             }
 
             // 清除可能存在的停止信号
@@ -410,7 +425,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 log.info("任务 [{}] 配额已初始化: {}", id, quota);
             }
 
-            platformStrategyFactory.getStrategy(PlatformEnum.BUFF).handleTask(task);
+            platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).handleTask(task);
 
             // 构建详细启动通知
             StringBuilder sb = new StringBuilder();
@@ -441,6 +456,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id, "1", 5, TimeUnit.MINUTES);
             // 从 Redis 心跳中移除
             redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
+            // 调用策略停止任务 (C5 等平台需要主动停止)
+            platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).stopTask(id);
+            
             weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName() + " (ID: " + task.getId() + ")", task.getUserId());
         }
     }
@@ -504,9 +522,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 仅在任务处于运行状态时更新状态 (幂等性保证：如果已是终态，则忽略)
-        boolean isRunning = BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus()) 
+        boolean isRunning = BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus())
                 || BuffConstant.TASK_STATUS_SYSTEM_RUNNING.equals(existTask.getStatus());
-        
+
         if (isRunning) {
             existTask.setStatus(task.getStatus());
             existTask.setUpdateTime(LocalDateTime.now());
@@ -538,7 +556,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
             weComNotifyService.sendText(sb.toString(), existTask.getUserId());
             log.info("任务 [{}] 状态回调处理完成: {} -> {}", existTask.getId(), BuffConstant.TASK_STATUS_RUNNING, task.getStatus());
-            
+
             // 任务结束，清理心跳和停止信号
             redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, existTask.getId().toString());
             redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());

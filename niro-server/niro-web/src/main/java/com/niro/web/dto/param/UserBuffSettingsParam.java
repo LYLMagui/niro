@@ -1,7 +1,6 @@
 package com.niro.web.dto.param;
 
 import com.niro.web.enums.PaymentMethodEnum;
-import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
@@ -71,9 +70,9 @@ public class UserBuffSettingsParam {
     private String emailReceiver;
 
     /**
-     * C5 API Key
+     * C5 APP Key
      */
-    private String c5ApiKey;
+    private String c5AppKey;
 
     /**
      * C5 Secret Key
@@ -84,4 +83,9 @@ public class UserBuffSettingsParam {
      * C5 交易链接
      */
     private String c5TradeUrl;
+
+    /**
+     * Steam 交易链接
+     */
+    private String steamTradeUrl;
 }

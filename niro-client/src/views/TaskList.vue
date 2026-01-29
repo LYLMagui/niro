@@ -358,7 +358,7 @@ const handleEdit = (row: BuffScanTask) => {
 
 const handleStatus = async (row: BuffScanTask, status: number) => {
   try {
-    await taskApi.updateStatus(row.id, status);
+    await taskApi.updateStatus(row.id, status, row.platform);
     MessagePlugin.success(status === 1 ? "启动成功" : "停止成功");
     fetchData();
   } catch (error) {
