@@ -1,5 +1,11 @@
 # Release Notes
 
+## 2026-01-29 (v2.24.9)
+- **数据库兼容性与持久化修复**:
+  - **PostgreSQL JSON 类型转换修复**: 修复了在测试环境下执行数据库写入时出现的 `PSQLException: column "tags" is of type json but expression is of type character varying` 错误。
+  - **类型处理器实现**: 新增了 `PostgresJsonTypeHandler`，通过显式使用 `PGobject` 声明 JSON 类型，解决了 MyBatis-Plus 默认 `JacksonTypeHandler` 在 PostgreSQL 环境下的兼容性问题。
+  - **实体映射优化**: 更新了 `BuffGoods` 与 `TradeOrderRecord` 实体类，将 JSON/Map 类型的字段（如 `tags`, `extraInfo`）统一切换至自定义的 PostgreSQL 专用类型处理器。
+
 ## 2026-01-29 (v2.24.8)
 - **运维与监控增强**:
   - **网络状态可视化**: 在 Python 爬虫启动日志中新增了代理状态 (`Proxy Enabled/Disabled`) 及当前出口 IP 的实时检测打印，便于运维人员快速确认网络环境（如 Clash/VPN 是否生效）。

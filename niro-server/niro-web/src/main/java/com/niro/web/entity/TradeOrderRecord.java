@@ -4,8 +4,9 @@ import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.baomidou.mybatisplus.extension.handlers.JacksonTypeHandler;
+import com.niro.web.config.PostgresJsonTypeHandler;
 import lombok.Data;
+import org.apache.ibatis.type.JdbcType;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -105,7 +106,7 @@ public class TradeOrderRecord {
     /**
      * 扩展字段(印花信息、贴纸等)
      */
-    @TableField(typeHandler = JacksonTypeHandler.class)
+    @TableField(typeHandler = PostgresJsonTypeHandler.class, jdbcType = JdbcType.OTHER)
     private Map<String, Object> extraInfo;
     
 
