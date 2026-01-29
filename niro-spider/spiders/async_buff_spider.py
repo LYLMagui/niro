@@ -439,21 +439,19 @@ class AsyncBuffSpider:
             await asyncio.sleep(5)
 
     async def _callback_status(self, task_id: int, status: int):
-        """回调后端更新任务状态"""
-        url = f"{BACKEND_URL}/task/callback/status"
+        """回调后端更新任务状态 (Redis Queue)"""
         payload = {
             "id": task_id,
             "status": status
         }
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    logger.info(f"✅ [任务ID: {task_id}] 状态回调成功: {status}")
-                else:
-                    logger.error(f"❌ [任务ID: {task_id}] 状态回调失败: {resp.status_code}, {resp.text}")
+            if self.redis:
+                await self.redis.lpush("niro:queue:task:status", json.dumps(payload))
+                logger.info(f"✅ [任务ID: {task_id}] 状态已推入 Redis 队列: {status}")
+            else:
+                logger.warning(f"⚠️ [任务ID: {task_id}] Redis 未初始化，无法推送状态")
         except Exception as e:
-            logger.error(f"❌ [任务ID: {task_id}] 状态回调异常: {e}")
+            logger.error(f"❌ [任务ID: {task_id}] 状态推送异常: {e}")
 
     async def _account_scan_loop(self, task_data: Dict[str, Any], account: Dict[str, Any]):
         """单个账号的扫描循环"""

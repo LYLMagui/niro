@@ -233,21 +233,19 @@ class ShardedSpiderExecutor:
         return is_stopped
 
     async def _callback_status(self, status: int):
-        """回调后端更新任务状态"""
-        url = f"{BACKEND_URL}/task/callback/status"
+        """回调后端更新任务状态 (Redis Queue)"""
         payload = {
             "id": self.task_id,
             "status": status
         }
         try:
-            async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(url, json=payload)
-                if resp.status_code == 200:
-                    logger.info(f"✅ [Task-ID: {self.task_id}] 状态回调成功: {status}")
-                else:
-                    logger.error(f"❌ [Task-ID: {self.task_id}] 状态回调失败: {resp.status_code}, {resp.text}")
+            if self.redis_async:
+                await self.redis_async.lpush("niro:queue:task:status", json.dumps(payload))
+                logger.info(f"✅ [Task-ID: {self.task_id}] 状态已推入 Redis 队列: {status}")
+            else:
+                logger.warning(f"⚠️ [Task-ID: {self.task_id}] Redis 未初始化，无法推送状态")
         except Exception as e:
-            logger.error(f"❌ [Task-ID: {self.task_id}] 状态回调异常: {e}")
+            logger.error(f"❌ [Task-ID: {self.task_id}] 状态推送异常: {e}")
 
     def _shard_categories(self) -> Dict[int, List[int]]:
         """将 pending_categories 根据账号权重均匀分配给 active_accounts (优先选择 NORMAL 账号)"""

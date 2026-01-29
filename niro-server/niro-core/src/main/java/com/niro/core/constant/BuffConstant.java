@@ -26,6 +26,21 @@ public class BuffConstant {
      * 任务状态：已停止
      */
     public static final Integer TASK_STATUS_STOPPED = 0;
+
+    /**
+     * 任务状态：已完成
+     */
+    public static final Integer TASK_STATUS_FINISHED = 2;
+
+    /**
+     * 任务状态：异常
+     */
+    public static final Integer TASK_STATUS_ERROR = 3;
+
+    /**
+     * 任务状态：系统任务运行中
+     */
+    public static final Integer TASK_STATUS_SYSTEM_RUNNING = 4;
     
     /**
      * BUFF 游戏名称：CSGO
@@ -38,6 +53,11 @@ public class BuffConstant {
     public static final String REDIS_TASK_QUEUE_HIGH = "niro:tasks:priority:high";
     public static final String REDIS_TASK_QUEUE_MEDIUM = "niro:tasks:priority:medium";
     public static final String REDIS_TASK_QUEUE_LOW = "niro:tasks:priority:low";
+
+    /**
+     * Redis 任务状态回调队列 Key
+     */
+    public static final String REDIS_QUEUE_TASK_STATUS = "niro:queue:task:status";
 
     /**
      * Redis 任务停止信号 Key 前缀

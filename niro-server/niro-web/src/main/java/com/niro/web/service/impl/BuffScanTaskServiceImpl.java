@@ -493,18 +493,26 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
     @Override
     public void taskCallback(BuffScanTask task) {
+        Assert.notNull(task, "回调参数不能为空");
+        Assert.notNull(task.getId(), "回调任务ID不能为空");
+        Assert.notNull(task.getStatus(), "回调状态不能为空");
+
         BuffScanTask existTask = this.getById(task.getId());
         if (existTask == null) {
             log.warn("回调任务不存在: {}", task.getId());
             return;
         }
 
-        // 仅在任务处于运行状态时更新状态
-        if (BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus()) || Integer.valueOf(4).equals(existTask.getStatus())) {
+        // 仅在任务处于运行状态时更新状态 (幂等性保证：如果已是终态，则忽略)
+        boolean isRunning = BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus()) 
+                || BuffConstant.TASK_STATUS_SYSTEM_RUNNING.equals(existTask.getStatus());
+        
+        if (isRunning) {
             existTask.setStatus(task.getStatus());
+            existTask.setUpdateTime(LocalDateTime.now());
             this.updateById(existTask);
 
-            String statusDesc = task.getStatus() == 2 ? "✅ 已完成" : "⚠️ 异常停止";
+            String statusDesc = BuffConstant.TASK_STATUS_FINISHED.equals(task.getStatus()) ? "✅ 已完成" : "⚠️ 异常停止";
 
             // 构建详细结束通知
             StringBuilder sb = new StringBuilder();
@@ -513,7 +521,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             sb.append("📝 任务名称：").append(existTask.getName()).append("\n");
             sb.append("🆔 任务 ID：").append(existTask.getId()).append("\n");
 
-            // 计算运行时长 (基于更新时间，虽然不完全精准但能提供参考)
+            // 计算运行时长
             if (existTask.getUpdateTime() != null) {
                 Duration duration = Duration.between(existTask.getUpdateTime(), LocalDateTime.now());
                 long seconds = duration.getSeconds();
@@ -522,19 +530,21 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             }
 
             if (!TaskTypeEnum.isSystemTask(existTask.getTaskType())) {
-                sb.append("📦 购买进度：").append(existTask.getSuccessCount() != null ? existTask.getSuccessCount() : 0)
-                        .append(" / ").append(existTask.getBuyCount() != null ? existTask.getBuyCount() : "-").append("\n");
+                sb.append("📊 最终进度：").append(existTask.getSuccessCount()).append(" / ").append(existTask.getBuyCount()).append("\n");
             }
 
             sb.append("📅 结束时间：").append(DateUtil.now()).append("\n");
             sb.append("━━━━━━━━━━━━━━━");
 
             weComNotifyService.sendText(sb.toString(), existTask.getUserId());
+            log.info("任务 [{}] 状态回调处理完成: {} -> {}", existTask.getId(), BuffConstant.TASK_STATUS_RUNNING, task.getStatus());
+            
+            // 任务结束，清理心跳和停止信号
+            redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, existTask.getId().toString());
+            redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());
+        } else {
+            log.info("任务 [{}] 状态回调忽略: 当前状态 {} 非运行中", existTask.getId(), existTask.getStatus());
         }
-
-        // 任务结束，清理心跳和停止信号
-        redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, existTask.getId().toString());
-        redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());
     }
 
     // 方法已移除，逻辑迁移至 BuffTradeStrategyImpl

@@ -1,5 +1,12 @@
 # Release Notes
 
+## 2026-01-29 (v2.25.0)
+- **任务状态回调重构 (异步化)**:
+  - **架构升级**: 将任务状态回调机制从 HTTP 同步请求重构为 Redis 异步队列 (`niro:queue:task:status`)，提升系统鲁棒性，防止后端重启导致的状态丢失。
+  - **后端消费者**: 新增 `TaskStatusConsumer`，基于 `StringRedisTemplate` 和单线程执行器实现阻塞式消费，确保状态更新的有序性与可靠性。
+  - **服务幂等性**: 增强 `BuffScanTaskService.taskCallback` 逻辑，引入状态机检查与幂等性控制，防止重复回调导致的状态异常。
+  - **爬虫端适配**: 同步更新 `sharded_executor.py` 与 `async_buff_spider.py`，移除 `httpx` 回调逻辑，改为直接推送 Redis 队列。
+
 ## 2026-01-29 (v2.24.9)
 - **数据库兼容性与持久化修复**:
   - **PostgreSQL JSON 类型转换修复**: 修复了在测试环境下执行数据库写入时出现的 `PSQLException: column "tags" is of type json but expression is of type character varying` 错误。
