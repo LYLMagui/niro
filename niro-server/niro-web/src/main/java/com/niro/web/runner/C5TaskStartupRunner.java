@@ -35,12 +35,12 @@ public class C5TaskStartupRunner implements ApplicationRunner {
 
         List<BuffScanTask> runningTasks = buffScanTaskService.list(
                 new LambdaQueryWrapper<BuffScanTask>()
-                        .eq(BuffScanTask::getPlatform, PlatformEnum.C5.name())
-                        .eq(BuffScanTask::getStatus, TaskStatusEnum.RUNNING.getCode())
+                        .eq(BuffScanTask::getPlatform, PlatformEnum.C5.getCode())
+                        .in(BuffScanTask::getStatus, TaskStatusEnum.RUNNING.getCode(), TaskStatusEnum.SCHEDULED.getCode())
         );
 
         if (runningTasks.isEmpty()) {
-            log.info("C5 平台无运行中任务需要恢复");
+            log.info("C5 平台无运行中或定时等待中的任务需要恢复");
             return;
         }
 

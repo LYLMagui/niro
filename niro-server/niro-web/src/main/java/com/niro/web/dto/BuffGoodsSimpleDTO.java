@@ -20,4 +20,7 @@ public class BuffGoodsSimpleDTO {
 
     @Schema(description = "商品名称")
     private String name;
+
+    @Schema(description = "父级分类名称")
+    private String parentCategoryName;
 }

@@ -3,6 +3,7 @@ import NProgress from "nprogress"; // 引入进度条
 import "nprogress/nprogress.css"; // 引入进度条样式
 import { MessagePlugin } from "tdesign-vue-next";
 import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
+import { PlatformEnum } from "@/enums/PlatformEnum";
 
 // 配置 NProgress
 NProgress.configure({ showSpinner: false });
@@ -42,13 +43,13 @@ const routes: RouteRecordRaw[] = [
         path: "tasks/buff",
         name: "TaskConfigBUFF",
         component: () => import("@/views/TaskList.vue"),
-        meta: { title: "BUFF任务", icon: "server", platform: "BUFF" },
+        meta: { title: "BUFF任务", icon: "server", platform: PlatformEnum.BUFF },
       },
       {
         path: "tasks/c5",
         name: "TaskConfigC5",
         component: () => import("@/views/TaskList.vue"),
-        meta: { title: "C5任务", icon: "server", platform: "C5" },
+        meta: { title: "C5任务", icon: "server", platform: PlatformEnum.C5 },
       },
       {
         path: "order-record",

@@ -13,6 +13,8 @@ import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.mapper.TradeOrderRecordMapper;
+import com.niro.web.enums.OrderStatusEnum;
+import com.niro.web.enums.PlatformEnum;
 import com.niro.web.service.BuffAccountService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.TradeOrderRecordService;
@@ -23,9 +25,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /**
@@ -62,7 +62,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             }
 
             TradeOrderRecord record = new TradeOrderRecord();
-            record.setPlatform(json.getStr("platform", "BUFF"));
+            record.setPlatform(json.getStr("platform", PlatformEnum.BUFF.getCode()));
             record.setUserId(json.getLong("userId", 0L));
             record.setTaskId(json.getLong("taskId", 0L));
             record.setAccountId(json.getLong("accountId", 0L));
@@ -72,7 +72,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             record.setOrderId(orderId);
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
             record.setPaintwear(json.getBigDecimal("paintwear", BigDecimal.ZERO));
-            record.setStatus(json.getInt("status", 0));
+            record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
             record.setErrorMsg(json.getStr("errorMsg", ""));
             record.setErrorCode(json.getStr("errorCode", ""));
             
@@ -94,7 +94,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
 
             // 同步任务进度 (仅成功订单触发)
-            if (Integer.valueOf(1).equals(record.getStatus()) && record.getTaskId() != null && record.getTaskId() > 0) {
+            if (OrderStatusEnum.SUCCESS.getCode().equals(record.getStatus()) && record.getTaskId() != null && record.getTaskId() > 0) {
                 try {
                     buffScanTaskService.syncTaskProgress(record.getTaskId());
                 } catch (Exception e) {

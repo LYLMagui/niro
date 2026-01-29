@@ -11,12 +11,12 @@
       <!-- 顶部分类 Tabs -->
       <t-tabs v-model="activeTab" class="px-6" @change="handleTabChange">
         <t-tab-panel 
-          value="SCAN" 
+          :value="TaskRunModeEnum.SCAN" 
           :label="currentPlatform === PlatformEnum.C5 ? '下单任务' : '扫货扫描'" 
         />
         <t-tab-panel 
           v-if="currentPlatform !== PlatformEnum.C5" 
-          value="TRADE" 
+          :value="TaskRunModeEnum.TRADE" 
           label="下单任务" 
         />
         <t-tab-panel 
@@ -44,11 +44,11 @@
               clearable
               @change="fetchData"
             >
-              <t-option label="停止" :value="0" />
-              <t-option label="运行中" :value="1" />
-              <t-option label="系统运行中" :value="4" />
-              <t-option label="已完成" :value="2" />
-              <t-option label="异常" :value="3" />
+              <t-option :label="TaskStatusMap[TaskStatusEnum.STOPPED].label" :value="TaskStatusEnum.STOPPED" />
+              <t-option :label="TaskStatusMap[TaskStatusEnum.RUNNING].label" :value="TaskStatusEnum.RUNNING" />
+              <t-option :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label" :value="TaskStatusEnum.SYSTEM_RUNNING" />
+              <t-option :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label" :value="TaskStatusEnum.COMPLETED" />
+              <t-option :label="TaskStatusMap[TaskStatusEnum.ERROR].label" :value="TaskStatusEnum.ERROR" />
             </t-select>
           </t-col>
           <t-col :span="3">
@@ -90,7 +90,7 @@
           <div class="flex items-center">
             <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="mr-2 h-8 w-8 rounded" />
             <div
-              v-else-if="row.taskType >= 2"
+              v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
               class="mr-2 flex h-8 w-8 items-center justify-center rounded bg-blue-100 text-blue-600"
             >
               <t-icon name="setting" />
@@ -235,7 +235,12 @@ import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import TaskConfig from "./TaskConfig.vue";
+import TaskProgressCard from "@/components/TaskProgressCard.vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
+import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
+import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
+import { TaskRunModeEnum } from "@/enums/TaskRunModeEnum";
+import { GlobalConstant } from "@/constant/GlobalConstant";
 
 const route = useRoute();
 const currentPlatform = computed(() => (route.meta.platform as string) || PlatformEnum.BUFF);
@@ -245,10 +250,10 @@ const userInfo = computed(() => {
   const info = localStorage.getItem("niro-user-info");
   return info ? JSON.parse(info) : null;
 });
-const isAdmin = computed(() => userInfo.value?.id === 1);
+const isAdmin = computed(() => userInfo.value?.id === GlobalConstant.ADMIN_USER_ID);
 
 // 状态
-const activeTab = ref("SCAN");
+const activeTab = ref(TaskRunModeEnum.SCAN);
 const loading = ref(false);
 const dataList = ref<BuffScanTask[]>([]);
 const configRef = ref();
@@ -267,16 +272,22 @@ const pagination = reactive({
   total: 0,
 });
 
-const columns: PrimaryTableCol[] = [
-  { colKey: "id", title: "ID", width: 80, align: "left" },
-  { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" },
-  { colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" },
-  { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
-  { colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" },
-  { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
-  { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
-  { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "center" },
-];
+const columns = computed<PrimaryTableCol[]>(() => {
+  const cols: PrimaryTableCol[] = [
+    { colKey: "id", title: "ID", width: 80, align: "left" },
+    { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" },
+    { colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" },
+    { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
+    // 隐藏 C5 平台的执行账号列，因为 C5 不使用 Buff 账号池
+    ...(currentPlatform.value !== PlatformEnum.C5
+      ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" }]
+      : []),
+    { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
+    { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
+    { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "center" },
+  ];
+  return cols;
+});
 
 // 方法
 const fetchData = async () => {
@@ -285,7 +296,12 @@ const fetchData = async () => {
     // 根据 Tab 调整 runMode
     if (activeTab.value === "SYSTEM") {
       queryParams.runMode = undefined;
-      queryParams.taskTypes = [2, 3, 4, 5];
+      queryParams.taskTypes = [
+        TaskTypeEnum.SYNC_CATEGORY,
+        TaskTypeEnum.SYNC_GOODS,
+        TaskTypeEnum.SYNC_STICKER,
+        TaskTypeEnum.SYNC_CATEGORY_GOODS,
+      ];
     } else {
       // BUFF 平台根据 Tab 区分，C5 平台统一使用 BOTH 模式 (全能模式)
       if (currentPlatform.value === PlatformEnum.C5) {
@@ -293,7 +309,7 @@ const fetchData = async () => {
       } else {
         queryParams.runMode = activeTab.value as any;
       }
-      queryParams.taskTypes = [0, 1];
+      queryParams.taskTypes = [TaskTypeEnum.SNIPING, TaskTypeEnum.FLIPPING];
     }
     
     // 注入平台参数
@@ -359,7 +375,7 @@ const handleEdit = (row: BuffScanTask) => {
 const handleStatus = async (row: BuffScanTask, status: number) => {
   try {
     await taskApi.updateStatus(row.id, status, row.platform);
-    MessagePlugin.success(status === 1 ? "启动成功" : "停止成功");
+    MessagePlugin.success(status === TaskStatusEnum.RUNNING ? "启动成功" : "停止成功");
     fetchData();
   } catch (error) {
     console.error("更新状态失败", error);

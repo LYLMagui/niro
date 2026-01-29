@@ -145,7 +145,9 @@ public class C5HttpEngine {
                 throw new C5ApiException("Response parsing failed");
             }
 
-            if (!resp.isSuccess()) {
+            // 即使 success 为 false，只要 data 节点有值，我们也返回 data (用于处理批量操作中的部分失败)
+            // 如果 data 为空且 success 为 false，则抛出异常
+            if (!resp.isSuccess() && resp.getData() == null) {
                 throw new C5ApiException(resp.getErrorCode(), resp.getErrorMsg(), resp.getErrorData());
             }
 

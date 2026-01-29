@@ -166,24 +166,21 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { BuffScanTask } from "@/types/task";
+import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
+
+import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 
 const props = defineProps<{
   task: BuffScanTask & { accountNames?: string[] };
 }>();
 
-const isSystemTask = computed(() => props.task.taskType >= 2);
+const isSystemTask = computed(() => props.task.taskType >= TaskTypeEnum.SYNC_CATEGORY);
 
 const emit = defineEmits(["start", "stop", "edit", "delete"]);
 
 // 任务类型名称
 const taskTypeName = computed(() => {
-  const types: Record<number, string> = {
-    1: "炼金扫货",
-    2: "站内倒卖",
-    10: "系统任务",
-    11: "同步任务",
-  };
-  return types[props.task.taskType] || "普通任务";
+  return TaskTypeMap[props.task.taskType as TaskTypeEnum] || "普通任务";
 });
 
 // 进度百分比
@@ -192,14 +189,15 @@ const progressPercentage = computed(() => {
   return Math.min(Math.round((props.task.successCount / props.task.buyCount) * 100), 100);
 });
 
-// TDesign Progress 状态
+// 进度状态 (TDesign Progress Status)
 const progressStatus = computed(() => {
   switch (props.task.status) {
-    case 1:
+    case TaskStatusEnum.RUNNING:
+    case TaskStatusEnum.SYSTEM_RUNNING:
       return "active";
-    case 2:
+    case TaskStatusEnum.COMPLETED:
       return "success";
-    case 3:
+    case TaskStatusEnum.ERROR:
       return "error";
     default:
       return undefined;
@@ -208,48 +206,26 @@ const progressStatus = computed(() => {
 
 // 状态文字
 const statusText = computed(() => {
-  switch (props.task.status) {
-    case 0:
-      return "已停止";
-    case 1:
-      return "运行中";
-    case 2:
-      return "已完成";
-    case 3:
-      return "异常";
-    case 4:
-      return "正在处理";
-    default:
-      return "未知";
-  }
+  const config = TaskStatusMap[props.task.status as TaskStatusEnum];
+  return config ? config.label : "未知";
 });
 
 // 状态主题色 (Tag Theme)
 const statusTheme = computed(() => {
-  switch (props.task.status) {
-    case 1:
-      return "success";
-    case 4:
-      return "warning";
-    case 2:
-      return "primary";
-    case 3:
-      return "danger";
-    default:
-      return "default";
-  }
+  const config = TaskStatusMap[props.task.status as TaskStatusEnum];
+  return config ? config.color : "default";
 });
 
 // 状态圆点颜色 (Dot Class)
 const statusDotClass = computed(() => {
   switch (props.task.status) {
-    case 1:
+    case TaskStatusEnum.RUNNING:
       return "bg-green-500 animate-pulse";
-    case 4:
+    case TaskStatusEnum.SYSTEM_RUNNING:
       return "bg-orange-500 animate-pulse";
-    case 2:
+    case TaskStatusEnum.COMPLETED:
       return "bg-blue-500";
-    case 3:
+    case TaskStatusEnum.ERROR:
       return "bg-red-500";
     default:
       return "bg-gray-400";
@@ -258,9 +234,9 @@ const statusDotClass = computed(() => {
 
 // 模拟当前步骤逻辑 (实际应由后端推送实时状态)
 const currentStep = computed(() => {
-  if (props.task.status === 0) return -1;
-  if (props.task.status === 2) return 4;
-  if (props.task.status === 4) return 3;
+  if (props.task.status === TaskStatusEnum.STOPPED) return -1;
+  if (props.task.status === TaskStatusEnum.COMPLETED) return 4;
+  if (props.task.status === TaskStatusEnum.SYSTEM_RUNNING) return 3;
   // 运行中状态下，根据一些逻辑模拟步骤
   return 1; // 默认在扫描中
 });
@@ -287,13 +263,17 @@ const moreOptions = computed(() => [
   {
     content: "编辑任务",
     value: "edit",
-    disabled: [1, 4].includes(props.task.status),
+    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(
+      props.task.status
+    ),
   },
   {
     content: "删除任务",
     value: "delete",
     theme: "danger" as any,
-    disabled: [1, 4].includes(props.task.status),
+    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(
+      props.task.status
+    ),
   },
 ]);
 

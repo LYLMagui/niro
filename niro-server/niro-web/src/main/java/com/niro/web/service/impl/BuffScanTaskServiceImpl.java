@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -16,6 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.core.constant.GlobalConstant;
 import com.niro.core.constant.BuffConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
@@ -32,6 +34,7 @@ import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
+import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.mapper.TradeOrderRecordMapper;
@@ -93,7 +96,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
             // 权限校验：仅管理员可创建系统任务
-            if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+            if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId)) {
                 throw new BusinessException("权限不足：仅管理员可创建系统任务");
             }
             // 系统任务唯一性校验：禁止创建多个相同类型的系统任务
@@ -131,7 +134,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 默认停止
-        task.setStatus(0);
+        task.setStatus(TaskStatusEnum.STOPPED.getCode());
         task.setSuccessCount(0);
         task.setUserId(currentUserId);
 
@@ -191,13 +194,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         Assert.validateNull(task, "任务不存在");
 
         // 权限校验：非管理员只能修改自己的任务
-        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+        if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
             throw new BusinessException("权限不足：无法修改他人的任务");
         }
 
         // 需求：如果任务在运行中，则无法编辑账号，需要停止
         // 1-运行中, 4-正在处理
-        if (BuffConstant.TASK_STATUS_RUNNING.equals(task.getStatus()) || Integer.valueOf(4).equals(task.getStatus())) {
+        if (TaskStatusEnum.RUNNING.getCode().equals(task.getStatus()) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(task.getStatus())) {
             throw new BusinessException("任务正在运行中，无法修改配置，请先停止任务");
         }
 
@@ -233,7 +236,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         if (param.getTaskType() != null && !param.getTaskType().equals(task.getTaskType())) {
             if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
                 // 仅管理员可修改为系统任务
-                if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+                if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId)) {
                     throw new BusinessException("权限不足：仅管理员可操作系统任务");
                 }
                 long count = this.lambdaQuery()
@@ -251,6 +254,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setMinProfit(param.getMinProfit());
         task.setScanIntervalMin(param.getScanIntervalMin());
         task.setScanIntervalMax(param.getScanIntervalMax());
+        task.setSafetyMargin(param.getSafetyMargin());
+        task.setLadderStep(param.getLadderStep());
+        task.setExtraConfig(param.getExtraConfig());
 
         this.updateById(task);
 
@@ -315,11 +321,11 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             }
         }
 
-        if (TaskTypeEnum.SNIPING.getCode().equals(param.getTaskType())) {
+        if (Objects.equals(TaskTypeEnum.SNIPING.getCode(), param.getTaskType())) {
             if (param.getMaxPrice() == null && !TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
                 throw new BusinessException("炼金扫货模式下，最高价格不能为空");
             }
-        } else if (TaskTypeEnum.FLIPPING.getCode().equals(param.getTaskType())) {
+        } else if (Objects.equals(TaskTypeEnum.FLIPPING.getCode(), param.getTaskType())) {
             if (param.getMinProfit() == null && !TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
                 throw new BusinessException("站内倒卖模式下，最小预期利润不能为空");
             }
@@ -337,7 +343,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     public void reEnqueueRunningTasks() {
         // 查找数据库中状态为运行中 (1) 或 正在运行 (4) 的任务
         List<BuffScanTask> runningTasks = this.lambdaQuery()
-                .in(BuffScanTask::getStatus, BuffConstant.TASK_STATUS_RUNNING, 4)
+                .in(BuffScanTask::getStatus, TaskStatusEnum.RUNNING.getCode(), TaskStatusEnum.SYSTEM_RUNNING.getCode())
                 .list();
 
         if (CollUtil.isEmpty(runningTasks)) {
@@ -369,7 +375,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 }
 
                 if (needReEnqueue) {
-                    platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).handleTask(task);
+                    platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
                 }
             } catch (Exception e) {
                 log.error("处理任务 [{}] 自愈时发生异常", task.getId(), e);
@@ -387,7 +393,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         Assert.validateNull(task, "任务不存在");
 
         // 权限校验：非管理员只能操作自己的任务
-        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+        if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
             throw new BusinessException("权限不足：无法操作他人的任务");
         }
 
@@ -396,16 +402,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         this.updateById(task);
 
         // 如果是开启任务，则推送至 Redis 队列
-        if (BuffConstant.TASK_STATUS_RUNNING.equals(status)) {
+        if (TaskStatusEnum.RUNNING.getCode().equals(status) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(status)) {
             // 校验任务是否绑定了执行账号 (C5 平台无需绑定)
-            if (!PlatformEnum.C5.name().equals(task.getPlatform())) {
+            if (!PlatformEnum.C5.getCode().equals(task.getPlatform())) {
                 long accountCount = buffScanTaskAccountService.lambdaQuery()
                         .eq(BuffScanTaskAccount::getTaskId, id)
                         .count();
                 if (accountCount == 0) {
                     throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
                 }
-            } else if (PlatformEnum.C5.name().equals(task.getPlatform())) {
+            } else if (PlatformEnum.C5.getCode().equals(task.getPlatform())) {
                 // C5 平台启动校验
                 UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(task.getUserId());
                 Assert.notNull(settings, "用户配置不存在");
@@ -422,12 +428,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 int quota = Math.max(0, task.getBuyCount() - currentSuccess);
                 String quotaKey = "niro:task:quota:" + id;
                 redisUtil.set(quotaKey, quota);
-                log.info("任务 [{}] 配额已初始化: {}", id, quota);
-            }
+            log.info("任务 [{}] 配额已初始化: {}", id, quota);
+        }
 
-            platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).handleTask(task);
+        platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
 
-            // 构建详细启动通知
+        // 构建详细启动通知
             StringBuilder sb = new StringBuilder();
             sb.append("🚀 任务已启动\n");
             sb.append("━━━━━━━━━━━━━━━\n");
@@ -451,7 +457,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             sb.append("━━━━━━━━━━━━━━━");
 
             weComNotifyService.sendText(sb.toString(), task.getUserId());
-        } else if (BuffConstant.TASK_STATUS_STOPPED.equals(status)) {
+        } else if (TaskStatusEnum.STOPPED.getCode().equals(status)) {
             // 设置停止信号，Python 端会轮询此信号并退出
             redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id, "1", 5, TimeUnit.MINUTES);
             // 从 Redis 心跳中移除
@@ -491,10 +497,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
             if (actualSuccessCount >= task.getBuyCount()) {
                 // 如果任务正在运行，则停止它
-                if (BuffConstant.TASK_STATUS_RUNNING.equals(task.getStatus()) || Integer.valueOf(4).equals(task.getStatus())) {
+                if (TaskStatusEnum.RUNNING.getCode().equals(task.getStatus()) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(task.getStatus())) {
                     log.info("任务 [{}] 已达到购买目标 ({} >= {})，自动停止", taskId, actualSuccessCount, task.getBuyCount());
 
-                    task.setStatus(BuffConstant.TASK_STATUS_STOPPED);
+                    task.setStatus(TaskStatusEnum.STOPPED.getCode());
                     this.updateById(task);
 
                     // 设置停止信号
@@ -511,58 +517,43 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
     @Override
     public void taskCallback(BuffScanTask task) {
-        Assert.notNull(task, "回调参数不能为空");
-        Assert.notNull(task.getId(), "回调任务ID不能为空");
-        Assert.notNull(task.getStatus(), "回调状态不能为空");
-
-        BuffScanTask existTask = this.getById(task.getId());
-        if (existTask == null) {
-            log.warn("回调任务不存在: {}", task.getId());
+        if (task == null || task.getId() == null) {
             return;
         }
 
-        // 仅在任务处于运行状态时更新状态 (幂等性保证：如果已是终态，则忽略)
-        boolean isRunning = BuffConstant.TASK_STATUS_RUNNING.equals(existTask.getStatus())
-                || BuffConstant.TASK_STATUS_SYSTEM_RUNNING.equals(existTask.getStatus());
+        log.info("收到任务回调通知: ID={}, Status={}, Msg={}", task.getId(), task.getStatus(), task.getLastError());
 
-        if (isRunning) {
-            existTask.setStatus(task.getStatus());
-            existTask.setUpdateTime(LocalDateTime.now());
-            this.updateById(existTask);
-
-            String statusDesc = BuffConstant.TASK_STATUS_FINISHED.equals(task.getStatus()) ? "✅ 已完成" : "⚠️ 异常停止";
-
-            // 构建详细结束通知
-            StringBuilder sb = new StringBuilder();
-            sb.append("🏁 任务").append(statusDesc).append("\n");
-            sb.append("━━━━━━━━━━━━━━━\n");
-            sb.append("📝 任务名称：").append(existTask.getName()).append("\n");
-            sb.append("🆔 任务 ID：").append(existTask.getId()).append("\n");
-
-            // 计算运行时长
-            if (existTask.getUpdateTime() != null) {
-                Duration duration = Duration.between(existTask.getUpdateTime(), LocalDateTime.now());
-                long seconds = duration.getSeconds();
-                String durationStr = DateUtil.formatBetween(seconds * 1000, BetweenFormatter.Level.SECOND);
-                sb.append("⏱️ 运行时长：").append(durationStr).append("\n");
-            }
-
-            if (!TaskTypeEnum.isSystemTask(existTask.getTaskType())) {
-                sb.append("📊 最终进度：").append(existTask.getSuccessCount()).append(" / ").append(existTask.getBuyCount()).append("\n");
-            }
-
-            sb.append("📅 结束时间：").append(DateUtil.now()).append("\n");
-            sb.append("━━━━━━━━━━━━━━━");
-
-            weComNotifyService.sendText(sb.toString(), existTask.getUserId());
-            log.info("任务 [{}] 状态回调处理完成: {} -> {}", existTask.getId(), BuffConstant.TASK_STATUS_RUNNING, task.getStatus());
-
-            // 任务结束，清理心跳和停止信号
-            redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, existTask.getId().toString());
-            redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + existTask.getId());
-        } else {
-            log.info("任务 [{}] 状态回调忽略: 当前状态 {} 非运行中", existTask.getId(), existTask.getStatus());
+        BuffScanTask originalTask = this.getById(task.getId());
+        if (originalTask == null) {
+            return;
         }
+
+        // 如果任务状态发生变更，发送通知
+        if (task.getStatus() != null && !task.getStatus().equals(originalTask.getStatus())) {
+            StringBuilder sb = new StringBuilder();
+            if (TaskStatusEnum.COMPLETED.getCode().equals(task.getStatus())) {
+                sb.append("✅ 任务已完成\n");
+            } else if (TaskStatusEnum.ERROR.getCode().equals(task.getStatus())) {
+                sb.append("⚠️ 任务异常终止\n");
+            } else if (TaskStatusEnum.STOPPED.getCode().equals(task.getStatus())) {
+                sb.append("⏹️ 任务已停止\n");
+            }
+
+            if (sb.length() > 0) {
+                sb.append("━━━━━━━━━━━━━━━\n");
+                sb.append("📝 任务名称：").append(originalTask.getName()).append("\n");
+                sb.append("🆔 任务 ID：").append(originalTask.getId()).append("\n");
+                if (StrUtil.isNotBlank(task.getLastError())) {
+                    sb.append("❌ 错误详情：").append(task.getLastError()).append("\n");
+                }
+                sb.append("⏰ 完成时间：").append(DateUtil.now());
+
+                weComNotifyService.sendText(sb.toString(), originalTask.getUserId());
+            }
+        }
+
+        // 更新数据库状态
+        this.updateById(task);
     }
 
     // 方法已移除，逻辑迁移至 BuffTradeStrategyImpl
@@ -574,7 +565,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 查询任务：普通用户仅查看自己的任务，管理员查看所有
         Page<BuffScanTask> taskPage = this.lambdaQuery()
-                .eq(!BuffConstant.ADMIN_USER_ID.equals(currentUserId), BuffScanTask::getUserId, currentUserId)
+                .eq(!GlobalConstant.ADMIN_USER_ID.equals(currentUserId), BuffScanTask::getUserId, currentUserId)
                 .eq(param.getStatus() != null, BuffScanTask::getStatus, param.getStatus())
                 .eq(param.getRunMode() != null, BuffScanTask::getRunMode, param.getRunMode())
                 .in(CollUtil.isNotEmpty(param.getTaskTypes()), BuffScanTask::getTaskType, param.getTaskTypes())
@@ -664,7 +655,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         Assert.validateNull(task, "任务不存在");
 
         // 权限校验：非管理员只能删除自己的任务
-        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
+        if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId) && !task.getUserId().equals(currentUserId)) {
             throw new BusinessException("权限不足：无法删除他人的任务");
         }
 
@@ -693,7 +684,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     public void syncCategoryGoods(Long categoryId) {
         Long currentUserId = StpUtil.getLoginIdAsLong();
         // 权限校验：仅管理员可触发同步
-        if (!BuffConstant.ADMIN_USER_ID.equals(currentUserId)) {
+        if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId)) {
             throw new BusinessException("权限不足：仅管理员可触发同步任务");
         }
 

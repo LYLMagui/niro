@@ -39,7 +39,12 @@ public enum TaskStatusEnum {
     /**
      * 系统任务运行中
      */
-    SYSTEM_RUNNING(4, "系统任务运行中");
+    SYSTEM_RUNNING(4, "系统任务运行中"),
+
+    /**
+     * 定时等待中
+     */
+    SCHEDULED(5, "定时等待中");
 
     @EnumValue
     @JsonValue

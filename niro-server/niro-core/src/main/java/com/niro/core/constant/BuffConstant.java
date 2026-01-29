@@ -8,46 +8,6 @@ package com.niro.core.constant;
 public class BuffConstant {
 
     /**
-     * 系统管理员用户ID
-     */
-    public static final Long ADMIN_USER_ID = 1L;
-
-    /**
-     * 系统同步任务默认扫描间隔（秒）：12小时
-     */
-    public static final Integer DEFAULT_SYNC_INTERVAL = 43200;
-
-    /**
-     * 任务状态：运行中
-     */
-    public static final Integer TASK_STATUS_RUNNING = 1;
-
-    /**
-     * 任务状态：已停止
-     */
-    public static final Integer TASK_STATUS_STOPPED = 0;
-
-    /**
-     * 任务状态：已完成
-     */
-    public static final Integer TASK_STATUS_FINISHED = 2;
-
-    /**
-     * 任务状态：异常
-     */
-    public static final Integer TASK_STATUS_ERROR = 3;
-
-    /**
-     * 任务状态：系统任务运行中
-     */
-    public static final Integer TASK_STATUS_SYSTEM_RUNNING = 4;
-    
-    /**
-     * BUFF 游戏名称：CSGO
-     */
-    public static final String GAME_CSGO = "csgo";
-
-    /**
      * Redis 任务优先级队列 Key
      */
     public static final String REDIS_TASK_QUEUE_HIGH = "niro:tasks:priority:high";

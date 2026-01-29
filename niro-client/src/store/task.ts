@@ -2,6 +2,7 @@ import { defineStore } from "pinia";
 import { ref } from "vue";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask } from "@/types/task";
+import { TaskStatusEnum } from "@/enums/TaskStatusEnum";
 
 // 定义任务状态 Store
 export const useTaskStore = defineStore("task", () => {
@@ -15,7 +16,7 @@ export const useTaskStore = defineStore("task", () => {
   // 动作：获取运行中的任务
   async function fetchRunningTasks() {
     try {
-      const res = await taskApi.getPage({ page: 1, pageSize: 10, status: 1 });
+      const res = await taskApi.getPage({ page: 1, pageSize: 10, status: TaskStatusEnum.RUNNING });
       if (res && res.records) {
         runningTasks.value = res.records;
         isRunning.value = runningTasks.value.length > 0;
@@ -28,7 +29,7 @@ export const useTaskStore = defineStore("task", () => {
   // 动作：启动任务
   async function startTask(id: number) {
     try {
-      await taskApi.updateStatus(id, 1);
+      await taskApi.updateStatus(id, TaskStatusEnum.RUNNING);
       await fetchRunningTasks();
     } catch (error) {
       console.error("启动任务失败:", error);
@@ -38,7 +39,7 @@ export const useTaskStore = defineStore("task", () => {
   // 动作：停止任务
   async function stopTask(id: number) {
     try {
-      await taskApi.updateStatus(id, 0);
+      await taskApi.updateStatus(id, TaskStatusEnum.STOPPED);
       await fetchRunningTasks();
     } catch (error) {
       console.error("停止任务失败:", error);

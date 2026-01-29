@@ -30,6 +30,7 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.stream.Collectors;
 
 /**
@@ -174,7 +175,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
             // 如果没有断点进度，则首次下发
             if (CollUtil.isEmpty(categoryIds)) {
-                if (TaskTypeEnum.SYNC_CATEGORY.getCode().equals(task.getTaskType())) {
+                if (Objects.equals(TaskTypeEnum.SYNC_CATEGORY.getCode(), task.getTaskType())) {
                     // 同步分类树：下发所有一级分类
                     categoryIds = buffGoodsCategoryService.lambdaQuery()
                             .eq(BuffGoodsCategory::getParentId, 0)

@@ -34,7 +34,7 @@ public class BuffTaskMessage {
     private TaskRunModeEnum runMode;
 
     /**
-     * 任务类型 (1: 炼金扫货, 2: 站内倒卖, 10: 分类商品同步)
+     * 任务类型
      */
     private Integer taskType;
 
