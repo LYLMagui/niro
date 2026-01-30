@@ -182,8 +182,20 @@
           </template>
         </template>
 
+        <template #createTime="{ row }">
+          {{ row.createTime ? dayjs(row.createTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
+        </template>
+
+        <template #finishTime="{ row }">
+          {{ row.finishTime ? dayjs(row.finishTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
+        </template>
+
+        <template #op-header>
+          <div class="w-full text-center">操作</div>
+        </template>
+
         <template #op="{ row }">
-          <div class="flex items-center justify-center space-x-2">
+          <div class="flex items-center justify-start space-x-2">
             <t-link v-if="![1, 4].includes(row.status)" theme="primary" @click="handleEdit(row)">
               编辑
             </t-link>
@@ -231,6 +243,7 @@
 <script setup lang="ts">
 import { ref, reactive, onMounted, computed, watch } from "vue";
 import { useRoute } from "vue-router";
+import dayjs from "dayjs";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
@@ -275,21 +288,21 @@ const pagination = reactive({
 const columns = computed<PrimaryTableCol[]>(() => {
   const cols: PrimaryTableCol[] = [
     { colKey: "id", title: "ID", width: 80, align: "left" },
-    { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" },
+    { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" as any },
     // C5 平台隐藏模式列
     ...(currentPlatform.value !== PlatformEnum.C5
-      ? [{ colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" }]
+      ? [{ colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" as any }]
       : []),
-    { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
+    { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" as any },
     // 隐藏 C5 平台的执行账号列，因为 C5 不使用 Buff 账号池
     ...(currentPlatform.value !== PlatformEnum.C5
-      ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" }]
+      ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" as any }]
       : []),
-    { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
-    { colKey: "createTime", title: "创建时间", width: 170, align: "left" },
-    { colKey: "finishTime", title: "完成时间", width: 170, align: "left" },
-    { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
-    { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "center" },
+    { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
+    { colKey: "createTime", title: "创建时间", width: 170, cell: "createTime", align: "left" as any },
+    { colKey: "finishTime", title: "完成时间", width: 170, cell: "finishTime", align: "left" as any },
+    { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" as any },
+    { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "left" as any },
   ];
   return cols;
 });

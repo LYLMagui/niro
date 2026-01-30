@@ -1,6 +1,6 @@
 ---
 name: c5-business-integration
-description: 当代码涉及到c5的业务时需要使用此技能
+description: 专用于处理 C5 饰品交易平台的 API 对接、库存同步、价格抓取及订单履约逻辑，处理 C5 特有的错误码与数据格式。
 allowed-tools: "Read,Write,RunCommand,PostGreSQL,redis,tdesign-mcp-server"
 ---
 
