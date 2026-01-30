@@ -1,5 +1,12 @@
 # Release Notes
 
+## 2026-01-30 (v2.27.0)
+- **多平台配置架构重构 (UserPlatformSettings)**:
+  - **核心模型升级**: 将原有的 `UserBuffSettings` 升级为 `UserPlatformSettings`，实现了从单一平台配置向多平台（Buff/C5/Steam）通用配置架构的跨越。
+  - **后端解耦**: 删除了过时的 `UserBuffSettings` 相关 Controller/Service/Mapper/Entity，全面切换至 `UserPlatformSettings` 实现。
+  - **全栈接口同步**: 更新了前端 `settings.ts` API 调用与 `Settings.vue` 组件，确保设置项与后端新模型完全对齐。
+  - **数据兼容性**: 修正了 `BuffScanTask` 等多个实体类中的关联逻辑，确保多平台环境下账号与风控配置的正确引用。
+
 ## 2026-01-30 (v2.26.2)
 - **任务列表 UI 美化与布局优化**:
   - **时间格式统一**: 引入 `dayjs` 库，将任务列表的创建时间与完成时间从 ISO 格式美化为 `YYYY-MM-DD HH:mm:ss`，并增强了空值处理。

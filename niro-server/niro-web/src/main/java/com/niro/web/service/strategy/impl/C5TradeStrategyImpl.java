@@ -12,7 +12,7 @@ import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
 import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
-import com.niro.web.dto.UserBuffSettingsDTO;
+import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
@@ -22,7 +22,7 @@ import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.mapper.TradeOrderRecordMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
 import com.niro.web.service.BuffGoodsService;
-import com.niro.web.service.UserBuffSettingsService;
+import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.entity.BuffGoodsCategory;
@@ -53,7 +53,7 @@ import java.util.stream.Collectors;
 public class C5TradeStrategyImpl implements IPlatformStrategy {
 
     private final C5TaskScheduler c5TaskScheduler;
-    private final UserBuffSettingsService userBuffSettingsService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final TradeOrderRecordMapper tradeOrderRecordMapper;
@@ -79,7 +79,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
     private C5ApiClient getClient(Long userId) {
         return clientCache.computeIfAbsent(userId, uid -> {
-            UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(uid);
+            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
             if (settings == null) {
                 throw new com.niro.core.exception.BusinessException("用户配置不存在");
             }
@@ -369,8 +369,12 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         List<C5BatchBuyRequest.BatchProduct> batchProducts = new ArrayList<>();
         
         // 获取 TradeUrl
-        UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(task.getUserId());
+        UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
         String tradeUrl = (settings != null) ? settings.getSteamTradeUrl() : null;
+        if (StrUtil.isBlank(tradeUrl)) {
+            updateLastError(task, "未配置 Steam Trade URL");
+            return;
+        }
 
         for (C5ProductSearchResponse.ProductItem item : items) {
             // 中断检查 (循环内)

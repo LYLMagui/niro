@@ -44,7 +44,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     private final RedisUtil redisUtil;
     private final BuffScanTaskAccountService buffScanTaskAccountService;
     private final BuffAccountService buffAccountService;
-    private final UserBuffSettingsService userBuffSettingsService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffGoodsService buffGoodsService;
 
@@ -93,8 +93,8 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1.5 获取用户的支付设置
-        UserBuffSettings settings = userBuffSettingsService.lambdaQuery()
-                .eq(UserBuffSettings::getUserId, task.getUserId())
+        UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
+                .eq(UserPlatformSettings::getUserId, task.getUserId())
                 .one();
         String paymentMethod = (settings != null && settings.getPaymentMethod() != null)
                 ? settings.getPaymentMethod().getCode()

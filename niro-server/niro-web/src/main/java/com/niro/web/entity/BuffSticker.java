@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * @date 2026/01/08
  */
 @Data
-@TableName("buff_stickers")
+@TableName("buff_sticker")
 public class BuffSticker {
     /**
      * 主键ID

@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
  * @date 2026/01/08
  */
 @Data
-@TableName("buff_leak_alerts")
+@TableName("buff_leak_alert")
 public class BuffLeakAlert {
     /**
      * 主键ID

@@ -14,7 +14,7 @@ import java.time.LocalDateTime;
  * @since 2025-12-23
  */
 @Data
-@TableName("buff_goods_categories")
+@TableName("buff_goods_category")
 public class BuffGoodsCategory {
 
     /**

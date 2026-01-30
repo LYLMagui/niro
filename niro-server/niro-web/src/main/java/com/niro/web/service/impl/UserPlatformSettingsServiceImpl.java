@@ -2,12 +2,12 @@ package com.niro.web.service.impl;
 
 import cn.hutool.core.bean.BeanUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.niro.web.dto.UserBuffSettingsDTO;
-import com.niro.web.dto.param.UserBuffSettingsParam;
-import com.niro.web.entity.UserBuffSettings;
-import com.niro.web.mapper.UserBuffSettingsMapper;
+import com.niro.web.dto.UserPlatformSettingsDTO;
+import com.niro.web.dto.param.UserPlatformSettingsParam;
+import com.niro.web.entity.UserPlatformSettings;
+import com.niro.web.mapper.UserPlatformSettingsMapper;
 import com.niro.web.service.EmailNotifyService;
-import com.niro.web.service.UserBuffSettingsService;
+import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.WeComNotifyService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -17,7 +17,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.time.LocalDateTime;
 
 /**
- * 用户Buff配置服务实现类
+ * 用户平台配置服务实现类
  *
  * @author liyl
  * @since 2025-12-24
@@ -25,34 +25,34 @@ import java.time.LocalDateTime;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class UserBuffSettingsServiceImpl extends ServiceImpl<UserBuffSettingsMapper, UserBuffSettings> implements UserBuffSettingsService {
+public class UserPlatformSettingsServiceImpl extends ServiceImpl<UserPlatformSettingsMapper, UserPlatformSettings> implements UserPlatformSettingsService {
 
     private final WeComNotifyService weComNotifyService;
     private final EmailNotifyService emailNotifyService;
 
     @Override
-    public UserBuffSettingsDTO getByUserId(Long userId) {
-        UserBuffSettings settings = this.lambdaQuery()
-                .eq(UserBuffSettings::getUserId, userId)
+    public UserPlatformSettingsDTO getByUserId(Long userId) {
+        UserPlatformSettings settings = this.lambdaQuery()
+                .eq(UserPlatformSettings::getUserId, userId)
                 .one();
         
         if (settings == null) {
             return null;
         }
         
-        return BeanUtil.copyProperties(settings, UserBuffSettingsDTO.class);
+        return BeanUtil.copyProperties(settings, UserPlatformSettingsDTO.class);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void saveOrUpdate(Long userId, UserBuffSettingsParam param) {
-        UserBuffSettings settings = this.lambdaQuery()
-                .eq(UserBuffSettings::getUserId, userId)
+    public void saveOrUpdate(Long userId, UserPlatformSettingsParam param) {
+        UserPlatformSettings settings = this.lambdaQuery()
+                .eq(UserPlatformSettings::getUserId, userId)
                 .one();
 
         boolean isUpdate = settings != null;
         if (!isUpdate) {
-            settings = new UserBuffSettings();
+            settings = new UserPlatformSettings();
             settings.setUserId(userId);
             settings.setCreateTime(LocalDateTime.now());
         }

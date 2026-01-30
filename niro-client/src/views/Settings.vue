@@ -579,7 +579,7 @@
 <script setup lang="ts">
 import {
   settingsApi,
-  UserBuffSettings,
+  UserPlatformSettings,
   BuffAccount,
   BuffAccountRole,
   BuffAccountStatus,
@@ -608,7 +608,7 @@ const handleInputTrim = (val: any, target: any, key: string) => {
   }
 };
 
-const formData = reactive<UserBuffSettings>({
+const formData = reactive<UserPlatformSettings>({
   paymentMethod: "BALANCE",
   c5AppKey: "",
   steamTradeUrl: "",

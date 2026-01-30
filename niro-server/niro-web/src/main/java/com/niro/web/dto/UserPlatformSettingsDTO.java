@@ -1,22 +1,30 @@
-package com.niro.web.dto.param;
+package com.niro.web.dto;
 
 import com.niro.web.enums.PaymentMethodEnum;
-import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
 /**
- * 用户Buff配置保存参数
+ * 用户平台配置DTO
  *
  * @author liyl
  * @since 2025-12-24
  */
 @Data
-public class UserBuffSettingsParam {
+public class UserPlatformSettingsDTO {
+
+    /**
+     * ID
+     */
+    private Long id;
+
+    /**
+     * 用户ID
+     */
+    private Long userId;
 
     /**
      * 支付方式
      */
-    @NotNull(message = "支付方式不能为空")
     private PaymentMethodEnum paymentMethod;
 
     /**
@@ -70,7 +78,7 @@ public class UserBuffSettingsParam {
     private String emailReceiver;
 
     /**
-     * C5 APP Key
+     * C5 App Key
      */
     private String c5AppKey;
 

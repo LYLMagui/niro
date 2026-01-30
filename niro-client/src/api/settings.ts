@@ -58,11 +58,11 @@ export interface BuffAccount {
 export const settingsApi = {
   // 获取配置
   getSettings() {
-    return request.get<UserBuffSettings>("/settings");
+    return request.get<UserPlatformSettings>("/settings");
   },
 
   // 保存配置
-  saveSettings(data: UserBuffSettings) {
+  saveSettings(data: UserPlatformSettings) {
     return request.post<unknown>("/settings", data);
   },
 

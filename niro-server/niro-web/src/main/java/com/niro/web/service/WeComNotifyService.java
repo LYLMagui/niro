@@ -4,7 +4,7 @@ import cn.hutool.http.HttpUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.niro.core.util.RedisUtil;
-import com.niro.web.entity.UserBuffSettings;
+import com.niro.web.entity.UserPlatformSettings;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
@@ -23,11 +23,11 @@ import java.util.concurrent.TimeUnit;
 public class WeComNotifyService {
 
     private final RedisUtil redisUtil;
-    private final UserBuffSettingsService userBuffSettingsService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
 
-    public WeComNotifyService(RedisUtil redisUtil, @Lazy UserBuffSettingsService userBuffSettingsService) {
+    public WeComNotifyService(RedisUtil redisUtil, @Lazy UserPlatformSettingsService userPlatformSettingsService) {
         this.redisUtil = redisUtil;
-        this.userBuffSettingsService = userBuffSettingsService;
+        this.userPlatformSettingsService = userPlatformSettingsService;
     }
 
     @Value("${wecom.corpid:}")
@@ -87,16 +87,16 @@ public class WeComNotifyService {
     /**
      * 获取用户配置或全局配置
      */
-    private UserBuffSettings getSettings(Long userId) {
-        UserBuffSettings settings = null;
+    private UserPlatformSettings getSettings(Long userId) {
+        UserPlatformSettings settings = null;
         if (userId != null) {
-            settings = userBuffSettingsService.lambdaQuery()
-                    .eq(UserBuffSettings::getUserId, userId)
+            settings = userPlatformSettingsService.lambdaQuery()
+                    .eq(UserPlatformSettings::getUserId, userId)
                     .one();
         }
 
         if (settings == null) {
-            settings = new UserBuffSettings();
+            settings = new UserPlatformSettings();
             settings.setWecomCorpid(globalCorpid);
             settings.setWecomCorpsecret(globalCorpsecret);
             settings.setWecomAgentid(globalAgentid);
@@ -114,7 +114,7 @@ public class WeComNotifyService {
 
     private void sendText(String content, Long userId, boolean isRetry) {
         log.info("准备发送企业微信文本通知: content={}, userId={}", content, userId);
-        UserBuffSettings settings = getSettings(userId);
+        UserPlatformSettings settings = getSettings(userId);
         if (settings == null) {
             log.warn("未找到用户 {} 的配置，无法发送通知", userId);
             return;
@@ -173,7 +173,7 @@ public class WeComNotifyService {
 
     private void sendMarkdown(String content, Long userId, boolean isRetry) {
         log.info("准备发送企业微信 Markdown 通知: userId={}", userId);
-        UserBuffSettings settings = getSettings(userId);
+        UserPlatformSettings settings = getSettings(userId);
         if (settings == null) {
             log.warn("未找到用户 {} 的配置，无法发送通知", userId);
             return;

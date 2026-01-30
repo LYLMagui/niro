@@ -1,37 +1,22 @@
-package com.niro.web.entity;
+package com.niro.web.dto.param;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableName;
 import com.niro.web.enums.PaymentMethodEnum;
+import jakarta.validation.constraints.NotNull;
 import lombok.Data;
 
-import java.time.LocalDateTime;
-
 /**
- * 用户Buff配置实体
+ * 用户平台配置保存参数
  *
  * @author liyl
  * @since 2025-12-24
  */
 @Data
-@TableName("user_buff_settings")
-public class UserBuffSettings {
-
-    /**
-     * 主键
-     */
-    @TableId(type = IdType.AUTO)
-    private Long id;
-
-    /**
-     * 用户ID
-     */
-    private Long userId;
+public class UserPlatformSettingsParam {
 
     /**
      * 支付方式
      */
+    @NotNull(message = "支付方式不能为空")
     private PaymentMethodEnum paymentMethod;
 
     /**
@@ -50,7 +35,7 @@ public class UserBuffSettings {
     private String wecomAgentid;
 
     /**
-     * 企业微信接收人 (@all 或 指定用户)
+     * 企业微信接收人
      */
     private String wecomTouser;
 
@@ -85,7 +70,7 @@ public class UserBuffSettings {
     private String emailReceiver;
 
     /**
-     * C5 API Key
+     * C5 APP Key
      */
     private String c5AppKey;
 
@@ -103,14 +88,4 @@ public class UserBuffSettings {
      * Steam 交易链接
      */
     private String steamTradeUrl;
-
-    /**
-     * 创建时间
-     */
-    private LocalDateTime createTime;
-
-    /**
-     * 更新时间
-     */
-    private LocalDateTime updateTime;
 }

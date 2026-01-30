@@ -1,7 +1,7 @@
 package com.niro.web.service;
 
 import cn.hutool.core.util.StrUtil;
-import com.niro.web.entity.UserBuffSettings;
+import com.niro.web.entity.UserPlatformSettings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -21,10 +21,10 @@ import java.util.Properties;
 @Service
 public class EmailNotifyService {
 
-    private final UserBuffSettingsService userBuffSettingsService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
 
-    public EmailNotifyService(@Lazy UserBuffSettingsService userBuffSettingsService) {
-        this.userBuffSettingsService = userBuffSettingsService;
+    public EmailNotifyService(@Lazy UserPlatformSettingsService userPlatformSettingsService) {
+        this.userPlatformSettingsService = userPlatformSettingsService;
     }
 
     /**
@@ -37,8 +37,8 @@ public class EmailNotifyService {
     public void sendSimpleMail(String subject, String content, Long userId) {
         log.info("准备发送邮件通知: subject={}, userId={}", subject, userId);
         
-        UserBuffSettings settings = userBuffSettingsService.lambdaQuery()
-                .eq(UserBuffSettings::getUserId, userId)
+        UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
+                .eq(UserPlatformSettings::getUserId, userId)
                 .one();
 
         if (settings == null) {
@@ -75,7 +75,7 @@ public class EmailNotifyService {
     /**
      * 动态构建 JavaMailSender
      */
-    private JavaMailSenderImpl createMailSender(UserBuffSettings settings) {
+    private JavaMailSenderImpl createMailSender(UserPlatformSettings settings) {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost(settings.getEmailHost());
         mailSender.setPort(settings.getEmailPort());

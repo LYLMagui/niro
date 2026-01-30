@@ -92,7 +92,9 @@ public class BuffScanTask {
 
     /**
      * 运行期间的扫描间隔(秒)
+     * @deprecated 请使用 scanIntervalMin 和 scanIntervalMax
      */
+    @Deprecated
     private Integer scanInterval;
 
     /**

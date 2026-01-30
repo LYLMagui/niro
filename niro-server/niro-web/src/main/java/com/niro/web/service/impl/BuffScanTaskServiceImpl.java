@@ -23,7 +23,7 @@ import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RedisUtil;
 import com.niro.web.dto.BuffScanTaskDTO;
-import com.niro.web.dto.UserBuffSettingsDTO;
+import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffAccount;
@@ -43,7 +43,7 @@ import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskAccountService;
 import com.niro.web.service.BuffScanTaskService;
-import com.niro.web.service.UserBuffSettingsService;
+import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.WeComNotifyService;
 import com.niro.web.service.strategy.PlatformStrategyFactory;
 
@@ -75,7 +75,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     private final BuffScanTaskAccountService buffScanTaskAccountService;
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
-    private final UserBuffSettingsService userBuffSettingsService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final PlatformStrategyFactory platformStrategyFactory;
     private final TradeOrderRecordMapper tradeOrderRecordMapper;
 
@@ -413,7 +413,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 }
             } else if (PlatformEnum.C5.getCode().equals(task.getPlatform())) {
                 // C5 平台启动校验
-                UserBuffSettingsDTO settings = userBuffSettingsService.getByUserId(task.getUserId());
+                UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
                 Assert.notNull(settings, "用户配置不存在");
                 Assert.notBlank(settings.getC5AppKey(), "启动失败：未配置 C5 App Key，请前往个人中心设置");
                 Assert.notBlank(settings.getSteamTradeUrl(), "启动失败：未配置 Steam 交易链接，请前往个人中心设置");
