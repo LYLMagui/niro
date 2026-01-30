@@ -49,9 +49,15 @@ public class C5TaskScheduler {
 
     /**
      * 运行中任务句柄 (Worker)
-     * 负责执行具体的扫描/交易逻辑 (Interval/FixedRate)
+     * 负责执行具体的扫描/交易逻辑 (Interval/FixedDelay)
      */
     private final Map<Long, ScheduledFuture<?>> runningFutures = new ConcurrentHashMap<>();
+
+    /**
+     * 任务回调逻辑存储
+     * 用于在 Work-Rest-Loop 循环中重启任务时获取业务逻辑
+     */
+    private final Map<Long, Consumer<BuffScanTask>> taskCallbacks = new ConcurrentHashMap<>();
 
     /**
      * 启动任务
@@ -64,140 +70,206 @@ public class C5TaskScheduler {
         Assert.notNull(businessLogic, "业务逻辑回调不能为空");
         Long taskId = task.getId();
 
-        // 1. 先彻底停止旧任务，防止状态不一致
-        stop(taskId);
+        // 1. 存储回调逻辑，供后续会话重启使用
+        taskCallbacks.put(taskId, businessLogic);
+
+        // 2. 先彻底停止旧任务，防止状态不一致
+        // 注意：此处 stop 会移除 callback，所以必须先 put 再 stop (不对，stop 会移除 callback)
+        // 修正：先 stop 清理旧状态，再 put callback
+        stopWithoutRemovingCallback(taskId); 
+        taskCallbacks.put(taskId, businessLogic); // 重新放入
 
         log.info("开始调度 C5 任务: {} (ID: {})", task.getName(), taskId);
 
-        // 2. 判断调度模式
-        if (StrUtil.isNotBlank(task.getCronExpression())) {
+        // 3. 判断调度模式
+        String cron = task.getCronExpression();
+        boolean isLoopMode = isImmediateOrBlank(cron);
+
+        if (StrUtil.isNotBlank(cron) && !isLoopMode) {
             // --- Cron 模式 (Supervisor) ---
             try {
                 ScheduledFuture<?> future = taskScheduler.schedule(
-                        () -> startSession(task, businessLogic),
-                        new CronTrigger(task.getCronExpression())
+                        () -> startSession(taskId),
+                        new CronTrigger(cron.trim())
                 );
                 cronFutures.put(taskId, future);
-                log.info("任务 [{}] 已注册 Cron 调度: {}", taskId, task.getCronExpression());
+                log.info("任务 [{}] 已注册 Cron 调度: {}", taskId, cron);
 
                 // 初始状态置为 SCHEDULED (等待 Cron 触发)
                 updateTaskStatus(taskId, TaskStatusEnum.SCHEDULED);
             } catch (Exception e) {
-                log.error("Cron 表达式非法: {}", task.getCronExpression(), e);
+                log.error("Cron 表达式非法: {}", cron, e);
                 updateTaskStatus(taskId, TaskStatusEnum.ERROR);
             }
         } else {
             // --- 直连模式 ---
-            // 无 Cron，直接启动 Session
-            startSession(task, businessLogic);
+            // 无 Cron 或 "立即执行"占位符，直接启动 Session
+            if (isLoopMode && StrUtil.isNotBlank(cron)) {
+                log.info("任务 [{}] 检测到立即执行标识 ({})，转为 Direct Start 模式", taskId, cron);
+            }
+            startSession(taskId);
         }
     }
 
     /**
-     * 启动一次运行会话 (Worker)
-     * 被 Cron 触发或直接调用
+     * 判断是否为立即执行或空 Cron (循环模式)
      */
-    private void startSession(BuffScanTask task, Consumer<BuffScanTask> businessLogic) {
-        Long taskId = task.getId();
+    private boolean isImmediateOrBlank(String cron) {
+        if (StrUtil.isBlank(cron)) {
+            return true;
+        }
+        String trimmed = cron.trim();
+        return "* * * * * ?".equals(trimmed) || "* * * * * *".equals(trimmed);
+    }
 
-        // --- 入口守卫：校验数据库最新状态 ---
-        BuffScanTask dbTask = buffScanTaskMapper.selectById(taskId);
-        if (dbTask == null || (dbTask.getStatus() != TaskStatusEnum.RUNNING.getCode() 
-                && dbTask.getStatus() != TaskStatusEnum.SCHEDULED.getCode())) {
-            log.info("任务 [{}] 已处于非调度状态 ({})，忽略本次会话启动", taskId, dbTask != null ? dbTask.getStatus() : "NULL");
-            // 清理可能残余的句柄
+    /**
+     * 启动一次运行会话 (Worker)
+     * 被 Cron 触发、直接调用或 Rest 结束后的重启
+     */
+    private void startSession(Long taskId) {
+        // --- 1. 获取回调 ---
+        Consumer<BuffScanTask> businessLogic = taskCallbacks.get(taskId);
+        if (businessLogic == null) {
+            log.error("任务 [{}] 缺少业务回调，无法启动会话", taskId);
             stop(taskId);
             return;
         }
 
-        log.info("任务 [{}] 会话启动... (最新扫描间隔: {}s)", taskId, dbTask.getScanInterval());
+        // --- 2. 原子启动 (Atomic Start) ---
+        // 使用 compute 确保并发安全：取消旧任务，校验状态，启动新任务
+        ScheduledFuture<?> newFuture = runningFutures.compute(taskId, (k, existingFuture) -> {
+            if (existingFuture != null) {
+                existingFuture.cancel(true);
+            }
 
-        // 清理旧的运行句柄 (如果 Cron 触发频率高于 Duration，会发生这种情况)
-        ScheduledFuture<?> oldFuture = runningFutures.remove(taskId);
-        if (oldFuture != null) {
-            oldFuture.cancel(true);
+            // 校验数据库最新状态
+            BuffScanTask dbTask = buffScanTaskMapper.selectById(taskId);
+            if (dbTask == null) {
+                return null;
+            }
+            
+            if (dbTask.getStatus() == TaskStatusEnum.STOPPED.getCode()) {
+                log.info("任务 [{}] 已被停止，忽略本次会话启动", taskId);
+                return null;
+            }
+
+            log.info("任务 [{}] 会话启动... (状态: Running)", taskId);
+
+            // 构建 Runner
+            C5TaskRunner runner = new C5TaskRunner(dbTask, businessLogic);
+            ScheduledFuture<?> future;
+
+            // 注册调度策略
+            if (dbTask.getScanInterval() != null && dbTask.getScanInterval() > 0) {
+                future = taskScheduler.scheduleWithFixedDelay(runner, Duration.ofSeconds(dbTask.getScanInterval()));
+                log.info("任务 [{}] 会话执行策略: FixedDelay {}s", taskId, dbTask.getScanInterval());
+            } else if (dbTask.getScanIntervalMin() != null && dbTask.getScanIntervalMax() != null) {
+                int min = Math.max(0, dbTask.getScanIntervalMin());
+                int max = Math.max(min, dbTask.getScanIntervalMax());
+                Trigger trigger = triggerContext -> {
+                    Instant lastCompletion = triggerContext.lastCompletion();
+                    if (lastCompletion == null) {
+                        return Instant.now();
+                    }
+                    int delay = RandomUtil.randomInt(min, max + 1);
+                    return lastCompletion.plus(Duration.ofSeconds(delay));
+                };
+                future = taskScheduler.schedule(runner, trigger);
+                log.info("任务 [{}] 会话执行策略: Random {}-{}s", taskId, min, max);
+            } else {
+                future = taskScheduler.scheduleWithFixedDelay(runner, Duration.ofSeconds(1));
+                log.info("任务 [{}] 会话执行策略: Default FixedDelay 1s", taskId);
+            }
+            return future;
+        });
+
+        // --- 3. 后置处理 ---
+        if (newFuture == null) {
+            // 启动失败（状态校验未通过），确保清理
+            BuffScanTask check = buffScanTaskMapper.selectById(taskId);
+            if (check == null || check.getStatus() == TaskStatusEnum.STOPPED.getCode()) {
+                stop(taskId);
+            }
+            return;
         }
 
-        // 构建 Runner (必须使用最新的 dbTask 配置)
-        C5TaskRunner runner = new C5TaskRunner(dbTask, businessLogic);
-        ScheduledFuture<?> future;
-
-        // 注册 Interval 调度
-        if (dbTask.getScanInterval() != null && dbTask.getScanInterval() > 0) {
-            // Fixed Rate
-            future = taskScheduler.scheduleAtFixedRate(runner, Duration.ofSeconds(dbTask.getScanInterval()));
-            log.info("任务 [{}] 会话执行策略: FixedRate {}s", taskId, dbTask.getScanInterval());
-        } else if (dbTask.getScanIntervalMin() != null && dbTask.getScanIntervalMax() != null) {
-            // Random Range
-            int min = Math.max(0, dbTask.getScanIntervalMin());
-            int max = Math.max(min, dbTask.getScanIntervalMax());
-            Trigger trigger = triggerContext -> {
-                Instant lastCompletion = triggerContext.lastCompletion();
-                if (lastCompletion == null) {
-                    return Instant.now();
-                }
-                int delay = RandomUtil.randomInt(min, max + 1);
-                return lastCompletion.plus(Duration.ofSeconds(delay));
-            };
-            future = taskScheduler.schedule(runner, trigger);
-            log.info("任务 [{}] 会话执行策略: Random {}-{}s", taskId, min, max);
-        } else {
-            // Default
-            future = taskScheduler.scheduleAtFixedRate(runner, Duration.ofSeconds(1));
-            log.info("任务 [{}] 会话执行策略: Default 1s", taskId);
-        }
-
-        runningFutures.put(taskId, future);
         updateTaskStatus(taskId, TaskStatusEnum.RUNNING);
 
-        // 处理 Duration (自动暂停)
-        if (dbTask.getDurationMinutes() != null && dbTask.getDurationMinutes() > 0) {
-            Instant endTime = Instant.now().plus(Duration.ofMinutes(dbTask.getDurationMinutes()));
-            final ScheduledFuture<?> sessionFuture = future;
+        // --- 4. 处理 Duration (自动暂停/休息) ---
+        // 需重新获取配置中的 duration (虽有微小时间差，但可接受)
+        BuffScanTask currentTask = buffScanTaskMapper.selectById(taskId);
+        if (currentTask != null && currentTask.getDurationMinutes() != null && currentTask.getDurationMinutes() > 0) {
+            Instant endTime = Instant.now().plus(Duration.ofMinutes(currentTask.getDurationMinutes()));
             taskScheduler.schedule(() -> {
-                log.info("任务 [{}] 运行时长已达 ({} min)，自动暂停会话", taskId, dbTask.getDurationMinutes());
-                stopSession(taskId, sessionFuture);
+                log.info("任务 [{}] 运行时长已达 ({} min)，结束当前会话", taskId, currentTask.getDurationMinutes());
+                stopSession(taskId, newFuture);
             }, endTime);
         }
     }
 
     /**
      * 停止当前会话 (Worker Stop)
-     * 如果有 Cron，回退到 SCHEDULED；否则 STOPPED
+     * 处理 Work-Rest-Loop 逻辑
      */
     private void stopSession(Long taskId, ScheduledFuture<?> sessionFuture) {
         // 乐观移除：仅当 Map 中的 Future 与当前会话一致时才移除
-        // 防止误杀新启动的会话 (Race Condition Fix)
         if (runningFutures.remove(taskId, sessionFuture)) {
             sessionFuture.cancel(true);
 
-            if (cronFutures.containsKey(taskId)) {
-                // 还有 Cron 调度，说明是暂时休息
-                log.info("任务 [{}] 会话结束，进入休眠 (SCHEDULED)", taskId);
+            // 获取最新配置以检查 RestPeriod
+            BuffScanTask task = buffScanTaskMapper.selectById(taskId);
+            if (task == null) {
+                stop(taskId);
+                return;
+            }
+
+            // 检查是否需要进入休息模式 (Work-Rest-Loop)
+            // 条件：配置了休息时间 且 是循环模式 (无 Cron 或 占位符)
+            boolean isLoopMode = isImmediateOrBlank(task.getCronExpression());
+            
+            if (task.getRestPeriod() != null && task.getRestPeriod() > 0 && isLoopMode) {
+                log.info("任务 [{}] 进入休息模式 (Resting: {} min) -> 状态: SCHEDULED", taskId, task.getRestPeriod());
+                updateTaskStatus(taskId, TaskStatusEnum.SCHEDULED);
+                
+                // 调度下一次启动
+                taskScheduler.schedule(
+                    () -> startSession(taskId),
+                    Instant.now().plus(Duration.ofMinutes(task.getRestPeriod()))
+                );
+            } else if (cronFutures.containsKey(taskId)) {
+                // 有 Cron 调度，回归等待 Cron 触发
+                log.info("任务 [{}] 会话结束，等待下一次 Cron 触发 -> 状态: SCHEDULED", taskId);
                 updateTaskStatus(taskId, TaskStatusEnum.SCHEDULED);
             } else {
-                // 没有 Cron，说明是彻底停止
-                log.info("任务 [{}] 会话结束，彻底停止 (STOPPED)", taskId);
+                // 无 Cron 且无 Rest，彻底结束
+                log.info("任务 [{}] 会话结束，无后续计划 -> 状态: STOPPED", taskId);
                 updateTaskStatus(taskId, TaskStatusEnum.STOPPED);
+                // 彻底停止时移除回调
+                taskCallbacks.remove(taskId);
             }
+        } else {
+            log.warn("任务 [{}] 停止会话失败: Future 不匹配 (可能是并发启动导致的旧会话)", taskId);
         }
     }
 
     /**
+     * 内部停止逻辑，不移除 Callback (用于 start 方法中的清理)
+     */
+    private void stopWithoutRemovingCallback(Long taskId) {
+        ScheduledFuture<?> cron = cronFutures.remove(taskId);
+        if (cron != null) cron.cancel(true);
+
+        ScheduledFuture<?> running = runningFutures.remove(taskId);
+        if (running != null) running.cancel(true);
+    }
+
+    /**
      * 彻底停止任务 (Supervisor + Worker Stop)
+     * 移除回调，清理所有句柄
      */
     public void stop(Long taskId) {
-        // 1. 取消 Cron
-        ScheduledFuture<?> cron = cronFutures.remove(taskId);
-        if (cron != null) {
-            cron.cancel(true);
-        }
-
-        // 2. 取消 Running
-        ScheduledFuture<?> running = runningFutures.remove(taskId);
-        if (running != null) {
-            running.cancel(true);
-        }
+        stopWithoutRemovingCallback(taskId);
+        taskCallbacks.remove(taskId); // 移除回调
 
         log.info("任务 [{}] 已停止调度", taskId);
         updateTaskStatus(taskId, TaskStatusEnum.STOPPED);
@@ -207,15 +279,21 @@ public class C5TaskScheduler {
      * 完成任务
      */
     public void complete(Long taskId) {
-        // 逻辑同 stop，但状态为 COMPLETED
-        ScheduledFuture<?> cron = cronFutures.remove(taskId);
-        if (cron != null) cron.cancel(true);
+        log.info("任务 [{}] 目标已达成，正在持久化完成状态...", taskId);
 
-        ScheduledFuture<?> running = runningFutures.remove(taskId);
-        if (running != null) running.cancel(true);
+        // 1. Persistence First: 先更新 DB，确保状态落地
+        // 必须在停止 Future 之前执行，否则当前线程被中断会导致 JDBC 抛出 InterruptedException/SQLException
+        BuffScanTask update = new BuffScanTask();
+        update.setId(taskId);
+        update.setStatus(TaskStatusEnum.COMPLETED.getCode());
+        update.setFinishTime(java.time.LocalDateTime.now());
+        buffScanTaskMapper.updateById(update);
 
-        log.info("任务 [{}] 已完成", taskId);
-        updateTaskStatus(taskId, TaskStatusEnum.COMPLETED);
+        // 2. Clean Up: 清理内存资源
+        taskCallbacks.remove(taskId); // 移除回调
+        stopWithoutRemovingCallback(taskId); // 停止调度
+
+        log.info("任务 [{}] 已完成并停止调度", taskId);
     }
 
     private void updateTaskStatus(Long taskId, TaskStatusEnum status) {
@@ -243,10 +321,8 @@ public class C5TaskScheduler {
                 return;
             }
             try {
-                // 执行注入的业务逻辑
                 businessLogic.accept(task);
             } catch (Exception e) {
-                // 如果是中断异常，则不打印错误堆栈
                 if (e instanceof InterruptedException || Thread.currentThread().isInterrupted()) {
                     log.warn("任务 [{}] 执行被中断", task.getId());
                     Thread.currentThread().interrupt();
@@ -261,7 +337,7 @@ public class C5TaskScheduler {
     private void updateLastError(Long taskId, String errorMsg) {
         BuffScanTask update = new BuffScanTask();
         update.setId(taskId);
-        update.setLastError(StrUtil.maxLength(errorMsg, 500)); // 限制长度
+        update.setLastError(StrUtil.maxLength(errorMsg, 500));
         buffScanTaskMapper.updateById(update);
     }
 }

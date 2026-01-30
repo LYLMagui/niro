@@ -177,7 +177,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        // 我们修改 searchProducts 调用，使用 GLOBAL_MAX_PRICE
+        
         CompletableFuture<List<C5ProductSearchResponse.ProductItem>> manualFuture = CompletableFuture.supplyAsync(() ->
                 searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, 1)
         );
@@ -301,11 +301,18 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1. 提取价格阶梯 (去重 + 排序)
-        List<BigDecimal> priceTiers = sortedProducts.stream()
+        // Note: BigDecimal distinct() uses equals() which checks scale. Use compareTo for value equality.
+        List<BigDecimal> rawPrices = sortedProducts.stream()
                 .map(C5ProductSearchResponse.ProductItem::getPrice)
-                .distinct()
                 .sorted()
                 .collect(Collectors.toList());
+
+        List<BigDecimal> priceTiers = new ArrayList<>();
+        for (BigDecimal price : rawPrices) {
+            if (priceTiers.isEmpty() || priceTiers.get(priceTiers.size() - 1).compareTo(price) != 0) {
+                priceTiers.add(price);
+            }
+        }
 
         // 2. 确定锚点
         BigDecimal anchorPrice;
@@ -331,7 +338,14 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             dynamicLimit = anchorPrice.multiply(safeRatio);
         }
 
-        // 4. 日志
+        // 4. 阻断告警 (Fail Loudly)
+        if (CollUtil.isNotEmpty(priceTiers) && dynamicLimit.compareTo(priceTiers.get(0)) < 0) {
+            BigDecimal diff = priceTiers.get(0).subtract(dynamicLimit);
+            log.warn("任务 [{}] 动态上限过低警告! 动态上限: {}, 市场最低价: {}, 差值: {}. 因安全边际过高导致无法购买.",
+                    task.getId(), dynamicLimit, priceTiers.get(0), diff);
+        }
+
+        // 5. 日志
         // 为了日志简洁，只打印前5个阶梯
         String tierLog = priceTiers.stream().limit(5).map(String::valueOf).collect(Collectors.joining(", "));
         log.info("任务 [{}] 价格阶梯: [{}], 锚定: {}, 动态上限: {} (Margin={}%), 用户上限={}",
@@ -451,8 +465,26 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("任务 [{}] 批量购买响应内容为空 (Success/Failed 列表均无数据), 批次: {}", task.getId(), batchId);
                 // 不调用 markAllFailed，保持记录为处理中 (status=0)
             }
+            
+            // 6. 兜底扫描 (Final Sweep)：将所有仍处于"处理中"状态的记录标记为失败
+            // 防止因 API 未返回 out_trade_no 或匹配失败导致订单状态永久卡死
+            List<TradeOrderRecord> zombieRecords = records.stream()
+                    .filter(r -> r.getStatus() == 0)
+                    .collect(Collectors.toList());
+            
+            if (CollUtil.isNotEmpty(zombieRecords)) {
+                log.warn("任务 [{}] 发现 {} 条僵尸订单 (API未返回状态), 统一切换为失败", task.getId(), zombieRecords.size());
+                for (TradeOrderRecord zombie : zombieRecords) {
+                    // 使用 out_trade_no 更新，确保原子性
+                    tradeOrderRecordMapper.update(null, new LambdaUpdateWrapper<TradeOrderRecord>()
+                            .eq(TradeOrderRecord::getOutTradeNo, zombie.getOutTradeNo())
+                            .set(TradeOrderRecord::getStatus, 2)
+                            .set(TradeOrderRecord::getErrorMsg, "API无响应/未匹配到结果")
+                            .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now()));
+                }
+            }
 
-            // 6. 更新任务进度
+            // 7. 更新任务进度
             if (successCount > 0) {
                 // 清空错误信息
                 updateLastError(task, null);
@@ -476,14 +508,39 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             }
 
         } catch (Exception e) {
-            log.error("任务 [{}] 批量下单异常 (网络或解析错误)", task.getId(), e);
-            updateLastError(task, "批量下单异常: " + e.getMessage());
-            // 只有在真正的系统异常（如网络不通）时才标记为失败，且只标记那些还是“处理中”的记录
-            markPendingAsFailed(records, "异常: " + e.getMessage());
+            // 1. 探测并清除中断状态
+            boolean isInterrupted = Thread.interrupted();
+            
+            // 2. 记录异常日志 (包含是否因中断导致的信息)
+            if (isInterrupted || e instanceof InterruptedException) {
+                log.warn("任务 [{}] 被中断 (Interrupted), 正在执行状态回写兜底逻辑. 原异常: {}", task.getId(), e.getMessage());
+            } else {
+                log.error("任务 [{}] 批量下单异常 (网络或解析错误)", task.getId(), e);
+            }
+
+            // 3. 安全落库 (此时线程状态已干净，可以获取 DB 连接)
+            try {
+                updateLastError(task, "批量下单异常: " + e.getMessage());
+                // 只有在真正的系统异常（如网络不通）时才标记为失败，且只标记那些还是“处理中”的记录
+                markPendingAsFailed(records, "异常: " + e.getMessage());
+            } catch (Exception dbEx) {
+                log.error("任务 [{}] 状态回写失败 (严重): {}", task.getId(), dbEx.getMessage());
+            }
+
+            // 4. 现场还原 (恢复中断状态，让上层感知)
+            if (isInterrupted || e instanceof InterruptedException) {
+                Thread.currentThread().interrupt();
+            }
         }
     }
 
     private void updateRecordStatus(List<TradeOrderRecord> records, String outTradeNo, Integer status, String platformOrderId, String errorMsg) {
+        if (StrUtil.isBlank(outTradeNo)) {
+            log.warn("C5响应中存在空的 out_trade_no, 无法更新状态. ErrorMsg: {}", errorMsg);
+            return;
+        }
+
+        boolean matched = false;
         for (TradeOrderRecord record : records) {
             if (StrUtil.equals(record.getOutTradeNo(), outTradeNo)) {
                 record.setStatus(status);
@@ -494,9 +551,23 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                     record.setErrorMsg(errorMsg);
                 }
                 record.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordMapper.updateById(record);
+                
+                // 使用 out_trade_no 进行数据库更新，不依赖 id
+                tradeOrderRecordMapper.update(null, new LambdaUpdateWrapper<TradeOrderRecord>()
+                        .eq(TradeOrderRecord::getOutTradeNo, outTradeNo)
+                        .set(TradeOrderRecord::getStatus, status)
+                        .set(platformOrderId != null, TradeOrderRecord::getOrderId, platformOrderId)
+                        .set(errorMsg != null, TradeOrderRecord::getErrorMsg, errorMsg)
+                        .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now()));
+                
+                log.info("订单状态更新成功 [{}]: Status={}, OrderId={}", outTradeNo, status, platformOrderId);
+                matched = true;
                 break;
             }
+        }
+        
+        if (!matched) {
+            log.warn("C5响应包含未知的 out_trade_no [{}], 可能是并发或超时重试导致", outTradeNo);
         }
     }
 

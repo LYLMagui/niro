@@ -190,7 +190,7 @@
             <t-link v-else theme="primary" disabled>编辑</t-link>
 
             <t-popconfirm
-              v-if="[0, 2, 3].includes(row.status)"
+              v-if="[0, 3].includes(row.status)"
               :content="
                 !row.accountNames || row.accountNames.length === 0
                   ? '当前任务未配置下单账号，将以“仅监控”模式启动，确定吗？'
@@ -276,13 +276,18 @@ const columns = computed<PrimaryTableCol[]>(() => {
   const cols: PrimaryTableCol[] = [
     { colKey: "id", title: "ID", width: 80, align: "left" },
     { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" },
-    { colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" },
+    // C5 平台隐藏模式列
+    ...(currentPlatform.value !== PlatformEnum.C5
+      ? [{ colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" }]
+      : []),
     { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
     // 隐藏 C5 平台的执行账号列，因为 C5 不使用 Buff 账号池
     ...(currentPlatform.value !== PlatformEnum.C5
       ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" }]
       : []),
     { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
+    { colKey: "createTime", title: "创建时间", width: 170, align: "left" },
+    { colKey: "finishTime", title: "完成时间", width: 170, align: "left" },
     { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
     { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "center" },
   ];

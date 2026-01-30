@@ -1,6 +1,6 @@
 ---
 name: c5-business-integration
-description: C5平台业务集成开发专家，负责阅读API文档并编写Python脚本验证接口
+description: 当代码涉及到c5的业务时需要使用此技能
 allowed-tools: "Read,Write,RunCommand,PostGreSQL,redis,tdesign-mcp-server"
 ---
 
@@ -19,7 +19,7 @@ allowed-tools: "Read,Write,RunCommand,PostGreSQL,redis,tdesign-mcp-server"
 - **理解协议**：明确接口的 URL、Method、Headers、Params 以及 Response 结构。
 
 ### 脚本验证 (Script Verification)
-- **编写脚本**：在编写正式业务代码前，**必须**创建一个临时的 Python 脚本，位置在测试目录（例如 `niro-spider\tests\temp_c5_test.py`）。
+- **编写脚本**：在编写正式业务代码前，**必须**创建一个临时的 Python 脚本，位置在niro-spider模块下的测试目录（例如 `\niro\niro-spider\tests\temp_c5_test.py`）。
 - **参数构造**：根据接口文档，构造正确的请求参数，如果有必要，调用PostGreSQL工具从数据库中获取动态参数（如用户ID、订单号、商品表的markHashNam等）。
 - **真实调用**：使用 `requests` 等库发起真实的 API 调用，获取实际的响应数据。
 - **分析响应**：打印并分析返回的 JSON 数据，确保后端的响应实体类字段含义与接口返回的JSON一致。

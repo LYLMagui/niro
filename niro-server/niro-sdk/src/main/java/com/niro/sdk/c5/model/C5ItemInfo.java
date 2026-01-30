@@ -34,4 +34,8 @@ public class C5ItemInfo {
     private String categoryName;
     private String item;
     private String itemName;
+    private String subType;
+    private String subTypeGroup;
+    private String subTypeName;
+    private String subTypeColor;
 }

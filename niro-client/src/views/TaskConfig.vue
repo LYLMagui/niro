@@ -59,11 +59,12 @@
                 <t-input-number
                   v-model="c5Config.safeMargin"
                   :min="0"
-                  :max="0.5"
-                  :step="0.01"
+                  :max="50"
+                  :step="0.1"
+                  :decimal-places="1"
+                  suffix="%"
                   theme="column"
                   style="width: 160px"
-                  :format="(val) => `${(val * 100).toFixed(0)}%`"
                 />
                 <span class="ml-2 text-xs text-gray-400">建议 3%-5%</span>
               </t-form-item>
@@ -698,7 +699,7 @@ const uiState = reactive({
 
 // --- C5 策略配置 ---
 const c5Config = reactive({
-  safeMargin: 0.03, // 默认 3%
+  safeMargin: 3, // 默认 3% (UI存储为 3, 提交时转为 0.03)
   anchorTierIndex: 2, // 默认 次低价 (Top 2)
   minConcurrency: 5,
 });
@@ -1031,6 +1032,26 @@ const handleIntervalMaxBlur = () => {
   }
 };
 
+const syncFromUiState = () => {
+  if (formData.taskType < 2) {
+    formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
+    
+    // 逻辑修正：仅当 Min == Max 时设置固定间隔 scanInterval
+    // 否则置为 undefined，迫使后端使用随机范围调度
+    if (formData.scanIntervalMin === formData.scanIntervalMax) {
+      formData.scanInterval = formData.scanIntervalMin;
+    } else {
+      formData.scanInterval = undefined;
+    }
+
+    formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
+    formData.restPeriod = uiState.isCycleMode
+      ? uiState.restValue * DURATION_FACTORS[uiState.restUnit]
+      : 0;
+  }
+};
+
 watch(
   [
     () => uiState.intervalMinValue,
@@ -1040,17 +1061,7 @@ watch(
     () => uiState.durationUnit,
   ],
   () => {
-    if (formData.taskType < 2) {
-      formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
-      formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
-      // 同步更新 scanInterval，防止后端优先使用该字段导致不生效
-      formData.scanInterval = formData.scanIntervalMin;
-      
-      formData.durationMinutes = uiState.durationValue * DURATION_FACTORS[uiState.durationUnit];
-      formData.restPeriod = uiState.isCycleMode
-        ? uiState.restValue * DURATION_FACTORS[uiState.restUnit]
-        : 0;
-    }
+    syncFromUiState();
   },
   { immediate: true }
 );
@@ -1145,7 +1156,8 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
   if (platform === PlatformEnum.C5 && row.extraConfig) {
     try {
       const parsed = JSON.parse(row.extraConfig);
-      c5Config.safeMargin = parsed.safeMargin ?? 0.03;
+      // 后端存储 0.03 -> 前端显示 3
+      c5Config.safeMargin = (parsed.safeMargin ?? 0.03) * 100;
       // 兼容旧数据 (0-based) 转为新数据 (1-based)
       c5Config.anchorTierIndex = parsed.anchorTierIndex !== undefined ? parsed.anchorTierIndex + 1 : 2;
       c5Config.minConcurrency = parsed.minConcurrency ?? 5;
@@ -1154,7 +1166,7 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     }
   } else {
     // 重置默认值
-    c5Config.safeMargin = (row as any).safetyMargin ?? 0.03;
+    c5Config.safeMargin = ((row as any).safetyMargin ?? 0.03) * 100;
     c5Config.anchorTierIndex = (row as any).ladderStep ?? 2;
     c5Config.minConcurrency = 5;
   }
@@ -1230,6 +1242,9 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     });
   }
   fetchAccounts();
+  
+  // 强制同步一次数据，确保编辑时 scanInterval 状态正确
+  syncFromUiState();
 };
 
 const handleSubmit = async ({ validateResult, firstError }: any) => {
@@ -1261,13 +1276,19 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
       cronExpression: formData.cronExpression,
       platform: formData.platform,
       // C5 独立字段
-      safetyMargin: c5Config.safeMargin,
+      // 前端显示 3 -> 后端存储 0.03
+      safetyMargin: c5Config.safeMargin / 100,
       ladderStep: c5Config.anchorTierIndex,
     };
 
     // C5 平台特殊配置序列化
     if (formData.platform === PlatformEnum.C5) {
-      data.extraConfig = JSON.stringify(c5Config);
+      // 深度拷贝并转换 safeMargin
+      const c5SubmitConfig = {
+        ...c5Config,
+        safeMargin: c5Config.safeMargin / 100
+      };
+      data.extraConfig = JSON.stringify(c5SubmitConfig);
     }
 
     if (uiState.isCronImmediate) {

@@ -18,14 +18,22 @@ public class C5ProductSearchResponse {
         private Integer acceptBargain;
         private Integer appId;
         private C5AssetInfo assetInfo;
+        private Integer assetType;
+        private Long cdCountDown;
+        private Long cdExpirationTime;
+        private BigDecimal cdUndeliveredCompensationAmount;
         private BigDecimal cnyPrice;
         private Integer currencyId;
         private Integer delivery;
         private String description;
+        private Integer device;
+        private BigDecimal expRebateAmount;
+        private Double fifteenAvgDeliverTime;
         private String id;
         private String imageUrl;
         private String inspect3dUrl;
         private Integer inspect3dViewable;
+        private Integer inspectCmsViewable;
         private String inspectImageThumb;
         private String inspectImageUrl;
         private String inspectOriginalUrl;
@@ -37,8 +45,15 @@ public class C5ProductSearchResponse {
         private String marketHashName;
         private BigDecimal price;
         private C5SellerInfo sellerInfo;
+        private BigDecimal sellerFee;
         private BigDecimal sellerPrice;
+        private Double sevenAvgDeliverTime;
+        private String shortName;
+        private List<String> sourceChannels;
         private String steamId;
+        private String steamInfo;
+        private BigDecimal stickerPremiumRate;
+        private BigDecimal stickerTotalPrice;
         private BigDecimal subsidyPrice;
     }
 }

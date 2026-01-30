@@ -155,5 +155,9 @@ public class BuffScanTask {
      */
     private String lastError;
 
+    /**
+     * 任务完成时间
+     */
+    private LocalDateTime finishTime;
 
 }

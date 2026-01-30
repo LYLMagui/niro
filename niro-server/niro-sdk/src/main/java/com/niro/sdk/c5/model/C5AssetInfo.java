@@ -8,6 +8,7 @@ import java.util.List;
 @Data
 public class C5AssetInfo {
     private String assetId;
+    private String originalAssetId;
     private String classId;
     private String classInfoId;
     private String instanceId;
@@ -27,7 +28,9 @@ public class C5AssetInfo {
     private List<C5Sticker> stickers;
     private List<C5Style> styles;
     private List<C5ItemSet> itemSets;
+    private List<Object> keychains;
     private String ext;
+    private Object keychainInfo;
 
     @Data
     public static class C5Gem {

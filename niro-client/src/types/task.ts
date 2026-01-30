@@ -41,6 +41,7 @@ export interface BuffScanTask {
   };
   createTime: string;
   updateTime: string;
+  finishTime?: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   targetTaskId?: number;
   platform?: string;
