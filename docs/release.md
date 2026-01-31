@@ -1,5 +1,12 @@
 # Release Notes
 
+## 2026-02-01 (v2.28.0)
+- **数据库文档与表结构规范化**:
+  - **SQL 归档重构**: 对 `数据库表归档.md` 进行了全面重构，将分散的 `ALTER TABLE` 语句合并为完整的初始化 `CREATE TABLE` 语句。
+  - **PostgreSQL 最佳实践落地**: 统一使用 `bigint generated always as identity` 作为主键自增方案，并全面采用 `timestamptz` 确保存储的时间戳具备时区感知能力。
+  - **文档结构优化**: 将合并在一起的菜单权限相关表进行了拆解，实现了“一标题一代码块”的清晰布局，确保标题备注与数据库 `comment` 完全一致。
+  - **清理冗余字段**: 移除了 `trade_order_record` 中过时的冗余统计字段，优化了数据模型。
+
 ## 2026-01-30 (v2.27.0)
 - **多平台配置架构重构 (UserPlatformSettings)**:
   - **核心模型升级**: 将原有的 `UserBuffSettings` 升级为 `UserPlatformSettings`，实现了从单一平台配置向多平台（Buff/C5/Steam）通用配置架构的跨越。
