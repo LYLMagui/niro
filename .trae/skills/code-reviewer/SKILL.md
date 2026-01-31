@@ -1,287 +1,89 @@
 ---
 name: code-reviewer
-description: 自动化代码审查，检查代码质量、架构合规性、编码标准，并与规格定义进行比对。
+description: Niro 项目专用代码审查，严格执行 backend_rules, frontend_rules, python_rules 及工程军规。
 ---
 
-# Code Reviewer 技能
+# Niro Code Reviewer
 
 ## 触发时机
-
 - Pull Request 创建或更新
 - 开发人员请求代码审查
-- CI/CD Pipeline 质量门槛
-- 与 `multi-model-reviewer` 协作时
+- 关键业务逻辑变更（交易、风控、资损相关）
 
 ## 核心任务
-
-1. **架构合规性检查**：验证 Clean Architecture 分层
-2. **编码标准检查**：语言特定的编码规范
-3. **规格对照**：代码实现是否符合规格定义
-4. **测试覆盖**：确认关键路径有测试
+1. **军规执行**：严格审查是否违反 `rules/*.md` 中的“严禁”、“必须”项。
+2. **安全风控**：重点审查交易、余额、库存扣减逻辑的并发控制。
+3. **技术栈合规**：确保使用了规定的工具库（Hutool, MyBatis-Plus Lambda, RedisUtil）。
 
 ---
 
-## 审查维度
+## 审查维度与清单
 
-### 1. Clean Architecture 合规性
+### 1. Java 后端 (Spring Boot)
+> 依据: `backend_rules.md`
 
-```yaml
-architecture_checks:
-  layer_dependency:
-    name: "依赖方向"
-    rule: "外层只能依赖内层，内层不得依赖外层"
-    layers:
-      - adapter (外) → usecase → entity (内)
-    violations:
-      - "Entity 不得 import UseCase"
-      - "UseCase 不得 import Adapter"
-  
-  package_structure:
-    name: "包结构"
-    rule: "符合 {aggregate}/{layer}/{component} 结构"
-    expected:
-      - "{aggregate}/adapter/in/web/"
-      - "{aggregate}/adapter/out/persistence/"
-      - "{aggregate}/entity/"
-      - "{aggregate}/usecase/port/"
-      - "{aggregate}/usecase/service/"
-```
+#### A. 依赖注入与类结构
+- [ ] **构造注入**: 是否使用了 `@RequiredArgsConstructor` + `private final`？(❌ 严禁 `@Autowired`)
+- [ ] **工具类**: 判空、集合、拷贝是否使用了 `Hutool`？(❌ 严禁造轮子或用原生繁琐写法)
+- [ ] **类引用**: 是否避免了全限定类名，使用了 `import`？
 
-### 2. DDD 模式检查
+#### B. 数据库与 ORM
+- [ ] **查询风格**: 是否使用了 `lambdaQuery()` 链式调用？(❌ 严禁老旧 `QueryWrapper`)
+- [ ] **软删除**: 删除操作是否依赖 `@TableLogic`？
+- [ ] **删除断言**: 执行 `delete` / `update` 后是否断言了 `rows > 0`？
+- [ ] **JSON 处理**: PG JSONB 查询是否封装在 Mapper 层？(❌ 严禁在 Service 层拼接 SQL 片段)
 
-```yaml
-ddd_checks:
-  aggregate_root:
-    name: "Aggregate Root 识别"
-    rule: "Aggregate Root 必须控制子实体的生命周期"
-    markers:
-      - "@AggregateRoot annotation"
-      - "private constructor for child entities"
-  
-  value_object:
-    name: "Value Object 不变性"
-    rule: "Value Object 必须 immutable"
-    checks:
-      - "record class 或 final fields"
-      - "no setters"
-      - "equals/hashCode based on all fields"
-  
-  domain_event:
-    name: "Domain Event 标准"
-    rule: "符合 domain-event-standard.yaml"
-    checks:
-      - "sealed interface DomainEvent"
-      - "includes standard metadata"
-      - "occurredOn timestamp"
-```
+#### C. 异常与业务逻辑
+- [ ] **断言使用**: 是否使用了 `Assert.notNull/isTrue`？(❌ 严禁 `if (x==null) throw`)
+- [ ] **异常捕获**: 是否移除了业务代码中的 `try-catch` (由全局异常处理)？
+- [ ] **响应返回**: Controller 是否直接返回数据对象？(❌ 严禁手动封装 `Result`)
 
-### 3. 语言特定标准
+#### D. 扫货与高并发 (高危)
+- [ ] **分布式锁**: 余额变更/下单是否使用了 `RedisUtil` 加锁？
+- [ ] **风控计数**: 涉及 `BuffAccount` 是否有失败计数与熔断调用 `markFailed()`？
 
-参考对应的编码标准：
+### 2. 前端 (Vue 3 + TS)
+> 依据: `frontend_rules.md`
 
-| 语言 | 参考文件 |
-|------|----------|
-| Java | `coding-standards/references/JAVA_CLEAN_ARCH.md` |
-| TypeScript | `coding-standards/references/TYPESCRIPT.md` |
-| Go | `coding-standards/references/GOLANG.md` |
-| Rust | `coding-standards/references/RUST.md` |
+- [ ] **语法**: 是否全量使用 `<script setup>` 和 Composition API？
+- [ ] **类型**: 是否消灭了 `any` 类型？
+- [ ] **样式**: 是否使用了 TailwindCSS / TDesign？(❌ 严禁传统 CSS 文件)
+- [ ] **API**: 请求是否封装在 `src/api`？(❌ 组件内严禁直接调用 axios)
+
+### 3. Python 爬虫
+> 依据: `python_rules.md`
+
+- [ ] **模块边界**: 代码是否在 `niro-spider` 模块内？
+- [ ] **依赖**: 是否使用了 `utils.logger` 而非 `print`？
+- [ ] **网络**: 是否使用了 `utils.network_util` 进行 IP 检测？
 
 ---
 
-## 审查检查清单
+## 审查报告模板
 
-### Use Case Service
+请使用以下格式输出审查结果：
 
-```yaml
-usecase_checks:
-  - id: UC1
-    name: "单一职责"
-    rule: "一个 Service 只处理一个 Use Case"
-    
-  - id: UC2
-    name: "Port 依赖"
-    rule: "通过 Port interface 依赖外部资源"
-    
-  - id: UC3
-    name: "输入验证"
-    rule: "Input DTO 在 UseCase 层验证"
-    
-  - id: UC4
-    name: "Domain Event 发布"
-    rule: "状态变更后发布对应 Domain Event"
-    
-  - id: UC5
-    name: "事务边界"
-    rule: "Aggregate 操作在单一事务内完成"
+```markdown
+# Code Review Report
+
+## 🚫 阻断性问题 (Must Fix)
+- **[规则 1.1]** `UserService.java`: 使用了 `@Autowired`，请改为 `@RequiredArgsConstructor`。
+- **[规则 2.1]** `OrderService.java`: 第 45 行使用了 `QueryWrapper`，请改为 `lambdaQuery()`。
+- **[规则 4.1]** `TradeService.java`: 扣减余额未加 Redis 锁，存在超卖风险。
+
+## ⚠️ 建议优化 (Should Fix)
+- **[规则 1.2]** `StringUtil` 使用了 JDK 原生方法，建议改为 `StrUtil` (Hutool)。
+
+## ✅ 亮点与通过
+- 业务逻辑清晰，断言使用规范。
 ```
-
-### Aggregate Entity
-
-```yaml
-aggregate_checks:
-  - id: AG1
-    name: "Invariant 保护"
-    rule: "所有 public 方法必须维护 invariants"
-    
-  - id: AG2
-    name: "私有构造函数"
-    rule: "Child Entity 使用 private/package constructor"
-    
-  - id: AG3
-    name: "状态封装"
-    rule: "不直接暴露可变集合"
-    
-  - id: AG4
-    name: "Factory Method"
-    rule: "复杂对象使用 Factory 创建"
-```
-
-### Repository/Adapter
-
-```yaml
-adapter_checks:
-  - id: AD1
-    name: "Port 实现"
-    rule: "Adapter 必须实现对应的 Port interface"
-    
-  - id: AD2
-    name: "依赖注入"
-    rule: "通过 Constructor Injection"
-    
-  - id: AD3
-    name: "错误转换"
-    rule: "Infrastructure 错误转换为 Domain 错误"
-```
-
----
-
-## 输出格式
-
-### 审查报告
-
-```
-╔═══════════════════════════════════════════════════════════════════╗
-║                      CODE REVIEW REPORT                            ║
-╠═══════════════════════════════════════════════════════════════════╣
-║ File: CreateWorkflowService.java                                   ║
-║ Aggregate: Workflow                                                ║
-║ Layer: usecase/service                                             ║
-╠═══════════════════════════════════════════════════════════════════╣
-║                                                                    ║
-║ ✅ UC1: Single Responsibility                    PASS              ║
-║ ✅ UC2: Port Dependency                          PASS              ║
-║ ✅ UC3: Input Validation                         PASS              ║
-║ ⚠️ UC4: Domain Event Publication                 WARNING           ║
-║    └─ Event 'WorkflowCreated' missing 'metadata' field            ║
-║ ✅ UC5: Transaction Boundary                     PASS              ║
-║                                                                    ║
-╠═══════════════════════════════════════════════════════════════════╣
-║ TOTAL: 4/5 PASS, 1 WARNING                                         ║
-╚═══════════════════════════════════════════════════════════════════╝
-```
-
-### 问题详情
-
-```yaml
-review_issues:
-  - id: CR-001
-    file: "CreateWorkflowService.java"
-    line: 45
-    severity: warning
-    check: UC4
-    message: "Domain Event 'WorkflowCreated' missing 'metadata' field"
-    
-    current_code: |
-      return new WorkflowCreated(
-          workflow.getId(),
-          workflow.getBoardId(),
-          workflow.getName()
-      );
-    
-    suggested_fix: |
-      return new WorkflowCreated(
-          workflow.getId(),
-          workflow.getBoardId(),
-          workflow.getName(),
-          EventMetadata.now()  // Add metadata
-      );
-    
-    spec_reference: "aggregate.yaml#domain_events.WorkflowCreated"
-```
-
----
-
-## 与其他 Skills 协作
-
-```
-                    ┌─────────────────────┐
-                    │   code-reviewer     │ ◄── 本 Skill
-                    │   (代码审查)         │
-                    └──────────┬──────────┘
-                               │
-           ┌───────────────────┼───────────────────┐
-           │                   │                   │
-           ▼                   ▼                   ▼
-┌─────────────────┐ ┌─────────────────┐ ┌─────────────────┐
-│   arch-guard    │ │coding-standards │ │ multi-model-    │
-│ (架构守护)       │ │ (编码标准)       │ │ reviewer        │
-└─────────────────┘ └─────────────────┘ └─────────────────┘
-```
-
----
 
 ## 命令行工具
 
 ```bash
-# 审查单一文件
-python ~/.claude/skills/code-reviewer/scripts/review.py \
-    --file src/workflow/usecase/service/CreateWorkflowService.java
+# 审查当前变更
+python .trae/skills/code-reviewer/scripts/review.py --diff
 
-# 审查目录
-python ~/.claude/skills/code-reviewer/scripts/review.py \
-    --dir src/workflow/
-
-# 比对规格
-python ~/.claude/skills/code-reviewer/scripts/review.py \
-    --file src/workflow/usecase/service/CreateWorkflowService.java \
-    --spec docs/specs/create-workflow/
-
-# PR 审查模式
-python ~/.claude/skills/code-reviewer/scripts/review.py \
-    --git-diff origin/main..HEAD
-```
-
----
-
-## 配置文件
-
-### .code-review.yaml
-
-```yaml
-language: java
-architecture: clean-architecture
-
-checks:
-  architecture:
-    enabled: true
-    strict: true
-    
-  coding_standards:
-    enabled: true
-    config: ".coding-standards.yaml"
-    
-  spec_compliance:
-    enabled: true
-    spec_dir: "docs/specs/"
-
-ignore:
-  files:
-    - "**/test/**"
-    - "**/generated/**"
-  rules:
-    - UC5  # Skip transaction check for specific cases
-
-severity_thresholds:
-  error: 0    # Block if any errors
-  warning: 5  # Block if > 5 warnings
+# 审查特定文件
+python .trae/skills/code-reviewer/scripts/review.py --file src/main/java/com/niro/service/OrderService.java
 ```

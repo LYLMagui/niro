@@ -66,11 +66,6 @@ public class BuffScanTask {
     private Integer buyCount;
 
     /**
-     * 已成功购买数量
-     */
-    private Integer successCount;
-
-    /**
      * 任务状态: 0-停止, 1-运行中, 2-已完成, 3-异常, 4-系统任务运行中
      */
     private Integer status;

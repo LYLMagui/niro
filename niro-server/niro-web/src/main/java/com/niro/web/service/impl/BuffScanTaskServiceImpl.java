@@ -135,7 +135,6 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 默认停止
         task.setStatus(TaskStatusEnum.STOPPED.getCode());
-        task.setSuccessCount(0);
         task.setUserId(currentUserId);
 
         this.save(task);
@@ -424,8 +423,8 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
             // 初始化任务配额 (防超买)
             if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-                int currentSuccess = task.getSuccessCount() != null ? task.getSuccessCount() : 0;
-                int quota = Math.max(0, task.getBuyCount() - currentSuccess);
+                long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+                int quota = Math.max(0, (int) (task.getBuyCount() - currentSuccess));
                 String quotaKey = "niro:task:quota:" + id;
                 redisUtil.set(quotaKey, quota);
             log.info("任务 [{}] 配额已初始化: {}", id, quota);
@@ -474,23 +473,17 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     public void syncTaskProgress(Long taskId) {
         if (taskId == null) return;
 
-        // 1. 查询该任务下的成功订单总数
-        Long actualSuccessCount = tradeOrderRecordMapper.selectCount(
-                Wrappers.<TradeOrderRecord>lambdaQuery()
-                        .eq(TradeOrderRecord::getTaskId, taskId)
-                        .eq(TradeOrderRecord::getStatus, 1) // 1=成功
-        );
-
         BuffScanTask task = this.getById(taskId);
         if (task == null) {
             log.warn("同步进度失败，任务不存在: {}", taskId);
             return;
         }
 
-        // 2. 更新任务进度
-        task.setSuccessCount(actualSuccessCount.intValue());
-        this.updateById(task);
-        log.info("任务 [{}] 进度已同步: {} / {}", taskId, actualSuccessCount, task.getBuyCount());
+        // 1. 查询该任务下的成功订单总数
+        Long actualSuccessCount = tradeOrderRecordMapper.countSuccess(taskId);
+
+        // 2. 更新任务进度 (不再维护冗余字段，仅打日志)
+        log.info("任务 [{}] 进度检查: {} / {}", taskId, actualSuccessCount, task.getBuyCount());
 
         // 3. 检查是否自动完结
         // 只有当设置了购买数量且大于0时才检查
@@ -578,6 +571,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 补充商品信息
         if (CollUtil.isNotEmpty(dtoList)) {
+            // 补充 successCount (Single Source of Truth)
+            dtoList.forEach(dto -> {
+                Long count = tradeOrderRecordMapper.countSuccess(dto.getId());
+                dto.setSuccessCount(count != null ? count.intValue() : 0);
+            });
+
             Set<Long> goodsIds = dtoList.stream()
                     .map(BuffScanTaskDTO::getGoodsId)
                     .filter(id -> id != null)
@@ -710,7 +709,6 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             task.setGoodsId(categoryId); // 使用 goodsId 存储 categoryId
             task.setUserId(currentUserId);
             task.setStatus(1); // 立即运行
-            task.setSuccessCount(0);
             this.save(task);
         }
     }

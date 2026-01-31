@@ -18,6 +18,8 @@ import com.niro.web.enums.BuffAccountStatusEnum;
 import com.niro.web.enums.PaymentMethodEnum;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskTypeEnum;
+import com.niro.web.mapper.TradeOrderRecordMapper;
+import com.niro.web.scheduler.C5TaskScheduler;
 import com.niro.web.service.*;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import lombok.RequiredArgsConstructor;
@@ -47,6 +49,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffGoodsService buffGoodsService;
+    private final TradeOrderRecordMapper tradeOrderRecordMapper;
 
     @Value("${proxy.global.enable:false}")
     private Boolean enableProxy;
@@ -149,7 +152,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .durationMinutes(task.getDurationMinutes())
                 .restPeriod(task.getRestPeriod())
                 .buyCount(task.getBuyCount())
-                .successCount(task.getSuccessCount())
+                .successCount(tradeOrderRecordMapper.countSuccess(task.getId()).intValue())
                 .paymentMethod(paymentMethod)
                 .accounts(accountContexts)
                 .execAccountIds(accounts.stream()

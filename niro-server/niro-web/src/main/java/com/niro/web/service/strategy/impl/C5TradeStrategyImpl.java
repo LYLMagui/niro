@@ -6,12 +6,15 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
+import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
 import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
+import com.niro.sdk.c5.response.C5BalanceResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffGoods;
@@ -81,10 +84,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         return clientCache.computeIfAbsent(userId, uid -> {
             UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
             if (settings == null) {
-                throw new com.niro.core.exception.BusinessException("用户配置不存在");
+                throw new BusinessException("用户配置不存在");
             }
             if (StrUtil.isBlank(settings.getC5AppKey())) {
-                throw new com.niro.core.exception.BusinessException("C5 App Key 未配置");
+                throw new BusinessException("C5 App Key 未配置");
             }
             C5Config config = new C5Config()
                     .setApiKey(settings.getC5AppKey())
@@ -104,8 +107,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     public void syncAccountBalance(BuffAccount account) {
         try {
             C5ApiClient client = getClient(account.getUserId());
-            com.niro.sdk.c5.response.C5BalanceResponse balance = client.getAccount().getBalance(
-                    new com.niro.sdk.c5.request.account.C5AccountBalanceRequest().setAccountType(0)
+            C5BalanceResponse balance = client.getAccount().getBalance(
+                    new C5AccountBalanceRequest().setAccountType(0)
             );
             if (balance != null && balance.getBalance() != null) {
                 account.setBalance(balance.getBalance());
@@ -128,7 +131,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     public void executeTrade(BuffScanTask task) {
         // 0. 校验任务状态
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-            int currentSuccess = task.getSuccessCount() != null ? task.getSuccessCount() : 0;
+            long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
             if (currentSuccess >= task.getBuyCount()) {
                 log.info("任务 [{}] 已完成购买目标 ({}/{})，停止执行", task.getId(), currentSuccess, task.getBuyCount());
                 c5TaskScheduler.complete(task.getId());
@@ -243,9 +246,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 6. 批量下单
         // 计算本轮最大购买数
+        long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
         int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
-                ? (task.getBuyCount() - (task.getSuccessCount() != null ? task.getSuccessCount() : 0))
-                : 1; // 如果没限制数量，默认单次买1个? 或者无限? 这里保守处理，若无限则单次买1个
+                ? (int) (task.getBuyCount() - currentSuccess)
+                : 1; // 未限制数量时默认为1，避免并发风险
         // 如果 remaining <= 0，前面已经拦截，但在并发下可能需要再次检查
         if (remaining <= 0) return;
 
@@ -267,10 +271,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         if (item.getAssetInfo() != null) {
             wearVal = item.getAssetInfo().getWear();
         } else if (item.getItemInfo() != null) {
-            // 有些时候磨损可能在 itemInfo? 通常在 assetInfo
+            // 优先从 assetInfo 获取磨损信息
         }
         
-        // 如果商品没有磨损信息 (如贴纸、箱子等)，视作符合条件 (或者根据业务需求过滤?)
+        // 无磨损信息商品默认视为符合条件
         // 这里假设如果用户设置了磨损区间，但商品无磨损，则不买
         if (wearVal == null) {
             return task.getMinPaintwear() == null && task.getMaxPaintwear() == null;
@@ -493,19 +497,14 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 // 清空错误信息
                 updateLastError(task, null);
                 
-                // 原子更新
-                buffScanTaskMapper.update(null, new LambdaUpdateWrapper<BuffScanTask>()
-                        .eq(BuffScanTask::getId, task.getId())
-                        .setSql("success_count = COALESCE(success_count, 0) + " + successCount));
-                
-                // 更新内存中的 task 对象以便后续逻辑使用
-                task.setSuccessCount((task.getSuccessCount() == null ? 0 : task.getSuccessCount()) + successCount);
-                
                 log.info("任务 [{}] 批次 {} 完成，成功: {}, 失败: {}", task.getId(), batchId, successCount, resp.getFailNum());
                 
                 // 检查自动完成
-                if (task.getBuyCount() != null && task.getSuccessCount() >= task.getBuyCount()) {
-                     c5TaskScheduler.complete(task.getId());
+                if (task.getBuyCount() != null) {
+                     long totalSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+                     if (totalSuccess >= task.getBuyCount()) {
+                         c5TaskScheduler.complete(task.getId());
+                     }
                 }
             } else if (CollUtil.isNotEmpty(resp.getFailedList())) {
                 log.warn("任务 [{}] 批次 {} 全部失败", task.getId(), batchId);

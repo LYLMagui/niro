@@ -32,12 +32,11 @@
     charset:
       console: GBK
     level:
-      com.buff: debug
+      com.niro.web.mapper: debug
       org.springframework: info
       com.alibaba.druid: debug
-      org.mybatis: debug
     file:
-      name: logs/buff-dev.log
+      path: ./logs
     logback:
       rolling policy:
         max-file-size: 10MB

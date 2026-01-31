@@ -4,6 +4,8 @@
 
     <springProperty scope="context" name="springAppName" source="spring.application.name" defaultValue="niro-backend"/>
     <springProperty scope="context" name="consoleCharset" source="logging.charset.console" defaultValue="UTF-8"/>
+    <!-- 定义日志路径，默认指向 /var/log/niro/java (Docker环境) -->
+    <springProperty scope="context" name="LOG_PATH" source="logging.file.path" defaultValue="/var/log/niro/java"/>
 
     <!-- 控制台日志 -->
     <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
@@ -15,9 +17,9 @@
 
     <!-- JSON 文件日志 (Global) -->
     <appender name="JSON_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
-        <file>/app/logs/java/niro_backend.json</file>
+        <file>${LOG_PATH}/niro_backend.json</file>
         <rollingPolicy class="ch.qos.logback.core.rolling.SizeAndTimeBasedRollingPolicy">
-            <fileNamePattern>/app/logs/java/niro_backend.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
+            <fileNamePattern>${LOG_PATH}/niro_backend.%d{yyyy-MM-dd}.%i.json.gz</fileNamePattern>
             <maxFileSize>50MB</maxFileSize>
             <maxHistory>7</maxHistory>
             <totalSizeCap>1GB</totalSizeCap>
@@ -36,19 +38,10 @@
         </encoder>
     </appender>
 
-    <!-- Test/Prod 环境：同时输出 Console 和 JSON -->
-    <springProfile name="test | prod">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-            <appender-ref ref="JSON_FILE"/>
-        </root>
-    </springProfile>
-
-    <!-- Dev 环境：仅输出 Console -->
-    <springProfile name="!test &amp; !prod">
-        <root level="INFO">
-            <appender-ref ref="CONSOLE"/>
-        </root>
-    </springProfile>
+    <!-- 全环境输出 Console 和 JSON -->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="JSON_FILE"/>
+    </root>
 
 </configuration>

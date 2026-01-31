@@ -1,209 +1,123 @@
 ---
 name: arch-guard
-description: 進行代碼重構或新增模組時觸發。確保程式碼符合 Clean Architecture + DDD + CQRS 的層次關係，防止架構腐化。
+description: Niro 项目架构守护，确保 Spring Boot 后端、Vue 前端、Python 爬虫三层架构的边界清晰，防止腐化。
 ---
 
-# Architecture Guard Skill
+# Niro Architecture Guard
 
-## 觸發時機
+## 触发时机
+- 新增模块或功能时
+- 重构现有代码时
+- 引入新的第三方依赖时
 
-- 進行代碼重構時
-- 新增模組或類別時
-- 修改現有程式碼的依賴關係時
-- AI 生成新代碼前的架構審查
+## 1. 宏观架构 (System Architecture)
 
-## 核心任務
-
-確保程式碼放對位置，嚴格遵守領域驅動設計 (DDD) 與 Clean Architecture 的層次關係。
-
-## 架構層次定義
+Niro 采用典型的 **分层架构 (Layered Architecture)**，各部分职责明确：
 
 ```
-┌─────────────────────────────────────────────────┐
-│              Presentation Layer                  │
-│         (Controllers, Views, DTOs)               │
-├─────────────────────────────────────────────────┤
-│              Application Layer                   │
-│    (Use Cases, Application Services, Commands)   │
-├─────────────────────────────────────────────────┤
-│               Domain Layer                       │
-│  (Entities, Value Objects, Domain Services,      │
-│   Aggregates, Domain Events, Repositories IF)    │
-├─────────────────────────────────────────────────┤
-│            Infrastructure Layer                  │
-│  (Repository Impl, External Services, DB, MQ)    │
-└─────────────────────────────────────────────────┘
+┌─────────────────┐       ┌──────────────────┐       ┌─────────────────┐
+│  Frontend (Vue) │ <---> │ Backend (Spring) │ <---> │ Spider (Python) │
+└─────────────────┘       └──────────────────┘       └─────────────────┘
+   管理台 UI                 核心业务/API               数据采集/执行
 ```
 
-## 依賴規則 (Dependency Rule)
+### 依赖红线
+- **Frontend** 只能调用 **Backend API**，禁止直连数据库。
+- **Backend** 可以调用 **Spider** (通过 HTTP/MQ)，也可以直接读写 DB。
+- **Spider** 独立运行，通过 DB/Redis 与 Backend 共享数据，或通过 API 回调。
 
-**核心原則：依賴只能向內指向，內層不能知道外層的存在**
+---
 
-### 允許的依賴方向
+## 2. 后端架构 (Spring Boot)
 
-```
-Presentation → Application → Domain ← Infrastructure
-```
-
-### 禁止的依賴
-
-| 禁止情況 | 說明 | 違規範例 |
-|---------|------|---------|
-| Domain → Infrastructure | 領域層不能依賴基礎設施 | Domain Entity import JDBC |
-| Domain → Application | 領域層不能依賴應用層 | Entity import UseCase |
-| Domain → Presentation | 領域層不能依賴展示層 | Entity import Controller |
-| Application → Presentation | 應用層不能依賴展示層 | UseCase import DTO |
-
-## 違規檢測規則
-
-### 🚫 嚴重違規 (必須立即修正)
-
-1. **Domain 層引用資料庫驅動**
-   ```java
-   // ❌ 違規：Domain 層出現 JDBC/JPA 實作
-   package com.example.domain.entity;
-   import java.sql.Connection;  // 禁止！
-   import javax.persistence.EntityManager;  // 禁止！
-   ```
-
-2. **Domain 層引用 Spring Framework**
-   ```java
-   // ❌ 違規：Domain 層出現 Spring 註解
-   package com.example.domain.service;
-   import org.springframework.stereotype.Service;  // 禁止！
-   import org.springframework.beans.factory.annotation.Autowired;  // 禁止！
-   ```
-
-3. **Domain 層引用外部 HTTP 客戶端**
-   ```java
-   // ❌ 違規：Domain 層直接呼叫外部服務
-   package com.example.domain.service;
-   import org.springframework.web.client.RestTemplate;  // 禁止！
-   ```
-
-### ⚠️ 中度違規 (應該重構)
-
-1. **Application 層包含業務邏輯**
-   - Application Layer 應只負責編排 (Orchestration)
-   - 複雜業務邏輯應下沉到 Domain Layer
-
-2. **Repository 實作暴露在 Domain 層**
-   - Domain 層只應定義 Repository 介面
-   - 實作應在 Infrastructure 層
-
-### 💡 建議改進
-
-1. **使用 Port/Adapter 模式**
-   - Domain 定義 Port (介面)
-   - Infrastructure 提供 Adapter (實作)
-
-## 標準目錄結構
+采用经典的 **Controller-Service-Mapper** 三层架构。
 
 ```
-src/main/java/com/example/
-├── presentation/           # 展示層
-│   ├── controller/
-│   ├── dto/
-│   │   ├── request/
-│   │   └── response/
-│   └── assembler/
-│
-├── application/            # 應用層
-│   ├── command/           # CQRS Command
-│   │   └── handler/
-│   ├── query/             # CQRS Query
-│   │   └── handler/
-│   ├── service/           # Application Services
-│   └── port/              # 輸出埠口定義
-│       ├── inbound/
-│       └── outbound/
-│
-├── domain/                 # 領域層 (純 POJO)
-│   ├── model/
-│   │   ├── aggregate/
-│   │   ├── entity/
-│   │   └── valueobject/
-│   ├── service/           # Domain Services
-│   ├── event/             # Domain Events
-│   ├── repository/        # Repository 介面
-│   └── exception/         # Domain Exceptions
-│
-└── infrastructure/         # 基礎設施層
-    ├── persistence/
-    │   ├── repository/    # Repository 實作
-    │   └── entity/        # JPA/ORM Entities
-    ├── messaging/
-    ├── external/          # 外部服務整合
-    └── config/            # 技術配置
+src/main/java/com/niro/
+├── controller/      # Web 层 (入口)
+├── service/         # 业务逻辑层 (核心)
+│   └── impl/
+├── mapper/          # 数据访问层 (MyBatis-Plus)
+├── entity/          # 数据库实体 (POJO)
+└── common/          # 公共组件 (Utils, Config)
 ```
 
-## 審查檢查清單
+### 依赖规则 (Dependency Rules)
 
-### 新增類別時
+1. **Controller 层**:
+   - ✅ 只能依赖 Service。
+   - ❌ 禁止依赖 Mapper。
+   - ❌ 禁止包含复杂业务逻辑。
+   - ✅ 负责参数校验、权限控制、统一响应封装。
 
-- [ ] 類別放在正確的層次？
-- [ ] import 語句是否違反依賴規則？
-- [ ] Domain 層是否為純 POJO（無框架依賴）？
-- [ ] Repository 介面與實作是否分離？
+2. **Service 层**:
+   - ✅ 可以依赖 Mapper 或其他 Service。
+   - ❌ 禁止依赖 Controller。
+   - ❌ 禁止处理 HttpServletRequest/Response。
+   - ❌ 禁止返回 `Result` / `ResponseEntity` (只返回业务对象)。
 
-### 重構時
+3. **Mapper 层**:
+   - ✅ 只负责 SQL 操作。
+   - ❌ 禁止包含业务逻辑。
 
-- [ ] 是否引入新的跨層依賴？
-- [ ] 是否破壞現有的層次邊界？
-- [ ] 是否需要透過介面解耦？
+4. **Entity 层**:
+   - ✅ 纯 POJO，与数据库表一一对应。
+   - ❌ 禁止包含 Repository/Service 逻辑。
 
-## 違規處理流程
+### 常见违规与修正
 
-1. **識別違規**：標記具體的類別和 import 語句
-2. **分類嚴重度**：嚴重 / 中度 / 建議
-3. **提供修正方案**：給出具體的重構建議
-4. **阻止提交**：嚴重違規時應阻止代碼合併
+| 违规行为 | 修正方案 |
+|---------|---------|
+| Controller 直接调 Mapper | 注入 Service，由 Service 调 Mapper |
+| Service 返回 `Result.success(data)` | Service 返回 `data`，Controller 或 Advice 包装 |
+| Service 处理 `HttpSession` | 参数透传，不要依赖 Web 容器对象 |
+| Mapper 中写复杂业务计算 | 移至 Service 层 |
 
-## 範例：違規修正
+---
 
-### 修正前 (違規)
+## 3. 前端架构 (Vue 3)
 
-```java
-// domain/service/OrderDomainService.java
-package com.example.domain.service;
-
-import org.springframework.stereotype.Service;  // ❌
-import com.example.infrastructure.repository.JpaOrderRepository;  // ❌
-
-@Service  // ❌
-public class OrderDomainService {
-    private final JpaOrderRepository repository;  // ❌
-}
+```
+src/
+├── api/             # API 定义 (必须在此)
+├── views/           # 页面组件
+├── components/      # 通用组件
+├── store/           # 状态管理 (Pinia)
+└── hooks/           # 逻辑复用 (Composables)
 ```
 
-### 修正後 (正確)
+### 依赖规则
+- **UI 组件 (views/components)**:
+  - ❌ 禁止直接调用 `axios`。
+  - ✅ 必须调用 `api/` 下定义的函数。
+  - ✅ 复杂状态必须放入 `store/`。
 
-```java
-// domain/service/OrderDomainService.java
-package com.example.domain.service;
+---
 
-import com.example.domain.repository.OrderRepository;  // ✅ 介面
+## 4. 爬虫架构 (Python)
 
-public class OrderDomainService {
-    private final OrderRepository repository;  // ✅ 依賴介面
-}
-
-// domain/repository/OrderRepository.java
-package com.example.domain.repository;
-
-public interface OrderRepository {  // ✅ 純介面
-    Order findById(OrderId id);
-    void save(Order order);
-}
-
-// infrastructure/persistence/repository/JpaOrderRepository.java
-package com.example.infrastructure.persistence.repository;
-
-import org.springframework.stereotype.Repository;  // ✅ 在 Infrastructure
-import com.example.domain.repository.OrderRepository;
-
-@Repository
-public class JpaOrderRepository implements OrderRepository {
-    // JPA 實作
-}
 ```
+niro-spider/
+├── spiders/         # 具体的爬虫逻辑
+├── storage/         # 数据库/Redis 操作
+├── utils/           # 工具库
+└── main.py          # 启动入口
+```
+
+### 依赖规则
+- **业务隔离**: 爬虫只负责“拿数据”和“存数据”，不负责“怎么展示”。
+- **直接入库**: 爬虫通常直接写入 PG 或 Redis，不经过后端 API (为了性能)。
+
+---
+
+## 检查清单 (Checklist)
+
+### 新增功能时
+- [ ] Controller 是否只做路由转发？
+- [ ] 业务逻辑是否全在 Service？
+- [ ] 是否在 Mapper 层处理了所有 SQL 细节（如 JSONB）？
+- [ ] 前端组件是否没有直接写 API URL？
+
+### 重构时
+- [ ] 是否存在循环依赖 (Service A <-> Service B)？-> 提取第三个 Service 或使用事件驱动。
+- [ ] 是否有 Util 类依赖了 Service/Mapper？-> Util 应该是纯静态或无状态的。

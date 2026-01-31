@@ -1,305 +1,177 @@
 ---
 name: coding-standards
-description: 代碼實作階段觸發。強制執行統一的編碼規範，支援 Java、TypeScript、Go 多語言。包含 Input/Output 模式、依賴注入、不可變物件等規範，確保代碼風格一致性。
+description: Niro 项目专用编码规范，覆盖 Java, Vue3, Python，强制执行 rules 目录下的开发军规。
 ---
 
-# Coding Standards Skill
+# Niro Coding Standards
 
-## 觸發時機
+## 触发时机
+- 编写新代码时 (Feature Implementation)
+- 代码重构时 (Refactoring)
+- 修复 Bug 时 (Bug Fix)
 
-- 編寫新代碼時
-- 代碼審查階段
-- 生成 Application Service / Use Case 時
-- 被 Sub-agent (command/query/reactor) 呼叫時
-
-## 核心任務
-
-強制執行統一的編碼規範，確保 AI 生成的代碼風格高度一致，降低人類審閱成本。
-
-## 多語言支援
-
-根據專案語言選擇對應的規範：
-
-| 語言 | 參考文件 | 說明 |
-|-----|---------|------|
-| Java | 本文件 | Spring Boot / Jakarta EE |
-| Java | [references/JAVA_CLEAN_ARCH.md](references/JAVA_CLEAN_ARCH.md) | Clean Architecture 詳細結構 |
-| TypeScript | [references/TYPESCRIPT.md](references/TYPESCRIPT.md) | Node.js / Deno / Bun |
-| Go | [references/GOLANG.md](references/GOLANG.md) | Standard Go Project Layout |
-| Rust | [references/RUST.md](references/RUST.md) | Cargo / Tokio async runtime |
-
-## Claude Code Sub-agent 整合
-
-當被其他 Sub-agent 呼叫時，本 Skill 提供語言特定的編碼規範：
-
-```
-command-sub-agent 呼叫 → 提供 Use Case / Command Handler 的編碼規範
-query-sub-agent 呼叫 → 提供 Query Handler / Read Model 的編碼規範
-reactor-sub-agent 呼叫 → 提供 Event Handler 的編碼規範
-```
+## 核心原则
+1. **结论先行**: 所有的注释、Commit Message、PR 描述必须结论先行。
+2. **最小修改**: 只改动必要的部分，严禁为了“看起来顺眼”而改动无关代码。
+3. **中文优先**: 思考链、注释、文档全部使用中文。
 
 ---
 
-## 規範 1：Input/Output Inner Class 模式
+## 1. Java 后端规范 (Spring Boot)
 
-### 目的
-- 明確定義方法的輸入輸出契約
-- 提高代碼可讀性和可維護性
-- 便於單元測試
+### A. 依赖注入 (Dependency Injection)
 
-### 標準模式
+**✅ 正确示例 (Constructor Injection)**
+```java
+@Service
+@RequiredArgsConstructor
+public class OrderService {
+    private final OrderMapper orderMapper;
+    private final RedisUtil redisUtil;
+    
+    // Lombok 自动生成构造函数
+}
+```
+
+**❌ 错误示例 (Field Injection)**
+```java
+@Service
+public class OrderService {
+    @Autowired  // 严禁使用
+    private OrderMapper orderMapper;
+}
+```
+
+### B. 数据库查询 (MyBatis-Plus)
+
+**✅ 正确示例 (Lambda Query)**
+```java
+public Order getByOrderNo(String orderNo) {
+    return this.lambdaQuery()
+        .eq(Order::getOrderNo, orderNo)
+        .one();
+}
+```
+
+**❌ 错误示例 (Magic String / QueryWrapper)**
+```java
+public Order getByOrderNo(String orderNo) {
+    QueryWrapper<Order> wrapper = new QueryWrapper<>();
+    wrapper.eq("order_no", orderNo); // 严禁魔法值字段名
+    return orderMapper.selectOne(wrapper);
+}
+```
+
+### C. 业务断言 (Assertions)
+
+**✅ 正确示例 (Assert)**
+```java
+public void shipOrder(String orderId) {
+    Assert.notBlank(orderId, "订单号不能为空");
+    Order order = getById(orderId);
+    Assert.notNull(order, "订单不存在");
+}
+```
+
+**❌ 错误示例 (If Throw)**
+```java
+public void shipOrder(String orderId) {
+    if (orderId == null || orderId.trim().isEmpty()) {
+        throw new RuntimeException("订单号不能为空");
+    }
+}
+```
+
+### D. 工具库 (Hutool)
+
+| 操作 | ✅ 推荐 (Hutool) | ❌ 禁止 (JDK/Guava/Apache) |
+|------|------------------|----------------------------|
+| 字符串判空 | `StrUtil.isBlank(str)` | `StringUtils.isBlank(str)` |
+| 集合判空 | `CollUtil.isEmpty(list)` | `CollectionUtils.isEmpty(list)` |
+| 对象拷贝 | `BeanUtil.copyProperties(src, dest)` | `BeanUtils.copyProperties` |
+| JSON | Mapper 层处理 | Service 层处理 |
+
+---
+
+## 2. 前端规范 (Vue 3 + TS)
+
+### A. 组件结构
+
+**✅ 正确示例 (Script Setup)**
+```vue
+<script setup lang="ts">
+import { ref, computed } from 'vue';
+import { useUserStore } from '@/store/user'; // 必须使用别名 @
+
+const userStore = useUserStore();
+const count = ref(0);
+</script>
+```
+
+### B. API 调用
+
+**✅ 正确示例 (Encapsulated API)**
+```typescript
+// src/api/order.ts
+export function createOrder(data: OrderDTO) {
+  return request.post('/orders', data);
+}
+
+// 组件中使用
+import { createOrder } from '@/api/order';
+```
+
+**❌ 错误示例 (Direct Axios)**
+```typescript
+// 组件中直接调用
+axios.post('/api/orders', { ... })
+```
+
+---
+
+## 3. Python 爬虫规范
+
+### A. 异常处理
+
+**✅ 正确示例 (Decorator)**
+```python
+@exception_handler
+def fetch_market_data(item_id):
+    # 业务逻辑
+    pass
+```
+
+### B. 日志
+
+**✅ 正确示例 (Logger)**
+```python
+from utils.logger import logger
+
+logger.info(f"开始抓取商品: {item_id}")
+```
+
+**❌ 错误示例 (Print)**
+```python
+print(f"开始抓取商品: {item_id}")
+```
+
+---
+
+## 4. 通用规范
+
+### 注释规范
+- **严禁行尾注释**: 注释必须在代码上方。
+- **口语化**: 像真人一样交流，不要写教科书式的注释。
 
 ```java
-public class CreateOrderUseCase {
-    
-    // ✅ Input 定義為靜態內部類別
-    public static class Input {
-        private final CustomerId customerId;
-        private final List<OrderItemRequest> items;
-        private final ShippingAddress address;
-        
-        public Input(CustomerId customerId, 
-                     List<OrderItemRequest> items,
-                     ShippingAddress address) {
-            // 可在此進行基本驗證
-            Objects.requireNonNull(customerId, "customerId must not be null");
-            Objects.requireNonNull(items, "items must not be null");
-            if (items.isEmpty()) {
-                throw new IllegalArgumentException("items must not be empty");
-            }
-            this.customerId = customerId;
-            this.items = List.copyOf(items);
-            this.address = address;
-        }
-        
-        // Getters
-        public CustomerId getCustomerId() { return customerId; }
-        public List<OrderItemRequest> getItems() { return items; }
-        public ShippingAddress getAddress() { return address; }
-    }
-    
-    // ✅ Output 定義為靜態內部類別
-    public static class Output {
-        private final OrderId orderId;
-        private final OrderStatus status;
-        private final LocalDateTime createdAt;
-        
-        public Output(OrderId orderId, OrderStatus status, LocalDateTime createdAt) {
-            this.orderId = orderId;
-            this.status = status;
-            this.createdAt = createdAt;
-        }
-        
-        // Getters
-        public OrderId getOrderId() { return orderId; }
-        public OrderStatus getStatus() { return status; }
-        public LocalDateTime getCreatedAt() { return createdAt; }
-    }
-    
-    // ✅ 主要執行方法，接收 Input，回傳 Output
-    public Output execute(Input input) {
-        // 業務邏輯
-    }
-}
+// ✅ 正确：这里加锁是为了防止并发扣余额
+redisUtil.lock(key);
+
+// ❌ 错误：获取 Redis 分布式锁
+redisUtil.lock(key); // 这里加锁
 ```
 
-### 禁止模式
-
-```java
-// ❌ 禁止：直接使用多個參數
-public OrderResult createOrder(String customerId, List<Item> items, String address) {
-    // 這樣做會讓介面難以維護
-}
-
-// ❌ 禁止：使用 Map 作為輸入輸出
-public Map<String, Object> createOrder(Map<String, Object> params) {
-    // 這樣做會失去型別安全
-}
-```
-
-## 規範 2：@Bean not @Component
-
-### 目的
-- 集中管理依賴注入配置
-- 明確的依賴關係可視化
-- 便於測試時替換實作
-
-### 標準模式
-
-```java
-// ✅ 正確：使用 @Configuration + @Bean
-@Configuration
-public class UseCaseConfiguration {
-    
-    @Bean
-    public CreateOrderUseCase createOrderUseCase(
-            OrderRepository orderRepository,
-            InventoryService inventoryService,
-            EventPublisher eventPublisher) {
-        return new CreateOrderUseCase(
-            orderRepository, 
-            inventoryService, 
-            eventPublisher
-        );
-    }
-    
-    @Bean
-    public CancelOrderUseCase cancelOrderUseCase(
-            OrderRepository orderRepository,
-            PaymentGateway paymentGateway) {
-        return new CancelOrderUseCase(orderRepository, paymentGateway);
-    }
-}
-
-// ✅ Use Case 類別保持純淨，無 Spring 註解
-public class CreateOrderUseCase {
-    private final OrderRepository orderRepository;
-    private final InventoryService inventoryService;
-    private final EventPublisher eventPublisher;
-    
-    // 建構子注入
-    public CreateOrderUseCase(
-            OrderRepository orderRepository,
-            InventoryService inventoryService,
-            EventPublisher eventPublisher) {
-        this.orderRepository = orderRepository;
-        this.inventoryService = inventoryService;
-        this.eventPublisher = eventPublisher;
-    }
-}
-```
-
-### 禁止模式
-
-```java
-// ❌ 禁止：在 Use Case 上使用 @Component/@Service
-@Service  // ❌ 不要這樣做
-public class CreateOrderUseCase {
-    
-    @Autowired  // ❌ 不要這樣做
-    private OrderRepository orderRepository;
-}
-```
-
-### 例外情況
-
-以下情況可使用 @Component 系列註解：
-
-| 類型 | 允許使用 | 說明 |
-|------|---------|------|
-| Controller | @RestController | 展示層入口點 |
-| Repository 實作 | @Repository | Infrastructure 層 |
-| Event Listener | @Component | 技術性元件 |
-| Scheduled Task | @Component | 技術性元件 |
-
-## 規範 3：命名規範
-
-### Use Case / Command Handler 命名
-
-```java
-// ✅ 動詞 + 名詞 + UseCase
-CreateOrderUseCase
-CancelOrderUseCase
-UpdateCustomerProfileUseCase
-
-// ✅ CQRS Command Handler
-CreateOrderCommandHandler
-CancelOrderCommandHandler
-
-// ✅ CQRS Query Handler
-GetOrderByIdQueryHandler
-ListOrdersByCustomerQueryHandler
-```
-
-### 方法命名
-
-```java
-// ✅ Use Case 統一使用 execute()
-public Output execute(Input input)
-
-// ✅ Command Handler 統一使用 handle()
-public void handle(CreateOrderCommand command)
-
-// ✅ Query Handler 統一使用 handle()
-public OrderDto handle(GetOrderByIdQuery query)
-```
-
-## 規範 4：不可變物件 (Immutable Objects)
-
-### Input/Output 必須是不可變的
-
-```java
-public static class Input {
-    private final CustomerId customerId;  // ✅ final
-    private final List<OrderItemRequest> items;
-    
-    public Input(CustomerId customerId, List<OrderItemRequest> items) {
-        this.customerId = customerId;
-        this.items = List.copyOf(items);  // ✅ 防禦性複製
-    }
-    
-    // ✅ 只有 Getter，沒有 Setter
-    public CustomerId getCustomerId() { return customerId; }
-    public List<OrderItemRequest> getItems() { 
-        return items;  // 已經是不可變的
-    }
-}
-```
-
-## 規範 5：例外處理模式
-
-### 使用 Domain Exception
-
-```java
-// ✅ 定義領域特定例外
-public class OrderNotFoundException extends DomainException {
-    public OrderNotFoundException(OrderId orderId) {
-        super("Order not found: " + orderId.getValue());
-    }
-}
-
-public class InsufficientInventoryException extends DomainException {
-    public InsufficientInventoryException(ProductId productId, int requested, int available) {
-        super(String.format(
-            "Insufficient inventory for product %s: requested %d, available %d",
-            productId.getValue(), requested, available
-        ));
-    }
-}
-```
-
-## 檢查清單
-
-### 新增 Use Case 時
-
-- [ ] 是否定義了 Input 內部類別？
-- [ ] 是否定義了 Output 內部類別？
-- [ ] Input/Output 是否為不可變？
-- [ ] 是否使用 @Bean 而非 @Component？
-- [ ] 命名是否遵循規範？
-
-### 代碼審查時
-
-- [ ] 有無 @Autowired 欄位注入？（應改用建構子注入）
-- [ ] Use Case 類別是否有框架依賴？
-- [ ] 例外是否使用 Domain Exception？
-
-## 自動檢查規則 (供 Linter 使用)
-
-```yaml
-rules:
-  - id: no-component-on-usecase
-    pattern: "@(Component|Service).*class.*UseCase"
-    message: "Use @Bean configuration instead of @Component on UseCase classes"
-    severity: error
-    
-  - id: no-autowired-field
-    pattern: "@Autowired\\s+private"
-    message: "Use constructor injection instead of field injection"
-    severity: error
-    
-  - id: require-input-output-class
-    pattern: "class.*UseCase.*execute\\((?!Input)"
-    message: "UseCase.execute() should accept Input inner class"
-    severity: warning
-```
+### 版本管理
+- 只有在“任务完成”时才记录版本。
+- 使用 `docs/release.md`。
+- 格式：`v0.x.0` (功能), `v0.0.x` (Bug修复)。

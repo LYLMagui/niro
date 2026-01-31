@@ -32,10 +32,6 @@ logging:
     org.springframework: error
     com.alibaba.druid: warn
     org.mybatis: warn
-  file:
-    name: /opt/logs/buff/buff-prod.log
-    max-size: 100MB
-    max-history: 90
 
 # Knife4j配置（生产环境关闭）
 knife4j:

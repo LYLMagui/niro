@@ -119,29 +119,4 @@ public class TradeOrderRecord {
      * 更新时间
      */
     private LocalDateTime updateTime;
-
-    /**
-     * 批量购买成功数量
-     */
-    private Integer successCount;
-
-    /**
-     * 批量购买失败数量
-     */
-    private Integer failCount;
-
-    /**
-     * 实际支付金额(余额变动)
-     */
-    private BigDecimal realPayAmount;
-
-    /**
-     * 购买失败金额
-     */
-    private BigDecimal failedAmount;
-
-    /**
-     * 批量交易批次号
-     */
-    private String batchNo;
 }

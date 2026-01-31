@@ -34,10 +34,6 @@ logging:
     org.springframework: warn
     com.alibaba.druid: info
     org.mybatis: info
-  file:
-    name: logs/buff-test.log
-    max-size: 50MB
-    max-history: 30
 
 # Knife4j配置（测试环境启用）
 knife4j:
