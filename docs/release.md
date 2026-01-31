@@ -1,11 +1,11 @@
 # Release Notes
 
-## 2026-02-01 (v2.28.0)
-- **数据库文档与表结构规范化**:
-  - **SQL 归档重构**: 对 `数据库表归档.md` 进行了全面重构，将分散的 `ALTER TABLE` 语句合并为完整的初始化 `CREATE TABLE` 语句。
-  - **PostgreSQL 最佳实践落地**: 统一使用 `bigint generated always as identity` 作为主键自增方案，并全面采用 `timestamptz` 确保存储的时间戳具备时区感知能力。
-  - **文档结构优化**: 将合并在一起的菜单权限相关表进行了拆解，实现了“一标题一代码块”的清晰布局，确保标题备注与数据库 `comment` 完全一致。
-  - **清理冗余字段**: 移除了 `trade_order_record` 中过时的冗余统计字段，优化了数据模型。
+## 2026-02-01 (v2.27.1)
+- **数据库架构文档标准化与初始化 SQL 重构**:
+  - **初始化脚本重构**: 将 `数据库表归档.md` 中所有零散的 `ALTER TABLE` 和索引语句合并至初始 `CREATE TABLE`，形成可一键执行的数据库初始化归档。
+  - **数据类型演进**: 全面采用 PostgreSQL 现代标准，包括 `bigint generated always as identity` 主键、`timestamptz` 时区感知时间戳以及 `jsonb` 高性能 JSON 存储。
+  - **Schema 审计与一致性验证**: 使用 PostgreSQL MCP 工具对实时数据库进行全量审计，确保归档文档与生产环境字段 100% 对齐，并修正了 `user_platform_setting` 等表的字段命名差异。
+  - **文档结构优化**: 重构 Markdown 文档标题，实现“标题 == 表名备注”的自动化映射，并对角色权限相关表进行了解耦展示。
 
 ## 2026-01-30 (v2.27.0)
 - **多平台配置架构重构 (UserPlatformSettings)**:
