@@ -3,6 +3,7 @@ package com.niro.web.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
+import com.baomidou.mybatisplus.annotation.TableLogic;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.niro.web.config.PostgresJsonTypeHandler;
 import lombok.Data;
@@ -109,6 +110,11 @@ public class TradeOrderRecord {
     @TableField(typeHandler = PostgresJsonTypeHandler.class, jdbcType = JdbcType.OTHER)
     private Map<String, Object> extraInfo;
     
+    /**
+     * 逻辑删除标记：0-未删除, 1-已删除
+     */
+    @TableLogic
+    private Integer isDeleted;
 
     /**
      * 创建时间

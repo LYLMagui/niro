@@ -246,14 +246,14 @@
                     </div>
                     <t-tag
                       v-if="item.status === BuffAccountStatusEnum.NORMAL"
-                      :theme="BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme"
+                      :theme="(BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any)"
                       variant="light"
                       size="small"
                       class="shrink-0"
                     >
                       {{ BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].label }}
                     </t-tag>
-                    <t-tag v-else :theme="BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme || 'danger'" variant="light" size="small" class="shrink-0">
+                    <t-tag v-else :theme="(BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) || 'danger'" variant="light" size="small" class="shrink-0">
                       {{ BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || '异常' }}
                     </t-tag>
                   </div>
@@ -396,7 +396,7 @@
                         theme="column"
                         style="width: 120px"
                         @blur="handleIntervalMinBlur"
-                        @change="(v) => { uiState.intervalMaxValue = v; }"
+                        @change="(v) => { uiState.intervalMaxValue = Number(v); }"
                       />
                     </template>
                     
@@ -530,14 +530,14 @@
                     </div>
                     <t-tag
                       v-if="item.status === BuffAccountStatusEnum.NORMAL"
-                      :theme="BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme"
+                      :theme="(BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any)"
                       variant="light"
                       size="small"
                       class="shrink-0"
                     >
                       {{ BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].label }}
                     </t-tag>
-                    <t-tag v-else :theme="BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme || 'danger'" variant="light" size="small" class="shrink-0">
+                    <t-tag v-else :theme="(BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) || 'danger'" variant="light" size="small" class="shrink-0">
                       {{ BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || '异常' }}
                     </t-tag>
                   </div>
@@ -634,15 +634,14 @@ import { settingsApi, type BuffAccount } from "@/api/settings";
 import { taskApi } from "@/api/task";
 import CronEditor from "@/components/CronEditor.vue";
 import type { GoodsSimple } from "@/types/goods";
-import type { BuffScanTask, TaskSaveParam } from "@/types/task";
+import type { BuffScanTask } from "@/types/task";
 import cronParser from "cron-parser";
-import { MessagePlugin, type FormRules, type SelectValue } from "tdesign-vue-next";
+import { MessagePlugin } from "tdesign-vue-next";
 import { computed, nextTick, reactive, ref, watch } from "vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskTypeEnum, TaskTypeMap, isSystemTask } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum, TaskRunModeMap } from "@/enums/TaskRunModeEnum";
 import { BuffAccountStatusEnum, BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
-import { TaskStatusEnum } from "@/enums/TaskStatusEnum";
 
 const emit = defineEmits(["success"]);
 
@@ -852,7 +851,7 @@ const filteredAccounts = computed(() => {
   });
 });
 
-const rules = computed(() => ({
+const rules = computed<any>(() => ({
   accountIds: [{ required: false, message: "请选择执行账号", type: "error", trigger: "change" }],
   targetTaskId: [
     {
@@ -924,7 +923,7 @@ const rules = computed(() => ({
         if (formData.platform === PlatformEnum.C5) return val >= 1;
         return val >= 15;
       },
-      message: (val: any) => (formData.platform === PlatformEnum.C5 ? "最小扫描间隔不能低于1秒" : "最小扫描间隔不能低于15秒"),
+      message: () => (formData.platform === PlatformEnum.C5 ? "最小扫描间隔不能低于1秒" : "最小扫描间隔不能低于15秒"),
       type: "error",
       trigger: "submit",
     },
@@ -1002,7 +1001,7 @@ const getMinInterval = () => {
 };
 
 // --- 方法 ---
-const handleIntervalUnitChange = (unit: SelectValue) => {
+const handleIntervalUnitChange = () => {
   const min = getMinInterval();
   if (uiState.intervalMinValue < min) {
     uiState.intervalMinValue = min;

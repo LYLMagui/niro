@@ -4,10 +4,12 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.niro.sdk.c5.client.core.C5HttpEngine;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
 import com.niro.sdk.c5.request.trade.C5NormalBuyRequest;
+import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
 import com.niro.sdk.c5.request.trade.C5QuickBuyRequest;
 import com.niro.sdk.c5.response.C5BaseResponse;
 import com.niro.sdk.c5.response.C5BuyResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
+import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -40,5 +42,13 @@ public class C5TradeClient {
      */
     public C5BatchBuyResponse batchBuy(C5BatchBuyRequest req) {
         return engine.execute("/merchant/trade/v1/batch/buy", "POST", req, new TypeReference<C5BaseResponse<C5BatchBuyResponse>>() {});
+    }
+
+    /**
+     * 订单详情查询
+     * GET /merchant/order/v2/buy/detail
+     */
+    public C5OrderDetailResponse getOrderDetail(C5OrderDetailRequest req) {
+        return engine.execute("/merchant/order/v2/buy/detail", "GET", req, new TypeReference<C5BaseResponse<C5OrderDetailResponse>>() {});
     }
 }

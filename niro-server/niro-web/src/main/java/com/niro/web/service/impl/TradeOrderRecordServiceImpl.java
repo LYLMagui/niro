@@ -5,10 +5,19 @@ import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import cn.hutool.http.HtmlUtil;
 import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.core.exception.BusinessException;
+import com.niro.core.util.Assert;
+import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.config.C5Config;
+import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
+import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.TradeOrderRecordDTO;
+import com.niro.web.dto.UserPlatformSettingsDTO;
+import com.niro.web.vo.C5OrderDetailVO;
 import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
@@ -18,14 +27,22 @@ import com.niro.web.enums.PlatformEnum;
 import com.niro.web.service.BuffAccountService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.TradeOrderRecordService;
+import com.niro.web.service.UserPlatformSettingsService;
+import com.niro.web.service.BuffGoodsService;
+import com.niro.web.entity.BuffGoods;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -41,6 +58,96 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
 
     private final BuffScanTaskService buffScanTaskService;
     private final BuffAccountService buffAccountService;
+    private final UserPlatformSettingsService userPlatformSettingsService;
+    private final BuffGoodsService buffGoodsService;
+
+    @Value("${c5.base-url:https://openapi.c5game.com}")
+    private String c5BaseUrl;
+
+    private String normalizeName(String name) {
+        if (StrUtil.isBlank(name)) {
+            return null;
+        }
+        try {
+            name = URLDecoder.decode(name, StandardCharsets.UTF_8);
+        } catch (Exception e) {
+            // ignore
+        }
+        name = HtmlUtil.unescape(name);
+        // 将非标准空格和连续空格替换为单空格
+        name = name.replaceAll("[\\u00A0\\s]+", " ");
+        return StrUtil.trim(name);
+    }
+
+    private BuffGoods findBuffGoods(String marketHashName, String c5GoodsName) {
+        String normalizedName = normalizeName(marketHashName);
+        if (normalizedName == null) {
+            return null;
+        }
+
+        // 尝试 1：精确匹配
+        BuffGoods goods = buffGoodsService.lambdaQuery()
+                .eq(BuffGoods::getMarketHashName, normalizedName)
+                .last("limit 1")
+                .one();
+        if (goods != null) {
+            return goods;
+        }
+
+        // 尝试 2：忽略大小写匹配
+        goods = buffGoodsService.lambdaQuery()
+                .apply("lower(market_hash_name) = {0}", normalizedName.toLowerCase())
+                .last("limit 1")
+                .one();
+        if (goods != null) {
+            return goods;
+        }
+
+        // 尝试 3：交叉匹配 (如果 c5GoodsName 看起来像英文)
+        if (StrUtil.isNotBlank(c5GoodsName) && c5GoodsName.matches("^[\\x00-\\x7F]+$")) {
+            String normalizedC5Name = normalizeName(c5GoodsName);
+            if (StrUtil.isNotBlank(normalizedC5Name)) {
+                // 重复尝试 1
+                goods = buffGoodsService.lambdaQuery()
+                        .eq(BuffGoods::getMarketHashName, normalizedC5Name)
+                        .last("limit 1")
+                        .one();
+                if (goods != null) {
+                    return goods;
+                }
+
+                // 重复尝试 2
+                goods = buffGoodsService.lambdaQuery()
+                        .apply("lower(market_hash_name) = {0}", normalizedC5Name.toLowerCase())
+                        .last("limit 1")
+                        .one();
+                if (goods != null) {
+                    return goods;
+                }
+            }
+        }
+        return null;
+    }
+
+    // 客户端缓存 (UserId -> Client)
+    private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
+
+    private C5ApiClient getC5Client(Long userId) {
+        return clientCache.computeIfAbsent(userId, uid -> {
+            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
+            if (settings == null) {
+                throw new BusinessException("用户配置不存在");
+            }
+            if (StrUtil.isBlank(settings.getC5AppKey())) {
+                throw new BusinessException("C5 App Key 未配置");
+            }
+            C5Config config = new C5Config()
+                    .setApiKey(settings.getC5AppKey())
+                    .setSecretKey(settings.getC5SecretKey())
+                    .setBaseUrl(c5BaseUrl);
+            return new C5ApiClient(config);
+        });
+    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -67,13 +174,42 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             record.setTaskId(json.getLong("taskId", 0L));
             record.setAccountId(json.getLong("accountId", 0L));
             record.setGoodsName(json.getStr("goodsName", ""));
-            record.setMarketHashName(json.getStr("marketHashName", ""));
-            record.setGoodsImg(json.getStr("goodsImg", "")); // 确保前端传了这个字段，或者后端去查
+            String marketHashName = json.getStr("marketHashName", "");
+            if (StrUtil.isNotBlank(marketHashName)) {
+                marketHashName = StrUtil.trim(marketHashName);
+            }
+            record.setMarketHashName(marketHashName);
+
+            // 尝试补全中文商品名和图片
+            String goodsName = json.getStr("goodsName", "");
+            String goodsImg = json.getStr("goodsImg", "");
+
+            BuffGoods goods = findBuffGoods(marketHashName, goodsName);
+            if (goods != null) {
+                goodsName = goods.getName();
+                record.setGoodsId(goods.getGoodsId());
+                record.setMarketHashName(goods.getMarketHashName());
+                if (StrUtil.isBlank(goodsImg)) {
+                    goodsImg = goods.getIconUrl();
+                }
+            } else {
+                log.warn("C5订单上报-未找到本地商品信息: marketHashName={}, c5GoodsName={}, orderId={}", 
+                        marketHashName, goodsName, orderId);
+            }
+            record.setGoodsName(goodsName);
+            record.setGoodsImg(goodsImg);
             record.setOrderId(orderId);
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
             record.setPaintwear(json.getBigDecimal("paintwear", BigDecimal.ZERO));
             record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
-            record.setErrorMsg(json.getStr("errorMsg", ""));
+            
+            // 兼容 failedDesc 和 errorMsg
+            String errorMsg = json.getStr("errorMsg", "");
+            if (StrUtil.isBlank(errorMsg)) {
+                errorMsg = json.getStr("failedDesc", "");
+            }
+            record.setErrorMsg(errorMsg);
+            
             record.setErrorCode(json.getStr("errorCode", ""));
             
             // 额外信息
@@ -84,6 +220,10 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             // 时间戳处理
             Long timestamp = json.getLong("timestamp");
             if (timestamp != null) {
+                // 兼容秒级时间戳 (小于 10000000000L 即为秒级)
+                if (timestamp < 10000000000L) {
+                    timestamp = timestamp * 1000;
+                }
                 record.setCreateTime(DateUtil.date(timestamp).toLocalDateTime());
             } else {
                 record.setCreateTime(LocalDateTime.now());
@@ -108,7 +248,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     }
 
     @Override
-    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword) {
+    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
         LambdaQueryWrapper<TradeOrderRecord> wrapper = new LambdaQueryWrapper<>();
         
@@ -116,7 +256,15 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
         // wrapper.eq(taskId != null, TradeOrderRecord::getTaskId, taskId);
         // wrapper.eq(accountId != null, TradeOrderRecord::getAccountId, accountId);
         wrapper.eq(StrUtil.isNotBlank(platform), TradeOrderRecord::getPlatform, platform);
-        wrapper.eq(status != null, TradeOrderRecord::getStatus, status);
+        
+        if (status != null) {
+            if (status == 2) {
+                // 查询失败状态 (2: 本地失败, 11: C5失败)
+                wrapper.in(TradeOrderRecord::getStatus, 2, 11);
+            } else {
+                wrapper.eq(TradeOrderRecord::getStatus, status);
+            }
+        }
         
         if (StrUtil.isNotBlank(keyword)) {
             wrapper.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
@@ -124,7 +272,21 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                     .or().like(TradeOrderRecord::getOrderId, keyword));
         }
         
-        wrapper.orderByDesc(TradeOrderRecord::getCreateTime);
+        // 排序逻辑
+        if (StrUtil.isNotBlank(sortField)) {
+            boolean isAsc = "ascend".equalsIgnoreCase(sortOrder) || "asc".equalsIgnoreCase(sortOrder);
+            if ("price".equals(sortField)) {
+                wrapper.orderBy(true, isAsc, TradeOrderRecord::getPrice);
+            } else if ("createTime".equals(sortField)) {
+                wrapper.orderBy(true, isAsc, TradeOrderRecord::getCreateTime);
+            } else if ("status".equals(sortField)) {
+                wrapper.orderBy(true, isAsc, TradeOrderRecord::getStatus);
+            } else {
+                wrapper.orderByDesc(TradeOrderRecord::getCreateTime);
+            }
+        } else {
+            wrapper.orderByDesc(TradeOrderRecord::getCreateTime);
+        }
 
         Page<TradeOrderRecord> result = this.page(page, wrapper);
         
@@ -154,5 +316,84 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
         
         dtoPage.setRecords(dtoList);
         return dtoPage;
+    }
+
+    @Override
+    public C5OrderDetailVO getC5OrderDetail(Long userId, String orderId) {
+        Assert.notBlank(orderId, "订单号不能为空");
+        
+        // 查询本地订单记录，获取 outTradeNo
+        TradeOrderRecord record = this.lambdaQuery()
+                .eq(TradeOrderRecord::getUserId, userId)
+                .eq(TradeOrderRecord::getOrderId, orderId)
+                .one();
+                
+        C5ApiClient client = getC5Client(userId);
+        C5OrderDetailRequest request = new C5OrderDetailRequest().setOrderId(orderId);
+        
+        if (record != null && StrUtil.isNotBlank(record.getOutTradeNo())) {
+            request.setOutTradeNo(record.getOutTradeNo());
+        }
+        
+        C5OrderDetailResponse detail = client.getTrade().getOrderDetail(request);
+        Assert.notNull(detail, "查询 C5 详情返回为空");
+
+        C5OrderDetailVO vo = BeanUtil.copyProperties(detail, C5OrderDetailVO.class);
+        if (detail.getCreateTime() != null) {
+            long ts = detail.getCreateTime();
+            if (ts < 10000000000L) {
+                ts = ts * 1000;
+            }
+            vo.setCreateTimeStr(DateUtil.date(ts).toString());
+        }
+
+        return vo;
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteOrderRecord(Long userId, Long id) {
+        TradeOrderRecord record = lambdaQuery()
+                .eq(TradeOrderRecord::getUserId, userId)
+                .eq(TradeOrderRecord::getId, id)
+                .one();
+        Assert.notNull(record, "订单记录不存在");
+        
+        boolean removed = removeById(id);
+        Assert.isTrue(removed, "删除失败");
+    }
+
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public void updateOrderRecord(TradeOrderRecordDTO dto) {
+        Assert.notNull(dto.getId(), "ID不能为空");
+        TradeOrderRecord record = getById(dto.getId());
+        Assert.notNull(record, "订单记录不存在");
+
+        // 更新基本字段
+        if (dto.getStatus() != null) {
+            record.setStatus(dto.getStatus());
+        }
+        if (dto.getPrice() != null) {
+            record.setPrice(dto.getPrice());
+        }
+        
+        // 如果修改了商品ID，同步更新商品信息
+        if (dto.getGoodsId() != null && !dto.getGoodsId().equals(record.getGoodsId())) {
+            BuffGoods goods = buffGoodsService.lambdaQuery()
+                    .eq(BuffGoods::getGoodsId, dto.getGoodsId())
+                    .one();
+            if (goods != null) {
+                record.setGoodsId(dto.getGoodsId());
+                record.setGoodsName(goods.getName());
+                record.setMarketHashName(goods.getMarketHashName());
+                record.setGoodsImg(goods.getIconUrl());
+            } else {
+                // 如果库里没找到，仅更新ID，或者抛异常？建议仅更新ID，让前端负责校验
+                record.setGoodsId(dto.getGoodsId());
+            }
+        }
+        
+        updateById(record);
     }
 }

@@ -45,6 +45,7 @@ export interface BuffScanTask {
   runMode?: "SCAN" | "TRADE" | "BOTH";
   targetTaskId?: number;
   platform?: string;
+  extraConfig?: string;
 }
 
 export interface TaskQueryParam {

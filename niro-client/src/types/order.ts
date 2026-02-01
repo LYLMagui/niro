@@ -5,6 +5,7 @@ export interface TradeOrderRecord {
   accountId: number;
   platform: string;
   goodsName: string;
+  goodsId?: number;
   marketHashName: string;
   goodsImg: string;
   orderId: string;
@@ -26,6 +27,8 @@ export interface OrderQueryParam {
   platform?: string;
   status?: number;
   keyword?: string;
+  sortField?: string;
+  sortOrder?: string;
 }
 
 export interface OrderStats {

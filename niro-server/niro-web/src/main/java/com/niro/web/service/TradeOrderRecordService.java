@@ -5,6 +5,8 @@ import com.baomidou.mybatisplus.extension.service.IService;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.entity.TradeOrderRecord;
 import cn.hutool.json.JSONObject;
+import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
+import com.niro.web.vo.C5OrderDetailVO;
 
 import java.util.Map;
 
@@ -32,7 +34,33 @@ public interface TradeOrderRecordService extends IService<TradeOrderRecord> {
      * @param status   状态
      * @param userId   用户ID
      * @param keyword  搜索关键词
+     * @param sortField 排序字段
+     * @param sortOrder 排序方式
      * @return 分页结果
      */
-    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword);
+    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder);
+
+    /**
+     * 获取 C5 订单详情
+     *
+     * @param userId  用户ID
+     * @param orderId C5 订单号
+     * @return 订单详情
+     */
+    C5OrderDetailVO getC5OrderDetail(Long userId, String orderId);
+
+    /**
+     * 删除订单记录
+     *
+     * @param userId 用户ID
+     * @param id     记录ID
+     */
+    void deleteOrderRecord(Long userId, Long id);
+
+    /**
+     * 更新订单记录
+     *
+     * @param dto 订单信息
+     */
+    void updateOrderRecord(TradeOrderRecordDTO dto);
 }

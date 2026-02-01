@@ -248,7 +248,6 @@ import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import TaskConfig from "./TaskConfig.vue";
-import TaskProgressCard from "@/components/TaskProgressCard.vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
 import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
@@ -266,7 +265,7 @@ const userInfo = computed(() => {
 const isAdmin = computed(() => userInfo.value?.id === GlobalConstant.ADMIN_USER_ID);
 
 // 状态
-const activeTab = ref(TaskRunModeEnum.SCAN);
+const activeTab = ref<string>(TaskRunModeEnum.SCAN);
 const loading = ref(false);
 const dataList = ref<BuffScanTask[]>([]);
 const configRef = ref();
@@ -276,7 +275,7 @@ const queryParams = reactive<TaskQueryParam>({
   pageSize: 10,
   keyword: "",
   status: undefined,
-  runMode: "SCAN",
+  runMode: "SCAN" as any,
 });
 
 const pagination = reactive({

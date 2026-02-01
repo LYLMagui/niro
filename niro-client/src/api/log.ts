@@ -7,6 +7,10 @@ export interface LogItem {
   traceId?: string;
   service?: string;
   class?: string;
+  ip?: string;
+  accountName?: string;
+  _isDiscovery?: boolean;
+  _account?: string;
   [key: string]: unknown;
 }
 

@@ -211,7 +211,7 @@ const statusText = computed(() => {
 });
 
 // 状态主题色 (Tag Theme)
-const statusTheme = computed(() => {
+const statusTheme = computed<any>(() => {
   const config = TaskStatusMap[props.task.status as TaskStatusEnum];
   return config ? config.color : "default";
 });

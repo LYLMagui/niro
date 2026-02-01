@@ -31,6 +31,11 @@ public enum OrderStatusEnum {
     FAILED(2, "失败"),
 
     /**
+     * 失败 (C5)
+     */
+    FAILURE(11, "失败"),
+
+    /**
      * 取消
      */
     CANCELLED(3, "取消");

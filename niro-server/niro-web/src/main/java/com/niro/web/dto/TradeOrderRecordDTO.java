@@ -36,6 +36,11 @@ public class TradeOrderRecordDTO {
     private Long accountId;
 
     /**
+     * 商品ID
+     */
+    private Long goodsId;
+
+    /**
      * 平台: BUFF, C5
      */
     private String platform;
