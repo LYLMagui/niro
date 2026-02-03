@@ -1,6 +1,5 @@
 package com.niro.web.service.impl;
 
-import java.time.Duration;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Map;
@@ -14,11 +13,10 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.baomidou.mybatisplus.core.toolkit.Wrappers;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.niro.core.constant.GlobalConstant;
 import com.niro.core.constant.BuffConstant;
+import com.niro.core.constant.GlobalConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RedisUtil;
@@ -31,7 +29,6 @@ import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffGoodsCategory;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.BuffScanTaskAccount;
-import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskStatusEnum;
@@ -50,7 +47,6 @@ import com.niro.web.service.strategy.PlatformStrategyFactory;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.BetweenFormatter;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;

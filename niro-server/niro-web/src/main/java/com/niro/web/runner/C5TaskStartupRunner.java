@@ -1,25 +1,24 @@
 package com.niro.web.runner;
 
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.util.List;
+
+import org.springframework.boot.ApplicationArguments;
+import org.springframework.boot.ApplicationRunner;
+import org.springframework.stereotype.Component;
+
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.strategy.impl.C5TradeStrategyImpl;
+
+import cn.hutool.core.collection.CollUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.boot.ApplicationArguments;
-import org.springframework.boot.ApplicationRunner;
-import org.springframework.stereotype.Component;
-
-import java.util.List;
 
 /**
- * C5 任务启动自愈
- * 应用启动时，自动重新注册 C5 平台的运行中任务
- *
- * @author niro
- * @since 2026-01-28
+ * C5任务启动运行器
+ * 系统启动时恢复运行中的任务
  */
 @Slf4j
 @Component
@@ -30,17 +29,17 @@ public class C5TaskStartupRunner implements ApplicationRunner {
     private final C5TradeStrategyImpl c5TradeStrategy;
 
     @Override
-    public void run(ApplicationArguments args) {
-        log.info("开始扫描 C5 平台运行中任务...");
+    public void run(ApplicationArguments args) throws Exception {
+        log.info("C5TaskStartupRunner starting...");
+        
+        // 查询所有状态为RUNNING或SCHEDULED的C5任务
+        List<BuffScanTask> runningTasks = buffScanTaskService.lambdaQuery()
+                .eq(BuffScanTask::getPlatform, PlatformEnum.C5.getCode())
+                .in(BuffScanTask::getStatus, TaskStatusEnum.RUNNING.getCode(), TaskStatusEnum.SCHEDULED.getCode())
+                .list();
 
-        List<BuffScanTask> runningTasks = buffScanTaskService.list(
-                new LambdaQueryWrapper<BuffScanTask>()
-                        .eq(BuffScanTask::getPlatform, PlatformEnum.C5.getCode())
-                        .in(BuffScanTask::getStatus, TaskStatusEnum.RUNNING.getCode(), TaskStatusEnum.SCHEDULED.getCode())
-        );
-
-        if (runningTasks.isEmpty()) {
-            log.info("C5 平台无运行中或定时等待中的任务需要恢复");
+        if (CollUtil.isEmpty(runningTasks)) {
+            log.info("No running C5 tasks found.");
             return;
         }
 

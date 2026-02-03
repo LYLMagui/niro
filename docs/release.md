@@ -1,5 +1,11 @@
 # Release Notes
 
+## 2026-02-03 (v2.29.1)
+- **后端数据库查询重构 (MyBatis-Plus)**:
+  - **链式调用标准化**: 对 `SysMenuService`, `SysRoleService`, `TradeOrderRecordService`, `C5TradeStrategy`, `C5TaskStartupRunner` 等核心模块进行了深度重构，将所有手动实例化的 `Wrapper` 替换为 `lambdaQuery()/lambdaUpdate()` 链式调用，提升代码可读性。
+  - **依赖注入规范化**: 修复了 Service 层跨层直接调用 Mapper 的反模式，通过引入 `SysUserRoleService` 和 `SysRoleMenuService` 实现层级解耦，严格遵循构造注入原则。
+  - **业务逻辑增强**: 为 `TradeOrderRecordService` 新增 `countSuccess` 接口并实现复杂条件查询的链式封装，支持 C5 策略模块的高效调用。
+
 ## 2026-02-01 (v2.29.0)
 - **交易记录管理功能增强**:
   - **多维排序与过滤**: 实现了交易记录列表的按价格、时间、状态的多维排序，以及按平台、状态的筛选功能，提升数据对账效率。

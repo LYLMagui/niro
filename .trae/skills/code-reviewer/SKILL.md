@@ -7,7 +7,7 @@ description: Niro 项目专用代码审查，严格执行 backend_rules, fronten
 
 ## 触发时机
 - Pull Request 创建或更新
-- 开发人员请求代码审查
+- 开发人员请求代码审查或审查代码时触发
 - 关键业务逻辑变更（交易、风控、资损相关）
 
 ## 核心任务

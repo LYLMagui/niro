@@ -1,13 +1,12 @@
 package com.niro.web.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.entity.SysRole;
 import com.niro.web.entity.SysUserRole;
 import com.niro.web.mapper.SysRoleMapper;
-import com.niro.web.mapper.SysUserRoleMapper;
 import com.niro.web.service.SysRoleService;
+import com.niro.web.service.SysUserRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -24,7 +23,7 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> implements SysRoleService {
 
-    private final SysUserRoleMapper sysUserRoleMapper;
+    private final SysUserRoleService sysUserRoleService;
 
     @Override
     public Set<String> selectRolePermissionByUserId(Long userId) {
@@ -36,9 +35,9 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         }
 
         // 1. 查询用户角色关联
-        List<SysUserRole> userRoles = sysUserRoleMapper.selectList(
-                new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId)
-        );
+        List<SysUserRole> userRoles = sysUserRoleService.lambdaQuery()
+                .eq(SysUserRole::getUserId, userId)
+                .list();
 
         if (CollUtil.isEmpty(userRoles)) {
             return roles;
@@ -49,12 +48,10 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
                 .collect(Collectors.toList());
 
         // 2. 查询角色信息
-        List<SysRole> sysRoles = baseMapper.selectList(
-                new LambdaQueryWrapper<SysRole>()
-                        .in(SysRole::getRoleId, roleIds)
-                        .eq(SysRole::getStatus, 0) // 正常
-                        .eq(SysRole::getDelFlag, 0) // 未删除
-        );
+        List<SysRole> sysRoles = this.lambdaQuery()
+                .in(SysRole::getRoleId, roleIds)
+                .eq(SysRole::getStatus, 0) // 正常
+                .list();
 
         if (CollUtil.isNotEmpty(sysRoles)) {
             for (SysRole role : sysRoles) {

@@ -5,7 +5,6 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.baomidou.mybatisplus.core.conditions.update.LambdaUpdateWrapper;
 import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
@@ -22,12 +21,12 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.mapper.BuffScanTaskMapper;
-import com.niro.web.mapper.TradeOrderRecordMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import com.niro.web.service.BuffGoodsCategoryService;
+import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.entity.BuffGoodsCategory;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
@@ -59,7 +58,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final TradeOrderRecordMapper tradeOrderRecordMapper;
+    private final TradeOrderRecordService tradeOrderRecordService;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
@@ -131,7 +130,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     public void executeTrade(BuffScanTask task) {
         // 0. 校验任务状态
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-            long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+            long currentSuccess = tradeOrderRecordService.countSuccess(task.getId());
             if (currentSuccess >= task.getBuyCount()) {
                 log.info("任务 [{}] 已完成购买目标 ({}/{})，停止执行", task.getId(), currentSuccess, task.getBuyCount());
                 c5TaskScheduler.complete(task.getId());
@@ -246,7 +245,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 6. 批量下单
         // 计算本轮最大购买数
-        long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+        long currentSuccess = tradeOrderRecordService.countSuccess(task.getId());
         int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
                 ? (int) (task.getBuyCount() - currentSuccess)
                 : 1; // 未限制数量时默认为1，避免并发风险
@@ -418,7 +417,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 保存记录
         for (TradeOrderRecord record : records) {
-            tradeOrderRecordMapper.insert(record);
+            tradeOrderRecordService.save(record);
         }
 
         // 2. 调用 API
@@ -484,11 +483,12 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("任务 [{}] 发现 {} 条僵尸订单 (API未返回状态), 统一切换为失败", task.getId(), zombieRecords.size());
                 for (TradeOrderRecord zombie : zombieRecords) {
                     // 使用 out_trade_no 更新，确保原子性
-                    tradeOrderRecordMapper.update(null, new LambdaUpdateWrapper<TradeOrderRecord>()
+                    tradeOrderRecordService.lambdaUpdate()
                             .eq(TradeOrderRecord::getOutTradeNo, zombie.getOutTradeNo())
                             .set(TradeOrderRecord::getStatus, 2)
                             .set(TradeOrderRecord::getErrorMsg, "API无响应/未匹配到结果")
-                            .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now()));
+                            .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now())
+                            .update();
                 }
             }
 
@@ -501,7 +501,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 
                 // 检查自动完成
                 if (task.getBuyCount() != null) {
-                     long totalSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+                     long totalSuccess = tradeOrderRecordService.countSuccess(task.getId());
                      if (totalSuccess >= task.getBuyCount()) {
                          c5TaskScheduler.complete(task.getId());
                      }
@@ -556,12 +556,13 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 record.setUpdateTime(LocalDateTime.now());
                 
                 // 使用 out_trade_no 进行数据库更新，不依赖 id
-                tradeOrderRecordMapper.update(null, new LambdaUpdateWrapper<TradeOrderRecord>()
+                tradeOrderRecordService.lambdaUpdate()
                         .eq(TradeOrderRecord::getOutTradeNo, outTradeNo)
                         .set(TradeOrderRecord::getStatus, status)
                         .set(platformOrderId != null, TradeOrderRecord::getOrderId, platformOrderId)
                         .set(errorMsg != null, TradeOrderRecord::getErrorMsg, errorMsg)
-                        .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now()));
+                        .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now())
+                        .update();
                 
                 log.info("订单状态更新成功 [{}]: Status={}, OrderId={}", outTradeNo, status, platformOrderId);
                 matched = true;
@@ -580,7 +581,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 record.setStatus(2);
                 record.setErrorMsg(errorMsg);
                 record.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordMapper.updateById(record);
+                tradeOrderRecordService.updateById(record);
             }
         }
     }

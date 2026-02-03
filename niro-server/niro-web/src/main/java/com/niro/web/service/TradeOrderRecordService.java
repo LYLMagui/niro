@@ -63,4 +63,12 @@ public interface TradeOrderRecordService extends IService<TradeOrderRecord> {
      * @param dto 订单信息
      */
     void updateOrderRecord(TradeOrderRecordDTO dto);
+
+    /**
+     * 统计任务成功订单数
+     *
+     * @param taskId 任务ID
+     * @return 成功数
+     */
+    Long countSuccess(Long taskId);
 }

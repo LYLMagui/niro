@@ -2,7 +2,6 @@ package com.niro.web.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.constant.UserConstants;
 import com.niro.web.dto.vo.MetaVo;
@@ -13,9 +12,9 @@ import com.niro.web.entity.SysUserRole;
 import com.niro.web.enums.MenuTypeEnum;
 import com.niro.web.enums.YesNoEnum;
 import com.niro.web.mapper.SysMenuMapper;
-import com.niro.web.mapper.SysRoleMenuMapper;
-import com.niro.web.mapper.SysUserRoleMapper;
 import com.niro.web.service.SysMenuService;
+import com.niro.web.service.SysRoleMenuService;
+import com.niro.web.service.SysUserRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -29,8 +28,8 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> implements SysMenuService {
 
-    private final SysUserRoleMapper sysUserRoleMapper;
-    private final SysRoleMenuMapper sysRoleMenuMapper;
+    private final SysUserRoleService sysUserRoleService;
+    private final SysRoleMenuService sysRoleMenuService;
 
     @Override
     public List<SysMenu> selectMenuTreeByUserId(Long userId) {
@@ -44,18 +43,18 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
                     .list();
         } else {
             // 1. 根据用户ID查询角色
-            List<SysUserRole> userRoles = sysUserRoleMapper.selectList(
-                    new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId)
-            );
+            List<SysUserRole> userRoles = sysUserRoleService.lambdaQuery()
+                    .eq(SysUserRole::getUserId, userId)
+                    .list();
             if (CollUtil.isEmpty(userRoles)) {
                 return Collections.emptyList();
             }
             List<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).collect(Collectors.toList());
 
             // 2. 根据角色查询菜单ID
-            List<SysRoleMenu> roleMenus = sysRoleMenuMapper.selectList(
-                    new LambdaQueryWrapper<SysRoleMenu>().in(SysRoleMenu::getRoleId, roleIds)
-            );
+            List<SysRoleMenu> roleMenus = sysRoleMenuService.lambdaQuery()
+                    .in(SysRoleMenu::getRoleId, roleIds)
+                    .list();
             if (CollUtil.isEmpty(roleMenus)) {
                 return Collections.emptyList();
             }
@@ -82,18 +81,18 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         }
 
         // 1. 根据用户ID查询角色
-        List<SysUserRole> userRoles = sysUserRoleMapper.selectList(
-                new LambdaQueryWrapper<SysUserRole>().eq(SysUserRole::getUserId, userId)
-        );
+        List<SysUserRole> userRoles = sysUserRoleService.lambdaQuery()
+                .eq(SysUserRole::getUserId, userId)
+                .list();
         if (CollUtil.isEmpty(userRoles)) {
             return perms;
         }
         List<Long> roleIds = userRoles.stream().map(SysUserRole::getRoleId).collect(Collectors.toList());
 
         // 2. 根据角色查询菜单ID
-        List<SysRoleMenu> roleMenus = sysRoleMenuMapper.selectList(
-                new LambdaQueryWrapper<SysRoleMenu>().in(SysRoleMenu::getRoleId, roleIds)
-        );
+        List<SysRoleMenu> roleMenus = sysRoleMenuService.lambdaQuery()
+                .in(SysRoleMenu::getRoleId, roleIds)
+                .list();
         if (CollUtil.isEmpty(roleMenus)) {
             return perms;
         }

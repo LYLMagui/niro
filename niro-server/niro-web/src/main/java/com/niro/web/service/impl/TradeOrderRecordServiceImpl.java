@@ -1,12 +1,18 @@
 package com.niro.web.service.impl;
 
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.date.DateUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import cn.hutool.http.HtmlUtil;
-import com.baomidou.mybatisplus.core.conditions.query.LambdaQueryWrapper;
+import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.exception.BusinessException;
@@ -17,33 +23,28 @@ import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
 import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.dto.UserPlatformSettingsDTO;
-import com.niro.web.vo.C5OrderDetailVO;
 import com.niro.web.entity.BuffAccount;
+import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
-import com.niro.web.mapper.TradeOrderRecordMapper;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
+import com.niro.web.mapper.TradeOrderRecordMapper;
 import com.niro.web.service.BuffAccountService;
+import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
-import com.niro.web.service.BuffGoodsService;
-import com.niro.web.entity.BuffGoods;
+import com.niro.web.vo.C5OrderDetailVO;
+
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HtmlUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.math.BigDecimal;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * 交易订单记录服务实现类
@@ -250,45 +251,42 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     @Override
     public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
-        LambdaQueryWrapper<TradeOrderRecord> wrapper = new LambdaQueryWrapper<>();
         
-        wrapper.eq(userId != null, TradeOrderRecord::getUserId, userId);
-        // wrapper.eq(taskId != null, TradeOrderRecord::getTaskId, taskId);
-        // wrapper.eq(accountId != null, TradeOrderRecord::getAccountId, accountId);
-        wrapper.eq(StrUtil.isNotBlank(platform), TradeOrderRecord::getPlatform, platform);
-        
-        if (status != null) {
-            if (status == 2) {
-                // 查询失败状态 (2: 本地失败, 11: C5失败)
-                wrapper.in(TradeOrderRecord::getStatus, 2, 11);
-            } else {
-                wrapper.eq(TradeOrderRecord::getStatus, status);
-            }
-        }
-        
-        if (StrUtil.isNotBlank(keyword)) {
-            wrapper.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
-                    .or().like(TradeOrderRecord::getMarketHashName, keyword)
-                    .or().like(TradeOrderRecord::getOrderId, keyword));
-        }
-        
-        // 排序逻辑
-        if (StrUtil.isNotBlank(sortField)) {
-            boolean isAsc = "ascend".equalsIgnoreCase(sortOrder) || "asc".equalsIgnoreCase(sortOrder);
-            if ("price".equals(sortField)) {
-                wrapper.orderBy(true, isAsc, TradeOrderRecord::getPrice);
-            } else if ("createTime".equals(sortField)) {
-                wrapper.orderBy(true, isAsc, TradeOrderRecord::getCreateTime);
-            } else if ("status".equals(sortField)) {
-                wrapper.orderBy(true, isAsc, TradeOrderRecord::getStatus);
-            } else {
-                wrapper.orderByDesc(TradeOrderRecord::getCreateTime);
-            }
-        } else {
-            wrapper.orderByDesc(TradeOrderRecord::getCreateTime);
-        }
-
-        Page<TradeOrderRecord> result = this.page(page, wrapper);
+        Page<TradeOrderRecord> result = this.lambdaQuery()
+                .eq(userId != null, TradeOrderRecord::getUserId, userId)
+                // .eq(taskId != null, TradeOrderRecord::getTaskId, taskId);
+                // .eq(accountId != null, TradeOrderRecord::getAccountId, accountId);
+                .eq(StrUtil.isNotBlank(platform), TradeOrderRecord::getPlatform, platform)
+                .func(status != null, q -> {
+                    if (status == 2) {
+                        // 查询失败状态 (2: 本地失败, 11: C5失败)
+                        q.in(TradeOrderRecord::getStatus, 2, 11);
+                    } else {
+                        q.eq(TradeOrderRecord::getStatus, status);
+                    }
+                })
+                .func(StrUtil.isNotBlank(keyword), q -> 
+                    q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
+                            .or().like(TradeOrderRecord::getMarketHashName, keyword)
+                            .or().like(TradeOrderRecord::getOrderId, keyword))
+                )
+                .func(q -> {
+                    if (StrUtil.isNotBlank(sortField)) {
+                        boolean isAsc = "ascend".equalsIgnoreCase(sortOrder) || "asc".equalsIgnoreCase(sortOrder);
+                        if ("price".equals(sortField)) {
+                            q.orderBy(true, isAsc, TradeOrderRecord::getPrice);
+                        } else if ("createTime".equals(sortField)) {
+                            q.orderBy(true, isAsc, TradeOrderRecord::getCreateTime);
+                        } else if ("status".equals(sortField)) {
+                            q.orderBy(true, isAsc, TradeOrderRecord::getStatus);
+                        } else {
+                            q.orderByDesc(TradeOrderRecord::getCreateTime);
+                        }
+                    } else {
+                        q.orderByDesc(TradeOrderRecord::getCreateTime);
+                    }
+                })
+                .page(page);
         
         // 转换 DTO 并填充关联信息
         Page<TradeOrderRecordDTO> dtoPage = new Page<>(pageNum, pageSize, result.getTotal());
@@ -395,5 +393,10 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
         }
         
         updateById(record);
+    }
+
+    @Override
+    public Long countSuccess(Long taskId) {
+        return baseMapper.countSuccess(taskId);
     }
 }
