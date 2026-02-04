@@ -1,20 +1,12 @@
 package com.niro.web.service.impl;
 
-import java.math.BigDecimal;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HtmlUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
@@ -29,22 +21,28 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
-import com.niro.web.mapper.TradeOrderRecordMapper;
-import com.niro.web.service.BuffAccountService;
+import com.niro.web.manager.BuffAccountManagerMapper;
+import com.niro.web.manager.TradeOrderRecordManagerMapper;
+import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.vo.C5OrderDetailVO;
-
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.date.DateUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HtmlUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.net.URLDecoder;
+import java.nio.charset.StandardCharsets;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * 交易订单记录服务实现类
@@ -55,12 +53,14 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMapper, TradeOrderRecord> implements TradeOrderRecordService {
+public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
 
     private final BuffScanTaskService buffScanTaskService;
-    private final BuffAccountService buffAccountService;
+    private final BuffAccountManagerMapper buffAccountManagerMapper;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
+    private final BuffScanTaskMapper buffScanTaskMapper;
+    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
 
     @Value("${c5.base-url:https://openapi.c5game.com}")
     private String c5BaseUrl;
@@ -158,11 +158,11 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                 return;
             }
             JSONObject json = JSONUtil.parseObj(message);
-            
+
             String orderId = json.getStr("orderId");
             // 幂等性检查：如果订单号存在且不为空，则检查是否已存在
             if (StrUtil.isNotBlank(orderId)) {
-                boolean exists = this.lambdaQuery().eq(TradeOrderRecord::getOrderId, orderId).exists();
+                boolean exists = tradeOrderRecordManagerMapper.lambdaQuery().eq(TradeOrderRecord::getOrderId, orderId).exists();
                 if (exists) {
                     log.info("订单已存在，忽略上报: {}", orderId);
                     return;
@@ -194,7 +194,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                     goodsImg = goods.getIconUrl();
                 }
             } else {
-                log.warn("C5订单上报-未找到本地商品信息: marketHashName={}, c5GoodsName={}, orderId={}", 
+                log.warn("C5订单上报-未找到本地商品信息: marketHashName={}, c5GoodsName={}, orderId={}",
                         marketHashName, goodsName, orderId);
             }
             record.setGoodsName(goodsName);
@@ -203,16 +203,16 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
             record.setPaintwear(json.getBigDecimal("paintwear", BigDecimal.ZERO));
             record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
-            
+
             // 兼容 failedDesc 和 errorMsg
             String errorMsg = json.getStr("errorMsg", "");
             if (StrUtil.isBlank(errorMsg)) {
                 errorMsg = json.getStr("failedDesc", "");
             }
             record.setErrorMsg(errorMsg);
-            
+
             record.setErrorCode(json.getStr("errorCode", ""));
-            
+
             // 额外信息
             if (json.containsKey("extraInfo")) {
                 record.setExtraInfo(json.getJSONObject("extraInfo"));
@@ -231,7 +231,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
             }
             record.setUpdateTime(LocalDateTime.now());
 
-            this.save(record);
+            tradeOrderRecordManagerMapper.save(record);
             log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
 
             // 同步任务进度 (仅成功订单触发)
@@ -251,8 +251,8 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     @Override
     public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
-        
-        Page<TradeOrderRecord> result = this.lambdaQuery()
+
+        Page<TradeOrderRecord> result = tradeOrderRecordManagerMapper.lambdaQuery()
                 .eq(userId != null, TradeOrderRecord::getUserId, userId)
                 // .eq(taskId != null, TradeOrderRecord::getTaskId, taskId);
                 // .eq(accountId != null, TradeOrderRecord::getAccountId, accountId);
@@ -265,10 +265,10 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                         q.eq(TradeOrderRecord::getStatus, status);
                     }
                 })
-                .func(StrUtil.isNotBlank(keyword), q -> 
-                    q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
-                            .or().like(TradeOrderRecord::getMarketHashName, keyword)
-                            .or().like(TradeOrderRecord::getOrderId, keyword))
+                .func(StrUtil.isNotBlank(keyword), q ->
+                        q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
+                                .or().like(TradeOrderRecord::getMarketHashName, keyword)
+                                .or().like(TradeOrderRecord::getOrderId, keyword))
                 )
                 .func(q -> {
                     if (StrUtil.isNotBlank(sortField)) {
@@ -287,31 +287,31 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                     }
                 })
                 .page(page);
-        
+
         // 转换 DTO 并填充关联信息
         Page<TradeOrderRecordDTO> dtoPage = new Page<>(pageNum, pageSize, result.getTotal());
         List<TradeOrderRecordDTO> dtoList = result.getRecords().stream().map(item -> {
             TradeOrderRecordDTO dto = BeanUtil.copyProperties(item, TradeOrderRecordDTO.class);
-            
+
             // 填充任务名
             if (item.getTaskId() != null && item.getTaskId() > 0) {
-                BuffScanTask task = buffScanTaskService.getById(item.getTaskId());
+                BuffScanTask task = buffScanTaskMapper.selectById(item.getTaskId());
                 if (task != null) {
                     dto.setTaskName(task.getName());
                 }
             }
-            
+
             // 填充账号名
             if (item.getAccountId() != null && item.getAccountId() > 0) {
-                BuffAccount account = buffAccountService.getById(item.getAccountId());
+                BuffAccount account = buffAccountManagerMapper.getById(item.getAccountId());
                 if (account != null) {
                     dto.setAccountName(account.getAccountName());
                 }
             }
-            
+
             return dto;
         }).collect(Collectors.toList());
-        
+
         dtoPage.setRecords(dtoList);
         return dtoPage;
     }
@@ -319,20 +319,20 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     @Override
     public C5OrderDetailVO getC5OrderDetail(Long userId, String orderId) {
         Assert.notBlank(orderId, "订单号不能为空");
-        
+
         // 查询本地订单记录，获取 outTradeNo
-        TradeOrderRecord record = this.lambdaQuery()
+        TradeOrderRecord record = tradeOrderRecordManagerMapper.lambdaQuery()
                 .eq(TradeOrderRecord::getUserId, userId)
                 .eq(TradeOrderRecord::getOrderId, orderId)
                 .one();
-                
+
         C5ApiClient client = getC5Client(userId);
         C5OrderDetailRequest request = new C5OrderDetailRequest().setOrderId(orderId);
-        
+
         if (record != null && StrUtil.isNotBlank(record.getOutTradeNo())) {
             request.setOutTradeNo(record.getOutTradeNo());
         }
-        
+
         C5OrderDetailResponse detail = client.getTrade().getOrderDetail(request);
         Assert.notNull(detail, "查询 C5 详情返回为空");
 
@@ -351,13 +351,13 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteOrderRecord(Long userId, Long id) {
-        TradeOrderRecord record = lambdaQuery()
+        TradeOrderRecord record = tradeOrderRecordManagerMapper.lambdaQuery()
                 .eq(TradeOrderRecord::getUserId, userId)
                 .eq(TradeOrderRecord::getId, id)
                 .one();
         Assert.notNull(record, "订单记录不存在");
-        
-        boolean removed = removeById(id);
+
+        boolean removed = tradeOrderRecordManagerMapper.removeById(id);
         Assert.isTrue(removed, "删除失败");
     }
 
@@ -365,7 +365,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
     @Transactional(rollbackFor = Exception.class)
     public void updateOrderRecord(TradeOrderRecordDTO dto) {
         Assert.notNull(dto.getId(), "ID不能为空");
-        TradeOrderRecord record = getById(dto.getId());
+        TradeOrderRecord record = tradeOrderRecordManagerMapper.getById(dto.getId());
         Assert.notNull(record, "订单记录不存在");
 
         // 更新基本字段
@@ -375,7 +375,7 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
         if (dto.getPrice() != null) {
             record.setPrice(dto.getPrice());
         }
-        
+
         // 如果修改了商品ID，同步更新商品信息
         if (dto.getGoodsId() != null && !dto.getGoodsId().equals(record.getGoodsId())) {
             BuffGoods goods = buffGoodsService.lambdaQuery()
@@ -391,12 +391,12 @@ public class TradeOrderRecordServiceImpl extends ServiceImpl<TradeOrderRecordMap
                 record.setGoodsId(dto.getGoodsId());
             }
         }
-        
-        updateById(record);
+
+        tradeOrderRecordManagerMapper.updateById(record);
     }
 
     @Override
     public Long countSuccess(Long taskId) {
-        return baseMapper.countSuccess(taskId);
+        return 0L;
     }
 }

@@ -1,13 +1,21 @@
 package com.niro.web.controller;
 
+import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.bean.BeanUtil;
 import com.niro.web.dto.UserDTO;
+import com.niro.web.dto.UserInfoDTO;
 import com.niro.web.dto.param.UserLoginParam;
 import com.niro.web.dto.param.UserRegisterParam;
+import com.niro.web.service.SysMenuService;
+import com.niro.web.service.SysRoleService;
 import com.niro.web.service.UserService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.HashSet;
+import java.util.Set;
 
 /**
  * <p>
@@ -24,6 +32,8 @@ import org.springframework.web.bind.annotation.*;
 public class UserController {
 
     private final UserService userService;
+    private final SysRoleService sysRoleService;
+    private final SysMenuService sysMenuService;
     
     @PostMapping("/register")
     @Operation(summary = "用户注册")
@@ -41,6 +51,26 @@ public class UserController {
     @Operation(summary = "退出登录")
     public void logout(){
         userService.logout();
+    }
+
+    @GetMapping("/getInfo")
+    @Operation(summary = "获取用户信息详情")
+    public UserInfoDTO getInfo() {
+        Long userId = StpUtil.getLoginIdAsLong();
+        UserDTO userDTO = userService.getUser(userId);
+        
+        UserInfoDTO userInfoDTO = new UserInfoDTO();
+        BeanUtil.copyProperties(userDTO, userInfoDTO);
+        
+        // 获取角色
+        Set<String> roles = sysRoleService.selectRolePermissionByUserId(userId);
+        userInfoDTO.setRoles(roles);
+        
+        // 获取权限
+        Set<String> permissions = new HashSet<>(sysMenuService.selectPermsByUserId(userId));
+        userInfoDTO.setPermissions(permissions);
+        
+        return userInfoDTO;
     }
     
     @GetMapping("/getUser/{id}")

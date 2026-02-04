@@ -9,6 +9,9 @@ import "tdesign-vue-next/es/style/index.css";
 // 引入项目全局样式（包含 Tailwind CSS v4）
 import "./style.css";
 
+// 注册权限指令
+import { registerPermissionDirective } from "@/directive/permission";
+
 // 创建 Vue 应用实例
 const app = createApp(App);
 
@@ -18,6 +21,8 @@ app.use(createPinia());
 app.use(router);
 // 注册 TDesign 组件库
 app.use(TDesign);
+// 注册权限指令
+registerPermissionDirective(app);
 
 // 挂载应用到 DOM
 app.mount("#app");

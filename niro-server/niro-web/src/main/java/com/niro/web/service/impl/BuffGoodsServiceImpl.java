@@ -4,31 +4,22 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
-import cn.hutool.core.collection.CollUtil;
 import org.springframework.stereotype.Service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.dto.BuffGoodsDTO;
-/**
- * <p>
- * 商品表 服务实现类
- * </p>
- *
- * @author liyl
- * @since 2025-12-22
- */
 import com.niro.web.dto.BuffGoodsSimpleDTO;
 import com.niro.web.dto.param.GoodsQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffGoodsCategory;
 import com.niro.web.mapper.BuffGoodsMapper;
+import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-
-import com.niro.web.service.BuffGoodsCategoryService;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -95,14 +86,14 @@ public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods
         Map<Long, String> parentCategoryMap = new java.util.HashMap<>();
         if (CollUtil.isNotEmpty(categoryIds)) {
             List<BuffGoodsCategory> categories = buffGoodsCategoryService.listByIds(categoryIds);
-            
+
             // 收集所有父级ID
             List<Long> parentIds = categories.stream()
                     .map(BuffGoodsCategory::getParentId)
                     .filter(id -> id != null && id > 0)
                     .distinct()
                     .toList();
-            
+
             Map<Long, String> parentNameMap = new java.util.HashMap<>();
             if (CollUtil.isNotEmpty(parentIds)) {
                 List<BuffGoodsCategory> parents = buffGoodsCategoryService.listByIds(parentIds);
@@ -110,7 +101,7 @@ public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods
                     parentNameMap.put(parent.getId(), parent.getName());
                 }
             }
-            
+
             // 建立 categoryId -> parentCategoryName 映射
             for (BuffGoodsCategory category : categories) {
                 String parentName = parentNameMap.get(category.getParentId());
@@ -128,7 +119,7 @@ public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods
                 dto.setParentCategoryName(parentCategoryMap.get(goods.getCategoryId()));
             }
         }
-        
+
         return dtoList;
     }
 }

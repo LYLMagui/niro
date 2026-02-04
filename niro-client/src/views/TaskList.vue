@@ -10,19 +10,19 @@
 
       <!-- 顶部分类 Tabs -->
       <t-tabs v-model="activeTab" class="px-6" @change="handleTabChange">
-        <t-tab-panel 
-          :value="TaskRunModeEnum.SCAN" 
-          :label="currentPlatform === PlatformEnum.C5 ? '下单任务' : '扫货扫描'" 
+        <t-tab-panel
+          :value="TaskRunModeEnum.SCAN"
+          :label="currentPlatform === PlatformEnum.C5 ? '下单任务' : '扫货扫描'"
         />
-        <t-tab-panel 
-          v-if="currentPlatform !== PlatformEnum.C5" 
-          :value="TaskRunModeEnum.TRADE" 
-          label="下单任务" 
+        <t-tab-panel
+          v-if="currentPlatform !== PlatformEnum.C5"
+          :value="TaskRunModeEnum.TRADE"
+          label="下单任务"
         />
-        <t-tab-panel 
-          v-if="isAdmin && currentPlatform !== PlatformEnum.C5" 
-          value="SYSTEM" 
-          label="系统任务" 
+        <t-tab-panel
+          v-if="isAdmin && currentPlatform !== PlatformEnum.C5"
+          value="SYSTEM"
+          label="系统任务"
         />
       </t-tabs>
 
@@ -44,11 +44,26 @@
               clearable
               @change="fetchData"
             >
-              <t-option :label="TaskStatusMap[TaskStatusEnum.STOPPED].label" :value="TaskStatusEnum.STOPPED" />
-              <t-option :label="TaskStatusMap[TaskStatusEnum.RUNNING].label" :value="TaskStatusEnum.RUNNING" />
-              <t-option :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label" :value="TaskStatusEnum.SYSTEM_RUNNING" />
-              <t-option :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label" :value="TaskStatusEnum.COMPLETED" />
-              <t-option :label="TaskStatusMap[TaskStatusEnum.ERROR].label" :value="TaskStatusEnum.ERROR" />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.STOPPED].label"
+                :value="TaskStatusEnum.STOPPED"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.RUNNING].label"
+                :value="TaskStatusEnum.RUNNING"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
+                :value="TaskStatusEnum.SYSTEM_RUNNING"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
+                :value="TaskStatusEnum.COMPLETED"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.ERROR].label"
+                :value="TaskStatusEnum.ERROR"
+              />
             </t-select>
           </t-col>
           <t-col :span="3">
@@ -255,7 +270,10 @@ import { TaskRunModeEnum } from "@/enums/TaskRunModeEnum";
 import { GlobalConstant } from "@/constant/GlobalConstant";
 
 const route = useRoute();
-const currentPlatform = computed(() => (route.meta.platform as string) || PlatformEnum.BUFF);
+const currentPlatform = computed(() => {
+  if (route.path.includes("/c5")) return PlatformEnum.C5;
+  return (route.meta.platform as string) || PlatformEnum.BUFF;
+});
 
 // 用户信息
 const userInfo = computed(() => {
@@ -295,11 +313,31 @@ const columns = computed<PrimaryTableCol[]>(() => {
     { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" as any },
     // 隐藏 C5 平台的执行账号列，因为 C5 不使用 Buff 账号池
     ...(currentPlatform.value !== PlatformEnum.C5
-      ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" as any }]
+      ? [
+          {
+            colKey: "accounts",
+            title: "执行账号",
+            width: 150,
+            cell: "accounts",
+            align: "left" as any,
+          },
+        ]
       : []),
     { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
-    { colKey: "createTime", title: "创建时间", width: 170, cell: "createTime", align: "left" as any },
-    { colKey: "finishTime", title: "完成时间", width: 170, cell: "finishTime", align: "left" as any },
+    {
+      colKey: "createTime",
+      title: "创建时间",
+      width: 170,
+      cell: "createTime",
+      align: "left" as any,
+    },
+    {
+      colKey: "finishTime",
+      title: "完成时间",
+      width: 170,
+      cell: "finishTime",
+      align: "left" as any,
+    },
     { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" as any },
     { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "left" as any },
   ];
@@ -328,7 +366,7 @@ const fetchData = async () => {
       }
       queryParams.taskTypes = [TaskTypeEnum.SNIPING, TaskTypeEnum.FLIPPING];
     }
-    
+
     // 注入平台参数
     queryParams.platform = currentPlatform.value;
 

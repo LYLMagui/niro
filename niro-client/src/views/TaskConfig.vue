@@ -25,15 +25,27 @@
           @submit="handleSubmit"
         >
           <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
-            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务类型" name="taskType">
+            <t-form-item
+              v-if="formData.platform !== PlatformEnum.C5"
+              label="任务类型"
+              name="taskType"
+            >
               <t-radio-group v-model="formData.taskType">
-                <t-radio :value="TaskTypeEnum.SNIPING">{{ TaskTypeMap[TaskTypeEnum.SNIPING] }}</t-radio>
-                <t-radio :value="TaskTypeEnum.FLIPPING">{{ TaskTypeMap[TaskTypeEnum.FLIPPING] }}</t-radio>
+                <t-radio :value="TaskTypeEnum.SNIPING">
+                  {{ TaskTypeMap[TaskTypeEnum.SNIPING] }}
+                </t-radio>
+                <t-radio :value="TaskTypeEnum.FLIPPING">
+                  {{ TaskTypeMap[TaskTypeEnum.FLIPPING] }}
+                </t-radio>
               </t-radio-group>
             </t-form-item>
 
             <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务模式">
-              <t-tag v-if="formData.runMode === TaskRunModeEnum.SCAN" theme="primary" variant="light-outline">
+              <t-tag
+                v-if="formData.runMode === TaskRunModeEnum.SCAN"
+                theme="primary"
+                variant="light-outline"
+              >
                 {{ TaskRunModeMap[TaskRunModeEnum.SCAN] }}
               </t-tag>
               <t-tag
@@ -99,7 +111,9 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.runMode !== TaskRunModeEnum.TRADE && formData.platform !== PlatformEnum.C5"
+              v-if="
+                formData.runMode !== TaskRunModeEnum.TRADE && formData.platform !== PlatformEnum.C5
+              "
               label="关联下单任务"
               name="targetTaskId"
             >
@@ -137,7 +151,10 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.taskType === TaskTypeEnum.FLIPPING && formData.runMode !== TaskRunModeEnum.TRADE"
+              v-if="
+                formData.taskType === TaskTypeEnum.FLIPPING &&
+                formData.runMode !== TaskRunModeEnum.TRADE
+              "
               label="预期利润"
               name="minProfit"
             >
@@ -154,7 +171,10 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.taskType === TaskTypeEnum.SNIPING && formData.runMode !== TaskRunModeEnum.TRADE"
+              v-if="
+                formData.taskType === TaskTypeEnum.SNIPING &&
+                formData.runMode !== TaskRunModeEnum.TRADE
+              "
               label="最高价格"
               name="maxPrice"
             >
@@ -170,7 +190,11 @@
             </t-form-item>
 
             <t-form-item
-              v-if="formData.taskType === TaskTypeEnum.SNIPING && formData.runMode !== TaskRunModeEnum.TRADE && isWearable"
+              v-if="
+                formData.taskType === TaskTypeEnum.SNIPING &&
+                formData.runMode !== TaskRunModeEnum.TRADE &&
+                isWearable
+              "
               label="磨损范围"
               name="wear"
             >
@@ -213,7 +237,11 @@
               />
             </t-form-item>
 
-            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="执行账号" name="accountIds">
+            <t-form-item
+              v-if="formData.platform !== PlatformEnum.C5"
+              label="执行账号"
+              name="accountIds"
+            >
               <t-select
                 v-model="formData.accountIds"
                 multiple
@@ -246,15 +274,26 @@
                     </div>
                     <t-tag
                       v-if="item.status === BuffAccountStatusEnum.NORMAL"
-                      :theme="(BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any)"
+                      :theme="BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any"
                       variant="light"
                       size="small"
                       class="shrink-0"
                     >
                       {{ BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].label }}
                     </t-tag>
-                    <t-tag v-else :theme="(BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) || 'danger'" variant="light" size="small" class="shrink-0">
-                      {{ BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || '异常' }}
+                    <t-tag
+                      v-else
+                      :theme="
+                        (BuffAccountStatusMap[item.status as BuffAccountStatusEnum]
+                          ?.theme as any) || 'danger'
+                      "
+                      variant="light"
+                      size="small"
+                      class="shrink-0"
+                    >
+                      {{
+                        BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || "异常"
+                      }}
                     </t-tag>
                   </div>
                 </t-option>
@@ -396,10 +435,14 @@
                         theme="column"
                         style="width: 120px"
                         @blur="handleIntervalMinBlur"
-                        @change="(v) => { uiState.intervalMaxValue = Number(v); }"
+                        @change="
+                          (v) => {
+                            uiState.intervalMaxValue = Number(v);
+                          }
+                        "
                       />
                     </template>
-                    
+
                     <!-- BUFF 平台: 范围间隔 -->
                     <template v-else>
                       <t-input-number
@@ -431,8 +474,12 @@
                       <t-option label="小时" value="h" />
                       <t-option label="天" value="d" />
                     </t-select>
-                    <t-tooltip 
-                      :content="formData.platform === PlatformEnum.C5 ? 'C5平台限制: 10秒30次 (建议间隔 >= 1秒)' : '扫描间隔建议在 15-30 秒之间，过短容易触发风控。'"
+                    <t-tooltip
+                      :content="
+                        formData.platform === PlatformEnum.C5
+                          ? 'C5平台限制: 10秒30次 (建议间隔 >= 1秒)'
+                          : '扫描间隔建议在 15-30 秒之间，过短容易触发风控。'
+                      "
                     >
                       <t-icon name="help-circle" class="ml-1 cursor-help text-gray-400" />
                     </t-tooltip>
@@ -490,10 +537,18 @@
           <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
             <t-form-item label="任务类型" name="taskType">
               <t-radio-group v-model="formData.taskType">
-                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY">{{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY] }}</t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_GOODS">{{ TaskTypeMap[TaskTypeEnum.SYNC_GOODS] }}</t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_STICKER">{{ TaskTypeMap[TaskTypeEnum.SYNC_STICKER] }}</t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY_GOODS">{{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY_GOODS] }}</t-radio>
+                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY">
+                  {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY] }}
+                </t-radio>
+                <t-radio :value="TaskTypeEnum.SYNC_GOODS">
+                  {{ TaskTypeMap[TaskTypeEnum.SYNC_GOODS] }}
+                </t-radio>
+                <t-radio :value="TaskTypeEnum.SYNC_STICKER">
+                  {{ TaskTypeMap[TaskTypeEnum.SYNC_STICKER] }}
+                </t-radio>
+                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY_GOODS">
+                  {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY_GOODS] }}
+                </t-radio>
               </t-radio-group>
             </t-form-item>
 
@@ -530,15 +585,26 @@
                     </div>
                     <t-tag
                       v-if="item.status === BuffAccountStatusEnum.NORMAL"
-                      :theme="(BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any)"
+                      :theme="BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any"
                       variant="light"
                       size="small"
                       class="shrink-0"
                     >
                       {{ BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].label }}
                     </t-tag>
-                    <t-tag v-else :theme="(BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) || 'danger'" variant="light" size="small" class="shrink-0">
-                      {{ BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || '异常' }}
+                    <t-tag
+                      v-else
+                      :theme="
+                        (BuffAccountStatusMap[item.status as BuffAccountStatusEnum]
+                          ?.theme as any) || 'danger'
+                      "
+                      variant="light"
+                      size="small"
+                      class="shrink-0"
+                    >
+                      {{
+                        BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.label || "异常"
+                      }}
                     </t-tag>
                   </div>
                 </t-option>
@@ -785,9 +851,10 @@ const executionSummary = computed(() => {
 
   const actionDesc = formData.taskType < 2 ? "采集价格" : "同步数据";
   if (formData.taskType < 2) {
-    const intervalDesc = intervalMin === intervalMax 
-      ? `${intervalMin} ${intervalUnit}`
-      : `${intervalMin}-${intervalMax} ${intervalUnit}`;
+    const intervalDesc =
+      intervalMin === intervalMax
+        ? `${intervalMin} ${intervalUnit}`
+        : `${intervalMin}-${intervalMax} ${intervalUnit}`;
 
     if (uiState.isCycleMode) {
       summary += `启动后将以 [工作 ${duration}${durationUnit} / 休息 ${uiState.restValue}${{ m: "分钟", h: "小时", d: "天" }[uiState.restUnit]}] 的周期循环运行。`;
@@ -833,16 +900,16 @@ const formData = reactive<any>({
 // 账号过滤逻辑
 const filteredAccounts = computed(() => {
   let list = accounts.value;
-  
+
   // 1. 平台过滤
   if (formData.platform) {
     // 假设 Account 对象有 platform 字段，若无则默认视为 BUFF
     // 或者根据命名约定？这里优先使用字段
-    list = list.filter(a => (a.platform || PlatformEnum.BUFF) === formData.platform);
+    list = list.filter((a) => (a.platform || PlatformEnum.BUFF) === formData.platform);
   }
 
   if (!formData.runMode) return list;
-  
+
   // 2. 模式/角色过滤
   return list.filter((account) => {
     if (formData.runMode === "TRADE") return account.role === "TRADE" || account.role === "BOTH";
@@ -923,7 +990,10 @@ const rules = computed<any>(() => ({
         if (formData.platform === PlatformEnum.C5) return val >= 1;
         return val >= 15;
       },
-      message: () => (formData.platform === PlatformEnum.C5 ? "最小扫描间隔不能低于1秒" : "最小扫描间隔不能低于15秒"),
+      message: () =>
+        formData.platform === PlatformEnum.C5
+          ? "最小扫描间隔不能低于1秒"
+          : "最小扫描间隔不能低于15秒",
       type: "error",
       trigger: "submit",
     },
@@ -964,15 +1034,24 @@ const goodsLoading = ref(false);
 const goodsOptions = ref<GoodsSimple[]>([]);
 
 const NON_WEARABLE_CATEGORIES = [
-  "印花", "Sticker",
-  "容器", "Container",
-  "涂鸦", "Spray",
-  "布章", "Patch",
-  "音乐盒", "Music Kit",
-  "钥匙", "Key",
-  "工具", "Tool",
-  "探员", "Agent",
-  "其他", "Other"
+  "印花",
+  "Sticker",
+  "容器",
+  "Container",
+  "涂鸦",
+  "Spray",
+  "布章",
+  "Patch",
+  "音乐盒",
+  "Music Kit",
+  "钥匙",
+  "Key",
+  "工具",
+  "Tool",
+  "探员",
+  "Agent",
+  "其他",
+  "Other",
 ];
 
 const isWearable = computed(() => {
@@ -981,7 +1060,7 @@ const isWearable = computed(() => {
     return true; // 默认显示，或者是编辑回显时无数据的情况
   }
   const pName = selectedGoods.parentCategoryName;
-  return !NON_WEARABLE_CATEGORIES.some(c => pName.includes(c));
+  return !NON_WEARABLE_CATEGORIES.some((c) => pName.includes(c));
 });
 
 const remoteSearchGoods = async (keyword: string) => {
@@ -1035,7 +1114,7 @@ const syncFromUiState = () => {
   if (formData.taskType < 2) {
     formData.scanIntervalMin = uiState.intervalMinValue * INTERVAL_FACTORS[uiState.intervalUnit];
     formData.scanIntervalMax = uiState.intervalMaxValue * INTERVAL_FACTORS[uiState.intervalUnit];
-    
+
     // 逻辑修正：仅当 Min == Max 时设置固定间隔 scanInterval
     // 否则置为 undefined，迫使后端使用随机范围调度
     if (formData.scanIntervalMin === formData.scanIntervalMax) {
@@ -1099,7 +1178,7 @@ const resetForm = () => {
 const handleAdd = (defaultMode: string = "SCAN", platform: string = PlatformEnum.BUFF) => {
   resetForm();
   formData.platform = platform;
-  
+
   if (platform === PlatformEnum.C5) {
     // C5 平台强制使用 炼金扫货模式 (taskType=0) 且为 全能模式 (BOTH) 以显示价格、磨损和购买数量
     formData.taskType = TaskTypeEnum.SNIPING;
@@ -1115,7 +1194,7 @@ const handleAdd = (defaultMode: string = "SCAN", platform: string = PlatformEnum
     uiState.intervalMaxValue = 20;
     uiState.intervalUnit = "s";
   }
-  
+
   dialogTitle.value = "新增任务";
   dialogVisible.value = true;
   nextTick(() => {
@@ -1158,7 +1237,8 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
       // 后端存储 0.03 -> 前端显示 3
       c5Config.safeMargin = (parsed.safeMargin ?? 0.03) * 100;
       // 兼容旧数据 (0-based) 转为新数据 (1-based)
-      c5Config.anchorTierIndex = parsed.anchorTierIndex !== undefined ? parsed.anchorTierIndex + 1 : 2;
+      c5Config.anchorTierIndex =
+        parsed.anchorTierIndex !== undefined ? parsed.anchorTierIndex + 1 : 2;
       c5Config.minConcurrency = parsed.minConcurrency ?? 5;
     } catch (e) {
       console.error("解析 C5 配置失败", e);
@@ -1202,16 +1282,20 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     goodsOptions.value = [{ goodsId: row.goodsId, name: row.name } as any];
     // 异步获取详细信息以补充 category
     goodsLoading.value = true;
-    goodsApi.getSimpleList(row.name).then(res => {
-      const match = res.find(g => g.goodsId === row.goodsId);
-      if (match) {
-        goodsOptions.value = [match];
-      }
-    }).catch(e => {
-      console.error("Fetch goods info failed", e);
-    }).finally(() => {
-      goodsLoading.value = false;
-    });
+    goodsApi
+      .getSimpleList(row.name)
+      .then((res) => {
+        const match = res.find((g) => g.goodsId === row.goodsId);
+        if (match) {
+          goodsOptions.value = [match];
+        }
+      })
+      .catch((e) => {
+        console.error("Fetch goods info failed", e);
+      })
+      .finally(() => {
+        goodsLoading.value = false;
+      });
   }
 
   // 如果有关联任务，手动初始化选项，防止被 goodsId 的 watch 清空
@@ -1241,7 +1325,7 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     });
   }
   fetchAccounts();
-  
+
   // 强制同步一次数据，确保编辑时 scanInterval 状态正确
   syncFromUiState();
 };
@@ -1285,7 +1369,7 @@ const handleSubmit = async ({ validateResult, firstError }: any) => {
       // 深度拷贝并转换 safeMargin
       const c5SubmitConfig = {
         ...c5Config,
-        safeMargin: c5Config.safeMargin / 100
+        safeMargin: c5Config.safeMargin / 100,
       };
       data.extraConfig = JSON.stringify(c5SubmitConfig);
     }

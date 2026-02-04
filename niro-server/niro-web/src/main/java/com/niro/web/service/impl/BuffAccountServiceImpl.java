@@ -1,6 +1,5 @@
 package com.niro.web.service.impl;
 
-import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -12,7 +11,7 @@ import java.util.stream.Collectors;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.core.constant.UserAgentConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.web.dto.BuffAccountDTO;
@@ -21,13 +20,10 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
-import com.niro.web.enums.PlatformEnum;
-import com.niro.web.enums.TaskTypeEnum;
-import com.niro.web.mapper.BuffAccountMapper;
+import com.niro.web.manager.BuffAccountManagerMapper;
+import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
-import com.niro.web.service.BuffScanTaskAccountService;
-import com.niro.web.service.strategy.PlatformStrategyFactory;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -36,7 +32,6 @@ import cn.hutool.http.HttpRequest;
 import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.niro.core.constant.UserAgentConstant;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -49,26 +44,27 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Service
 @RequiredArgsConstructor
-public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffAccount> implements BuffAccountService {
+public class BuffAccountServiceImpl implements BuffAccountService {
 
     private static final int MAX_ACCOUNT_COUNT = 10;
-    private final BuffScanTaskAccountService buffScanTaskAccountService;
+    private final BuffAccountManagerMapper buffAccountManagerMapper;
+    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     @Override
     public List<BuffAccountDTO> listByUserId(Long userId) {
-        List<BuffAccount> list = lambdaQuery()
+        List<BuffAccount> list = buffAccountManagerMapper.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .orderByDesc(BuffAccount::getCreateTime)
                 .list();
-        
+
         if (CollUtil.isEmpty(list)) {
             return CollUtil.newArrayList();
         }
 
         // 查询账号绑定的任务信息
         List<Long> accountIds = list.stream().map(BuffAccount::getId).collect(Collectors.toList());
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
                 .in(BuffScanTaskAccount::getAccountId, accountIds)
                 .list();
 
@@ -123,13 +119,13 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
     public void saveOrUpdateAccount(Long userId, BuffAccountDTO dto) {
         // 1. 账号数量限制
         if (dto.getId() == null) {
-            long count = lambdaQuery().eq(BuffAccount::getUserId, userId).count();
+            long count = buffAccountManagerMapper.lambdaQuery().eq(BuffAccount::getUserId, userId).count();
             Assert.isTrue(count < MAX_ACCOUNT_COUNT, "账号数量已达上限（10个）");
         }
 
         // 2. 下单账号唯一性限制 (TRADE 或 BOTH)
         if (dto.getRole() == BuffAccountRoleEnum.TRADE || dto.getRole() == BuffAccountRoleEnum.BOTH) {
-            BuffAccount existingSniper = lambdaQuery()
+            BuffAccount existingSniper = buffAccountManagerMapper.lambdaQuery()
                     .eq(BuffAccount::getUserId, userId)
                     .in(BuffAccount::getRole, BuffAccountRoleEnum.TRADE, BuffAccountRoleEnum.BOTH)
                     .ne(dto.getId() != null, BuffAccount::getId, dto.getId())
@@ -140,7 +136,7 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
         BuffAccount entity = new BuffAccount();
         BeanUtil.copyProperties(dto, entity);
         entity.setUserId(userId);
-        
+
         // 如果是新增，初始化一些字段
         if (dto.getId() == null) {
             entity.setStatus(BuffAccountStatusEnum.NORMAL);
@@ -153,7 +149,7 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             }
         }
 
-        saveOrUpdate(entity);
+        buffAccountManagerMapper.saveOrUpdate(entity);
 
         // 新增账号后异步触发一次健康检测
         if (dto.getId() == null) {
@@ -174,27 +170,27 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteAccount(Long userId, Long id) {
-        BuffAccount account = lambdaQuery()
+        BuffAccount account = buffAccountManagerMapper.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .eq(BuffAccount::getId, id)
                 .one();
         Assert.notNull(account, "账号不存在");
 
         // 需求：如果账号被绑定，则删除账号要报错
-        long bindCount = buffScanTaskAccountService.lambdaQuery()
+        long bindCount = buffScanTaskAccountManagerMapper.lambdaQuery()
                 .eq(BuffScanTaskAccount::getAccountId, id)
                 .count();
         if (bindCount > 0) {
             throw new BusinessException("该账号已绑定任务，请先移除任务绑定或停止并删除任务后再试");
         }
-        
-        boolean removed = removeById(id);
+
+        boolean removed = buffAccountManagerMapper.removeById(id);
         Assert.isTrue(removed, "删除失败");
     }
 
     @Override
     public void checkCookie(Long userId, Long id) {
-        BuffAccount account = lambdaQuery()
+        BuffAccount account = buffAccountManagerMapper.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .eq(BuffAccount::getId, id)
                 .one();
@@ -218,7 +214,7 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
 
             String body = response.body();
             log.info("BUFF Cookie Check Response: {}", body);
-            
+
             // 校验响应内容是否为 JSON
             if (body == null || body.trim().startsWith("<!DOCTYPE") || body.trim().startsWith("<html")) {
                 log.warn("BUFF Cookie Check Failed: Response is HTML (Redirect to Login), id: {}", account.getId());
@@ -226,7 +222,7 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 account.setWarningMsg("Cookie 已失效，请重新登录获取");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                updateById(account);
+                buffAccountManagerMapper.updateById(account);
                 return;
             }
 
@@ -239,29 +235,29 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                 account.setWarningMsg("接口响应异常，可能已失效");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                updateById(account);
+                buffAccountManagerMapper.updateById(account);
                 return;
             }
 
             String code = json.getStr("code");
             account.setLastCheckTime(LocalDateTime.now());
-            
+
             if ("OK".equals(code)) {
                 // Cookie 有效，解析数据
                 JSONObject data = json.getJSONObject("data");
                 if (data != null && data.getJSONArray("items") != null && !data.getJSONArray("items").isEmpty()) {
                     JSONObject item = data.getJSONArray("items").getJSONObject(0);
-                    
+
                     // 权限校验逻辑: 若 trade_url_state 不为 0 或 api_key_state 不为 2，强制降级
                     Integer tradeUrlState = item.getInt("trade_url_state");
                     Integer apiKeyState = item.getInt("api_key_state");
-                    
+
                     if ((tradeUrlState != null && tradeUrlState != 0) || (apiKeyState != null && apiKeyState != 2)) {
-                        String reason = (tradeUrlState != null && tradeUrlState != 0) 
-                            ? "交易链接失效 (" + item.getStr("trade_url_state_desc", "状态异常") + ")" 
-                            : "API Key 状态异常 (" + item.getStr("api_key_state_text", "无效") + ")";
+                        String reason = (tradeUrlState != null && tradeUrlState != 0)
+                                ? "交易链接失效 (" + item.getStr("trade_url_state_desc", "状态异常") + ")"
+                                : "API Key 状态异常 (" + item.getStr("api_key_state_text", "无效") + ")";
                         log.warn("BUFF 账号权限校验未通过, id: {}, reason: {}", account.getId(), reason);
-                        
+
                         // 强制降级为 SCAN
                         if (account.getRole() != BuffAccountRoleEnum.SCAN) {
                             account.setRole(BuffAccountRoleEnum.SCAN);
@@ -279,14 +275,14 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
                         }
                     }
                 }
-                
+
                 // 如果之前是失效状态，恢复为正常
                 if (account.getStatus() == BuffAccountStatusEnum.INVALID) {
                     account.setStatus(BuffAccountStatusEnum.NORMAL);
                 }
                 account.setWarningMsg("");
                 account.setFailCount(0);
-                
+
                 // 顺便更新一下余额
                 updateBalance(account);
             } else {
@@ -302,13 +298,13 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
             account.setWarningMsg("网络请求或解析失败: " + e.getMessage());
             account.setFailCount(account.getFailCount() + 1);
         }
-        
-        updateById(account);
+
+        buffAccountManagerMapper.updateById(account);
     }
 
     @Override
     public void checkAllCookies(Long userId) {
-        List<BuffAccount> accounts = lambdaQuery()
+        List<BuffAccount> accounts = buffAccountManagerMapper.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .list();
         if (CollUtil.isEmpty(accounts)) {
@@ -326,8 +322,8 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
         if (dto.getId() == null) {
             return;
         }
-        
-        this.lambdaUpdate()
+
+        buffAccountManagerMapper.lambdaUpdate()
                 .set(dto.getStatus() != null, BuffAccount::getStatus, dto.getStatus())
                 .set(dto.getWarningMsg() != null, BuffAccount::getWarningMsg, dto.getWarningMsg())
                 .set(dto.getBalance() != null, BuffAccount::getBalance, dto.getBalance())
@@ -339,7 +335,7 @@ public class BuffAccountServiceImpl extends ServiceImpl<BuffAccountMapper, BuffA
 
     @Override
     public void updateAccountStatus(Long id, BuffAccountStatusEnum status, String warningMsg) {
-        this.lambdaUpdate()
+        buffAccountManagerMapper.lambdaUpdate()
                 .set(BuffAccount::getStatus, status)
                 .set(BuffAccount::getWarningMsg, warningMsg)
                 .set(BuffAccount::getLastCheckTime, LocalDateTime.now())

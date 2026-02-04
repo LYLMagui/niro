@@ -87,7 +87,7 @@ service.interceptors.response.use(
 
     const res = response.data;
     const headers = response.headers;
-    
+
     // Debug log
     // console.log(`[Response Data] ${response.config.url}`, res);
 
@@ -100,10 +100,10 @@ service.interceptors.response.use(
 
     // 如果响应结构是标准的 Result 结构且 code 不为 0，则认为是业务错误
     // 注意：修改后的 Controller 直接返回 Page 或 Map，没有 code 字段，所以这里要兼容
-    if (res && typeof res === 'object' && 'code' in res && res.code !== 0) {
+    if (res && typeof res === "object" && "code" in res && res.code !== 0) {
       console.error("[Business Error]", res);
       MessagePlugin.error(res.message || "系统未知错误");
-      
+
       // 401: 未登录或 Token 过期
       if (res.code === 401) {
         console.log("Response Interceptor (200 OK -> Code 401): Redirecting to login...");
@@ -114,8 +114,8 @@ service.interceptors.response.use(
     } else {
       // 正常响应（可能是 Result 结构且 code=0，或者是直接的数据对象）
       // 如果是 Result 结构，解包 data；如果是直接数据，直接返回
-      if (res && typeof res === 'object' && 'code' in res && res.code === 0) {
-          return { ...response, data: res.data }; // 模拟解包，传递给 unwrap
+      if (res && typeof res === "object" && "code" in res && res.code === 0) {
+        return { ...response, data: res.data }; // 模拟解包，传递给 unwrap
       }
       return response;
     }

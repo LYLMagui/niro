@@ -1,32 +1,5 @@
 package com.niro.web.service.strategy.impl;
 
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.json.JSONArray;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
-import com.niro.core.constant.BuffConstant;
-import com.niro.core.constant.UserAgentConstant;
-import com.niro.core.exception.BusinessException;
-import com.niro.core.util.RedisUtil;
-import com.niro.web.dto.BuffTaskMessage;
-import com.niro.web.entity.*;
-import com.niro.web.enums.BuffAccountRoleEnum;
-import com.niro.web.enums.BuffAccountStatusEnum;
-import com.niro.web.enums.PaymentMethodEnum;
-import com.niro.web.enums.PlatformEnum;
-import com.niro.web.enums.TaskTypeEnum;
-import com.niro.web.mapper.TradeOrderRecordMapper;
-import com.niro.web.scheduler.C5TaskScheduler;
-import com.niro.web.service.*;
-import com.niro.web.service.strategy.IPlatformStrategy;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
@@ -34,6 +7,43 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import com.niro.core.constant.BuffConstant;
+import com.niro.core.constant.UserAgentConstant;
+import com.niro.core.exception.BusinessException;
+import com.niro.core.util.RedisUtil;
+import com.niro.web.dto.BuffTaskMessage;
+import com.niro.web.entity.BuffAccount;
+import com.niro.web.entity.BuffGoods;
+import com.niro.web.entity.BuffGoodsCategory;
+import com.niro.web.entity.BuffScanTask;
+import com.niro.web.entity.BuffScanTaskAccount;
+import com.niro.web.entity.UserPlatformSettings;
+import com.niro.web.enums.BuffAccountRoleEnum;
+import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.PaymentMethodEnum;
+import com.niro.web.enums.PlatformEnum;
+import com.niro.web.enums.TaskTypeEnum;
+import com.niro.web.manager.BuffAccountManagerMapper;
+import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
+import com.niro.web.manager.TradeOrderRecordManagerMapper;
+import com.niro.web.service.BuffGoodsCategoryService;
+import com.niro.web.service.BuffGoodsService;
+import com.niro.web.service.UserPlatformSettingsService;
+import com.niro.web.service.strategy.IPlatformStrategy;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.json.JSONArray;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * BUFF 平台策略实现
@@ -44,12 +54,12 @@ import java.util.stream.Collectors;
 public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
     private final RedisUtil redisUtil;
-    private final BuffScanTaskAccountService buffScanTaskAccountService;
-    private final BuffAccountService buffAccountService;
+    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
+    private final BuffAccountManagerMapper buffAccountManagerMapper;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffGoodsService buffGoodsService;
-    private final TradeOrderRecordMapper tradeOrderRecordMapper;
+    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
 
     @Value("${proxy.global.enable:false}")
     private Boolean enableProxy;
@@ -77,7 +87,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
      */
     private void pushTaskToQueue(BuffScanTask task) {
         // 1. 获取任务绑定的账号信息
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
                 .eq(BuffScanTaskAccount::getTaskId, task.getId())
                 .list();
 
@@ -86,8 +96,8 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
         }
 
         List<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
-        // 只给 Python 端“精兵强将”：过滤掉 checking 或 frozen 状态的账号，只保留 NORMAL
-        List<BuffAccount> accounts = buffAccountService.listByIds(accountIds).stream()
+        // 只给 Python 端"精兵强将"：过滤掉 checking 或 frozen 状态的账号，只保留 NORMAL
+        List<BuffAccount> accounts = buffAccountManagerMapper.listByIds(accountIds).stream()
                 .filter(acc -> BuffAccountStatusEnum.NORMAL.equals(acc.getStatus()))
                 .collect(Collectors.toList());
 
@@ -123,14 +133,14 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
         // 2. 构建消息对象
         List<BuffTaskMessage.AccountContext> accountContexts = accounts.stream()
                 .map(acc -> BuffTaskMessage.AccountContext.builder()
-                .accountId(acc.getId())
-                .accountName(acc.getAccountName())
-                .buffCookie(acc.getBuffCookie())
-                .proxy(finalProxyUrl)
-                .role(acc.getRole())
-                .userAgent(acc.getUserAgent())
-                .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
-                .build())
+                        .accountId(acc.getId())
+                        .accountName(acc.getAccountName())
+                        .buffCookie(acc.getBuffCookie())
+                        .proxy(finalProxyUrl)
+                        .role(acc.getRole())
+                        .userAgent(acc.getUserAgent())
+                        .frequency(acc.getFrequency() != null ? acc.getFrequency() : 1.0)
+                        .build())
                 .collect(Collectors.toList());
 
         BuffTaskMessage.BuffTaskMessageBuilder messageBuilder = BuffTaskMessage.builder()
@@ -152,11 +162,12 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .durationMinutes(task.getDurationMinutes())
                 .restPeriod(task.getRestPeriod())
                 .buyCount(task.getBuyCount())
-                .successCount(tradeOrderRecordMapper.countSuccess(task.getId()).intValue())
+                .successCount(tradeOrderRecordManagerMapper.countSuccess(task.getId()).intValue())
                 .paymentMethod(paymentMethod)
                 .accounts(accountContexts)
                 .execAccountIds(accounts.stream()
-                        .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole()) || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))
+                        .filter(acc -> BuffAccountRoleEnum.TRADE.equals(acc.getRole())
+                                || BuffAccountRoleEnum.BOTH.equals(acc.getRole()))
                         .map(BuffAccount::getId)
                         .collect(Collectors.toList()));
 
@@ -229,7 +240,8 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
         log.info("任务 [{}] 已推送至 Redis 队列: {}", task.getId(), key);
 
         // 5. 初始化心跳
-        redisUtil.hPut(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString(), String.valueOf(System.currentTimeMillis()));
+        redisUtil.hPut(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString(),
+                String.valueOf(System.currentTimeMillis()));
     }
 
     /**
@@ -261,7 +273,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 account.setWarningMsg("Cookie 已失效，请重新登录获取");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountService.updateById(account);
+                buffAccountManagerMapper.updateById(account);
                 return;
             }
 
@@ -274,7 +286,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 account.setWarningMsg("接口响应异常，可能已失效");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountService.updateById(account);
+                buffAccountManagerMapper.updateById(account);
                 return;
             }
 
@@ -338,7 +350,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
             account.setFailCount(account.getFailCount() + 1);
         }
 
-        buffAccountService.updateById(account);
+        buffAccountManagerMapper.updateById(account);
     }
 
     /**
@@ -347,9 +359,12 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     private void updateBalance(BuffAccount account) {
         try {
             // 使用更详细的资产接口获取余额和待结算金额
-            String url = "https://buff.163.com/api/asset/get_brief_asset/?with_pending_divide_amount=1&_=" + System.currentTimeMillis();
+            String url = "https://buff.163.com/api/asset/get_brief_asset/?with_pending_divide_amount=1&_="
+                    + System.currentTimeMillis();
             HttpResponse response = HttpRequest.get(url)
-                    .header("User-Agent", StrUtil.isNotBlank(account.getUserAgent()) ? account.getUserAgent() : UserAgentConstant.getRandomUserAgent())
+                    .header("User-Agent",
+                            StrUtil.isNotBlank(account.getUserAgent()) ? account.getUserAgent()
+                                    : UserAgentConstant.getRandomUserAgent())
                     .header("Cookie", account.getBuffCookie())
                     .header("Referer", "https://buff.163.com/user-center/asset/pending_divide/")
                     .header("X-Requested-With", "XMLHttpRequest")
@@ -368,7 +383,8 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
                     account.setBalance(balance);
                     account.setPendingBalance(pendingBalance);
-                    log.info("账号 [{}] 余额更新成功: balance={}, pending={}", account.getAccountName(), balance, pendingBalance);
+                    log.info("账号 [{}] 余额更新成功: balance={}, pending={}", account.getAccountName(), balance,
+                            pendingBalance);
                 }
             } else {
                 log.warn("更新账号 [{}] 余额失败: {}", account.getAccountName(), json.getStr("msg"));

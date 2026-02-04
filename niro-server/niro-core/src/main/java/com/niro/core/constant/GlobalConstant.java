@@ -37,4 +37,12 @@ public class GlobalConstant {
      * 默认分页大小
      */
     public static final Integer DEFAULT_PAGE_SIZE = 10;
+
+
+    public static final Long ONE = 1L;
+
+    public static final Long YES = 1L;
+
+    public static final Long NO = 0L;
+
 }

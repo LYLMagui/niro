@@ -47,11 +47,6 @@ public class SysMenu implements Serializable {
     private String path;
 
     /**
-     * 组件路径
-     */
-    private String component;
-
-    /**
      * 路由参数
      */
     private String query;
@@ -121,6 +116,21 @@ public class SysMenu implements Serializable {
      */
     @TableLogic
     private Integer delFlag;
+
+    /**
+     * 面包屑显示（0隐藏 1显示）
+     */
+    private Integer breadcrumb;
+
+    /**
+     * 前端组件路径
+     */
+    private String componentPath;
+
+    /**
+     * 是否外链（0否 1是）
+     */
+    private Integer isExternal;
 
     /**
      * 子菜单

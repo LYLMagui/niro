@@ -1,15 +1,14 @@
 package com.niro.web.entity;
 
-import java.time.LocalDateTime;
-
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableField;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
 import com.niro.web.config.PostgresJsonTypeHandler;
+import lombok.Data;
 import org.apache.ibatis.type.JdbcType;
 
-import lombok.Data;
+import java.time.LocalDateTime;
 
 /**
  *

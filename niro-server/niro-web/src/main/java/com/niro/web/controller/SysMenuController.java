@@ -2,7 +2,7 @@ package com.niro.web.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.niro.core.result.Result;
-import com.niro.web.dto.vo.RouterVo;
+import com.niro.web.dto.RouterDTO;
 import com.niro.web.entity.SysMenu;
 import com.niro.web.service.SysMenuService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -27,8 +27,8 @@ public class SysMenuController {
 
     @GetMapping("/menus")
     @Operation(summary = "获取用户动态路由")
-    public List<RouterVo> getRouters() {
-        Long userId = StpUtil.getLoginIdAsLong();
+    public List<RouterDTO> getRouters() {
+        Long userId = StpUtil.getLoginIdAsLong();       
         List<SysMenu> menus = sysMenuService.selectMenuTreeByUserId(userId);
         return sysMenuService.buildMenus(menus);
     }

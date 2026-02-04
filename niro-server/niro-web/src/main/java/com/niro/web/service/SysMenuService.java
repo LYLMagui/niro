@@ -1,7 +1,7 @@
 package com.niro.web.service;
 
 import com.baomidou.mybatisplus.extension.service.IService;
-import com.niro.web.dto.vo.RouterVo;
+import com.niro.web.dto.RouterDTO;
 import com.niro.web.entity.SysMenu;
 
 import java.util.List;
@@ -33,5 +33,5 @@ public interface SysMenuService extends IService<SysMenu> {
      * @param menus 菜单列表
      * @return 路由列表
      */
-    List<RouterVo> buildMenus(List<SysMenu> menus);
+    List<RouterDTO> buildMenus(List<SysMenu> menus);
 }

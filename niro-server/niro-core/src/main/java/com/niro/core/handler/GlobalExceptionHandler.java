@@ -70,8 +70,8 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(NoResourceFoundException.class)
     public Result<Void> handlerNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
-        log.debug("静态资源未找到 | URI: {}", request.getRequestURI());
-        return Result.failure(StatusCode.NOT_FOUND_CODE, "资源不存在");
+        log.debug("接口未找到 | URI: {}", request.getRequestURI());
+        return Result.failure(StatusCode.NOT_FOUND_CODE, "404");
     }
 
     @ExceptionHandler(Exception.class)

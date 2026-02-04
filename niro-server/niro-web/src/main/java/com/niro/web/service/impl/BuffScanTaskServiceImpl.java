@@ -1,18 +1,12 @@
 package com.niro.web.service.impl;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Set;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
-
-import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import cn.dev33.satoken.stp.StpUtil;
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.date.DateUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.constant.BuffConstant;
@@ -24,35 +18,31 @@ import com.niro.web.dto.BuffScanTaskDTO;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.entity.BuffGoods;
-import com.niro.web.entity.BuffGoodsCategory;
-import com.niro.web.entity.BuffScanTask;
-import com.niro.web.entity.BuffScanTaskAccount;
+import com.niro.web.entity.*;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
+import com.niro.web.manager.BuffAccountManagerMapper;
+import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
+import com.niro.web.manager.TradeOrderRecordManagerMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
-import com.niro.web.mapper.TradeOrderRecordMapper;
-import com.niro.web.service.BuffAccountService;
-import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.service.BuffGoodsService;
-import com.niro.web.service.BuffScanTaskAccountService;
-import com.niro.web.service.BuffScanTaskService;
-import com.niro.web.service.UserPlatformSettingsService;
-import com.niro.web.service.WeComNotifyService;
+import com.niro.web.service.*;
 import com.niro.web.service.strategy.PlatformStrategyFactory;
-
-import cn.dev33.satoken.stp.StpUtil;
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.date.DateUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.slf4j.MDC;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
+import java.util.concurrent.TimeUnit;
+import java.util.stream.Collectors;
 
 /**
  * 扫货任务服务实现类
@@ -67,13 +57,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final BuffAccountService buffAccountService;
-    private final BuffScanTaskAccountService buffScanTaskAccountService;
+    private final BuffAccountManagerMapper buffAccountManagerMapper;
+    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final PlatformStrategyFactory platformStrategyFactory;
-    private final TradeOrderRecordMapper tradeOrderRecordMapper;
+    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
 
     @Value("${proxy.global.url:}")
     private String globalProxyUrl;
@@ -159,7 +149,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 校验账号是否属于当前用户
-        List<BuffAccount> accounts = buffAccountService.lambdaQuery()
+        List<BuffAccount> accounts = buffAccountManagerMapper.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .in(BuffAccount::getId, accountIds)
                 .list();
@@ -175,7 +165,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                     .accountId(accountId)
                     .createTime(LocalDateTime.now())
                     .build();
-            buffScanTaskAccountService.save(rel);
+            buffScanTaskAccountManagerMapper.save(rel);
         }
     }
 
@@ -256,7 +246,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         this.updateById(task);
 
         // 更新账号关联：先删除旧的，再添加新的
-        buffScanTaskAccountService.lambdaUpdate()
+        buffScanTaskAccountManagerMapper.lambdaUpdate()
                 .eq(BuffScanTaskAccount::getTaskId, task.getId())
                 .remove();
         saveTaskAccounts(task.getId(), currentUserId, param.getAccountIds());
@@ -400,7 +390,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         if (TaskStatusEnum.RUNNING.getCode().equals(status) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(status)) {
             // 校验任务是否绑定了执行账号 (C5 平台无需绑定)
             if (!PlatformEnum.C5.getCode().equals(task.getPlatform())) {
-                long accountCount = buffScanTaskAccountService.lambdaQuery()
+                long accountCount = buffScanTaskAccountManagerMapper.lambdaQuery()
                         .eq(BuffScanTaskAccount::getTaskId, id)
                         .count();
                 if (accountCount == 0) {
@@ -419,16 +409,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
             // 初始化任务配额 (防超买)
             if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-                long currentSuccess = tradeOrderRecordMapper.countSuccess(task.getId());
+                long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
                 int quota = Math.max(0, (int) (task.getBuyCount() - currentSuccess));
                 String quotaKey = "niro:task:quota:" + id;
                 redisUtil.set(quotaKey, quota);
-            log.info("任务 [{}] 配额已初始化: {}", id, quota);
-        }
+                log.info("任务 [{}] 配额已初始化: {}", id, quota);
+            }
 
-        platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
+            platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
 
-        // 构建详细启动通知
+            // 构建详细启动通知
             StringBuilder sb = new StringBuilder();
             sb.append("🚀 任务已启动\n");
             sb.append("━━━━━━━━━━━━━━━\n");
@@ -459,7 +449,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
             // 调用策略停止任务 (C5 等平台需要主动停止)
             platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).stopTask(id);
-            
+
             weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName() + " (ID: " + task.getId() + ")", task.getUserId());
         }
     }
@@ -476,7 +466,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 1. 查询该任务下的成功订单总数
-        Long actualSuccessCount = tradeOrderRecordMapper.countSuccess(taskId);
+        Long actualSuccessCount = tradeOrderRecordManagerMapper.countSuccess(taskId);
 
         // 2. 更新任务进度 (不再维护冗余字段，仅打日志)
         log.info("任务 [{}] 进度检查: {} / {}", taskId, actualSuccessCount, task.getBuyCount());
@@ -569,7 +559,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         if (CollUtil.isNotEmpty(dtoList)) {
             // 补充 successCount (Single Source of Truth)
             dtoList.forEach(dto -> {
-                Long count = tradeOrderRecordMapper.countSuccess(dto.getId());
+                Long count = tradeOrderRecordManagerMapper.countSuccess(dto.getId());
                 dto.setSuccessCount(count != null ? count.intValue() : 0);
             });
 
@@ -596,13 +586,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
             // 2. 补充账号信息
             List<Long> taskIds = dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList());
-            List<BuffScanTaskAccount> rels = buffScanTaskAccountService.lambdaQuery()
+            List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
                     .in(BuffScanTaskAccount::getTaskId, taskIds)
                     .list();
 
             if (CollUtil.isNotEmpty(rels)) {
                 Set<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toSet());
-                List<BuffAccount> accounts = buffAccountService.listByIds(accountIds);
+                List<BuffAccount> accounts = buffAccountManagerMapper.listByIds(accountIds);
                 Map<Long, String> accountNameMap = accounts.stream()
                         .collect(Collectors.toMap(BuffAccount::getId, BuffAccount::getAccountName));
 
@@ -669,7 +659,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         this.removeById(id);
 
         // 删除账号关联
-        buffScanTaskAccountService.lambdaUpdate()
+        buffScanTaskAccountManagerMapper.lambdaUpdate()
                 .eq(BuffScanTaskAccount::getTaskId, id)
                 .remove();
     }

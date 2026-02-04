@@ -1,15 +1,18 @@
-import Layout from "@/components/Layout.vue";
-import NProgress from "nprogress"; // 引入进度条
-import "nprogress/nprogress.css"; // 引入进度条样式
+import NProgress from "nprogress";
+import "nprogress/nprogress.css";
 import { MessagePlugin } from "tdesign-vue-next";
-import { createRouter, createWebHistory, RouteRecordRaw } from "vue-router";
-import { PlatformEnum } from "@/enums/PlatformEnum";
+import {
+  createRouter,
+  createWebHistory,
+  type RouteRecordRaw,
+  type Router,
+} from "vue-router";
+import { useUserStore } from "@/store/user";
+import { usePermissionStore } from "@/store/permission";
 
-// 配置 NProgress
 NProgress.configure({ showSpinner: false });
 
-// 路由配置表
-const routes: RouteRecordRaw[] = [
+const constantRoutes: RouteRecordRaw[] = [
   {
     path: "/login",
     name: "Login",
@@ -17,119 +20,137 @@ const routes: RouteRecordRaw[] = [
     meta: { title: "登录", hidden: true },
   },
   {
-    path: "/",
-    component: Layout, // 使用 Layout 布局作为父级路由
-    redirect: "/dashboard", // 默认重定向到仪表盘
-    children: [
-      {
-        path: "dashboard",
-        name: "Dashboard",
-        component: () => import("@/views/Dashboard.vue"), // 路由懒加载
-        meta: { title: "概览", icon: "dashboard" }, // 路由元信息，用于菜单渲染
-      },
-      {
-        path: "goods",
-        name: "GoodsList",
-        component: () => import("@/views/GoodsList.vue"),
-        meta: { title: "商品列表", icon: "shop" },
-      },
-      {
-        path: "stickers",
-        name: "StickerList",
-        component: () => import("@/views/StickerList.vue"),
-        meta: { title: "印花价值", icon: "image" },
-      },
-      {
-        path: "tasks/buff",
-        name: "TaskConfigBUFF",
-        component: () => import("@/views/TaskList.vue"),
-        meta: { title: "BUFF任务", icon: "server", platform: PlatformEnum.BUFF },
-      },
-      {
-        path: "tasks/c5",
-        name: "TaskConfigC5",
-        component: () => import("@/views/TaskList.vue"),
-        meta: { title: "C5任务", icon: "server", platform: PlatformEnum.C5 },
-      },
-      {
-        path: "order-record",
-        name: "OrderRecord",
-        component: () => import("@/views/OrderRecord.vue"),
-        meta: { title: "订单记录", icon: "history" },
-      },
-      {
-        path: "logs",
-        name: "Logs",
-        component: () => import("@/views/Logs.vue"),
-        meta: { title: "运行日志", icon: "bulletin-board" },
-      },
-      {
-        path: "settings",
-        name: "Settings",
-        component: () => import("@/views/Settings.vue"),
-        meta: { title: "个人配置", icon: "setting" },
-      },
-    ],
+    path: "/403",
+    name: "Forbidden",
+    component: () => import("@/views/403.vue"),
+    meta: { title: "403", hidden: true },
   },
-  // 404 页面
   {
-    path: "/:pathMatch(.*)*",
+    path: "/404",
     name: "NotFound",
+    component: () => import("@/views/404.vue"),
+    meta: { title: "404", hidden: true },
+  },
+  {
+    path: "/",
+    name: "Root",
     redirect: "/dashboard",
-    meta: { hidden: true },
+    meta: { title: "首页", hidden: true },
+    children: [],
   },
 ];
 
-// 创建路由实例
-const router = createRouter({
-  // 使用 HTML5 History 模式
+const router: Router = createRouter({
   history: createWebHistory(),
-  routes,
+  routes: constantRoutes,
+  scrollBehavior: () => ({ left: 0, top: 0 }),
 });
 
-// 白名单路由
-const whiteList = ["/login"];
+function resetRouter() {
+  router.getRoutes().forEach((route) => {
+    const name = route.name;
+    if (
+      name &&
+      !["Login", "Forbidden", "NotFound", "Root", "Any"].includes(name as string)
+    ) {
+      router.removeRoute(name as string);
+    }
+  });
+  const permissionStore = usePermissionStore();
+  permissionStore.clearRoutes();
+}
 
-// 全局前置守卫
-router.beforeEach((to, _from, next) => {
-  // 开启进度条
+const whiteList = ["/403", "/404"];
+
+router.beforeEach(async (to, _from, next) => {
   NProgress.start();
 
-  // 获取 Token
-  const token = localStorage.getItem("niro-web-token");
-
-  // 设置页面标题
   if (to.meta.title) {
     document.title = `${to.meta.title} - Niro Control`;
   }
 
-  if (token) {
-    if (to.path === "/login") {
-      // 已登录且访问登录页，重定向到首页
+  const userStore = useUserStore();
+  const permissionStore = usePermissionStore();
+
+  const token = userStore.token || localStorage.getItem("niro-web-token");
+
+  if (to.path === "/login") {
+    if (token) {
       next({ path: "/" });
       NProgress.done();
-    } else {
-      // 已登录且访问非登录页，放行
-      next();
+      return;
     }
+    next();
+    NProgress.done();
+    return;
+  }
+
+  if (!token) {
+    MessagePlugin.warning("请先登录");
+    next(`/login?redirect=${to.path}`);
+    NProgress.done();
+    return;
+  }
+
+  if (whiteList.includes(to.path)) {
+    next();
+    NProgress.done();
+    return;
+  }
+
+  if (permissionStore.isRoutesLoaded) {
+    next();
   } else {
-    // 未登录
-    if (whiteList.indexOf(to.path) !== -1) {
-      // 在白名单中，放行
-      next();
-    } else {
-      // 不在白名单中，重定向到登录页
-      MessagePlugin.warning("请先登录");
-      next(`/login?redirect=${to.path}`);
-      NProgress.done();
-    }
+    await loadRoutes(to, next);
   }
 });
 
-// 全局后置钩子
+async function loadRoutes(to: any, next: (to?: any) => void) {
+  const userStore = useUserStore();
+  const permissionStore = usePermissionStore();
+
+  try {
+    // 1. 获取用户信息（角色、权限）
+    await userStore.getInfo();
+
+    // 2. 根据角色生成可访问路由
+    const accessRoutes = await permissionStore.generateRoutes(userStore.userInfo.roles);
+
+    // 3. 动态挂载路由
+    // 注意：这里我们将动态路由挂载到根路由下，或者作为顶级路由
+    accessRoutes.forEach((route) => {
+      router.addRoute(route as RouteRecordRaw);
+    });
+
+    // 4. 添加 404 兜底路由（必须在动态路由之后添加）
+    router.addRoute({
+      path: "/:pathMatch(.*)*",
+      redirect: "/404",
+      name: "Any",
+      meta: { hidden: true },
+    });
+
+    // 5. 标记已加载
+    permissionStore.isRoutesLoaded = true;
+
+    // 6. 触发重定向，确保路由生效
+    next({ ...to, replace: true });
+  } catch (error) {
+    console.error("加载路由失败:", error);
+    // 失败则清空 token 并跳转登录
+    localStorage.removeItem("niro-web-token");
+    next(`/login?redirect=${to.path}`);
+  }
+}
+
 router.afterEach(() => {
-  // 关闭进度条
   NProgress.done();
 });
 
+export function clearRouteCache() {
+  sessionStorage.removeItem("niro-dynamic-routes-raw");
+  resetRouter();
+}
+
+export { router, resetRouter, constantRoutes };
 export default router;

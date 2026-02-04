@@ -1,4 +1,4 @@
-package com.niro.web.dto.vo;
+package com.niro.web.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
@@ -12,7 +12,7 @@ import java.io.Serializable;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class MetaVo implements Serializable {
+public class MetaDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -34,4 +34,9 @@ public class MetaVo implements Serializable {
      * 内链地址（http(s)://开头）
      */
     private String link;
+
+    /**
+     * 面包屑显示
+     */
+    private Boolean breadcrumb;
 }

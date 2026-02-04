@@ -57,15 +57,18 @@
 
 <script setup lang="ts">
 import { reactive, ref, onMounted } from "vue";
-import { MessagePlugin, FormRules, SubmitContext } from "tdesign-vue-next";
 import { useRouter } from "vue-router";
+import { MessagePlugin, type FormRules, type SubmitContext } from "tdesign-vue-next";
 import { UserIcon, LockOnIcon } from "tdesign-icons-vue-next";
-import { userApi } from "@/api/user";
 import { useRequest } from "@/composables/useRequest";
+import { useUserStore } from "@/store/user";
 import { encrypt, decrypt } from "@/utils/crypto";
 
 // 路由
 const router = useRouter();
+
+// 用户状态
+const userStore = useUserStore();
 
 // 记住我
 const rememberMe = ref(false);
@@ -84,7 +87,6 @@ onMounted(() => {
       const { username, password, isRemember } = JSON.parse(remembered);
       if (isRemember) {
         accountFormData.username = username;
-        // 解密密码
         const decryptedPassword = decrypt(password);
         if (decryptedPassword) {
           accountFormData.password = decryptedPassword;
@@ -102,43 +104,42 @@ const accountRules: FormRules = {
   password: [{ required: true, message: "请输入密码", type: "error" }],
 };
 
+// 登录加载状态
+const loginLoading = ref(false);
+
 const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitContext) => {
   if (context.validateResult === true) {
+    loginLoading.value = true;
     try {
-      const res = await userApi.login(accountFormData);
-      if (res) {
-        // 存储用户信息
-        localStorage.setItem("niro-user-info", JSON.stringify(res));
+      // 调用 userStore.login() 进行登录，内部已处理 Token 存储
+      await userStore.login(accountFormData);
 
-        // 登录成功后，将 token 存储到 localStorage
-        if (res.token) {
-          localStorage.setItem("niro-web-token", res.token);
-        }
-
-        MessagePlugin.success("登录成功");
-
-        // 记住我逻辑
-        if (rememberMe.value) {
-          // 加密密码存储
-          const encryptedPassword = encrypt(accountFormData.password);
-          localStorage.setItem(
-            "niro-remember-me",
-            JSON.stringify({
-              username: accountFormData.username,
-              password: encryptedPassword,
-              isRemember: true,
-            })
-          );
-        } else {
-          localStorage.removeItem("niro-remember-me");
-        }
-
-        // 获取重定向地址，如果有则跳转到重定向地址，否则跳转到仪表盘
-        const redirect = router.currentRoute.value.query.redirect as string;
-        router.push(redirect || "/dashboard");
+      // 记住我逻辑
+      if (rememberMe.value) {
+        const encryptedPassword = encrypt(accountFormData.password);
+        localStorage.setItem(
+          "niro-remember-me",
+          JSON.stringify({
+            username: accountFormData.username,
+            password: encryptedPassword,
+            isRemember: true,
+          })
+        );
+      } else {
+        localStorage.removeItem("niro-remember-me");
       }
-    } catch {
+
+      // 获取用户信息
+      await userStore.getInfo();
+
+      // 跳转到首页（路由守卫会自动处理动态路由的生成和添加）
+      router.push("/dashboard");
+
+      MessagePlugin.success("登录成功");
+    } catch (error: any) {
       // 异常已由拦截器处理
+    } finally {
+      loginLoading.value = false;
     }
   }
 });

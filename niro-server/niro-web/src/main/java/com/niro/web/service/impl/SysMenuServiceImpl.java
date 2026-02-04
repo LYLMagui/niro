@@ -4,8 +4,8 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.web.constant.UserConstants;
-import com.niro.web.dto.vo.MetaVo;
-import com.niro.web.dto.vo.RouterVo;
+import com.niro.web.dto.MetaDTO;
+import com.niro.web.dto.RouterDTO;
 import com.niro.web.entity.SysMenu;
 import com.niro.web.entity.SysRoleMenu;
 import com.niro.web.entity.SysUserRole;
@@ -119,24 +119,42 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * @return 路由列表
      */
     @Override
-    public List<RouterVo> buildMenus(List<SysMenu> menus) {
-        List<RouterVo> routers = new LinkedList<>();
+    public List<RouterDTO> buildMenus(List<SysMenu> menus) {
+        return buildMenusRecursive(menus, "");
+    }
+
+    /**
+     * 递归构建路由
+     * 大厂规范：
+     * - path: 绝对路径（以 / 开头）
+     * - component: 优先使用 component_path，其次根据菜单类型判断
+     * - name: 由 path 自动推导（首字母大写）
+     */
+    private List<RouterDTO> buildMenusRecursive(List<SysMenu> menus, String parentPath) {
+        List<RouterDTO> routers = new LinkedList<>();
         for (SysMenu menu : menus) {
-            RouterVo router = new RouterVo();
-            // 0=显示(YES), 1=隐藏(NO). hidden=true means 1.
+            RouterDTO router = new RouterDTO();
+
+            String path = menu.getPath();
+            if (StrUtil.isEmpty(path)) {
+                path = "";
+            } else if (menu.getParentId() == 0 && !path.startsWith("/") && !isHttp(path)) {
+                path = "/" + path;
+            }
+
+            router.setPath(path);
+            router.setComponent(buildComponent(menu));
             router.setHidden(YesNoEnum.NO.getCode().equals(menu.getVisible()));
-            router.setName(getRouteName(menu));
-            router.setPath(getRouterPath(menu));
-            router.setComponent(getComponent(menu));
+            router.setName(buildRouteName(path));
             router.setQuery(menu.getQuery());
 
-            MetaVo meta = new MetaVo();
+            MetaDTO meta = new MetaDTO();
             meta.setTitle(menu.getMenuName());
             meta.setIcon(menu.getIcon());
-            // 0=Cache(YES), 1=NoCache(NO). noCache=true means 1.
             meta.setNoCache(YesNoEnum.NO.getCode().equals(menu.getIsCache()));
-            if (isHttp(menu.getPath())) {
-                meta.setLink(menu.getPath());
+            meta.setBreadcrumb(YesNoEnum.YES.getCode().equals(menu.getBreadcrumb()));
+            if (isHttp(path)) {
+                meta.setLink(path);
             }
             router.setMeta(meta);
 
@@ -144,21 +162,54 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             if (CollUtil.isNotEmpty(cMenus)) {
                 router.setAlwaysShow(true);
                 router.setRedirect("noRedirect");
-                router.setChildren(buildMenus(cMenus));
-            } else if (isMenuFrame(menu)) {
+                router.setChildren(buildMenusRecursive(cMenus, path));
+            } else if (MenuTypeEnum.MENU.getCode().equals(menu.getMenuType())) {
                 router.setMeta(null);
-                List<RouterVo> childrenList = new ArrayList<>();
-                RouterVo children = new RouterVo();
-                children.setPath(menu.getPath());
-                children.setComponent(menu.getComponent());
-                children.setName(StrUtil.upperFirst(menu.getPath()));
+                List<RouterDTO> childrenList = new ArrayList<>();
+                RouterDTO children = new RouterDTO();
+                children.setPath("");
                 children.setMeta(meta);
                 childrenList.add(children);
                 router.setChildren(childrenList);
             }
+
             routers.add(router);
         }
         return routers;
+    }
+
+    /**
+     * 构建组件路径
+     * 优先级：
+     * 1. 一级菜单（parentId=0） -> Layout
+     * 2. component_path（显式存储）
+     * 3. 目录类型（DIR） -> ParentView
+     * 4. 叶子节点 -> 空字符串（前端根据 path 推导）
+     */
+    private String buildComponent(SysMenu menu) {
+        if (menu.getParentId() == 0) {
+            return UserConstants.LAYOUT;
+        }
+        if (StrUtil.isNotEmpty(menu.getComponentPath())) {
+            return menu.getComponentPath();
+        }
+        if (MenuTypeEnum.DIR.getCode().equals(menu.getMenuType())) {
+            return UserConstants.PARENT_VIEW;
+        }
+        return "";
+    }
+
+    /**
+     * 构建路由名称
+     * /dashboard -> Dashboard
+     * /system/goods -> Systemgoods
+     */
+    private String buildRouteName(String path) {
+        if (StrUtil.isEmpty(path) || "/".equals(path)) {
+            return "";
+        }
+        String name = path.startsWith("/") ? path.substring(1) : path;
+        return StrUtil.upperFirst(name.replace("/", ""));
     }
 
     /**
@@ -169,7 +220,6 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         List<Long> tempList = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toList());
 
         for (SysMenu menu : menus) {
-            // 如果是顶级节点（parentId为0或null，或者parentId不在当前列表中）
             if (menu.getParentId() == null || menu.getParentId() == 0 || !tempList.contains(menu.getParentId())) {
                 recursionFn(menus, menu);
                 returnList.add(menu);
@@ -185,7 +235,6 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * 递归列表
      */
     private void recursionFn(List<SysMenu> list, SysMenu t) {
-        // 得到子节点列表
         List<SysMenu> childList = getChildList(list, t);
         t.setChildren(childList);
         for (SysMenu tChild : childList) {
@@ -216,87 +265,10 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     }
 
     /**
-     * 获取路由名称
-     */
-    private String getRouteName(SysMenu menu) {
-        String routerName = StrUtil.upperFirst(menu.getPath());
-        // 非外链并且是一级目录（类型为目录）
-        if (isMenuFrame(menu)) {
-            routerName = "";
-        }
-        return routerName;
-    }
-
-    /**
-     * 获取路由地址
-     */
-    private String getRouterPath(SysMenu menu) {
-        String routerPath = menu.getPath();
-        // 内链打开外网方式
-        if (menu.getParentId() != 0 && isInnerLink(menu)) {
-            routerPath = innerLinkReplaceEach(routerPath);
-        }
-        // 非外链并且是一级目录（类型为目录）
-        if (0 == menu.getParentId() && MenuTypeEnum.DIR.getCode().equals(menu.getMenuType())
-                && YesNoEnum.NO.getCode().equals(menu.getIsFrame())) {
-            routerPath = "/" + menu.getPath();
-        } else if (isMenuFrame(menu)) {
-            routerPath = "/";
-        }
-        return routerPath;
-    }
-
-    /**
-     * 获取组件信息
-     */
-    private String getComponent(SysMenu menu) {
-        String component = UserConstants.LAYOUT;
-        if (StrUtil.isNotEmpty(menu.getComponent()) && !isMenuFrame(menu)) {
-            component = menu.getComponent();
-        } else if (StrUtil.isEmpty(menu.getComponent()) && menu.getParentId() != 0 && isInnerLink(menu)) {
-            component = UserConstants.INNER_LINK;
-        } else if (StrUtil.isEmpty(menu.getComponent()) && isParentView(menu)) {
-            component = UserConstants.PARENT_VIEW;
-        }
-        return component;
-    }
-
-    /**
-     * 是否为菜单内部跳转
-     */
-    private boolean isMenuFrame(SysMenu menu) {
-        return menu.getParentId() == 0 && MenuTypeEnum.MENU.getCode().equals(menu.getMenuType())
-                && YesNoEnum.NO.getCode().equals(menu.getIsFrame());
-    }
-
-    /**
-     * 是否为内链组件
-     */
-    private boolean isInnerLink(SysMenu menu) {
-        return YesNoEnum.NO.getCode().equals(menu.getIsFrame()) && isHttp(menu.getPath());
-    }
-
-    /**
-     * 是否为parent_view组件
-     */
-    private boolean isParentView(SysMenu menu) {
-        return menu.getParentId() != 0 && MenuTypeEnum.DIR.getCode().equals(menu.getMenuType());
-    }
-
-    /**
      * 是否为http(s)://
      */
     private boolean isHttp(String link) {
         return StrUtil.startWithAny(link, "http://", "https://");
     }
 
-    /**
-     * 内链域名特殊字符替换
-     */
-    private String innerLinkReplaceEach(String path) {
-        return StrUtil.replace(path, "http", "")
-                .replace("https", "")
-                .replace(":", "")
-                .replace("//", "");
-    }
 }

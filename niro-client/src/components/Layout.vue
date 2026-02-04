@@ -1,100 +1,106 @@
 <template>
-  <!-- TDesign 布局组件：整体布局容器 -->
   <t-layout class="h-screen w-full overflow-hidden">
     <!-- 侧边栏 -->
-    <t-aside>
-      <!-- 侧边菜单，绑定当前激活的菜单项 -->
-      <t-menu
-        theme="light"
-        :value="activeValue"
-        style="margin-right: 50px"
-        height="100%"
-        @change="handleMenuChange"
-      >
-        <!-- 菜单顶部 Logo 区域 -->
-        <template #logo>
-          <div class="flex items-center justify-center py-4 text-xl font-bold text-blue-600">
-            Niro
+    <t-aside
+      :width="collapsed ? '64px' : '240px'"
+      :style="{ width: collapsed ? '64px' : '240px' }"
+      class="flex flex-col border-r border-gray-100 bg-white transition-all duration-300 relative z-20 flex-shrink-0"
+    >
+      <!-- Logo & 收缩按钮 -->
+      <div class="flex h-16 items-center justify-between px-4">
+        <div v-show="!collapsed" class="text-xl font-bold text-blue-600 truncate">
+          Niro
+        </div>
+        <t-button
+          variant="text"
+          shape="square"
+          @click="collapsed = !collapsed"
+          class="text-gray-500 hover:bg-gray-100"
+        >
+          <template #icon>
+            <view-list-icon class="text-lg" />
+          </template>
+        </t-button>
+      </div>
+
+      <!-- 菜单区域 -->
+      <div class="flex-1 overflow-y-auto overflow-x-hidden">
+        <t-menu
+          theme="light"
+          :value="activeValue"
+          :collapsed="collapsed"
+          width="100%"
+          class="!bg-transparent"
+          @change="handleMenuChange"
+        >
+          <sidebar-item
+            v-for="menu in sidebarMenus"
+            :key="menu.value"
+            :item="menu"
+          />
+        </t-menu>
+      </div>
+
+      <!-- 底部用户信息 -->
+      <div class="border-t border-gray-100 p-2 relative">
+        <!-- 自定义弹出菜单 -->
+        <div
+          v-if="showUserMenu"
+          class="absolute rounded-lg border border-gray-100 bg-white shadow-xl py-1 animate-fade-in z-50 bottom-full mb-2"
+          :class="[collapsed ? 'left-1 w-48' : 'left-2 right-2']"
+        >
+          <div
+            class="flex cursor-pointer items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            @click="handleLogout"
+          >
+            <poweroff-icon class="mr-2 text-gray-500" />
+            <span v-if="!collapsed">退出登录</span>
+            <span v-else>退出登录</span>
           </div>
-        </template>
+        </div>
 
-        <!-- 菜单项：概览 -->
-        <t-menu-item value="Dashboard">
-          <template #icon>
-            <dashboard-icon />
-          </template>
-          概览
-        </t-menu-item>
-
-        <!-- 菜单项：商品列表 -->
-        <t-menu-item value="GoodsList">
-          <template #icon>
-            <shop-icon />
-          </template>
-          商品列表
-        </t-menu-item>
-
-        <!-- 菜单项：印花价值 -->
-        <t-menu-item value="StickerList">
-          <template #icon>
-            <assignment-icon />
-          </template>
-          印花价值
-        </t-menu-item>
-
-        <!-- 菜单项：任务配置 (拆分为子菜单) -->
-        <t-submenu title="任务配置" value="TaskConfig">
-          <template #icon>
-            <server-icon />
-          </template>
-          <t-menu-item value="TaskConfigBUFF">BUFF平台</t-menu-item>
-          <t-menu-item value="TaskConfigC5">C5平台</t-menu-item>
-        </t-submenu>
-
-        <!-- 菜单项：订单记录 -->
-        <t-menu-item value="OrderRecord">
-          <template #icon>
-            <history-icon />
-          </template>
-          订单记录
-        </t-menu-item>
-
-        <!-- 菜单项：运行日志 -->
-        <t-menu-item value="Logs">
-          <template #icon>
-            <view-list-icon />
-          </template>
-          运行日志
-        </t-menu-item>
-
-        <!-- 菜单项：个人配置 -->
-        <t-menu-item value="Settings">
-          <template #icon>
-            <setting-icon />
-          </template>
-          个人配置
-        </t-menu-item>
-      </t-menu>
+        <!-- 用户信息卡片 -->
+        <div
+          class="flex cursor-pointer items-center rounded-lg p-2 transition-colors hover:bg-gray-100"
+          :class="{ 'justify-center': collapsed, 'bg-gray-100': showUserMenu }"
+          @click="showUserMenu = !showUserMenu"
+        >
+          <t-avatar size="small" class="bg-blue-100 text-blue-600 shrink-0">
+            <template #icon><user-circle-icon /></template>
+          </t-avatar>
+          <div v-show="!collapsed" class="ml-3 flex flex-1 flex-col overflow-hidden">
+            <span class="truncate text-sm font-medium text-gray-900">
+              {{ userStore.userInfo.nickname || userStore.userInfo.username || "用户" }}
+            </span>
+            <span class="truncate text-xs text-gray-500">
+              {{ userStore.userInfo.roles?.[0] === 'admin' ? '管理员' : '普通用户' }}
+            </span>
+          </div>
+        </div>
+      </div>
     </t-aside>
 
     <!-- 主体内容区域 -->
     <t-layout class="flex flex-1 flex-col overflow-hidden">
       <!-- 顶部导航栏 -->
-      <t-header>
-        <t-head-menu theme="light">
-          <template #operations>
-            <div class="t-menu__operations">
-              <t-dropdown :options="dropdownOptions" @click="handleDropdownClick">
-                <t-button variant="text" shape="square">
-                  <template #icon><user-circle-icon /></template>
-                </t-button>
-              </t-dropdown>
-            </div>
-          </template>
-        </t-head-menu>
+      <t-header class="border-b border-gray-100 bg-white">
+        <div class="flex h-16 items-center px-6">
+          <!-- 面包屑导航 -->
+          <t-breadcrumb>
+            <t-breadcrumb-item
+              v-for="(item, index) in breadcrumbs"
+              :key="index"
+              :to="item.path"
+              :clickable="item.clickable"
+            >
+              <span>{{ item.title }}</span>
+            </t-breadcrumb-item>
+          </t-breadcrumb>
+        </div>
       </t-header>
 
-      <!-- 内容展示区域，使用 Tailwind 控制内边距和背景 -->
+
+      <!-- 内容展示区域 -->
       <t-content
         class="flex flex-1 flex-col bg-gray-50"
         :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
@@ -120,62 +126,77 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h } from "vue";
+import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import {
-  DashboardIcon,
-  HistoryIcon,
-  ServerIcon,
-  ViewListIcon,
   UserCircleIcon,
   PoweroffIcon,
-  ShopIcon,
-  SettingIcon,
-  AssignmentIcon,
+  ViewListIcon,
 } from "tdesign-icons-vue-next";
-import { userApi } from "@/api/user";
-import { MessagePlugin, type DropdownOption } from "tdesign-vue-next";
+import { useUserStore } from "@/store/user";
+import { usePermissionStore } from "@/store/permission";
+import {
+  transformRoutesToMenus,
+  getBreadcrumbs,
+  type MenuConfig,
+} from "@/utils/menu";
+import SidebarItem from "./SidebarItem.vue";
 
 const route = useRoute();
 const router = useRouter();
 
-// 计算当前激活的菜单项，基于当前路由名称
-const activeValue = computed(() => route.name as string);
+const userStore = useUserStore();
+const permissionStore = usePermissionStore();
 
-// 菜单切换处理
-const handleMenuChange = (value: string | number) => {
-  // 仅在 value 存在且为字符串时跳转
-  if (value && typeof value === "string") {
-    router.push({ name: value });
-  }
+// 侧边栏收缩状态
+const collapsed = ref(false);
+// 用户菜单显示状态
+const showUserMenu = ref(false);
+
+// 当前激活的菜单值
+const activeValue = computed(() => route.path);
+
+// 侧边栏菜单配置
+const sidebarMenus = computed((): MenuConfig[] => {
+  const routes = permissionStore.topbarRouters;
+  return transformRoutesToMenus(routes as any);
+});
+
+// 面包屑数据
+const breadcrumbs = computed(() => {
+  const routes = permissionStore.topbarRouters;
+  return getBreadcrumbs(route.path, routes as any);
+});
+
+// 处理菜单切换
+const handleMenuChange = (_value: string | number) => {
+  // 已经在 SidebarItem 中处理跳转，这里仅作为占位或处理额外逻辑
 };
 
-// 下拉菜单选项
-const dropdownOptions = [
-  { content: "退出登录", value: "logout", prefixIcon: () => h(PoweroffIcon) },
-];
-
-const handleDropdownClick = async (data: DropdownOption) => {
-  if (data.value === "logout") {
-    await handleLogout();
-  }
-};
-
+// 退出登录
 const handleLogout = async () => {
-  try {
-    await userApi.logout();
-  } catch (error) {
-    console.error(error);
-  } finally {
-    localStorage.removeItem("niro-web-token");
-    MessagePlugin.success("已退出登录");
-    router.push("/login");
+  await userStore.logout();
+  router.push(`/login?redirect=${route.fullPath}`);
+};
+
+// 点击外部关闭用户菜单
+const closeUserMenu = (e: MouseEvent) => {
+  const target = e.target as HTMLElement;
+  if (!target.closest('.relative')) {
+    showUserMenu.value = false;
   }
 };
+
+onMounted(() => {
+  document.addEventListener('click', closeUserMenu);
+});
+
+onUnmounted(() => {
+  document.removeEventListener('click', closeUserMenu);
+});
 </script>
 
 <style scoped>
-/* 针对布局组件的特定样式覆盖 */
 .t-layout {
   background: #f3f4f5;
 }

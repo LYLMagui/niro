@@ -294,7 +294,13 @@
                 <span class="mr-2">平台配置</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
+              <t-form
+                :data="formData"
+                :rules="formRules"
+                label-align="top"
+                size="small"
+                @submit="onSubmit"
+              >
                 <t-form-item label="C5 AppKey" name="c5AppKey">
                   <template #label><span class="text-[#86909c]">C5 AppKey</span></template>
                   <t-input
@@ -322,7 +328,13 @@
                 <span class="mr-2">交易配置</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
+              <t-form
+                :data="formData"
+                :rules="formRules"
+                label-align="top"
+                size="small"
+                @submit="onSubmit"
+              >
                 <t-form-item label="默认支付方式" name="paymentMethod">
                   <template #label>
                     <span class="text-[#86909c]">默认支付方式</span>
@@ -359,13 +371,19 @@
                 <span class="mr-2">通知参数</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form :data="formData" :rules="formRules" label-align="top" size="small" @submit="onSubmit">
+              <t-form
+                :data="formData"
+                :rules="formRules"
+                label-align="top"
+                size="small"
+                @submit="onSubmit"
+              >
                 <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
                   <t-collapse-panel v-if="wecomEnabled" value="wecom" class="!bg-transparent">
                     <template #header>
                       <span class="text-[13px] text-[#86909c]">企业微信配置</span>
                     </template>
-                    <div class="config-panel-bg compact-form rounded-md p-3 mt-2">
+                    <div class="config-panel-bg compact-form mt-2 rounded-md p-3">
                       <t-form-item label="CorpID" name="wecomCorpid">
                         <template #label><span class="text-[#86909c]">CorpID</span></template>
                         <t-input
@@ -404,11 +422,15 @@
                     </div>
                   </t-collapse-panel>
 
-                  <t-collapse-panel v-if="formData.emailEnabled" value="email" class="!bg-transparent">
+                  <t-collapse-panel
+                    v-if="formData.emailEnabled"
+                    value="email"
+                    class="!bg-transparent"
+                  >
                     <template #header>
                       <span class="text-[13px] text-[#86909c]">邮件通知配置</span>
                     </template>
-                    <div class="config-panel-bg compact-form rounded-md p-3 mt-2">
+                    <div class="config-panel-bg compact-form mt-2 rounded-md p-3">
                       <div class="grid grid-cols-3 gap-3">
                         <t-form-item label="SMTP服务器" name="emailHost" class="col-span-2">
                           <template #label><span class="text-[#86909c]">SMTP服务器</span></template>
@@ -438,7 +460,9 @@
                           />
                         </t-form-item>
                         <t-form-item label="授权码/密码" name="emailPassword">
-                          <template #label><span class="text-[#86909c]">授权码/密码</span></template>
+                          <template #label>
+                            <span class="text-[#86909c]">授权码/密码</span>
+                          </template>
                           <t-input
                             v-model="formData.emailPassword"
                             type="password"
@@ -695,17 +719,33 @@ const accountRules: Record<string, FormRule[]> = {
 const formRules = computed<Record<string, FormRule[]>>(() => {
   const rules: Record<string, FormRule[]> = {};
   if (formData.emailEnabled) {
-    rules.emailHost = [{ required: true, message: "请输入SMTP服务器", type: "error", trigger: "blur" }];
+    rules.emailHost = [
+      { required: true, message: "请输入SMTP服务器", type: "error", trigger: "blur" },
+    ];
     rules.emailPort = [{ required: true, message: "请输入端口", type: "error", trigger: "blur" }];
-    rules.emailAccount = [{ required: true, message: "请输入发件账号", type: "error", trigger: "blur" }];
-    rules.emailPassword = [{ required: true, message: "请输入授权码", type: "error", trigger: "blur" }];
-    rules.emailReceiver = [{ required: true, message: "请输入收件人", type: "error", trigger: "blur" }];
+    rules.emailAccount = [
+      { required: true, message: "请输入发件账号", type: "error", trigger: "blur" },
+    ];
+    rules.emailPassword = [
+      { required: true, message: "请输入授权码", type: "error", trigger: "blur" },
+    ];
+    rules.emailReceiver = [
+      { required: true, message: "请输入收件人", type: "error", trigger: "blur" },
+    ];
   }
   if (wecomEnabled.value) {
-     rules.wecomCorpid = [{ required: true, message: "请输入CorpID", type: "error", trigger: "blur" }];
-     rules.wecomCorpsecret = [{ required: true, message: "请输入CorpSecret", type: "error", trigger: "blur" }];
-     rules.wecomAgentid = [{ required: true, message: "请输入AgentID", type: "error", trigger: "blur" }];
-     rules.wecomTouser = [{ required: true, message: "请输入接收人", type: "error", trigger: "blur" }];
+    rules.wecomCorpid = [
+      { required: true, message: "请输入CorpID", type: "error", trigger: "blur" },
+    ];
+    rules.wecomCorpsecret = [
+      { required: true, message: "请输入CorpSecret", type: "error", trigger: "blur" },
+    ];
+    rules.wecomAgentid = [
+      { required: true, message: "请输入AgentID", type: "error", trigger: "blur" },
+    ];
+    rules.wecomTouser = [
+      { required: true, message: "请输入接收人", type: "error", trigger: "blur" },
+    ];
   }
   return rules;
 });

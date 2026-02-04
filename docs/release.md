@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-02-04 (v2.29.2)
+- **动态路由与布局系统重构**:
+  - **消除双重嵌套**: 彻底修复了由于静态路由与动态路由配置重叠导致的界面 Layout 双重嵌套现象，遵循“顶级节点控制布局”原则。
+  - **后端组件判定优化**: 重构了 `SysMenuServiceImpl.buildComponent` 逻辑，确保顶级菜单始终返回 `Layout`，目录节点返回 `ParentView`。
+  - **前端路由精简**: 移除了静态路由中的冗余 Layout 配置，优化了 `componentMap.ts` 的组件映射与回退机制，严禁在叶子节点返回 Layout。
+  - **权限存储增强**: 优化了 `permission.ts` 中的路由过滤算法，支持一级菜单自动推导业务组件，确保布局的一致性。
+  - **全栈代码质量**: 修复了重构引入的 TypeScript 类型错误与未使用变量警告，通过了全量编译验证。
+
 ## 2026-02-03 (v2.29.1)
 - **后端数据库查询重构 (MyBatis-Plus)**:
   - **链式调用标准化**: 对 `SysMenuService`, `SysRoleService`, `TradeOrderRecordService`, `C5TradeStrategy`, `C5TaskStartupRunner` 等核心模块进行了深度重构，将所有手动实例化的 `Wrapper` 替换为 `lambdaQuery()/lambdaUpdate()` 链式调用，提升代码可读性。

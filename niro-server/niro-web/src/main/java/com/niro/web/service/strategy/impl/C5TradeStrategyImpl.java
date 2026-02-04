@@ -7,32 +7,28 @@ import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.config.C5Config;
+import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
+import com.niro.sdk.c5.response.C5BalanceResponse;
 import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
-import com.niro.sdk.c5.response.C5BalanceResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.entity.BuffGoods;
-import com.niro.web.entity.BuffScanTask;
-import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.*;
 import com.niro.web.enums.PlatformEnum;
+import com.niro.web.manager.TradeOrderRecordManagerMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
+import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
-import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.service.TradeOrderRecordService;
-import com.niro.web.entity.BuffGoodsCategory;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
@@ -58,7 +54,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final TradeOrderRecordService tradeOrderRecordService;
+    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
@@ -130,7 +126,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     public void executeTrade(BuffScanTask task) {
         // 0. 校验任务状态
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-            long currentSuccess = tradeOrderRecordService.countSuccess(task.getId());
+            long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
             if (currentSuccess >= task.getBuyCount()) {
                 log.info("任务 [{}] 已完成购买目标 ({}/{})，停止执行", task.getId(), currentSuccess, task.getBuyCount());
                 c5TaskScheduler.complete(task.getId());
@@ -139,7 +135,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1. 准备参数与配置
-        BuffGoods goods = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId,task.getGoodsId()).one();
+        BuffGoods goods = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId, task.getGoodsId()).one();
         if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
             String errorMsg = goods == null ? "商品不存在" : "商品 MarketHashName 为空";
             log.error("任务 [{}] {}", task.getId(), errorMsg);
@@ -179,7 +175,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        
+
         CompletableFuture<List<C5ProductSearchResponse.ProductItem>> manualFuture = CompletableFuture.supplyAsync(() ->
                 searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, 1)
         );
@@ -245,7 +241,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 6. 批量下单
         // 计算本轮最大购买数
-        long currentSuccess = tradeOrderRecordService.countSuccess(task.getId());
+        long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
         int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
                 ? (int) (task.getBuyCount() - currentSuccess)
                 : 1; // 未限制数量时默认为1，避免并发风险
@@ -264,7 +260,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         if (task.getMinPaintwear() == null && task.getMaxPaintwear() == null) {
             return true;
         }
-        
+
         // 获取商品磨损
         Double wearVal = null;
         if (item.getAssetInfo() != null) {
@@ -272,7 +268,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         } else if (item.getItemInfo() != null) {
             // 优先从 assetInfo 获取磨损信息
         }
-        
+
         // 无磨损信息商品默认视为符合条件
         // 这里假设如果用户设置了磨损区间，但商品无磨损，则不买
         if (wearVal == null) {
@@ -280,7 +276,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         BigDecimal wear = BigDecimal.valueOf(wearVal);
-        
+
         if (task.getMinPaintwear() != null && wear.compareTo(task.getMinPaintwear()) < 0) {
             return false;
         }
@@ -370,7 +366,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 1. 预生成订单记录 (状态: 处理中)
         List<TradeOrderRecord> records = new ArrayList<>();
         List<C5BatchBuyRequest.BatchProduct> batchProducts = new ArrayList<>();
-        
+
         // 获取 TradeUrl
         UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
         String tradeUrl = (settings != null) ? settings.getSteamTradeUrl() : null;
@@ -411,13 +407,13 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setCreateTime(LocalDateTime.now());
             record.setUpdateTime(LocalDateTime.now());
             record.setOutTradeNo(outTradeNo);
-            
+
             records.add(record);
         }
 
         // 保存记录
         for (TradeOrderRecord record : records) {
-            tradeOrderRecordService.save(record);
+            tradeOrderRecordManagerMapper.save(record);
         }
 
         // 2. 调用 API
@@ -432,7 +428,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                     .setProductList(batchProducts);
 
             C5BatchBuyResponse resp = client.getTrade().batchBuy(req);
-            
+
             if (resp == null) {
                 updateLastError(task, "C5 批量下单响应为空");
                 markPendingAsFailed(records, "API返回为空");
@@ -472,18 +468,18 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("任务 [{}] 批量购买响应内容为空 (Success/Failed 列表均无数据), 批次: {}", task.getId(), batchId);
                 // 不调用 markAllFailed，保持记录为处理中 (status=0)
             }
-            
+
             // 6. 兜底扫描 (Final Sweep)：将所有仍处于"处理中"状态的记录标记为失败
             // 防止因 API 未返回 out_trade_no 或匹配失败导致订单状态永久卡死
             List<TradeOrderRecord> zombieRecords = records.stream()
                     .filter(r -> r.getStatus() == 0)
                     .collect(Collectors.toList());
-            
+
             if (CollUtil.isNotEmpty(zombieRecords)) {
                 log.warn("任务 [{}] 发现 {} 条僵尸订单 (API未返回状态), 统一切换为失败", task.getId(), zombieRecords.size());
                 for (TradeOrderRecord zombie : zombieRecords) {
                     // 使用 out_trade_no 更新，确保原子性
-                    tradeOrderRecordService.lambdaUpdate()
+                    tradeOrderRecordManagerMapper.lambdaUpdate()
                             .eq(TradeOrderRecord::getOutTradeNo, zombie.getOutTradeNo())
                             .set(TradeOrderRecord::getStatus, 2)
                             .set(TradeOrderRecord::getErrorMsg, "API无响应/未匹配到结果")
@@ -496,15 +492,15 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (successCount > 0) {
                 // 清空错误信息
                 updateLastError(task, null);
-                
+
                 log.info("任务 [{}] 批次 {} 完成，成功: {}, 失败: {}", task.getId(), batchId, successCount, resp.getFailNum());
-                
+
                 // 检查自动完成
                 if (task.getBuyCount() != null) {
-                     long totalSuccess = tradeOrderRecordService.countSuccess(task.getId());
-                     if (totalSuccess >= task.getBuyCount()) {
-                         c5TaskScheduler.complete(task.getId());
-                     }
+                    long totalSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
+                    if (totalSuccess >= task.getBuyCount()) {
+                        c5TaskScheduler.complete(task.getId());
+                    }
                 }
             } else if (CollUtil.isNotEmpty(resp.getFailedList())) {
                 log.warn("任务 [{}] 批次 {} 全部失败", task.getId(), batchId);
@@ -513,7 +509,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         } catch (Exception e) {
             // 1. 探测并清除中断状态
             boolean isInterrupted = Thread.interrupted();
-            
+
             // 2. 记录异常日志 (包含是否因中断导致的信息)
             if (isInterrupted || e instanceof InterruptedException) {
                 log.warn("任务 [{}] 被中断 (Interrupted), 正在执行状态回写兜底逻辑. 原异常: {}", task.getId(), e.getMessage());
@@ -554,22 +550,22 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                     record.setErrorMsg(errorMsg);
                 }
                 record.setUpdateTime(LocalDateTime.now());
-                
+
                 // 使用 out_trade_no 进行数据库更新，不依赖 id
-                tradeOrderRecordService.lambdaUpdate()
+                tradeOrderRecordManagerMapper.lambdaUpdate()
                         .eq(TradeOrderRecord::getOutTradeNo, outTradeNo)
                         .set(TradeOrderRecord::getStatus, status)
                         .set(platformOrderId != null, TradeOrderRecord::getOrderId, platformOrderId)
                         .set(errorMsg != null, TradeOrderRecord::getErrorMsg, errorMsg)
                         .set(TradeOrderRecord::getUpdateTime, LocalDateTime.now())
                         .update();
-                
+
                 log.info("订单状态更新成功 [{}]: Status={}, OrderId={}", outTradeNo, status, platformOrderId);
                 matched = true;
                 break;
             }
         }
-        
+
         if (!matched) {
             log.warn("C5响应包含未知的 out_trade_no [{}], 可能是并发或超时重试导致", outTradeNo);
         }
@@ -581,7 +577,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 record.setStatus(2);
                 record.setErrorMsg(errorMsg);
                 record.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordService.updateById(record);
+                tradeOrderRecordManagerMapper.updateById(record);
             }
         }
     }
@@ -610,7 +606,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (maxWear != null) {
                 req.setMaxWear(maxWear.doubleValue());
             }
-            log.info("requestBody:{}",JSONUtil.toJsonPrettyStr(req));
+            log.info("requestBody:{}", JSONUtil.toJsonPrettyStr(req));
             C5ProductSearchResponse response = client.getMarket().searchProductsByHashName(req);
             return response != null ? response.getList() : Collections.emptyList();
         } catch (Exception e) {
@@ -618,10 +614,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return Collections.emptyList();
         }
     }
-    
+
     private StrategyConfig buildStrategyConfig(BuffScanTask task) {
         StrategyConfig config = new StrategyConfig();
-        
+
         // 1. 先尝试解析 ExtraConfig (兼容旧数据)
         if (StrUtil.isNotBlank(task.getExtraConfig())) {
             try {
@@ -633,7 +629,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("解析 ExtraConfig 失败，使用默认值", e);
             }
         }
-        
+
         // 2. 优先使用独立字段 (如果存在)
         if (task.getSafetyMargin() != null) {
             config.safeMargin = task.getSafetyMargin().doubleValue();
@@ -644,13 +640,13 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             // 增加 Math.min 限制，防止配置的阶梯数超过实际搜索到的阶梯上限 (PageSize=20)
             config.anchorTierIndex = Math.min(Math.max(0, task.getLadderStep().intValue() - 1), 19);
         }
-        
+
         return config;
     }
 
     private StrategyConfig parseConfig(String extraConfigJson) {
         // Deprecated, replaced by buildStrategyConfig
-        return new StrategyConfig(); 
+        return new StrategyConfig();
     }
 
     @Data

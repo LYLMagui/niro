@@ -8,7 +8,7 @@
       <div class="flex items-center gap-3">
         <!-- 商品图片 -->
         <div
-          class="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 shadow-sm p-1"
+          class="relative h-12 w-12 flex-shrink-0 overflow-hidden rounded-lg border border-gray-100 p-1 shadow-sm"
         >
           <t-image
             :src="task.goodsIconUrl"
@@ -141,7 +141,7 @@
       </div>
 
       <!-- 右侧：步骤条或状态信息 -->
-      <div class="flex-1 pl-4 flex justify-center">
+      <div class="flex flex-1 justify-center pl-4">
         <!-- 系统任务显示 TPS -->
         <div v-if="isSystemTask" class="text-xs font-medium text-blue-600">
           TPS: {{ task.stats?.tps || 0 }} 条/秒
@@ -263,17 +263,13 @@ const moreOptions = computed(() => [
   {
     content: "编辑任务",
     value: "edit",
-    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(
-      props.task.status
-    ),
+    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(props.task.status),
   },
   {
     content: "删除任务",
     value: "delete",
     theme: "danger" as any,
-    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(
-      props.task.status
-    ),
+    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(props.task.status),
   },
 ]);
 

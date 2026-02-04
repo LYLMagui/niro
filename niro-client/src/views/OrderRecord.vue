@@ -44,9 +44,7 @@
                 <template #icon><search-icon /></template>
                 查询
               </t-button>
-              <t-button theme="default" variant="base" @click="handleReset">
-                重置
-              </t-button>
+              <t-button theme="default" variant="base" @click="handleReset">重置</t-button>
             </div>
           </t-col>
         </t-row>
@@ -96,7 +94,7 @@
                 {{ row.goodsName }}
               </span>
               <span class="truncate text-xs text-gray-400">
-                磨损: {{ row.paintwear > 0 ? row.paintwear : '无' }}
+                磨损: {{ row.paintwear > 0 ? row.paintwear : "无" }}
               </span>
             </div>
           </div>
@@ -112,7 +110,7 @@
             >
               {{ row.platform }}
             </t-tag>
-            <span class="text-sm text-gray-600">{{ row.accountName || '-' }}</span>
+            <span class="text-sm text-gray-600">{{ row.accountName || "-" }}</span>
           </div>
         </template>
 
@@ -144,10 +142,10 @@
             <t-tag theme="primary" variant="light">处理中</t-tag>
           </div>
         </template>
-        
+
         <!-- 时间列 -->
         <template #time="{ row }">
-           <span class="text-gray-500">{{ formatTime(row.createTime) }}</span>
+          <span class="text-gray-500">{{ formatTime(row.createTime) }}</span>
         </template>
 
         <!-- 操作列 -->
@@ -171,7 +169,6 @@
             </t-popconfirm>
           </div>
         </template>
-
       </t-table>
     </t-card>
 
@@ -201,18 +198,21 @@
 
         <t-descriptions bordered :column="1">
           <t-descriptions-item label="支付金额">
-            <span class="font-bold text-red-600">¥{{ orderDetail.actualPay || '0.00' }}</span>
+            <span class="font-bold text-red-600">¥{{ orderDetail.actualPay || "0.00" }}</span>
           </t-descriptions-item>
           <t-descriptions-item label="订单状态">
             <t-tag :theme="getStatusTheme(orderDetail.status)" variant="light">
               {{ getStatusText(orderDetail.status) }}
             </t-tag>
           </t-descriptions-item>
-          <t-descriptions-item v-if="orderDetail.failedDesc || orderDetail.errorMsg" label="失败原因">
+          <t-descriptions-item
+            v-if="orderDetail.failedDesc || orderDetail.errorMsg"
+            label="失败原因"
+          >
             <span class="text-red-600">{{ orderDetail.failedDesc || orderDetail.errorMsg }}</span>
           </t-descriptions-item>
           <t-descriptions-item label="支付状态">
-            {{ orderDetail.payStatus === 1 ? '已支付' : '未支付' }}
+            {{ orderDetail.payStatus === 1 ? "已支付" : "未支付" }}
           </t-descriptions-item>
           <t-descriptions-item label="创建时间">
             {{ orderDetail.createTimeStr || formatTime(orderDetail.createTime) }}
@@ -364,8 +364,6 @@ const formatTime = (time: string | number) => {
   return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
 };
 
-
-
 const drawerVisible = ref(false);
 const detailLoading = ref(false);
 const orderDetail = ref<any>(null);
@@ -413,8 +411,6 @@ const getStatusTheme = (status: number) => {
 onMounted(() => {
   fetchData();
 });
-
-
 </script>
 
 <style scoped>

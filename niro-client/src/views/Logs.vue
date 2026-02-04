@@ -147,24 +147,24 @@
 
               <!-- IP & TraceId & Account 标签 -->
               <span v-if="log.ip" class="mr-2 inline-flex items-center">
-                <span 
-                  class="cursor-pointer rounded bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 border border-emerald-500/20 transition-colors hover:bg-emerald-500/20 hover:text-emerald-300"
+                <span
+                  class="cursor-pointer rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 transition-colors hover:bg-emerald-500/20 hover:text-emerald-300"
                   @click="filterByKeyword(log.ip)"
                 >
                   {{ log.ip }}
                 </span>
               </span>
               <span v-if="log.traceId" class="mr-2 inline-flex items-center">
-                <span 
-                  class="cursor-pointer rounded bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium text-purple-400/90 border border-purple-500/20 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
+                <span
+                  class="cursor-pointer rounded border border-purple-500/20 bg-purple-500/10 px-2 py-0.5 text-[11px] font-medium text-purple-400/90 transition-colors hover:bg-purple-500/20 hover:text-purple-300"
                   @click="filterByKeyword(log.traceId)"
                 >
                   {{ log.traceId }}
                 </span>
               </span>
               <span v-if="log.accountName" class="mr-2 inline-flex items-center">
-                <span 
-                  class="cursor-pointer rounded bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400/90 border border-blue-500/20 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
+                <span
+                  class="cursor-pointer rounded border border-blue-500/20 bg-blue-500/10 px-2 py-0.5 text-[11px] font-medium text-blue-400/90 transition-colors hover:bg-blue-500/20 hover:text-blue-300"
                   @click="filterByKeyword(log.accountName)"
                 >
                   {{ log.accountName }}
@@ -173,10 +173,7 @@
 
               <!-- 内容解析渲染 -->
               <span
-                :class="[
-                  getMessageClass(log),
-                  { 'order-step-breathe': isOrderStep(log.message) }
-                ]"
+                :class="[getMessageClass(log), { 'order-step-breathe': isOrderStep(log.message) }]"
                 class="inline-block rounded-sm px-1 break-all whitespace-pre-wrap transition-all"
               >
                 <template v-for="(part, i) in formatMessage(log.message)" :key="i">
@@ -360,7 +357,7 @@ const parseLog = (log: LogItem) => {
     ...log,
     _account: log.accountName || (accMatch ? accMatch[1] : null),
     _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
-    _ip: log.ip || (msg.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)?.[1]),
+    _ip: log.ip || msg.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)?.[1],
     _isDiscovery: isDiscovery,
   };
 };
@@ -590,9 +587,11 @@ const connect = () => {
 
     // 尝试解析文本行格式
     // 1. 标准 6 段式 (Spider 日志): 时间 | 级别 | IP | TraceId | Account | Message
-    const standardPattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*(.*)$/;
+    const standardPattern =
+      /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*(.*)$/;
     // 2. 简易 3 段式 (系统或 Java 日志): 时间 | 级别 | Message
-    const simplePattern = /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*(.*)$/;
+    const simplePattern =
+      /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*(.*)$/;
 
     const standardMatch = rawData.match(standardPattern);
     const simpleMatch = rawData.match(simplePattern);

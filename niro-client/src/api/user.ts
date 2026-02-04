@@ -2,6 +2,26 @@ import request from "@/utils/request";
 import type { UserDTO, UserLoginParam } from "@/types/user";
 
 /**
+ * 用户信息响应
+ */
+export interface UserInfoResponse {
+  /** 用户ID */
+  id: number;
+  /** 用户名 */
+  username: string;
+  /** 昵称 */
+  nickname?: string;
+  /** 头像 */
+  avatar?: string;
+  /** 邮箱 */
+  email?: string;
+  /** 角色列表 */
+  roles: string[];
+  /** 权限列表 */
+  permissions: string[];
+}
+
+/**
  * 用户相关接口
  */
 export const userApi = {
@@ -19,5 +39,13 @@ export const userApi = {
    */
   logout: () => {
     return request.post<unknown>("/user/logout");
+  },
+
+  /**
+   * 获取用户信息
+   * @returns 用户信息（包含角色和权限）
+   */
+  getInfo: () => {
+    return request.get<UserInfoResponse>("/user/getInfo");
   },
 };

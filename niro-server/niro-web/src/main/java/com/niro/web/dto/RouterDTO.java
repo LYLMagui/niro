@@ -1,4 +1,4 @@
-package com.niro.web.dto.vo;
+package com.niro.web.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
 import lombok.Data;
@@ -11,7 +11,7 @@ import java.util.List;
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
-public class RouterVo implements Serializable {
+public class RouterDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
@@ -35,14 +35,14 @@ public class RouterVo implements Serializable {
     private String redirect;
 
     /**
-     * 组件地址
-     */
-    private String component;
-
-    /**
      * 路由参数：如 {"id": 1, "name": "ry"}
      */
     private String query;
+
+    /**
+     * 组件标识（Layout, ParentView, 或业务组件名）
+     */
+    private String component;
 
     /**
      * 当你一个路由下面的 children 声明的路由大于1个时，自动会变成嵌套的模式--如组件页面
@@ -52,10 +52,10 @@ public class RouterVo implements Serializable {
     /**
      * 其他元素
      */
-    private MetaVo meta;
+    private MetaDTO meta;
 
     /**
      * 子路由
      */
-    private List<RouterVo> children;
+    private List<RouterDTO> children;
 }

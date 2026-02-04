@@ -1,11 +1,9 @@
 package com.niro.web.service;
 
-import com.baomidou.mybatisplus.extension.service.IService;
-import com.niro.web.dto.BuffAccountDTO;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.enums.BuffAccountStatusEnum;
-
 import java.util.List;
+
+import com.niro.web.dto.BuffAccountDTO;
+import com.niro.web.enums.BuffAccountStatusEnum;
 
 /**
  * BUFF 账号配置 Service 接口
@@ -13,7 +11,7 @@ import java.util.List;
  * @author niro
  * @since 2026-01-15
  */
-public interface BuffAccountService extends IService<BuffAccount> {
+public interface BuffAccountService {
 
     /**
      * 获取用户的所有BUFF账号
