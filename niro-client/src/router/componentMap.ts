@@ -7,6 +7,7 @@ const componentMap: Record<string, () => Promise<Component>> = {
   InnerLink: () => import("@/views/404.vue"),
   dashboard: () => import("@/views/Dashboard.vue"),
   list: () => import("@/views/TaskList.vue"),
+  manager: () => import("@/views/TaskList.vue"),
   buff: () => import("@/views/TaskList.vue"),
   c5: () => import("@/views/TaskList.vue"),
   record: () => import("@/views/OrderRecord.vue"),
@@ -15,6 +16,7 @@ const componentMap: Record<string, () => Promise<Component>> = {
   sticker: () => import("@/views/StickerList.vue"),
   logs: () => import("@/views/Logs.vue"),
   taskconfig: () => import("@/views/TaskConfig.vue"),
+  system: () => import("@/views/Settings.vue"),
   403: () => import("@/views/403.vue"),
   404: () => import("@/views/404.vue"),
 };

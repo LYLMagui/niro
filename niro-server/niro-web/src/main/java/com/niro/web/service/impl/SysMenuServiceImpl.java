@@ -146,7 +146,6 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             router.setComponent(buildComponent(menu));
             router.setHidden(YesNoEnum.NO.getCode().equals(menu.getVisible()));
             router.setName(buildRouteName(path));
-            router.setQuery(menu.getQuery());
 
             MetaDTO meta = new MetaDTO();
             meta.setTitle(menu.getMenuName());

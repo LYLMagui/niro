@@ -3,11 +3,7 @@
   "mcp": {
     "GitHub": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "@modelcontextprotocol/server-github"
-      ],
+      "command": ["npx", "-y", "@modelcontextprotocol/server-github"],
       "enabled": true,
       "environment": {
         "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
@@ -28,11 +24,7 @@
     },
     "tdesign-mcp-server": {
       "type": "local",
-      "command": [
-        "npx",
-        "-y",
-        "tdesign-mcp-server"
-      ],
+      "command": ["npx", "-y", "tdesign-mcp-server"],
       "enabled": true
     },
     "PostgreSQL": {
@@ -58,32 +50,23 @@
     },
     "chrome-devtools": {
       "type": "local",
-      "command": [
-        "npx",
-        "chrome-devtools-mcp@latest"
-      ],
+      "command": ["npx", "chrome-devtools-mcp@latest"],
       "enabled": true
     },
     "EnhancedBing": {
       "type": "local",
-      "command": [
-        "npx",
-        "bing-cn-mcp-enhanced"
-      ],
+      "command": ["npx", "bing-cn-mcp-enhanced"],
       "enabled": true
     },
     "MiniMax": {
       "type": "local",
-      "command": [
-        "uvx",
-        "minimax-coding-plan-mcp",
-        "-y"
-      ],
+      "command": ["uvx", "minimax-coding-plan-mcp", "-y"],
       "enabled": true,
       "environment": {
         "MINIMAX_API_KEY": "sk-cp-fjiu_jJNaDxY1F8vTOBvRjNcqN3g1F4_MGbOfRhQmnOSJGP5WocVp84PWEiVR-s4fGgOKdhM3Vcd4Ws1jMVxSN2v8iBzAmNmwGVutMx5Zsqhyczh6gwk1n0",
         "MINIMAX_API_HOST": "https://api.minimaxi.com"
       }
     }
-  }
+  },
+  "instructions":[".trae/rules/*.md"]
 }
