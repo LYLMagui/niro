@@ -1,9 +1,13 @@
-import { h, type Component } from "vue";
+import { type Component } from "vue";
 import Layout from "@/components/Layout.vue";
 
+/**
+ * 组件映射表
+ * 这里的 key 对应后端 sys_menu 表中的 component_path 字段
+ */
 const componentMap: Record<string, () => Promise<Component>> = {
   Layout: async () => Layout,
-  ParentView: async () => ({ render: () => h("router-view") }),
+  ParentView: () => import("@/components/ParentView.vue"),
   InnerLink: () => import("@/views/404.vue"),
   dashboard: () => import("@/views/Dashboard.vue"),
   list: () => import("@/views/TaskList.vue"),

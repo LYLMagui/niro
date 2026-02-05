@@ -37,7 +37,7 @@ INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component_path, men
 INSERT INTO sys_menu (menu_name, parent_id, order_num, path, component_path, menu_type, icon, visible, status, perms, is_cache, breadcrumb) VALUES
 ('商品管理', (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND del_flag = 0), 1, 'goods', 'goods', 'C', 'shop', 0, 1, 'system:goods:view', 1, 1),
 ('印花管理', (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND del_flag = 0), 2, 'sticker', 'sticker', 'C', 'file', 0, 1, 'system:sticker:view', 1, 1),
-('系统日志', (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND del_flag = 0), 3, 'logs', 'logs', 'C', 'file', 0, 1, 'system:logs:view', 1, 1),
+('系统日志', (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND del_flag = 0), 3, 'logs', 'logs', 'C', 'list', 0, 1, 'system:logs:view', 1, 1),
 ('账号管理', (SELECT menu_id FROM sys_menu WHERE menu_name = '系统管理' AND del_flag = 0), 4, 'account', 'account', 'C', 'setting', 0, 1, 'system:account:view', 1, 1);
 
 -- 4. 给 admin 角色分配所有菜单（先删除旧关联）

@@ -20,40 +20,27 @@ public class RouterDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 路由名字（英文唯一标识）
-     * 如：Dashboard, TaskManagerBuff
+     * 路由名称
      */
     private String name;
 
     /**
-     * 路由地址（相对路径，不带 / 开头）
-     * 如：dashboard, task/manager/buff
+     * 路由路径
      */
     private String path;
 
     /**
-     * 是否隐藏路由
-     */
-    private Boolean hidden;
-
-    /**
-     * 重定向地址
-     */
-    private String redirect;
-
-    /**
-     * 组件名（前端据此映射真实组件）
-     * 如：dashboard, buff, record, goods
+     * 组件路径
      */
     private String component;
 
     /**
-     * 总是显示根菜单
+     * 重定向
      */
-    private Boolean alwaysShow;
+    private String redirect;
 
     /**
-     * 路由元数据
+     * 元数据
      */
     private MetaDTO meta;
 

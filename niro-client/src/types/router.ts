@@ -4,16 +4,22 @@ import type { RouteRecordRaw } from "vue-router";
  * 后端返回的路由元信息
  */
 export interface RouterMeta {
-  /** 路由标题，用于菜单和面包屑显示 */
+  /** 路由标题 */
   title: string;
   /** 路由图标 */
   icon?: string;
-  /** 是否不缓存 */
-  noCache?: boolean;
+  /** 是否隐藏 */
+  hidden?: boolean;
+  /** 是否缓存 */
+  keepAlive?: boolean;
+  /** 是否总是显示根菜单 */
+  alwaysShow?: boolean;
   /** 内链地址 */
   link?: string;
-  /** Breadcrumb 面包屑中是否显示 */
+  /** 面包屑是否可见 */
   breadcrumb?: boolean;
+  /** 是否缓存（前端转换后） */
+  noCache?: boolean;
 }
 
 /**
@@ -22,20 +28,14 @@ export interface RouterMeta {
 export interface RouterVo {
   /** 路由名称 */
   name: string;
-  /** 路由地址 */
+  /** 路由路径 */
   path: string;
-  /** 是否隐藏路由 */
-  hidden?: boolean;
-  /** 重定向地址 */
+  /** 组件路径 */
+  component: string;
+  /** 重定向 */
   redirect?: string;
-  /** 组件标识 */
-  component?: string;
-  /** 路由参数 */
-  query?: string;
-  /** 是否总是显示 */
-  alwaysShow?: boolean;
   /** 路由元信息 */
-  meta?: RouterMeta;
+  meta: RouterMeta;
   /** 子路由 */
   children?: RouterVo[];
 }

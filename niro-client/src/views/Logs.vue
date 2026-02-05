@@ -3,7 +3,7 @@
     <t-card :bordered="false" class="embedded-card flex flex-1 flex-col overflow-hidden shadow-sm">
       <template #title>
         <div class="flex items-center">
-          <view-list-icon class="mr-2 text-blue-600" />
+          <bulletpoint-icon class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">全链路日志</span>
           <div class="ml-4 flex items-center space-x-1.5">
             <div
@@ -303,7 +303,7 @@ import {
   ViewModuleIcon,
   TerminalIcon,
   ErrorCircleFilledIcon,
-  ViewListIcon,
+  BulletpointIcon,
 } from "tdesign-icons-vue-next";
 import { type LogItem } from "../api/log";
 import dayjs from "dayjs";

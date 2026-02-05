@@ -36,7 +36,7 @@ export interface MenuConfig {
  */
 export function transformRoutesToMenus(routes: RouterVo[], parentPath = ""): MenuConfig[] {
   return routes
-    .filter((route) => !route.hidden && route.path !== "/" && route.name !== "Root")
+    .filter((route) => !route.meta?.hidden && route.path !== "/" && route.name !== "Root")
     .map((route) => transformRouteToMenu(route, parentPath));
 }
 
@@ -64,8 +64,8 @@ function transformRouteToMenu(route: RouterVo, parentPath: string): MenuConfig {
     path: fullPath,
     routeName: route.name,
     redirect: route.redirect,
-    hidden: route.hidden ?? false,
-    alwaysShow: route.alwaysShow ?? false,
+    hidden: route.meta?.hidden ?? false,
+    alwaysShow: route.meta?.alwaysShow ?? false,
   };
 
   // 处理图标映射
@@ -81,7 +81,7 @@ function transformRouteToMenu(route: RouterVo, parentPath: string): MenuConfig {
 
   // 递归处理子菜单
   if (route.children && route.children.length > 0) {
-    const visibleChildren = route.children.filter((child) => !child.hidden);
+    const visibleChildren = route.children.filter((child) => !child.meta?.hidden);
     if (visibleChildren.length > 0) {
       menu.children = visibleChildren.map((child) => transformRouteToMenu(child, fullPath || ""));
     }

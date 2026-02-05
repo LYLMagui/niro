@@ -14,7 +14,7 @@ export const usePermissionStore = defineStore("permission", () => {
   const topbarRouters = ref<AppRouteRecordRaw[]>([]);
   const isRoutesLoaded = ref(false);
 
-  function filterAsyncRoutes(routes: RouterVo[], depth = 0, parentPath = ""): AppRouteRecordRaw[] {
+  function filterAsyncRoutes(routes: RouterVo[], depth = 0): AppRouteRecordRaw[] {
     if (depth > 10) {
       console.warn("路由嵌套深度超过限制，可能存在循环引用");
       return [];
@@ -22,40 +22,20 @@ export const usePermissionStore = defineStore("permission", () => {
     const res: AppRouteRecordRaw[] = [];
 
     routes.forEach((route) => {
-      // 计算当前路由的完整路径
-      const fullPath = route.path.startsWith("/") ? route.path : `${parentPath}/${route.path}`.replace(/\/+/g, "/");
-
-      // 根据路径推导组件 key
-      const pathParts = (route.path || "").split("/").filter(Boolean);
-      let componentKey = route.component;
-
-      // 如果没有指定 component，根据路径最后一个部分推导
-      if (!componentKey || componentKey === "ParentView") {
-        if (depth === 0) {
-          // 顶级菜单使用 ParentView（因为 Layout 在 Root 中）
-          componentKey = "ParentView";
-        } else if (route.children && route.children.length > 0) {
-          // 有子菜单的使用 ParentView
-          componentKey = "ParentView";
-        } else {
-          // 叶子节点根据 path 推导，如 /task/manager/buff -> buff
-          componentKey = pathParts[pathParts.length - 1] || "dashboard";
-        }
-      }
+      const componentKey = route.component;
 
       const tmp: AppRouteRecordRaw = {
         path: route.path || "",
         name: route.name || "",
         meta: {
-          title: route.meta?.title || "",
-          icon: route.meta?.icon,
-          noCache: route.meta?.noCache ?? false,
-          hidden: route.hidden ?? false,
-          link: route.meta?.link,
-          breadcrumb: route.meta?.breadcrumb ?? true,
+          title: route.meta.title || "",
+          icon: route.meta.icon,
+          noCache: !(route.meta.keepAlive ?? true),
+          hidden: route.meta.hidden ?? false,
+          breadcrumb: true,
         },
         redirect: route.redirect,
-        component: getComponent(componentKey, route.path),
+        component: getComponent(componentKey),
         children: [],
       };
 
@@ -65,7 +45,7 @@ export const usePermissionStore = defineStore("permission", () => {
       }
 
       if (route.children && route.children.length > 0) {
-        tmp.children = filterAsyncRoutes(route.children, depth + 1, fullPath);
+        tmp.children = filterAsyncRoutes(route.children, depth + 1);
       }
 
       res.push(tmp);
