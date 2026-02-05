@@ -117,9 +117,9 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     const accessRoutes = await permissionStore.generateRoutes(userStore.userInfo.roles);
 
     // 3. 动态挂载路由
-    // 注意：这里我们将动态路由挂载到根路由下，或者作为顶级路由
+    // 将动态路由作为 Root 路由的子路由，确保在 Layout 中渲染
     accessRoutes.forEach((route) => {
-      router.addRoute(route as RouteRecordRaw);
+      router.addRoute("Root", route as RouteRecordRaw);
     });
 
     // 4. 添加 404 兜底路由（必须在动态路由之后添加）
