@@ -23,13 +23,13 @@ public class SysMenu implements Serializable {
     /**
      * 菜单ID
      */
-    @TableId(value = "menu_id", type = IdType.AUTO)
-    private Long menuId;
+    @TableId(value = "id", type = IdType.AUTO)
+    private Long id;
 
     /**
      * 菜单名称
      */
-    private String menuName;
+    private String title;
 
     /**
      * 父菜单ID
@@ -37,49 +37,19 @@ public class SysMenu implements Serializable {
     private Long parentId;
 
     /**
-     * 显示顺序
+     * 路由名称
      */
-    private Integer orderNum;
+    private String name;
 
     /**
-     * 路由地址
+     * 路由路径
      */
     private String path;
 
     /**
-     * 路由参数
+     * 组件路径
      */
-    private String query;
-
-    /**
-     * 是否为外链（0是 1否）
-     */
-    private Integer isFrame;
-
-    /**
-     * 是否缓存（0缓存 1不缓存）
-     */
-    private Integer isCache;
-
-    /**
-     * 菜单类型（M目录 C菜单 F按钮）
-     */
-    private String menuType;
-
-    /**
-     * 菜单状态（0显示 1隐藏）
-     */
-    private Integer visible;
-
-    /**
-     * 菜单状态（0正常 1停用）
-     */
-    private Integer status;
-
-    /**
-     * 权限标识
-     */
-    private String perms;
+    private String component;
 
     /**
      * 菜单图标
@@ -87,50 +57,40 @@ public class SysMenu implements Serializable {
     private String icon;
 
     /**
-     * 创建者
+     * 显示顺序
      */
-    private String createBy;
+    private Integer sortOrder;
 
     /**
-     * 创建时间
+     * 菜单类型（0目录 1菜单 2按钮）
      */
-    private LocalDateTime createTime;
+    private Integer type;
 
     /**
-     * 更新者
+     * 权限标识
      */
-    private String updateBy;
+    private String permission;
 
     /**
-     * 更新时间
+     * 是否隐藏（false显示 true隐藏）
      */
-    private LocalDateTime updateTime;
+    private Boolean hidden;
 
     /**
-     * 备注
+     * 是否缓存（false不缓存 true缓存）
      */
-    private String remark;
+    private Boolean keepAlive;
 
     /**
-     * 删除标志（0代表存在 1代表删除）
+     * 重定向地址
+     */
+    private String redirect;
+
+    /**
+     * 逻辑删除标识（0正常 1删除）
      */
     @TableLogic
     private Integer delFlag;
-
-    /**
-     * 面包屑显示（0隐藏 1显示）
-     */
-    private Integer breadcrumb;
-
-    /**
-     * 前端组件路径
-     */
-    private String componentPath;
-
-    /**
-     * 是否外链（0否 1是）
-     */
-    private Integer isExternal;
 
     /**
      * 子菜单

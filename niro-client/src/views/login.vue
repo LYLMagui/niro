@@ -58,10 +58,11 @@
 <script setup lang="ts">
 import { reactive, ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
-import { MessagePlugin, type FormRules, type SubmitContext } from "tdesign-vue-next";
+import { type FormRules, type SubmitContext } from "tdesign-vue-next";
 import { UserIcon, LockOnIcon } from "tdesign-icons-vue-next";
 import { useRequest } from "@/composables/useRequest";
 import { useUserStore } from "@/store/user";
+import { usePermissionStore } from "@/store/permission";
 import { encrypt, decrypt } from "@/utils/crypto";
 
 // 路由
@@ -114,6 +115,13 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
       // 调用 userStore.login() 进行登录，内部已处理 Token 存储
       await userStore.login(accountFormData);
 
+      // 清除菜单缓存，确保重新获取
+      sessionStorage.removeItem("niro-dynamic-routes-raw");
+
+      // 重置路由加载状态
+      const permissionStore = usePermissionStore();
+      permissionStore.isRoutesLoaded = false;
+
       // 记住我逻辑
       if (rememberMe.value) {
         const encryptedPassword = encrypt(accountFormData.password);
@@ -134,8 +142,6 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
 
       // 跳转到首页（路由守卫会自动处理动态路由的生成和添加）
       router.push("/dashboard");
-
-      MessagePlugin.success("登录成功");
     } catch (error: any) {
       // 异常已由拦截器处理
     } finally {

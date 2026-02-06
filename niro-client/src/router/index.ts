@@ -9,6 +9,7 @@ import {
 } from "vue-router";
 import { useUserStore } from "@/store/user";
 import { usePermissionStore } from "@/store/permission";
+import Layout from "@/components/Layout.vue";
 
 NProgress.configure({ showSpinner: false });
 
@@ -34,6 +35,7 @@ const constantRoutes: RouteRecordRaw[] = [
   {
     path: "/",
     name: "Root",
+    component: Layout,
     redirect: "/dashboard",
     meta: { title: "首页", hidden: true },
     children: [],
@@ -133,8 +135,12 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     // 5. 标记已加载
     permissionStore.isRoutesLoaded = true;
 
-    // 6. 触发重定向，确保路由生效
-    next({ ...to, replace: true });
+    // 6. 确保目标路由存在后跳转
+    if (router.hasRoute(to.name) || accessRoutes.some(r => r.path === to.path || r.path === to.fullPath)) {
+      next({ ...to, replace: true });
+    } else {
+      next({ path: "/dashboard", replace: true });
+    }
   } catch (error) {
     console.error("加载路由失败:", error);
     // 失败则清空 token 并跳转登录

@@ -22,34 +22,30 @@ export const usePermissionStore = defineStore("permission", () => {
     const res: AppRouteRecordRaw[] = [];
 
     routes.forEach((route) => {
-      // 检查是否为 Layout 容器且只有一个空路径子节点（用于处理一级菜单显示）
-      const isLayout = route.component === "Layout";
+      const componentKey = route.component;
 
       const tmp: AppRouteRecordRaw = {
         path: route.path || "",
         name: route.name || "",
         meta: {
-          title: route.meta?.title || "",
-          icon: route.meta?.icon,
-          noCache: route.meta?.noCache ?? false,
-          hidden: route.hidden ?? false,
-          link: route.meta?.link,
-          breadcrumb: route.meta?.breadcrumb ?? true,
+          title: route.meta.title || "",
+          icon: route.meta.icon,
+          noCache: !(route.meta.keepAlive ?? true),
+          hidden: route.meta.hidden ?? false,
+          breadcrumb: true,
         },
         redirect: route.redirect,
-        component: getComponent(route.component, route.path),
+        component: getComponent(componentKey),
         children: [],
       };
 
+      // 顶级路由去除开头的 /（因为是 Root 的子路由）
+      if (depth === 0 && tmp.path.startsWith("/")) {
+        tmp.path = tmp.path.slice(1);
+      }
+
       if (route.children && route.children.length > 0) {
-        // 如果当前是 Layout 且子节点路径为空且无组件，则让子节点继承父级路径用于推导业务组件
-        const children = route.children.map((child) => {
-          if (isLayout && child.path === "" && !child.component) {
-            return { ...child, component: route.path };
-          }
-          return child;
-        });
-        tmp.children = filterAsyncRoutes(children, depth + 1);
+        tmp.children = filterAsyncRoutes(route.children, depth + 1);
       }
 
       res.push(tmp);

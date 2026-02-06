@@ -102,6 +102,7 @@ import {
   SettingIcon,
   ShareIcon,
   BulletpointIcon,
+  ViewListIcon,
   OrderAscendingIcon,
   HistoryIcon,
   ShopIcon,
@@ -276,6 +277,7 @@ export type IconName =
   | "user-talk"
   | "video"
   | "video-camera"
+  | "view-list"
   | "voice"
   | "wallet"
   | "warning-circle"
@@ -451,6 +453,7 @@ const iconMap: Record<IconName, Component> = {
   "user-talk": UserTalkIcon,
   video: VideoIcon,
   "video-camera": VideoCameraIcon,
+  "view-list": ViewListIcon,
   voice: SoundIcon,
   wallet: WalletIcon,
   "warning-circle": NotificationIcon,

@@ -37,9 +37,8 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         if (UserConstants.ADMIN_ID.equals(userId)) {
             // 管理员显示所有菜单
             menus = this.lambdaQuery()
-                    .in(SysMenu::getMenuType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
-                    .eq(SysMenu::getStatus, YesNoEnum.YES.getCode())
-                    .orderByAsc(SysMenu::getOrderNum)
+                    .in(SysMenu::getType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
+                    .orderByAsc(SysMenu::getSortOrder)
                     .list();
         } else {
             // 1. 根据用户ID查询角色
@@ -62,10 +61,9 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
             // 3. 查询菜单
             menus = this.lambdaQuery()
-                    .in(SysMenu::getMenuId, menuIds)
-                    .in(SysMenu::getMenuType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
-                    .eq(SysMenu::getStatus, YesNoEnum.YES.getCode())
-                    .orderByAsc(SysMenu::getOrderNum)
+                    .in(SysMenu::getId, menuIds)
+                    .in(SysMenu::getType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
+                    .orderByAsc(SysMenu::getSortOrder)
                     .list();
         }
 
@@ -100,13 +98,12 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
         // 3. 查询菜单权限
         List<SysMenu> menus = this.lambdaQuery()
-                .in(SysMenu::getMenuId, menuIds)
-                .eq(SysMenu::getStatus, YesNoEnum.YES.getCode())
+                .in(SysMenu::getId, menuIds)
                 .list();
 
         for (SysMenu menu : menus) {
-            if (StrUtil.isNotEmpty(menu.getPerms())) {
-                perms.add(menu.getPerms());
+            if (StrUtil.isNotEmpty(menu.getPermission())) {
+                perms.add(menu.getPermission());
             }
         }
         return perms;
@@ -120,17 +117,13 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      */
     @Override
     public List<RouterDTO> buildMenus(List<SysMenu> menus) {
-        return buildMenusRecursive(menus, "");
+        return buildMenusRecursive(menus);
     }
 
     /**
      * 递归构建路由
-     * 大厂规范：
-     * - path: 绝对路径（以 / 开头）
-     * - component: 优先使用 component_path，其次根据菜单类型判断
-     * - name: 由 path 自动推导（首字母大写）
      */
-    private List<RouterDTO> buildMenusRecursive(List<SysMenu> menus, String parentPath) {
+    private List<RouterDTO> buildMenusRecursive(List<SysMenu> menus) {
         List<RouterDTO> routers = new LinkedList<>();
         for (SysMenu menu : menus) {
             RouterDTO router = new RouterDTO();
@@ -138,39 +131,25 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             String path = menu.getPath();
             if (StrUtil.isEmpty(path)) {
                 path = "";
-            } else if (menu.getParentId() == 0 && !path.startsWith("/") && !isHttp(path)) {
+            } else if (menu.getParentId() == 0 && !path.startsWith("/")) {
                 path = "/" + path;
             }
 
             router.setPath(path);
             router.setComponent(buildComponent(menu));
-            router.setHidden(YesNoEnum.NO.getCode().equals(menu.getVisible()));
-            router.setName(buildRouteName(path));
-            router.setQuery(menu.getQuery());
+            router.setName(menu.getName());
+            router.setRedirect(menu.getRedirect());
 
             MetaDTO meta = new MetaDTO();
-            meta.setTitle(menu.getMenuName());
+            meta.setTitle(menu.getTitle());
             meta.setIcon(menu.getIcon());
-            meta.setNoCache(YesNoEnum.NO.getCode().equals(menu.getIsCache()));
-            meta.setBreadcrumb(YesNoEnum.YES.getCode().equals(menu.getBreadcrumb()));
-            if (isHttp(path)) {
-                meta.setLink(path);
-            }
+            meta.setHidden(menu.getHidden());
+            meta.setKeepAlive(menu.getKeepAlive());
             router.setMeta(meta);
 
             List<SysMenu> cMenus = menu.getChildren();
             if (CollUtil.isNotEmpty(cMenus)) {
-                router.setAlwaysShow(true);
-                router.setRedirect("noRedirect");
-                router.setChildren(buildMenusRecursive(cMenus, path));
-            } else if (MenuTypeEnum.MENU.getCode().equals(menu.getMenuType())) {
-                router.setMeta(null);
-                List<RouterDTO> childrenList = new ArrayList<>();
-                RouterDTO children = new RouterDTO();
-                children.setPath("");
-                children.setMeta(meta);
-                childrenList.add(children);
-                router.setChildren(childrenList);
+                router.setChildren(buildMenusRecursive(cMenus));
             }
 
             routers.add(router);
@@ -180,46 +159,25 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
 
     /**
      * 构建组件路径
-     * 优先级：
-     * 1. 一级菜单（parentId=0） -> Layout
-     * 2. component_path（显式存储）
-     * 3. 目录类型（DIR） -> ParentView
-     * 4. 叶子节点 -> 空字符串（前端根据 path 推导）
+     * 规则：
+     * 1. If type == 0 (Dir): return "ParentView"
+     * 2. If type == 1 (Menu): return dbMenu.getComponent()
      */
     private String buildComponent(SysMenu menu) {
-        if (menu.getParentId() == 0) {
-            return UserConstants.LAYOUT;
-        }
-        if (StrUtil.isNotEmpty(menu.getComponentPath())) {
-            return menu.getComponentPath();
-        }
-        if (MenuTypeEnum.DIR.getCode().equals(menu.getMenuType())) {
+        if (MenuTypeEnum.DIR.getCode().equals(menu.getType())) {
             return UserConstants.PARENT_VIEW;
         }
-        return "";
+        return menu.getComponent();
     }
 
     /**
-     * 构建路由名称
-     * /dashboard -> Dashboard
-     * /system/goods -> Systemgoods
-     */
-    private String buildRouteName(String path) {
-        if (StrUtil.isEmpty(path) || "/".equals(path)) {
-            return "";
-        }
-        String name = path.startsWith("/") ? path.substring(1) : path;
-        return StrUtil.upperFirst(name.replace("/", ""));
-    }
-
-    /**
-     * 构建树形结构
+     * 构建菜单树
      */
     private List<SysMenu> buildMenuTree(List<SysMenu> menus) {
         List<SysMenu> returnList = new ArrayList<>();
-        List<Long> tempList = menus.stream().map(SysMenu::getMenuId).collect(Collectors.toList());
-
+        List<Long> tempList = menus.stream().map(SysMenu::getId).collect(Collectors.toList());
         for (SysMenu menu : menus) {
+            // 如果是顶级节点, 遍历该父节点的所有子节点
             if (menu.getParentId() == null || menu.getParentId() == 0 || !tempList.contains(menu.getParentId())) {
                 recursionFn(menus, menu);
                 returnList.add(menu);
@@ -235,6 +193,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * 递归列表
      */
     private void recursionFn(List<SysMenu> list, SysMenu t) {
+        // 得到子节点列表
         List<SysMenu> childList = getChildList(list, t);
         t.setChildren(childList);
         for (SysMenu tChild : childList) {
@@ -250,7 +209,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
     private List<SysMenu> getChildList(List<SysMenu> list, SysMenu t) {
         List<SysMenu> tlist = new ArrayList<>();
         for (SysMenu n : list) {
-            if (n.getParentId() != null && n.getParentId().equals(t.getMenuId())) {
+            if (n.getParentId() != null && n.getParentId().equals(t.getId())) {
                 tlist.add(n);
             }
         }
@@ -261,14 +220,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
      * 判断是否有子节点
      */
     private boolean hasChild(List<SysMenu> list, SysMenu t) {
-        return CollUtil.isNotEmpty(getChildList(list, t));
-    }
-
-    /**
-     * 是否为http(s)://
-     */
-    private boolean isHttp(String link) {
-        return StrUtil.startWithAny(link, "http://", "https://");
+        return !getChildList(list, t).isEmpty();
     }
 
 }

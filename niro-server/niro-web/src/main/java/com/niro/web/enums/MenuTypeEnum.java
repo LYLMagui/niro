@@ -9,10 +9,10 @@ import lombok.Getter;
 @Getter
 @AllArgsConstructor
 public enum MenuTypeEnum {
-    DIR("M", "目录"),
-    MENU("C", "菜单"),
-    BUTTON("F", "按钮");
+    DIR(0, "目录"),
+    MENU(1, "菜单"),
+    BUTTON(2, "按钮");
 
-    private final String code;
+    private final Integer code;
     private final String info;
 }

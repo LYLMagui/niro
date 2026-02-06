@@ -7,7 +7,12 @@ import java.io.Serializable;
 import java.util.List;
 
 /**
- * 路由配置信息
+ * 路由配置信息 - 大厂规范版本
+ * 规范说明：
+ * 1. path: 统一使用相对路径（如 dashboard, task/manager/buff）
+ * 2. component: 组件映射名，前端据此加载对应组件
+ * 3. name: 路由唯一标识，用于 keep-alive 和面包屑
+ * 4. meta: 元数据，包含标题、图标、缓存等
  */
 @Data
 @JsonInclude(JsonInclude.Include.NON_EMPTY)
@@ -15,42 +20,27 @@ public class RouterDTO implements Serializable {
     private static final long serialVersionUID = 1L;
 
     /**
-     * 路由名字
+     * 路由名称
      */
     private String name;
 
     /**
-     * 路由地址
+     * 路由路径
      */
     private String path;
 
     /**
-     * 是否隐藏路由，当设置 true 的时候该路由不会再侧边栏出现
-     */
-    private Boolean hidden;
-
-    /**
-     * 重定向地址，当设置 noRedirect 的时候该路由在面包屑导航中不可被点击
-     */
-    private String redirect;
-
-    /**
-     * 路由参数：如 {"id": 1, "name": "ry"}
-     */
-    private String query;
-
-    /**
-     * 组件标识（Layout, ParentView, 或业务组件名）
+     * 组件路径
      */
     private String component;
 
     /**
-     * 当你一个路由下面的 children 声明的路由大于1个时，自动会变成嵌套的模式--如组件页面
+     * 重定向
      */
-    private Boolean alwaysShow;
+    private String redirect;
 
     /**
-     * 其他元素
+     * 元数据
      */
     private MetaDTO meta;
 
