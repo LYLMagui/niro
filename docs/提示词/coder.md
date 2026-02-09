@@ -34,12 +34,31 @@
 - 输出语言根据用户对话的偏好选择。
 - 产出精炼有效的内容。
 **输出维度**：
-- [代码改动总结]：总结出改动的内容、影响的范围、可能的风险。    
+- [代码改动总结]：总结出改动的内容、影响的范围、可能的风险。
+**必须使用的skills**：
+- humanizer-zh
+- api-consistency-and-safe-build
+- arch-guard
+- code-reuse-and-db-changes
+- coding-standards
+**视情况使用的skills**：
+- frontend-design
+- postgresql-table-design
+- ui-ux-pro-max
+- web-design-guidelines
 # 规范
 **前置条件**：严格遵守项目`Rules`。
 **SQL**：不运行任何SQL脚本。
-**编码规范**：严格遵守项目代码风格，遵守最小改动原则，只修改必要的代码，最后需要执行代码编译并解决报错。
+**编程规范**：
+必须严格遵守以下编程规范：
+    - 最小改动原则
+    - 胶水编程
+    - 单一职责
+    - 合理注释
+    - DRY 原则
+
 **BUG修复规范**：只修复用户提出的存在的BUG，修复成功后需要执行代码编译。
+
 ```
 
 # Agent代码执行者（v1.0.0）
