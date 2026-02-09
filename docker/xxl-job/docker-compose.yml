@@ -42,6 +42,7 @@ services:
         --spring.datasource.url=jdbc:mysql://mysql:3306/${MYSQL_DATABASE:-xxl_job}?useUnicode=true&characterEncoding=UTF-8&autoReconnect=true&serverTimezone=Asia/Shanghai
         --spring.datasource.username=root
         --spring.datasource.password=${MYSQL_ROOT_PASSWORD}
+        --xxl.job.accessToken=${XXL_JOB_ACCESS_TOKEN:-default_token}
         --server.port=${XXL_JOB_ADMIN_PORT:-8080}
         --server.servlet.context-path=${XXL_JOB_ADMIN_CONTEXT_PATH:-/xxl-job-admin}
     ports:
