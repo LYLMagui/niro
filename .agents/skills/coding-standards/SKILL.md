@@ -1,6 +1,6 @@
 ---
 name: coding-standards
-description: Niro 项目专用编码规范，覆盖 Java, Vue3, Python，强制执行 rules 目录下的开发军规。
+description: 涉及任何代码改动(Java/Vue/Python)、逻辑变更或思考时必须优先调用的核心规范。
 ---
 
 # Niro Coding Standards
@@ -9,6 +9,8 @@ description: Niro 项目专用编码规范，覆盖 Java, Vue3, Python，强制�
 - 编写新代码时 (Feature Implementation)
 - 代码重构时 (Refactoring)
 - 修复 Bug 时 (Bug Fix)
+- 编写任何代码时
+- 思考时
 
 ## 核心原则
 1. **结论先行**: 所有的注释、Commit Message、PR 描述必须结论先行。
@@ -175,3 +177,4 @@ redisUtil.lock(key); // 这里加锁
 - 只有在“任务完成”时才记录版本。
 - 使用 `docs/release.md`。
 - 格式：`v0.x.0` (功能), `v0.0.x` (Bug修复)。
+

@@ -19,9 +19,11 @@
 - 订单 [发货接口](https://opendoc.c5game.com/api-111917784.md): 发货接口
 - 交易报价 [steam 报价查询](https://opendoc.c5game.com/api-112234466.md): #### 使用 steam 官方的 `tradeofferid` 进行查询，来校验是否是 `C5GAME` 平台内的交易报价
 - 商品 [价格查询](https://opendoc.c5game.com/api-161954984.md): 
-- 商品 [根据marketHashName查询在售列表](https://opendoc.c5game.com/api-211629706.md): #### 限流说明
-- 商品 [根据marketHashName查询统计信息](https://opendoc.c5game.com/api-304298359.md): 单次查询最多100条
-- 商品 [根据marketHashName查询存世量](https://opendoc.c5game.com/api-304306656.md): 单次查询最多100条
+- 商品 [某个hashName符合条件的在售列表](https://opendoc.c5game.com/api-211629706.md): #### 限流说明
+- 商品 [根据hashName批量查询统计信息](https://opendoc.c5game.com/api-304298359.md): 单次查询最多100条
+- 商品 [根据hashName批量查询存世量](https://opendoc.c5game.com/api-304306656.md): 单次查询最多100条
+- 商品 [在售列表查询【new】](https://opendoc.c5game.com/api-414956575.md): 接口目前处于内测阶段
+- 商品 [在售列表搜索【new】](https://opendoc.c5game.com/api-414954214.md): 接口目前处于内测阶段
 - 求购 [发起求购](https://opendoc.c5game.com/api-181496279.md): 
 - 求购 [取消求购](https://opendoc.c5game.com/api-181508072.md): 
 - 求购 [求购列表](https://opendoc.c5game.com/api-184817384.md): 
@@ -39,42 +41,64 @@
 ## Schemas
 - [OpenBuyV2ResultDTO](https://opendoc.c5game.com/schema-57203592.md): 
 - [ItemTagInfoVO](https://opendoc.c5game.com/schema-61702561.md): 
+- [ProductAssetInfoDTO](https://opendoc.c5game.com/schema-244944401.md): 
+- [DeliveryStatsItem](https://opendoc.c5game.com/schema-244945218.md): 
 - [Object](https://opendoc.c5game.com/schema-57203593.md): 
 - [ItemAssetGemVO](https://opendoc.c5game.com/schema-61702562.md): 
 - [WebApiRes«List«Long»»](https://opendoc.c5game.com/schema-61877965.md): 
+- [ProductDTO](https://opendoc.c5game.com/schema-244944402.md): 
+- [DeliveryStatsInfoVO](https://opendoc.c5game.com/schema-244945219.md): 
 - [WebApiRes«OpenBuyV2ResultDTO»](https://opendoc.c5game.com/schema-57203594.md): 
 - [ItemAssetStickerVO](https://opendoc.c5game.com/schema-61702563.md): 
+- [PageResultProductDTO](https://opendoc.c5game.com/schema-244944403.md): 
+- [SellerUserInfoVO](https://opendoc.c5game.com/schema-244945220.md): 
 - [MarketingDiscountInfoDTO](https://opendoc.c5game.com/schema-57203595.md): 
 - [ItemAssetClassInfoStyleVO](https://opendoc.c5game.com/schema-61702564.md): 
 - [SteamInfoVO](https://opendoc.c5game.com/schema-61705710.md): 
+- [WebApiResPageResultProductDTO](https://opendoc.c5game.com/schema-244944404.md): 
 - [QuickBuyParamV2DTO](https://opendoc.c5game.com/schema-57203596.md): 
 - [ItemAssetBundleVO](https://opendoc.c5game.com/schema-61702565.md): 
 - [UserSteamVO](https://opendoc.c5game.com/schema-61705711.md): 
+- [SearchProductsDTO](https://opendoc.c5game.com/schema-244944405.md): 
 - [NormalBuyParamV2DTO](https://opendoc.c5game.com/schema-57203597.md): 
 - [ItemAssetInfoVO](https://opendoc.c5game.com/schema-61702566.md): 
 - [WebApiRes«UserSteamVO»](https://opendoc.c5game.com/schema-61705712.md): 
 - [ItemTagInfoDTO](https://opendoc.c5game.com/schema-57203598.md): 
 - [ItemAssetGemDTO](https://opendoc.c5game.com/schema-57203599.md): 
 - [ItemAssetStickerDTO](https://opendoc.c5game.com/schema-57203600.md): 
+- [ItemAssetKeychainVO](https://opendoc.c5game.com/schema-244945221.md): 
 - [ItemAssetClassInfoStyleDTO](https://opendoc.c5game.com/schema-57203601.md): 
+- [ItemAssetKeychainInfoVO](https://opendoc.c5game.com/schema-244945222.md): 
 - [ItemAssetInfoDTO](https://opendoc.c5game.com/schema-57203602.md): 
 - [OpenSaleAssetVO](https://opendoc.c5game.com/schema-57203603.md): 
+- [ItemSellInfoVO](https://opendoc.c5game.com/schema-244945223.md): 
 - [PageList«OpenSaleAssetVO»](https://opendoc.c5game.com/schema-57203604.md): 
+- [PageListItemSellInfoVO](https://opendoc.c5game.com/schema-244945224.md): 
 - [WebApiRes«PageList«OpenSaleAssetVO»»](https://opendoc.c5game.com/schema-57203605.md): 
+- [WebApiResPageListItemSellInfoVO](https://opendoc.c5game.com/schema-244945225.md): 
 - [OnSaleAssetDTO](https://opendoc.c5game.com/schema-57203606.md): 
+- [PageQuery](https://opendoc.c5game.com/schema-244945226.md): 
 - [OnSaleFailedItem](https://opendoc.c5game.com/schema-57203607.md): 
+- [ItemSellDTO](https://opendoc.c5game.com/schema-244945227.md): 
 - [OnSaleResponseDTO](https://opendoc.c5game.com/schema-57203608.md): 
+- [HashNameSellSearchDTO](https://opendoc.c5game.com/schema-244945228.md): 
 - [WebApiRes«OnSaleResponseDTO»](https://opendoc.c5game.com/schema-57203609.md): 
 - [ItemPriceDTO](https://opendoc.c5game.com/schema-57203610.md): 
+- [MapOpenItemStatVO](https://opendoc.c5game.com/schema-244945229.md): 
 - [SaleAO](https://opendoc.c5game.com/schema-57203611.md): 
+- [WebApiResMapOpenItemStatVO](https://opendoc.c5game.com/schema-244945230.md): 
 - [ModifySellPriceResponseDTO](https://opendoc.c5game.com/schema-57203612.md): 
+- [OpenItemStatQueryDTO](https://opendoc.c5game.com/schema-244945231.md): 
 - [WebApiRes«ModifySellPriceResponseDTO»](https://opendoc.c5game.com/schema-57203613.md): 
+- [MapLong](https://opendoc.c5game.com/schema-244945232.md): 
 - [ModifyItem](https://opendoc.c5game.com/schema-57203614.md): 
+- [WebApiResMapLong](https://opendoc.c5game.com/schema-244945233.md): 
 - [ModifyPriceAO](https://opendoc.c5game.com/schema-57203615.md): 
 - [OffSaleResponseDTO](https://opendoc.c5game.com/schema-57203616.md): 
 - [WebApiRes«OffSaleResponseDTO»](https://opendoc.c5game.com/schema-57203617.md): 
 - [OffSaleAO](https://opendoc.c5game.com/schema-57203618.md): 
 - [OrderConfirmInfoDTO](https://opendoc.c5game.com/schema-57203619.md): 
+- [ListProductsDTO](https://opendoc.c5game.com/schema-244945234.md): 
 - [OpenOrderAssetListDTO](https://opendoc.c5game.com/schema-57203620.md): 
 - [PageList«OpenOrderAssetListDTO»](https://opendoc.c5game.com/schema-57203621.md): 
 - [WebApiRes«PageList«OpenOrderAssetListDTO»»](https://opendoc.c5game.com/schema-57203622.md): 
