@@ -3,15 +3,9 @@ package com.niro.sdk.c5.client.module;
 import cn.hutool.core.collection.CollUtil;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.niro.sdk.c5.client.core.C5HttpEngine;
-import com.niro.sdk.c5.request.market.C5BatchPriceRequest;
-import com.niro.sdk.c5.request.market.C5ItemStatRequest;
-import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
-import com.niro.sdk.c5.request.market.C5SaleSearchRequest;
+import com.niro.sdk.c5.request.market.*;
 import com.niro.sdk.c5.response.C5BaseResponse;
-import com.niro.sdk.c5.response.market.C5BatchPriceInfo;
-import com.niro.sdk.c5.response.market.C5ItemStatInfo;
-import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
-import com.niro.sdk.c5.response.market.C5SaleSearchResponse;
+import com.niro.sdk.c5.response.market.*;
 import lombok.RequiredArgsConstructor;
 
 import java.util.HashMap;
@@ -57,9 +51,27 @@ public class C5MarketClient {
     /**
      * 根据marketHashName查询在售列表
      * POST /merchant/market/v2/products/condition/hash/name
+     * @deprecated 请使用 {@link #searchProductList(C5ProductListRequest)}
      */
+    @Deprecated
     public C5ProductSearchResponse searchProductsByHashName(C5ProductSearchRequest req) {
         return engine.execute("/merchant/market/v2/products/condition/hash/name", "POST", req, new TypeReference<C5BaseResponse<C5ProductSearchResponse>>() {});
+    }
+
+    /**
+     * 查询在售列表 (V2)
+     * POST /merchant/market/v2/products/list
+     */
+    public C5ProductListResponse searchProductList(C5ProductListRequest req) {
+        return engine.execute("/merchant/market/v2/products/list", "POST", req, new TypeReference<C5BaseResponse<C5ProductListResponse>>() {});
+    }
+
+    /**
+     * 高级搜索在售列表 (V2)
+     * POST /merchant/market/v2/products/search
+     */
+    public C5ProductListResponse productSearch(C5ProductSearchRequest req) {
+        return engine.execute("/merchant/market/v2/products/search", "POST", req, new TypeReference<C5BaseResponse<C5ProductListResponse>>() {});
     }
 
     /**

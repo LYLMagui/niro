@@ -1,21 +1,34 @@
 package com.niro.web.service.strategy.impl;
 
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
 import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
+import com.niro.sdk.c5.request.market.C5ProductListRequest;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
 import com.niro.sdk.c5.response.C5BalanceResponse;
-import com.niro.sdk.c5.response.market.C5ProductSearchResponse;
+import com.niro.sdk.c5.response.market.C5ProductListResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
-import com.niro.web.entity.*;
+import com.niro.web.entity.BuffAccount;
+import com.niro.web.entity.BuffGoods;
+import com.niro.web.entity.BuffGoodsCategory;
+import com.niro.web.entity.BuffScanTask;
+import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.manager.TradeOrderRecordManagerMapper;
 import com.niro.web.mapper.BuffScanTaskMapper;
@@ -24,19 +37,15 @@ import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.*;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.TimeUnit;
-import java.util.stream.Collectors;
 
 /**
  * C5 平台策略实现
@@ -163,9 +172,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             }
         }
 
-        // 2. 并行搜索 (不传 MaxPrice 以获取市场全貌)
-        // 注意：为了获取锚点，我们需要看到比用户限价更高的商品，所以这里 maxPrice 传 GLOBAL_MAX_PRICE
-        // 如果是非磨损类物品，强制 minWear/maxWear 为 null
+        // 2. 搜索在售商品 (Search Products)
         final BigDecimal minWear = isNonWearable ? null : task.getMinPaintwear();
         final BigDecimal maxWear = isNonWearable ? null : task.getMaxPaintwear();
 
@@ -175,46 +182,16 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-
-        CompletableFuture<List<C5ProductSearchResponse.ProductItem>> manualFuture = CompletableFuture.supplyAsync(() ->
-                searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, 1)
-        );
-        CompletableFuture<List<C5ProductSearchResponse.ProductItem>> autoFuture = CompletableFuture.supplyAsync(() ->
-                searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, 2)
-        );
-
-        try {
-            CompletableFuture.allOf(manualFuture, autoFuture).get(30, TimeUnit.SECONDS);
-        } catch (InterruptedException e) {
-            log.warn("任务 [{}] 搜索等待被中断", task.getId());
-            Thread.currentThread().interrupt();
-            return;
-        } catch (Exception e) {
-            log.error("任务 [{}] 搜索过程异常或超时: {}", task.getId(), e.getMessage());
-        }
-
-        List<C5ProductSearchResponse.ProductItem> allItems = new ArrayList<>();
-        try {
-            List<C5ProductSearchResponse.ProductItem> list = manualFuture.get();
-            if (CollUtil.isNotEmpty(list)) allItems.addAll(list);
-        } catch (Exception e) {
-            log.warn("任务 [{}] 搜索人工发货失败: {}", task.getId(), e.getMessage());
-        }
-        try {
-            List<C5ProductSearchResponse.ProductItem> list = autoFuture.get();
-            if (CollUtil.isNotEmpty(list)) allItems.addAll(list);
-        } catch (Exception e) {
-            log.warn("任务 [{}] 搜索自动发货失败: {}", task.getId(), e.getMessage());
-        }
+        List<C5ProductListResponse.ProductDTO> allItems = searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, isNonWearable, task);
 
         if (CollUtil.isEmpty(allItems)) {
             return;
         }
 
         // 3. 排序 (价格升序)
-        List<C5ProductSearchResponse.ProductItem> sortedItems = allItems.stream()
+        List<C5ProductListResponse.ProductDTO> sortedItems = allItems.stream()
                 .filter(item -> item.getPrice() != null)
-                .sorted(Comparator.comparing(C5ProductSearchResponse.ProductItem::getPrice))
+                .sorted(Comparator.comparing(C5ProductListResponse.ProductDTO::getPrice))
                 .collect(Collectors.toList());
 
         // 4. 深度锚点算法 (Depth Anchor Algorithm)
@@ -229,7 +206,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         final boolean finalIsNonWearable = isNonWearable;
 
         // 5. 最终筛选
-        List<C5ProductSearchResponse.ProductItem> qualifiedItems = sortedItems.stream()
+        List<C5ProductListResponse.ProductDTO> qualifiedItems = sortedItems.stream()
                 .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0) // 硬上限
                 .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0)    // 动态上限
                 .filter(item -> checkWear(item, task, finalIsNonWearable))          // 磨损范围
@@ -248,11 +225,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 如果 remaining <= 0，前面已经拦截，但在并发下可能需要再次检查
         if (remaining <= 0) return;
 
-        List<C5ProductSearchResponse.ProductItem> toBuyList = qualifiedItems.subList(0, Math.min(qualifiedItems.size(), remaining));
+        List<C5ProductListResponse.ProductDTO> toBuyList = qualifiedItems.subList(0, Math.min(qualifiedItems.size(), remaining));
         doBatchBuy(client, task, toBuyList, goods);
     }
 
-    private boolean checkWear(C5ProductSearchResponse.ProductItem item, BuffScanTask task, boolean isNonWearable) {
+    private boolean checkWear(C5ProductListResponse.ProductDTO item, BuffScanTask task, boolean isNonWearable) {
         if (isNonWearable) {
             return true;
         }
@@ -264,9 +241,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 获取商品磨损
         Double wearVal = null;
         if (item.getAssetInfo() != null) {
-            wearVal = item.getAssetInfo().getWear();
-        } else if (item.getItemInfo() != null) {
-            // 优先从 assetInfo 获取磨损信息
+            wearVal = item.getAssetInfo().getFloatWear();
+            if (wearVal == null) {
+                wearVal = item.getAssetInfo().getWear();
+            }
         }
 
         // 无磨损信息商品默认视为符合条件
@@ -289,7 +267,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 计算动态上限 (Price Tier Anchoring)
      */
-    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductSearchResponse.ProductItem> sortedProducts, StrategyConfig config) {
+    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts, StrategyConfig config) {
         BigDecimal userMax = task.getMaxPrice();
 
         // 深度不足，降级处理
@@ -302,7 +280,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 1. 提取价格阶梯 (去重 + 排序)
         // Note: BigDecimal distinct() uses equals() which checks scale. Use compareTo for value equality.
         List<BigDecimal> rawPrices = sortedProducts.stream()
-                .map(C5ProductSearchResponse.ProductItem::getPrice)
+                .map(C5ProductListResponse.ProductDTO::getPrice)
                 .sorted()
                 .collect(Collectors.toList());
 
@@ -353,7 +331,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         return dynamicLimit;
     }
 
-    private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductSearchResponse.ProductItem> items, BuffGoods goods) {
+    private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items, BuffGoods goods) {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
@@ -375,7 +353,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        for (C5ProductSearchResponse.ProductItem item : items) {
+        for (C5ProductListResponse.ProductDTO item : items) {
             // 中断检查 (循环内)
             if (Thread.currentThread().isInterrupted()) {
                 log.warn("任务 [{}] 在构造订单记录时被中断", task.getId());
@@ -385,7 +363,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
             // 构建请求项
             C5BatchBuyRequest.BatchProduct bp = new C5BatchBuyRequest.BatchProduct();
-            bp.setProductId(Long.valueOf(item.getId()));
+            bp.setProductId(Long.valueOf(item.getProductId()));
             bp.setBuyPrice(item.getPrice());
             bp.setOutTradeNo(outTradeNo);
             batchProducts.add(bp);
@@ -400,8 +378,16 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setGoodsId(task.getGoodsId());
             record.setPrice(item.getPrice());
             record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
-            if (item.getAssetInfo() != null && item.getAssetInfo().getWear() != null) {
-                record.setPaintwear(BigDecimal.valueOf(item.getAssetInfo().getWear()));
+            
+            Double wearVal = null;
+            if (item.getAssetInfo() != null) {
+                wearVal = item.getAssetInfo().getFloatWear();
+                if (wearVal == null) {
+                    wearVal = item.getAssetInfo().getWear();
+                }
+            }
+            if (wearVal != null) {
+                record.setPaintwear(BigDecimal.valueOf(wearVal));
             }
             record.setStatus(0); // 处理中
             record.setCreateTime(LocalDateTime.now());
@@ -590,27 +576,35 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 执行单个搜索请求
      */
-    private List<C5ProductSearchResponse.ProductItem> searchProducts(C5ApiClient client, String marketHashName, BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, Integer delivery) {
+    private List<C5ProductListResponse.ProductDTO> searchProducts(C5ApiClient client, String marketHashName, BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, boolean isNonWearable, BuffScanTask task) {
         try {
-            C5ProductSearchRequest req = new C5ProductSearchRequest()
-                    .setAppId(730) // CS2
-                    .setMarketHashName(marketHashName)
-                    .setPageNum(1)
-                    .setPageSize(20) // 每次取前20个
-                    .setMaxPrice(maxPrice) // 传 null 则不限制
-                    .setDelivery(delivery);
-
-            if (minWear != null) {
-                req.setMinWear(minWear.doubleValue());
+            C5ProductListResponse response;
+            if (isNonWearable) {
+                // 快接口路由: 用于非磨损类商品
+                C5ProductListRequest req = new C5ProductListRequest()
+                        .setAppId(730)
+                        .setMarketHashName(marketHashName)
+                        .setPageNum(1)
+                        .setPageSize(20);
+                log.info("C5快接口搜索 [/products/list]: {}", JSONUtil.toJsonStr(req));
+                response = client.getMarket().searchProductList(req);
+            } else {
+                // 慢接口路由: 用于磨损类商品，支持磨损/价格区间筛选
+                C5ProductSearchRequest req = new C5ProductSearchRequest()
+                        .setAppId(730)
+                        .setMarketHashName(marketHashName)
+                        .setWearMin(minWear != null ? minWear.doubleValue() : null)
+                        .setWearMax(maxWear != null ? maxWear.doubleValue() : null)
+                        .setPriceMax(maxPrice)
+                        .setPageNum(1)
+                        .setPageSize(20);
+                log.info("C5慢接口搜索 [/products/search]: {}", JSONUtil.toJsonStr(req));
+                response = client.getMarket().productSearch(req);
             }
-            if (maxWear != null) {
-                req.setMaxWear(maxWear.doubleValue());
-            }
-            log.info("requestBody:{}", JSONUtil.toJsonPrettyStr(req));
-            C5ProductSearchResponse response = client.getMarket().searchProductsByHashName(req);
             return response != null ? response.getList() : Collections.emptyList();
         } catch (Exception e) {
-            // log.warn("C5搜索异常 [HashName={}, Delivery={}]: {}", marketHashName, delivery, e.getMessage());
+            log.error("C5搜索异常 [HashName={}]: {}", marketHashName, e.getMessage());
+            updateLastError(task, "搜索异常: " + e.getMessage());
             return Collections.emptyList();
         }
     }

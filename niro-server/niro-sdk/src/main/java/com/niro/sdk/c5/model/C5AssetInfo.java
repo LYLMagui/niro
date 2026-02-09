@@ -16,6 +16,7 @@ public class C5AssetInfo {
     private String lastStyle;
     private String styleProgress;
     private Double wear;
+    private Double floatWear;
     private Integer paintIndex;
     private Integer paintSeed;
     private String levelName;

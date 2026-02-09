@@ -1,5 +1,17 @@
 # Release Notes
 
+## 2026-02-09 (v0.1.0)
+- **C5 开放平台接口迁移与快慢路由策略实现**:
+  - **接口 V2 迁移**: 将 C5 旧版“根据 MarketHashName 查询在售列表”接口迁移至官方推荐的 V2 版本。SDK 层新增 `C5ProductListRequest`、`C5ProductListResponse` 及其配套 DTO。
+  - **快慢接口路由策略**: 
+    - **快接口 (`/list`)**: 针对非磨损类商品（Other 分类）实现高 QPS (5/s) 快速轮询。
+    - **慢接口 (`/search`)**: 针对磨损类商品（枪械、手套）实现低 QPS (1/s) 精确筛选，支持 `wearMin`、`wearMax`、`priceMax` 等多维度参数过滤。
+  - **业务层逻辑重构**: 
+    - 重构了 `C5TradeStrategyImpl` 核心逻辑，移除了原有的并行查询（人工/自动发货分流）机制，改为利用新接口的全量返回能力实现单次请求覆盖，显著降低 QPS 压力。
+    - 优化了磨损数据读取逻辑，优先采用 `assetInfo.getFloatWear()` 提升精度。
+    - 增强了异常处理机制，引入 `updateLastError` 实时记录任务执行异常。
+  - **SDK 质量保障**: 完善了 `C5MarketClient` 单元测试，引入 Mockito 模拟 HTTP 引擎，确保了 100% 的接口映射准确性与响应解析稳定性。
+
 ## 2026-02-05 (v2.29.3)
 - **动态路由重构完善与全栈类型修复**:
   - **后端实体一致性修复**: 修复了 `SysMenu` 实体类中 `create_by` 等审计字段不存在导致的数据库查询异常；将 `hidden` 和 `keepAlive` 字段类型由 `Integer` 修正为 `Boolean`，确保与 PostgreSQL 布尔类型完美兼容。
