@@ -144,7 +144,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             }
             C5Config config = new C5Config()
                     .setAppKey(settings.getC5AppKey())
-                    .setSecretKey(settings.getC5SecretKey())
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
         });

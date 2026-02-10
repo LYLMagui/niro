@@ -10,6 +10,8 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
+import lombok.Getter;
+import lombok.Setter;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -43,7 +45,6 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import lombok.Data;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -84,7 +85,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         return PlatformEnum.C5;
     }
 
-    private C5ApiClient getClient(Long userId) {
+    private C5ApiClient resolveClient(Long userId) {
         return clientCache.computeIfAbsent(userId, uid -> {
             UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
             if (settings == null) {
@@ -95,7 +96,6 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             }
             C5Config config = new C5Config()
                     .setAppKey(settings.getC5AppKey())
-                    .setSecretKey(settings.getC5SecretKey())
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
         });
@@ -103,14 +103,14 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
     @Override
     public void handleTask(BuffScanTask task) {
-        // 传递 executeTrade 作为业务逻辑回调
-        c5TaskScheduler.start(task, this::executeTrade);
+        // 使用 lambda 替代方法引用，避免可能的 Spring 代理方法解析问题
+        c5TaskScheduler.start(task, t -> this.executeTrade(t));
     }
 
     @Override
     public void syncAccountBalance(BuffAccount account) {
         try {
-            C5ApiClient client = getClient(account.getUserId());
+            C5ApiClient client = resolveClient(account.getUserId());
             C5BalanceResponse balance = client.getAccount().getBalance(
                     new C5AccountBalanceRequest().setAccountType(0));
             if (balance != null && balance.getBalance() != null) {
@@ -152,9 +152,9 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
         String marketHashName = goods.getMarketHashName();
-        StrategyConfig config = buildStrategyConfig(task);
+        C5StrategyConfig config = buildStrategyConfig(task);
 
-        final C5ApiClient client = getClient(task.getUserId());
+        final C5ApiClient client = resolveClient(task.getUserId());
 
         // 检查是否为非磨损类物品 (父分类为"其他"或"Other")
         boolean isNonWearable = false;
@@ -270,13 +270,13 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
      * 计算动态上限 (Price Tier Anchoring)
      */
     private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts,
-            StrategyConfig config) {
+            C5StrategyConfig config) {
         BigDecimal userMax = task.getMaxPrice();
 
         // 深度不足，降级处理
-        if (sortedProducts.size() < config.minConcurrency) {
+        if (sortedProducts.size() < config.getMinConcurrency()) {
             log.warn("任务 [{}] 市场深度不足 (当前: {}, 阈值: {}), 降级使用用户限价: {}",
-                    task.getId(), sortedProducts.size(), config.minConcurrency, userMax);
+                    task.getId(), sortedProducts.size(), config.getMinConcurrency(), userMax);
             return userMax;
         }
 
@@ -297,21 +297,21 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 2. 确定锚点
         BigDecimal anchorPrice;
-        double currentMargin = config.safeMargin;
+        double currentMargin = config.getSafeMargin();
 
-        if (priceTiers.size() > config.anchorTierIndex) {
+        if (priceTiers.size() > config.getAnchorTierIndex()) {
             // 正常情况：取第 N 个阶梯 (例如 anchorTierIndex=1, 取第2个价格)
-            anchorPrice = priceTiers.get(config.anchorTierIndex);
+            anchorPrice = priceTiers.get(config.getAnchorTierIndex());
         } else {
             // 阶梯不足 (例如只有一种价格): 取第1个价格，并扩大安全边际
             anchorPrice = priceTiers.get(0);
-            currentMargin = config.safeMargin * 1.5;
+            currentMargin = config.getSafeMargin() * 1.5;
             log.info("任务 [{}] 价格阶梯不足 ({}个), 启用保守模式 (Margin x1.5)", task.getId(), priceTiers.size());
         }
 
         // 3. 计算动态上限
         BigDecimal dynamicLimit;
-        if (config.anchorTierIndex == 0) {
+        if (config.getAnchorTierIndex() == 0) {
             // 如果锚定第1个阶梯 (ladderStep=1)，则不应用安全边际，直接以锚点价为上限
             dynamicLimit = anchorPrice;
         } else {
@@ -617,16 +617,16 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
     }
 
-    private StrategyConfig buildStrategyConfig(BuffScanTask task) {
-        StrategyConfig config = new StrategyConfig();
+    private C5StrategyConfig buildStrategyConfig(BuffScanTask task) {
+        C5StrategyConfig config = new C5StrategyConfig();
 
         // 1. 先尝试解析 ExtraConfig (兼容旧数据)
         if (StrUtil.isNotBlank(task.getExtraConfig())) {
             try {
                 JSONObject json = JSONUtil.parseObj(task.getExtraConfig());
-                config.anchorTierIndex = json.getInt("anchorTierIndex", 1);
-                config.safeMargin = json.getDouble("safeMargin", 0.03);
-                config.minConcurrency = json.getInt("minConcurrency", 5);
+                config.setAnchorTierIndex(json.getInt("anchorTierIndex", 1));
+                config.setSafeMargin(json.getDouble("safeMargin", 0.03));
+                config.setMinConcurrency(json.getInt("minConcurrency", 5));
             } catch (Exception e) {
                 log.warn("解析 ExtraConfig 失败，使用默认值", e);
             }
@@ -634,37 +634,16 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 2. 优先使用独立字段 (如果存在)
         if (task.getSafetyMargin() != null) {
-            config.safeMargin = task.getSafetyMargin().doubleValue();
+            config.setSafeMargin(task.getSafetyMargin().doubleValue());
         }
         if (task.getLadderStep() != null) {
             // 新字段 ladderStep 是 1-based (1=Top1)，转换为 0-based index
             // 如果 ladderStep=1 -> index=0
             // 增加 Math.min 限制，防止配置的阶梯数超过实际搜索到的阶梯上限 (PageSize=20)
-            config.anchorTierIndex = Math.min(Math.max(0, task.getLadderStep().intValue() - 1), 19);
+            config.setAnchorTierIndex(Math.min(Math.max(0, task.getLadderStep().intValue() - 1), 19));
         }
 
         return config;
     }
 
-    private StrategyConfig parseConfig(String extraConfigJson) {
-        // Deprecated, replaced by buildStrategyConfig
-        return new StrategyConfig();
-    }
-
-    @Data
-    private static class StrategyConfig {
-        // 默认锚定第2个阶梯 (Index 1: 次低价)
-        private int anchorTierIndex = 1;
-
-        /**
-         * 安全边际 (Safe Margin)
-         * <p>
-         * 0.01-0.02 (1%-2%): 高流动性通货 (如钥匙、红线)
-         * 0.03-0.05 (3%-5%): [默认] 热门饰品，平衡成交率与抗跌
-         * 0.08+ (8%+): 低流动性/高价值饰品，深水防套
-         * </p>
-         */
-        private double safeMargin = 0.03;
-        private int minConcurrency = 5;
-    }
 }

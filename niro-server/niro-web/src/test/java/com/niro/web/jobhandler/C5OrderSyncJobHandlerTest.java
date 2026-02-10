@@ -51,7 +51,6 @@ class C5OrderSyncJobHandlerTest {
 
         UserPlatformSettingsDTO settings = new UserPlatformSettingsDTO();
         settings.setC5AppKey("test_app_key");
-        settings.setC5SecretKey("test_secret_key");
 
         C5BuyerStatusResponse response = new C5BuyerStatusResponse();
         C5BuyerStatusResponse.OrderBuyDTO statusDTO = new C5BuyerStatusResponse.OrderBuyDTO();

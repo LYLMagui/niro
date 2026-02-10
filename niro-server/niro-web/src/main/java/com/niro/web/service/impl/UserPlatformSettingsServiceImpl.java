@@ -71,7 +71,6 @@ public class UserPlatformSettingsServiceImpl extends ServiceImpl<UserPlatformSet
         settings.setEmailReceiver(param.getEmailReceiver());
 
         settings.setC5AppKey(param.getC5AppKey());
-        settings.setC5SecretKey(param.getC5SecretKey());
         settings.setC5TradeUrl(param.getC5TradeUrl());
         settings.setSteamTradeUrl(param.getSteamTradeUrl());
 

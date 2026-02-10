@@ -1,5 +1,12 @@
 # Release Notes
 
+## 2026-02-10 (v0.1.1)
+- **C5 平台 API 冗余清理与稳定性修复**:
+  - **冗余配置移除**: 彻底清理了项目中所有未使用的 `secretKey` 相关逻辑。包括 SDK 配置类 `C5Config`、业务服务 `C5TradeStrategyImpl`、持久化实体 `UserPlatformSettings` 以及配套的 DTO/Param 传输对象。
+  - **接口请求方法修正**: 修复了 C5 批量查询买家订单状态接口 (`/merchant/order/v2/buyer/status`) 的请求方法，由 `GET` 修正为官方规范要求的 `POST`。
+  - **订单详情状态映射优化**: 修复了前端 C5 订单详情界面中状态显示不准确的问题。新增了对 `status=200`（成功）和 `status=11`（失败）状态码的正确解析与颜色主题适配，消除了“未知(200)”的显示异常。
+  - **工程质量**: 完成了全量代码编译验证，确保重构后的系统在移除冗余配置后保持 100% 的构建稳定性。
+
 ## 2026-02-09 (v0.1.0)
 - **C5 开放平台接口迁移与快慢路由策略实现**:
   - **接口 V2 迁移**: 将 C5 旧版“根据 MarketHashName 查询在售列表”接口迁移至官方推荐的 V2 版本。SDK 层新增 `C5ProductListRequest`、`C5ProductListResponse` 及其配套 DTO。

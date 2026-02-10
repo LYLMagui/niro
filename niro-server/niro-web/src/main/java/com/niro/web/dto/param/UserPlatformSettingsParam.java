@@ -75,11 +75,6 @@ public class UserPlatformSettingsParam {
     private String c5AppKey;
 
     /**
-     * C5 Secret Key
-     */
-    private String c5SecretKey;
-
-    /**
      * C5 交易链接
      */
     private String c5TradeUrl;

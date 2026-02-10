@@ -17,10 +17,10 @@ public class C5OrderClient {
 
     /**
      * 批量查询买家订单状态
-     * GET /merchant/order/v2/buyer/status
+     * POST /merchant/order/v2/buyer/status
      */
     public C5BuyerStatusResponse batchBuyerStatus(C5BuyerStatusRequest req) {
-        return engine.execute("/merchant/order/v2/buyer/status", "GET", req,
+        return engine.execute("/merchant/order/v2/buyer/status", "POST", req,
                 new TypeReference<C5BaseResponse<C5BuyerStatusResponse>>() {
                 });
     }

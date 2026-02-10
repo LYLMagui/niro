@@ -1,7 +1,12 @@
 package com.niro.web.jobhandler;
 
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Component;
+
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
@@ -13,15 +18,11 @@ import com.niro.web.manager.TradeOrderRecordManagerMapper;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
+
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.stereotype.Component;
-
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
 
 @Slf4j
 @Component
@@ -33,17 +34,17 @@ public class C5OrderSyncJobHandler {
 
     @XxlJob("c5OrderSyncJobHandler")
     public void syncC5OrderStatuses() {
-        XxlJobHelper.log("Starting C5 order status synchronization...");
-        log.info("Starting C5 order status synchronization...");
+        XxlJobHelper.log("开始同步 C5 订单状态...");
+        log.info("开始同步 C5 订单状态...");
 
         try {
-            // 1. Fetch active C5 orders from the last 48 hours
-            // Orders that are SUCCESS locally but might be CANCELLED or COMPLETED remotely
+            // 1. 获取最近 48 小时内的活跃 C5 订单
+            // 本地状态为 SUCCESS 但远程可能已 CANCELLED 或 COMPLETED 的订单
             LocalDateTime syncThreshold = LocalDateTime.now().minusHours(48);
             List<TradeOrderRecord> activeOrders = tradeOrderRecordManagerMapper.selectActiveC5Orders(syncThreshold);
 
             if (CollUtil.isEmpty(activeOrders)) {
-                String msg = "No active C5 orders found to sync.";
+                String msg = "未找到需要同步的活跃 C5 订单。";
                 XxlJobHelper.log(msg);
                 log.info(msg);
                 return;
@@ -52,7 +53,7 @@ public class C5OrderSyncJobHandler {
             int totalProcessed = 0;
             int totalUpdated = 0;
 
-            // 2. Group orders by userId to efficiently get settings and reuse client
+            // 2. 按用户 ID 分组以高效获取设置并复用客户端
             Map<Long, List<TradeOrderRecord>> ordersByUser = activeOrders.stream()
                     .collect(Collectors.groupingBy(TradeOrderRecord::getUserId));
 
@@ -61,26 +62,23 @@ public class C5OrderSyncJobHandler {
                 List<TradeOrderRecord> userOrders = entry.getValue();
 
                 try {
-                    // Get C5 credentials for the user
+                    // 获取用户的 C5 证书
                     UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(userId);
-                    if (settings == null || StrUtil.isBlank(settings.getC5AppKey())
-                            || StrUtil.isBlank(settings.getC5SecretKey())) {
-                        log.warn("Skipping orders for userId {}: C5 credentials not found.", userId);
+                    if (settings == null || StrUtil.isBlank(settings.getC5AppKey())) {
+                        log.warn("跳过用户 ID {} 的订单：未找到 C5 证书配置。", userId);
                         continue;
                     }
 
-                    // Initialize C5 Client
+                    // 初始化 C5 客户端
                     C5Config config = new C5Config()
-                            .setAppKey(settings.getC5AppKey())
-                            .setSecretKey(settings.getC5SecretKey());
+                            .setAppKey(settings.getC5AppKey());
                     C5ApiClient c5ApiClient = new C5ApiClient(config);
 
-                    // Batch query status
-                    // C5 API might have limits on batch size, but list is usually small per user in
-                    // 48h window.
-                    // If necessary, we can partition userOrders. Assuming < 50 for now.
+                    // 批量查询状态
+                    // C5 API 可能对批量大小有限制，但在 48 小时窗口内每个用户的列表通常较小。
+                    // 如有必要，我们可以对 userOrders 进行分区。目前假设 < 50。
                     List<String> orderIds = userOrders.stream()
-                            // This stores orderId as confirmed
+                            // 这里存储已确认的 orderId
                             .map(TradeOrderRecord::getOrderId)
                             .collect(Collectors.toList());
 
@@ -100,24 +98,24 @@ public class C5OrderSyncJobHandler {
                     totalProcessed += userOrders.size();
 
                 } catch (Exception e) {
-                    log.error("Error processing orders for userId {}: {}", userId, e.getMessage());
+                    log.error("处理用户 ID {} 的订单时出错: {}", userId, e.getMessage());
                 }
             }
 
-            String summary = StrUtil.format("C5 order status synchronization completed. Processed: {}, Updated: {}",
+            String summary = StrUtil.format("C5 订单状态同步完成。处理总数: {}, 更新总数: {}",
                     totalProcessed, totalUpdated);
             XxlJobHelper.log(summary);
             log.info(summary);
 
         } catch (Exception e) {
-            String errorMsg = "C5 order status synchronization failed: " + e.getMessage();
+            String errorMsg = "C5 订单状态同步失败: " + e.getMessage();
             XxlJobHelper.handleFail(errorMsg);
             log.error(errorMsg, e);
         }
     }
 
     private int updateOrderIfNeeded(List<TradeOrderRecord> userOrders, C5BuyerStatusResponse.OrderBuyDTO statusDTO) {
-        // Find matching local order
+        // 查找匹配的本地订单
         TradeOrderRecord localOrder = userOrders.stream()
                 .filter(o -> StrUtil.equals(o.getOrderId(), statusDTO.getOrderId())
                         || StrUtil.equals(o.getOrderId(), statusDTO.getOrderAssetId()))
@@ -128,25 +126,24 @@ public class C5OrderSyncJobHandler {
             return 0;
         }
 
-        // Check if status needs update
-        // C5 Status: 11 = Cancelled
+        // 检查状态是否需要更新
+        // C5 状态: 11 = 已取消
         if (statusDTO.getStatus() != null && statusDTO.getStatus() == 11) {
-            // Update local status to CANCELLED
+            // 更新本地状态为 已取消
             if (!OrderStatusEnum.CANCELLED.getCode().equals(localOrder.getStatus())) {
                 localOrder.setStatus(OrderStatusEnum.CANCELLED.getCode());
                 localOrder.setErrorMsg("C5平台自动取消");
                 localOrder.setUpdateTime(LocalDateTime.now());
                 tradeOrderRecordManagerMapper.updateById(localOrder);
 
-                log.info("Updated order {} ({}) status to CANCELLED", localOrder.getOrderId(),
+                log.info("已将订单 {} ({}) 的状态更新为 已取消", localOrder.getOrderId(),
                         localOrder.getMarketHashName());
                 return 1;
             }
         }
 
-        // We can also handle '10 = Completed' -> SUCCESS if we want to distinguish
-        // between "Ordered" and "Completed"
-        // But per requirement, we focus on Cancelled.
+        // 也可以处理 '10 = 已完成' -> SUCCESS，如果我们想区分“已下单”和“已完成”。
+        // 但根据需求，我们关注已取消的情况。
 
         return 0;
     }

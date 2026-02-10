@@ -33,14 +33,10 @@ public class C5SdkConfig {
     @Value("${c5.api-key:}")
     private String apiKey;
 
-    @Value("${c5.secret-key:}")
-    private String secretKey;
-
     @Bean
     public C5Config c5Config() {
         return new C5Config()
-                .setApiKey(apiKey)
-                .setSecretKey(secretKey)
+                .setAppKey(apiKey)
                 .setBaseUrl(baseUrl);
     }
 

@@ -392,6 +392,7 @@ const getStatusText = (status: number) => {
     3: "已取消",
     10: "购买成功", // C5 v2 状态码
     11: "失败",
+    200: "成功",
   };
   return map[status] || `未知(${status})`;
 };
@@ -404,6 +405,7 @@ const getStatusTheme = (status: number) => {
     3: "default",
     10: "success", // C5 v2 状态码
     11: "danger",
+    200: "success",
   };
   return (map[status] || "default") as any;
 };
