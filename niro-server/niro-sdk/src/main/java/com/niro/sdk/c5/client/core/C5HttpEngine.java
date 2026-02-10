@@ -38,7 +38,7 @@ public class C5HttpEngine {
         this.config = config;
         this.objectMapper = new ObjectMapper()
                 .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
-        
+
         // 使用 JDK 21 虚拟线程执行器构建 HttpClient
         this.httpClient = HttpClient.newBuilder()
                 .executor(Executors.newVirtualThreadPerTaskExecutor())
@@ -57,7 +57,8 @@ public class C5HttpEngine {
      * @param <T>           响应数据类型
      * @return 响应数据
      */
-    public <T> T execute(String endpoint, String method, Object params, TypeReference<C5BaseResponse<T>> typeReference) {
+    public <T> T execute(String endpoint, String method, Object params,
+            TypeReference<C5BaseResponse<T>> typeReference) {
         String baseUrl = config.getBaseUrl();
         if (baseUrl.endsWith("/")) {
             baseUrl = baseUrl.substring(0, baseUrl.length() - 1);
@@ -71,10 +72,10 @@ public class C5HttpEngine {
         Map<String, Object> queryParams = new HashMap<>();
         Map<String, Object> bodyParams = new HashMap<>();
 
-        if (StrUtil.isBlank(config.getApiKey())) {
-            throw new C5ApiException("API Key is not configured");
+        if (StrUtil.isBlank(config.getAppKey())) {
+            throw new C5ApiException("App Key is not configured");
         }
-        queryParams.put("app-key", config.getApiKey());
+        queryParams.put("app-key", config.getAppKey());
 
         if (params != null) {
             Map<String, Object> paramMap;
@@ -130,17 +131,18 @@ public class C5HttpEngine {
                 log.debug("Params: {}", objectMapper.writeValueAsString(params));
             }
 
-            HttpResponse<String> response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
-            
+            HttpResponse<String> response = httpClient.send(requestBuilder.build(),
+                    HttpResponse.BodyHandlers.ofString());
+
             if (response.statusCode() != 200) {
-                 throw new C5ApiException(response.statusCode(), "HTTP Error: " + response.statusCode());
+                throw new C5ApiException(response.statusCode(), "HTTP Error: " + response.statusCode());
             }
-            
+
             String body = response.body();
             log.debug("C5 API Response: {}", body);
-            
+
             C5BaseResponse<T> resp = objectMapper.readValue(body, typeReference);
-            
+
             if (resp == null) {
                 throw new C5ApiException("Response parsing failed");
             }

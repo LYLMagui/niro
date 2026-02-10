@@ -94,7 +94,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 throw new BusinessException("C5 App Key 未配置");
             }
             C5Config config = new C5Config()
-                    .setApiKey(settings.getC5AppKey())
+                    .setAppKey(settings.getC5AppKey())
                     .setSecretKey(settings.getC5SecretKey())
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
@@ -112,8 +112,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         try {
             C5ApiClient client = getClient(account.getUserId());
             C5BalanceResponse balance = client.getAccount().getBalance(
-                    new C5AccountBalanceRequest().setAccountType(0)
-            );
+                    new C5AccountBalanceRequest().setAccountType(0));
             if (balance != null && balance.getBalance() != null) {
                 account.setBalance(balance.getBalance());
                 log.info("账号 [{}] C5 余额同步成功: {}", account.getAccountName(), balance.getBalance());
@@ -182,7 +181,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        List<C5ProductListResponse.ProductDTO> allItems = searchProducts(client, marketHashName, GLOBAL_MAX_PRICE, minWear, maxWear, isNonWearable, task);
+        List<C5ProductListResponse.ProductDTO> allItems = searchProducts(client, marketHashName, GLOBAL_MAX_PRICE,
+                minWear, maxWear, isNonWearable, task);
 
         if (CollUtil.isEmpty(allItems)) {
             return;
@@ -208,8 +208,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 5. 最终筛选
         List<C5ProductListResponse.ProductDTO> qualifiedItems = sortedItems.stream()
                 .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0) // 硬上限
-                .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0)    // 动态上限
-                .filter(item -> checkWear(item, task, finalIsNonWearable))          // 磨损范围
+                .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0) // 动态上限
+                .filter(item -> checkWear(item, task, finalIsNonWearable)) // 磨损范围
                 .collect(Collectors.toList());
 
         if (CollUtil.isEmpty(qualifiedItems)) {
@@ -223,9 +223,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 ? (int) (task.getBuyCount() - currentSuccess)
                 : 1; // 未限制数量时默认为1，避免并发风险
         // 如果 remaining <= 0，前面已经拦截，但在并发下可能需要再次检查
-        if (remaining <= 0) return;
+        if (remaining <= 0)
+            return;
 
-        List<C5ProductListResponse.ProductDTO> toBuyList = qualifiedItems.subList(0, Math.min(qualifiedItems.size(), remaining));
+        List<C5ProductListResponse.ProductDTO> toBuyList = qualifiedItems.subList(0,
+                Math.min(qualifiedItems.size(), remaining));
         doBatchBuy(client, task, toBuyList, goods);
     }
 
@@ -267,7 +269,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 计算动态上限 (Price Tier Anchoring)
      */
-    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts, StrategyConfig config) {
+    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts,
+            StrategyConfig config) {
         BigDecimal userMax = task.getMaxPrice();
 
         // 深度不足，降级处理
@@ -278,7 +281,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1. 提取价格阶梯 (去重 + 排序)
-        // Note: BigDecimal distinct() uses equals() which checks scale. Use compareTo for value equality.
+        // Note: BigDecimal distinct() uses equals() which checks scale. Use compareTo
+        // for value equality.
         List<BigDecimal> rawPrices = sortedProducts.stream()
                 .map(C5ProductListResponse.ProductDTO::getPrice)
                 .sorted()
@@ -331,7 +335,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         return dynamicLimit;
     }
 
-    private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items, BuffGoods goods) {
+    private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items,
+            BuffGoods goods) {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
@@ -378,7 +383,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setGoodsId(task.getGoodsId());
             record.setPrice(item.getPrice());
             record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
-            
+
             Double wearVal = null;
             if (item.getAssetInfo() != null) {
                 wearVal = item.getAssetInfo().getFloatWear();
@@ -443,7 +448,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 for (C5BatchBuyResponse.FailedItem failedItem : resp.getFailedList()) {
                     String msg = "购买失败";
                     if (failedItem.getErrorCode() != null || StrUtil.isNotBlank(failedItem.getErrorMsg())) {
-                        msg = StrUtil.format("购买失败 [Code: {}, Msg: {}]", failedItem.getErrorCode(), failedItem.getErrorMsg());
+                        msg = StrUtil.format("购买失败 [Code: {}, Msg: {}]", failedItem.getErrorCode(),
+                                failedItem.getErrorMsg());
                     }
                     updateRecordStatus(records, failedItem.getOutTradeNo(), 2, null, msg);
                 }
@@ -519,7 +525,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
     }
 
-    private void updateRecordStatus(List<TradeOrderRecord> records, String outTradeNo, Integer status, String platformOrderId, String errorMsg) {
+    private void updateRecordStatus(List<TradeOrderRecord> records, String outTradeNo, Integer status,
+            String platformOrderId, String errorMsg) {
         if (StrUtil.isBlank(outTradeNo)) {
             log.warn("C5响应中存在空的 out_trade_no, 无法更新状态. ErrorMsg: {}", errorMsg);
             return;
@@ -576,7 +583,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 执行单个搜索请求
      */
-    private List<C5ProductListResponse.ProductDTO> searchProducts(C5ApiClient client, String marketHashName, BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, boolean isNonWearable, BuffScanTask task) {
+    private List<C5ProductListResponse.ProductDTO> searchProducts(C5ApiClient client, String marketHashName,
+            BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, boolean isNonWearable, BuffScanTask task) {
         try {
             C5ProductListResponse response;
             if (isNonWearable) {

@@ -143,7 +143,7 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 throw new BusinessException("C5 App Key 未配置");
             }
             C5Config config = new C5Config()
-                    .setApiKey(settings.getC5AppKey())
+                    .setAppKey(settings.getC5AppKey())
                     .setSecretKey(settings.getC5SecretKey())
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
@@ -162,7 +162,8 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             String orderId = json.getStr("orderId");
             // 幂等性检查：如果订单号存在且不为空，则检查是否已存在
             if (StrUtil.isNotBlank(orderId)) {
-                boolean exists = tradeOrderRecordManagerMapper.lambdaQuery().eq(TradeOrderRecord::getOrderId, orderId).exists();
+                boolean exists = tradeOrderRecordManagerMapper.lambdaQuery().eq(TradeOrderRecord::getOrderId, orderId)
+                        .exists();
                 if (exists) {
                     log.info("订单已存在，忽略上报: {}", orderId);
                     return;
@@ -235,7 +236,8 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
 
             // 同步任务进度 (仅成功订单触发)
-            if (OrderStatusEnum.SUCCESS.getCode().equals(record.getStatus()) && record.getTaskId() != null && record.getTaskId() > 0) {
+            if (OrderStatusEnum.SUCCESS.getCode().equals(record.getStatus()) && record.getTaskId() != null
+                    && record.getTaskId() > 0) {
                 try {
                     buffScanTaskService.syncTaskProgress(record.getTaskId());
                 } catch (Exception e) {
@@ -249,7 +251,8 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
     }
 
     @Override
-    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder) {
+    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform,
+            Integer status, Long userId, String keyword, String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
 
         Page<TradeOrderRecord> result = tradeOrderRecordManagerMapper.lambdaQuery()
@@ -265,11 +268,9 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                         q.eq(TradeOrderRecord::getStatus, status);
                     }
                 })
-                .func(StrUtil.isNotBlank(keyword), q ->
-                        q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
-                                .or().like(TradeOrderRecord::getMarketHashName, keyword)
-                                .or().like(TradeOrderRecord::getOrderId, keyword))
-                )
+                .func(StrUtil.isNotBlank(keyword), q -> q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
+                        .or().like(TradeOrderRecord::getMarketHashName, keyword)
+                        .or().like(TradeOrderRecord::getOrderId, keyword)))
                 .func(q -> {
                     if (StrUtil.isNotBlank(sortField)) {
                         boolean isAsc = "ascend".equalsIgnoreCase(sortOrder) || "asc".equalsIgnoreCase(sortOrder);

@@ -10,9 +10,9 @@ import lombok.experimental.Accessors;
 @Accessors(chain = true)
 public class C5Config {
     /**
-     * API Key
+     * App Key
      */
-    private String apiKey;
+    private String appKey;
 
     /**
      * Secret Key (用于签名)

@@ -49,6 +49,11 @@ public class C5ApiClient {
     private final C5InventoryClient inventory;
 
     /**
+     * 订单模块
+     */
+    private final C5OrderClient order;
+
+    /**
      * 构造 C5 客户端
      *
      * @param config C5 配置信息
@@ -63,7 +68,8 @@ public class C5ApiClient {
         this.trade = new C5TradeClient(engine);
         this.purchase = new C5PurchaseClient(engine);
         this.inventory = new C5InventoryClient(engine);
-        
+        this.order = new C5OrderClient(engine);
+
         log.info("C5ApiClient initialized with Virtual Thread support.");
     }
 }
