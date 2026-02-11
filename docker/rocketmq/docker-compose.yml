@@ -22,6 +22,12 @@ services:
         max-size: "100m"
         max-file: "3"
     command: sh mqnamesrv
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 9876"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
 
   # Broker 是消息存储核心，负责消息接收和分发
   broker:
@@ -42,7 +48,8 @@ services:
       # Broker 比较吃内存，开发环境给到 512M
       - JAVA_OPT=-server -Xms512m -Xmx512m -Xmn256m
     depends_on:
-      - namesrv
+      namesrv:
+        condition: service_healthy
     networks:
       - rocketmq
     # 限制容器日志大小，防止撑爆硬盘
@@ -54,6 +61,12 @@ services:
     # 启动时通过 -p 参数动态注入环境变量中配置的 IP，解决跨环境部署问题
     command: sh mqbroker -c /home/rocketmq/conf/broker.conf -p brokerIP1=${ROCKETMQ_IP}
     # command: sh mqbroker -c /home/rocketmq/conf/broker.conf
+    healthcheck:
+      test: ["CMD", "sh", "-c", "nc -z localhost 10911"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 20s
 
   # Proxy 是 5.x 引入的代理模式，支持 gRPC 协议，多语言接入更友好
   # proxy:
@@ -70,7 +83,8 @@ services:
   #     - NAMESRV_ADDR=rmqnamesrv:9876
   #     - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
   #   depends_on:
-  #     - broker
+  #     broker:
+  #       condition: service_healthy
   #   networks:
   #     - rocketmq
   #   # 限制容器日志大小，防止撑爆硬盘
@@ -95,7 +109,8 @@ services:
       # 限制内存占用
       - JAVA_OPTS=-Xms256m -Xmx256m
     depends_on:
-      - namesrv
+      namesrv:
+        condition: service_healthy
     networks:
       - rocketmq
     logging:
