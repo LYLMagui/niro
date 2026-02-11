@@ -40,7 +40,7 @@ services:
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
       # Broker 比较吃内存，开发环境给到 512M
-      - JAVA_OPT=-server -Xms512m -Xmx512m -Xmn256m
+      - JAVA_OPT=-server -Xms512m -Xmx1024m -Xmn512m
     depends_on:
       - namesrv
     networks:
@@ -52,7 +52,7 @@ services:
         max-size: "100m"
         max-file: "3"
     # 启动时通过 -p 参数动态注入环境变量中配置的 IP，解决跨环境部署问题
-    command: sh mqbroker -c /home/rocketmq/rocketmq-5.4.0/conf/broker.conf -p brokerIP1=${ROCKETMQ_IP}
+    command: sh mqbroker -c /home/rocketmq/rocketmq-5.4.0/conf/broker.conf
     # command: sh mqbroker -c /home/rocketmq/conf/broker.conf
 
   # Proxy 是 5.x 引入的代理模式，支持 gRPC 协议，多语言接入更友好
