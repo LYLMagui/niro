@@ -34,9 +34,9 @@ services:
       - 10911:10911
     # 挂载 store 目录确保消息持久化，不挂载重启消息就丢了
     volumes:
-      - ./logs/broker:/home/rocketmq/logs
-      - ./store/broker:/home/rocketmq/store
-      - ./conf/broker.conf:/home/rocketmq/conf/broker.conf
+      - ./logs/broker:/home/rocketmq/rocketmq-5.4.0/logs
+      - ./store/broker:/home/rocketmq/rocketmq-5.4.0/store
+      - ./conf/broker.conf:/home/rocketmq/rocketmq-5.4.0/conf/broker.conf
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
       # Broker 比较吃内存，开发环境给到 512M
