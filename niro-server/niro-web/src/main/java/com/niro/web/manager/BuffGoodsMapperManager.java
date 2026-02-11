@@ -12,6 +12,6 @@ import org.springframework.stereotype.Service;
  * @date 2026/2/4
  */
 @Service
-public class BuffGoodsManagerMapper extends ServiceImpl<BuffGoodsMapper, BuffGoods> {
+public class BuffGoodsMapperManager extends ServiceImpl<BuffGoodsMapper, BuffGoods> {
     
 }

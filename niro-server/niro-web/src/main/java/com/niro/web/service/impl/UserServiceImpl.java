@@ -77,7 +77,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Override
     public UserDTO getUser(Long id) {
         User user = this.lambdaQuery().eq(User::getId, id).one();
-        UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
-        return userDTO;
+        return BeanUtil.copyProperties(user, UserDTO.class);
     }
 }

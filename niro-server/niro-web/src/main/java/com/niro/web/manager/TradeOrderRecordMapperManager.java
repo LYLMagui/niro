@@ -18,7 +18,7 @@ import java.util.List;
  * @date 2026/2/4
  */
 @Service
-public class TradeOrderRecordManagerMapper extends ServiceImpl<TradeOrderRecordMapper, TradeOrderRecord> {
+public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordMapper, TradeOrderRecord> {
 
     /**
      * 查询活跃的C5订单 (状态为 SUCCESS，且在指定时间之后创建)

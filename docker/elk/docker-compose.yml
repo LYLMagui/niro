@@ -34,6 +34,8 @@ services:
   kibana:
     image: kibana:8.15.0
     container_name: niro-kibana
+    env_file:
+      - .env
     logging:
       driver: "json-file"
       options:
@@ -58,7 +60,7 @@ services:
       - xpack.apm.enabled=false
     
       # --- 解决 400 Bad Request 的环境配置 ---
-      - SERVER_PUBLICBASEURL=http://106.53.11.158:5601  # 明确告知 Kibana 它的公网访问地址
+      - SERVER_PUBLICBASEURL=http://${GLOBAL_SERVER_IP}:5601  # 明确告知 Kibana 它的公网访问地址
       - CSP_STRICT=false                                # 在某些复杂网络环境下防止 CSRF 误判
     ports:
       - "5601:5601"

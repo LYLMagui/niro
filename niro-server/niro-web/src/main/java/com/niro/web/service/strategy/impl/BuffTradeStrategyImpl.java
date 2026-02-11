@@ -1,40 +1,5 @@
 package com.niro.web.service.strategy.impl;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.stream.Collectors;
-
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
-import com.niro.core.constant.BuffConstant;
-import com.niro.core.constant.UserAgentConstant;
-import com.niro.core.exception.BusinessException;
-import com.niro.core.util.RedisUtil;
-import com.niro.web.dto.BuffTaskMessage;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.entity.BuffGoods;
-import com.niro.web.entity.BuffGoodsCategory;
-import com.niro.web.entity.BuffScanTask;
-import com.niro.web.entity.BuffScanTaskAccount;
-import com.niro.web.entity.UserPlatformSettings;
-import com.niro.web.enums.BuffAccountRoleEnum;
-import com.niro.web.enums.BuffAccountStatusEnum;
-import com.niro.web.enums.PaymentMethodEnum;
-import com.niro.web.enums.PlatformEnum;
-import com.niro.web.enums.TaskTypeEnum;
-import com.niro.web.manager.BuffAccountManagerMapper;
-import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
-import com.niro.web.manager.TradeOrderRecordManagerMapper;
-import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.service.BuffGoodsService;
-import com.niro.web.service.UserPlatformSettingsService;
-import com.niro.web.service.strategy.IPlatformStrategy;
-
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.HttpRequest;
@@ -42,8 +7,32 @@ import cn.hutool.http.HttpResponse;
 import cn.hutool.json.JSONArray;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.niro.core.constant.BuffConstant;
+import com.niro.core.constant.UserAgentConstant;
+import com.niro.core.exception.BusinessException;
+import com.niro.core.util.RedisUtil;
+import com.niro.web.dto.BuffTaskMessage;
+import com.niro.web.entity.*;
+import com.niro.web.enums.*;
+import com.niro.web.manager.BuffAccountMapperManager;
+import com.niro.web.manager.BuffScanTaskAccountMapperManager;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.service.BuffGoodsCategoryService;
+import com.niro.web.service.BuffGoodsService;
+import com.niro.web.service.UserPlatformSettingsService;
+import com.niro.web.service.strategy.IPlatformStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.stream.Collectors;
 
 /**
  * BUFF 平台策略实现
@@ -54,12 +43,12 @@ import lombok.extern.slf4j.Slf4j;
 public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
     private final RedisUtil redisUtil;
-    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
-    private final BuffAccountManagerMapper buffAccountManagerMapper;
+    private final BuffScanTaskAccountMapperManager buffScanTaskAccountMapperManager;
+    private final BuffAccountMapperManager buffAccountMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffGoodsService buffGoodsService;
-    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
+    private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
 
     @Value("${proxy.global.enable:false}")
     private Boolean enableProxy;
@@ -87,7 +76,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
      */
     private void pushTaskToQueue(BuffScanTask task) {
         // 1. 获取任务绑定的账号信息
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountMapperManager.lambdaQuery()
                 .eq(BuffScanTaskAccount::getTaskId, task.getId())
                 .list();
 
@@ -97,7 +86,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
         List<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
         // 只给 Python 端"精兵强将"：过滤掉 checking 或 frozen 状态的账号，只保留 NORMAL
-        List<BuffAccount> accounts = buffAccountManagerMapper.listByIds(accountIds).stream()
+        List<BuffAccount> accounts = buffAccountMapperManager.listByIds(accountIds).stream()
                 .filter(acc -> BuffAccountStatusEnum.NORMAL.equals(acc.getStatus()))
                 .collect(Collectors.toList());
 
@@ -162,7 +151,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .durationMinutes(task.getDurationMinutes())
                 .restPeriod(task.getRestPeriod())
                 .buyCount(task.getBuyCount())
-                .successCount(tradeOrderRecordManagerMapper.countSuccess(task.getId()).intValue())
+                .successCount(tradeOrderRecordMapperManager.countSuccess(task.getId()).intValue())
                 .paymentMethod(paymentMethod)
                 .accounts(accountContexts)
                 .execAccountIds(accounts.stream()
@@ -273,7 +262,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 account.setWarningMsg("Cookie 已失效，请重新登录获取");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountManagerMapper.updateById(account);
+                buffAccountMapperManager.updateById(account);
                 return;
             }
 
@@ -286,7 +275,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 account.setWarningMsg("接口响应异常，可能已失效");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountManagerMapper.updateById(account);
+                buffAccountMapperManager.updateById(account);
                 return;
             }
 
@@ -350,7 +339,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
             account.setFailCount(account.getFailCount() + 1);
         }
 
-        buffAccountManagerMapper.updateById(account);
+        buffAccountMapperManager.updateById(account);
     }
 
     /**

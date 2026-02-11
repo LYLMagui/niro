@@ -3,6 +3,8 @@ services:
   mysql:
     image: mysql:${MYSQL_VERSION:-8.4}
     container_name: xxl-job-mysql
+    env_file:
+      - .env
     environment:
       # 时区设置
       TZ: ${TZ:-Asia/Shanghai}
@@ -34,6 +36,8 @@ services:
     #image: xuxueli/xxl-job-admin:{version}
     image: xuxueli/xxl-job-admin:${XXL_JOB_ADMIN_VERSION:-3.3.2}
     container_name: xxl-job-admin
+    env_file:
+      - .env
     environment:
       # 时区设置
       TZ: ${TZ:-Asia/Shanghai}

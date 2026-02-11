@@ -23,9 +23,9 @@ import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.TaskRunModeEnum;
 import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
-import com.niro.web.manager.BuffAccountManagerMapper;
-import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
-import com.niro.web.manager.TradeOrderRecordManagerMapper;
+import com.niro.web.manager.BuffAccountMapperManager;
+import com.niro.web.manager.BuffScanTaskAccountMapperManager;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.*;
 import com.niro.web.service.strategy.PlatformStrategyFactory;
@@ -57,19 +57,14 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final BuffAccountManagerMapper buffAccountManagerMapper;
-    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
+    private final BuffAccountMapperManager buffAccountManagerMapper;
+    private final BuffScanTaskAccountMapperManager buffScanTaskAccountManagerMapper;
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final PlatformStrategyFactory platformStrategyFactory;
-    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
-
-    @Value("${proxy.global.url:}")
-    private String globalProxyUrl;
-
-    @Value("${proxy.global.enable:false}")
-    private Boolean enableProxy;
+    private final TradeOrderRecordMapperManager tradeOrderRecordManagerMapper;
+    
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -396,7 +391,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 if (accountCount == 0) {
                     throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
                 }
-            } else if (PlatformEnum.C5.getCode().equals(task.getPlatform())) {
+            } else {
                 // C5 平台启动校验
                 UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
                 Assert.notNull(settings, "用户配置不存在");

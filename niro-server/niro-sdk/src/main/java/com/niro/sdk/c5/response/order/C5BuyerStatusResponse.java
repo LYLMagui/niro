@@ -11,6 +11,26 @@ import java.util.List;
 public class C5BuyerStatusResponse {
 
     /**
+     * 总记录数
+     */
+    private Long total;
+
+    /**
+     * 总页数
+     */
+    private Integer pages;
+
+    /**
+     * 当前页码
+     */
+    private Integer page;
+
+    /**
+     * 每页大小
+     */
+    private Integer limit;
+
+    /**
      * 订单列表
      */
     private List<OrderBuyDTO> list;
@@ -21,6 +41,11 @@ public class C5BuyerStatusResponse {
          * 订单ID
          */
         private String orderId;
+
+        /**
+         * 在售id
+         */
+        private String productId;
 
         /**
          * 订单资产ID
@@ -43,8 +68,13 @@ public class C5BuyerStatusResponse {
         private String sellerSteamId;
 
         /**
+         * 收货steamId
+         */
+        private String receiveSteamId;
+
+        /**
          * 订单状态
-         * 0=待付款 1=待处理 2=处理中 3=待对方处理 10=已完成 11=已取消
+         * 1=待发货 2=发货中 3=待收货 10=已完成 11=已取消
          */
         private Integer status;
 
@@ -57,6 +87,21 @@ public class C5BuyerStatusResponse {
          * C5价格
          */
         private BigDecimal price;
+
+        /**
+         * 手续费
+         */
+        private BigDecimal buyerFee;
+
+        /**
+         * 发货方式
+         */
+        private Integer deliverType;
+
+        /**
+         * 订单类型 1=购买订单,2=求购订单
+         */
+        private Integer type;
 
         /**
          * 创建时间 (秒级时间戳)

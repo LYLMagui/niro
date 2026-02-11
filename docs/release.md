@@ -1,5 +1,15 @@
 # Release Notes
 
+## 2026-02-11 (v0.1.2)
+- **RocketMQ 部署架构优化与监控集成**:
+  - **多环境部署解耦**: 实现了 RocketMQ、FRP、XXL-JOB 等组件的配置解耦。将全局 `.env` 拆分至各组件目录，通过 `env_file` 相对路径引用，支持组件级的独立迁移与部署。
+  - **远程连接优化**: 引入 `ROCKETMQ_IP` 环境变量动态注入 Broker 启动参数 (`-p brokerIP1`)，解决了远程服务器部署时的内网穿透与跨网段连接问题。
+  - **监控面板集成**: 在 RocketMQ 编排中集成官方 `RocketMQ Dashboard` (端口 18080)，支持 Topic 管理、消费者监控及消息轨迹查询。
+  - **运维安全增强**:
+    - **磁盘空间保护**: 为所有 Docker 容器配置了日志轮转策略（100M * 3），防止日志文件无限制增长撑爆磁盘。
+    - **服务高可用自愈**: 在 `broker.conf` 中配置了 `diskMaxUsedSpaceRatio=88` 磁盘警戒线，当宿主机硬盘空间不足时主动拒绝写入，防止系统级崩溃。
+    - **配置标准化**: 为 `broker.conf` 补充了详细的中文注释，规范了数据保留时间、角色定义等核心参数。
+
 ## 2026-02-10 (v0.1.1)
 - **C5 平台 API 冗余清理与稳定性修复**:
   - **冗余配置移除**: 彻底清理了项目中所有未使用的 `secretKey` 相关逻辑。包括 SDK 配置类 `C5Config`、业务服务 `C5TradeStrategyImpl`、持久化实体 `UserPlatformSettings` 以及配套的 DTO/Param 传输对象。

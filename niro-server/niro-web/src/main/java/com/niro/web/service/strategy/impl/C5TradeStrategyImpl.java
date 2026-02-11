@@ -1,20 +1,10 @@
 package com.niro.web.service.strategy.impl;
 
-import java.math.BigDecimal;
-import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
-import lombok.Getter;
-import lombok.Setter;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Component;
-
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.IdUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
@@ -26,27 +16,25 @@ import com.niro.sdk.c5.response.C5BalanceResponse;
 import com.niro.sdk.c5.response.market.C5ProductListResponse;
 import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.entity.BuffGoods;
-import com.niro.web.entity.BuffGoodsCategory;
-import com.niro.web.entity.BuffScanTask;
-import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.*;
 import com.niro.web.enums.PlatformEnum;
-import com.niro.web.manager.TradeOrderRecordManagerMapper;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
 import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
-
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.IdUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Component;
+
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * C5 平台策略实现
@@ -64,7 +52,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
+    private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
@@ -86,25 +74,18 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private C5ApiClient resolveClient(Long userId) {
-        return clientCache.computeIfAbsent(userId, uid -> {
-            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
-            if (settings == null) {
-                throw new BusinessException("用户配置不存在");
-            }
-            if (StrUtil.isBlank(settings.getC5AppKey())) {
-                throw new BusinessException("C5 App Key 未配置");
-            }
-            C5Config config = new C5Config()
-                    .setAppKey(settings.getC5AppKey())
-                    .setBaseUrl(c5BaseUrl);
-            return new C5ApiClient(config);
-        });
+        return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
+    }
+
+
+    public C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache, UserPlatformSettingsService userPlatformSettingsService, String c5BaseUrl) {
+        return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
     }
 
     @Override
     public void handleTask(BuffScanTask task) {
         // 使用 lambda 替代方法引用，避免可能的 Spring 代理方法解析问题
-        c5TaskScheduler.start(task, t -> this.executeTrade(t));
+        c5TaskScheduler.start(task, this::executeTrade);
     }
 
     @Override
@@ -134,7 +115,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     public void executeTrade(BuffScanTask task) {
         // 0. 校验任务状态
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-            long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
+            long currentSuccess = tradeOrderRecordMapperManager.countSuccess(task.getId());
             if (currentSuccess >= task.getBuyCount()) {
                 log.info("任务 [{}] 已完成购买目标 ({}/{})，停止执行", task.getId(), currentSuccess, task.getBuyCount());
                 c5TaskScheduler.complete(task.getId());
@@ -181,7 +162,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        List<C5ProductListResponse.ProductDTO> allItems = searchProducts(client, marketHashName, GLOBAL_MAX_PRICE,
+        List<C5ProductListResponse.ProductDTO> allItems = searchProducts(client, marketHashName,
                 minWear, maxWear, isNonWearable, task);
 
         if (CollUtil.isEmpty(allItems)) {
@@ -218,7 +199,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 6. 批量下单
         // 计算本轮最大购买数
-        long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
+        long currentSuccess = tradeOrderRecordMapperManager.countSuccess(task.getId());
         int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
                 ? (int) (task.getBuyCount() - currentSuccess)
                 : 1; // 未限制数量时默认为1，避免并发风险
@@ -270,7 +251,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
      * 计算动态上限 (Price Tier Anchoring)
      */
     private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts,
-            C5StrategyConfig config) {
+                                             C5StrategyConfig config) {
         BigDecimal userMax = task.getMaxPrice();
 
         // 深度不足，降级处理
@@ -336,7 +317,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items,
-            BuffGoods goods) {
+                            BuffGoods goods) {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
@@ -404,7 +385,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         // 保存记录
         for (TradeOrderRecord record : records) {
-            tradeOrderRecordManagerMapper.save(record);
+            tradeOrderRecordMapperManager.save(record);
         }
 
         // 2. 调用 API
@@ -471,7 +452,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 log.warn("任务 [{}] 发现 {} 条僵尸订单 (API未返回状态), 统一切换为失败", task.getId(), zombieRecords.size());
                 for (TradeOrderRecord zombie : zombieRecords) {
                     // 使用 out_trade_no 更新，确保原子性
-                    tradeOrderRecordManagerMapper.lambdaUpdate()
+                    tradeOrderRecordMapperManager.lambdaUpdate()
                             .eq(TradeOrderRecord::getOutTradeNo, zombie.getOutTradeNo())
                             .set(TradeOrderRecord::getStatus, 2)
                             .set(TradeOrderRecord::getErrorMsg, "API无响应/未匹配到结果")
@@ -489,7 +470,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
                 // 检查自动完成
                 if (task.getBuyCount() != null) {
-                    long totalSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
+                    long totalSuccess = tradeOrderRecordMapperManager.countSuccess(task.getId());
                     if (totalSuccess >= task.getBuyCount()) {
                         c5TaskScheduler.complete(task.getId());
                     }
@@ -526,7 +507,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private void updateRecordStatus(List<TradeOrderRecord> records, String outTradeNo, Integer status,
-            String platformOrderId, String errorMsg) {
+                                    String platformOrderId, String errorMsg) {
         if (StrUtil.isBlank(outTradeNo)) {
             log.warn("C5响应中存在空的 out_trade_no, 无法更新状态. ErrorMsg: {}", errorMsg);
             return;
@@ -545,7 +526,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 record.setUpdateTime(LocalDateTime.now());
 
                 // 使用 out_trade_no 进行数据库更新，不依赖 id
-                tradeOrderRecordManagerMapper.lambdaUpdate()
+                tradeOrderRecordMapperManager.lambdaUpdate()
                         .eq(TradeOrderRecord::getOutTradeNo, outTradeNo)
                         .set(TradeOrderRecord::getStatus, status)
                         .set(platformOrderId != null, TradeOrderRecord::getOrderId, platformOrderId)
@@ -570,7 +551,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 record.setStatus(2);
                 record.setErrorMsg(errorMsg);
                 record.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordManagerMapper.updateById(record);
+                tradeOrderRecordMapperManager.updateById(record);
             }
         }
     }
@@ -583,8 +564,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 执行单个搜索请求
      */
-    private List<C5ProductListResponse.ProductDTO> searchProducts(C5ApiClient client, String marketHashName,
-            BigDecimal maxPrice, BigDecimal minWear, BigDecimal maxWear, boolean isNonWearable, BuffScanTask task) {
+    private List<C5ProductListResponse.ProductDTO> searchProducts(C5ApiClient client, String marketHashName,BigDecimal minWear, BigDecimal maxWear, boolean isNonWearable, BuffScanTask task) {
         try {
             C5ProductListResponse response;
             if (isNonWearable) {
@@ -603,7 +583,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                         .setMarketHashName(marketHashName)
                         .setWearMin(minWear != null ? minWear.doubleValue() : null)
                         .setWearMax(maxWear != null ? maxWear.doubleValue() : null)
-                        .setPriceMax(maxPrice)
+                        .setPriceMax(C5TradeStrategyImpl.GLOBAL_MAX_PRICE)
                         .setPageNum(1)
                         .setPageSize(20);
                 log.info("C5慢接口搜索 [/products/search]: {}", JSONUtil.toJsonStr(req));

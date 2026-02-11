@@ -1,19 +1,31 @@
 package com.niro.sdk.c5.request.order;
 
-import com.niro.sdk.c5.request.C5BaseRequest;
-import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import lombok.Data;
-import lombok.EqualsAndHashCode;
 import lombok.experimental.Accessors;
+
 import java.util.List;
 
 /**
  * 批量查询买家订单状态请求
  */
 @Data
-@EqualsAndHashCode(callSuper = true)
 @Accessors(chain = true)
-public class C5BuyerStatusRequest extends C5BaseRequest<C5BuyerStatusResponse> {
+public class C5BuyerStatusRequest {
+
+    /**
+     * 页码 (从1开始)
+     */
+    private Integer pageNum = 1;
+
+    /**
+     * 每页数量，最大100条
+     */
+    private Integer pageSize = 100;
+
+    /**
+     * 状态过滤：1待发货 2发货中 3待收货 10已完成 11已取消
+     */
+    private Integer status;
 
     /**
      * 订单ID列表 (C5 orderId)
@@ -25,8 +37,4 @@ public class C5BuyerStatusRequest extends C5BaseRequest<C5BuyerStatusResponse> {
      */
     private List<String> outTradeNos;
 
-    @Override
-    public String getPath() {
-        return "/merchant/order/v2/buyer/status";
-    }
 }

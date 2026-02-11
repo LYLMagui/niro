@@ -1,16 +1,12 @@
 package com.niro.web.service.impl;
 
-import java.time.LocalDateTime;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.concurrent.CompletableFuture;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.HttpRequest;
+import cn.hutool.http.HttpResponse;
+import cn.hutool.json.JSONObject;
+import cn.hutool.json.JSONUtil;
 import com.niro.core.constant.UserAgentConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
@@ -20,20 +16,23 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.BuffScanTaskAccount;
 import com.niro.web.enums.BuffAccountRoleEnum;
 import com.niro.web.enums.BuffAccountStatusEnum;
-import com.niro.web.manager.BuffAccountManagerMapper;
-import com.niro.web.manager.BuffScanTaskAccountManagerMapper;
+
+import com.niro.web.manager.BuffAccountMapperManager;
+import com.niro.web.manager.BuffScanTaskAccountMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.BuffAccountService;
-
-import cn.hutool.core.bean.BeanUtil;
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HttpRequest;
-import cn.hutool.http.HttpResponse;
-import cn.hutool.json.JSONObject;
-import cn.hutool.json.JSONUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.time.LocalDateTime;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.CompletableFuture;
+import java.util.stream.Collectors;
 
 /**
  * BUFF 账号配置 Service 实现类
@@ -47,13 +46,13 @@ import lombok.extern.slf4j.Slf4j;
 public class BuffAccountServiceImpl implements BuffAccountService {
 
     private static final int MAX_ACCOUNT_COUNT = 10;
-    private final BuffAccountManagerMapper buffAccountManagerMapper;
-    private final BuffScanTaskAccountManagerMapper buffScanTaskAccountManagerMapper;
+    private final BuffAccountMapperManager buffAccountMapperManager;
+    private final BuffScanTaskAccountMapperManager buffScanTaskAccountMapperManager;
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     @Override
     public List<BuffAccountDTO> listByUserId(Long userId) {
-        List<BuffAccount> list = buffAccountManagerMapper.lambdaQuery()
+        List<BuffAccount> list = buffAccountMapperManager.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .orderByDesc(BuffAccount::getCreateTime)
                 .list();
@@ -64,7 +63,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
 
         // 查询账号绑定的任务信息
         List<Long> accountIds = list.stream().map(BuffAccount::getId).collect(Collectors.toList());
-        List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountMapperManager.lambdaQuery()
                 .in(BuffScanTaskAccount::getAccountId, accountIds)
                 .list();
 
@@ -119,13 +118,13 @@ public class BuffAccountServiceImpl implements BuffAccountService {
     public void saveOrUpdateAccount(Long userId, BuffAccountDTO dto) {
         // 1. 账号数量限制
         if (dto.getId() == null) {
-            long count = buffAccountManagerMapper.lambdaQuery().eq(BuffAccount::getUserId, userId).count();
+            long count = buffAccountMapperManager.lambdaQuery().eq(BuffAccount::getUserId, userId).count();
             Assert.isTrue(count < MAX_ACCOUNT_COUNT, "账号数量已达上限（10个）");
         }
 
         // 2. 下单账号唯一性限制 (TRADE 或 BOTH)
         if (dto.getRole() == BuffAccountRoleEnum.TRADE || dto.getRole() == BuffAccountRoleEnum.BOTH) {
-            BuffAccount existingSniper = buffAccountManagerMapper.lambdaQuery()
+            BuffAccount existingSniper = buffAccountMapperManager.lambdaQuery()
                     .eq(BuffAccount::getUserId, userId)
                     .in(BuffAccount::getRole, BuffAccountRoleEnum.TRADE, BuffAccountRoleEnum.BOTH)
                     .ne(dto.getId() != null, BuffAccount::getId, dto.getId())
@@ -149,7 +148,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
             }
         }
 
-        buffAccountManagerMapper.saveOrUpdate(entity);
+        buffAccountMapperManager.saveOrUpdate(entity);
 
         // 新增账号后异步触发一次健康检测
         if (dto.getId() == null) {
@@ -170,27 +169,27 @@ public class BuffAccountServiceImpl implements BuffAccountService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void deleteAccount(Long userId, Long id) {
-        BuffAccount account = buffAccountManagerMapper.lambdaQuery()
+        BuffAccount account = buffAccountMapperManager.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .eq(BuffAccount::getId, id)
                 .one();
         Assert.notNull(account, "账号不存在");
 
         // 需求：如果账号被绑定，则删除账号要报错
-        long bindCount = buffScanTaskAccountManagerMapper.lambdaQuery()
+        long bindCount = buffScanTaskAccountMapperManager.lambdaQuery()
                 .eq(BuffScanTaskAccount::getAccountId, id)
                 .count();
         if (bindCount > 0) {
             throw new BusinessException("该账号已绑定任务，请先移除任务绑定或停止并删除任务后再试");
         }
 
-        boolean removed = buffAccountManagerMapper.removeById(id);
+        boolean removed = buffAccountMapperManager.removeById(id);
         Assert.isTrue(removed, "删除失败");
     }
 
     @Override
     public void checkCookie(Long userId, Long id) {
-        BuffAccount account = buffAccountManagerMapper.lambdaQuery()
+        BuffAccount account = buffAccountMapperManager.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .eq(BuffAccount::getId, id)
                 .one();
@@ -222,7 +221,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
                 account.setWarningMsg("Cookie 已失效，请重新登录获取");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountManagerMapper.updateById(account);
+                buffAccountMapperManager.updateById(account);
                 return;
             }
 
@@ -235,7 +234,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
                 account.setWarningMsg("接口响应异常，可能已失效");
                 account.setFailCount(account.getFailCount() + 1);
                 account.setLastCheckTime(LocalDateTime.now());
-                buffAccountManagerMapper.updateById(account);
+                buffAccountMapperManager.updateById(account);
                 return;
             }
 
@@ -299,12 +298,12 @@ public class BuffAccountServiceImpl implements BuffAccountService {
             account.setFailCount(account.getFailCount() + 1);
         }
 
-        buffAccountManagerMapper.updateById(account);
+        buffAccountMapperManager.updateById(account);
     }
 
     @Override
     public void checkAllCookies(Long userId) {
-        List<BuffAccount> accounts = buffAccountManagerMapper.lambdaQuery()
+        List<BuffAccount> accounts = buffAccountMapperManager.lambdaQuery()
                 .eq(BuffAccount::getUserId, userId)
                 .list();
         if (CollUtil.isEmpty(accounts)) {
@@ -323,7 +322,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
             return;
         }
 
-        buffAccountManagerMapper.lambdaUpdate()
+        buffAccountMapperManager.lambdaUpdate()
                 .set(dto.getStatus() != null, BuffAccount::getStatus, dto.getStatus())
                 .set(dto.getWarningMsg() != null, BuffAccount::getWarningMsg, dto.getWarningMsg())
                 .set(dto.getBalance() != null, BuffAccount::getBalance, dto.getBalance())
@@ -335,7 +334,7 @@ public class BuffAccountServiceImpl implements BuffAccountService {
 
     @Override
     public void updateAccountStatus(Long id, BuffAccountStatusEnum status, String warningMsg) {
-        buffAccountManagerMapper.lambdaUpdate()
+        buffAccountMapperManager.lambdaUpdate()
                 .set(BuffAccount::getStatus, status)
                 .set(BuffAccount::getWarningMsg, warningMsg)
                 .set(BuffAccount::getLastCheckTime, LocalDateTime.now())

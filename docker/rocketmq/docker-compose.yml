@@ -1,0 +1,108 @@
+services:
+  # NameServer 是元数据中心，类似服务注册中心
+  namesrv:
+    image: apache/rocketmq:5.4.0
+    container_name: rmqnamesrv
+    env_file:
+      - .env
+    ports:
+      - 9876:9876
+    # 挂载日志，方便宿主机直接看日志排查
+    volumes:
+      - ./logs/namesrv:/home/rocketmq/logs
+    environment:
+      # 限制内存占用，防止默认参数太大导致宿主机 OOM
+      - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
+    networks:
+      - rocketmq
+    # 限制容器日志大小，防止撑爆硬盘
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    command: sh mqnamesrv
+
+  # Broker 是消息存储核心，负责消息接收和分发
+  broker:
+    image: apache/rocketmq:5.4.0
+    container_name: rmqbroker
+    env_file:
+      - .env
+    ports:
+      - 10909:10909
+      - 10911:10911
+    # 挂载 store 目录确保消息持久化，不挂载重启消息就丢了
+    volumes:
+      - ./logs/broker:/home/rocketmq/logs
+      - ./store/broker:/home/rocketmq/store
+      - ./conf/broker.conf:/home/rocketmq/conf/broker.conf
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      # Broker 比较吃内存，开发环境给到 512M
+      - JAVA_OPT=-server -Xms512m -Xmx512m -Xmn256m
+    depends_on:
+      - namesrv
+    networks:
+      - rocketmq
+    # 限制容器日志大小，防止撑爆硬盘
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    # 启动时通过 -p 参数动态注入环境变量中配置的 IP，解决跨环境部署问题
+    command: sh mqbroker -c /home/rocketmq/conf/broker.conf -p brokerIP1=${ROCKETMQ_IP}
+
+  # Proxy 是 5.x 引入的代理模式，支持 gRPC 协议，多语言接入更友好
+  proxy:
+    image: apache/rocketmq:5.4.0
+    container_name: rmqproxy
+    env_file:
+      - .env
+    ports:
+      - 8080:8080
+      - 8081:8081
+    volumes:
+      - ./logs/proxy:/home/rocketmq/logs
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
+    depends_on:
+      - broker
+    networks:
+      - rocketmq
+    # 限制容器日志大小，防止撑爆硬盘
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+    command: sh mqproxy
+
+  # Dashboard 提供图形化管理界面，方便查看主题、消费者和消息详情
+  dashboard:
+    image: apacherocketmq/rocketmq-dashboard:latest
+    container_name: rmqdashboard
+    env_file:
+      - .env
+    ports:
+      - 18080:8080
+    environment:
+      # 指定 NameServer 地址
+      - NAMESRV_ADDR=rmqnamesrv:9876
+      # 限制内存占用
+      - JAVA_OPTS=-Xms256m -Xmx256m
+    depends_on:
+      - namesrv
+    networks:
+      - rocketmq
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
+
+networks:
+  rocketmq:
+    driver: bridge

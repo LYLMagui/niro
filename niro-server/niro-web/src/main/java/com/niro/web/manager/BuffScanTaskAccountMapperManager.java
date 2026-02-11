@@ -12,6 +12,6 @@ import org.springframework.stereotype.Service;
  * @date 2026/02/04
  */
 @Service
-public class BuffScanTaskAccountManagerMapper extends ServiceImpl<BuffScanTaskAccountMapper, BuffScanTaskAccount> {
+public class BuffScanTaskAccountMapperManager extends ServiceImpl<BuffScanTaskAccountMapper, BuffScanTaskAccount> {
 
 }

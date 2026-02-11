@@ -1,8 +1,12 @@
 package com.niro.web.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.baomidou.mybatisplus.extension.service.IService;
 import com.niro.web.dto.TradeOrderRecordDTO;
+import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.vo.C5OrderDetailVO;
+
+import java.util.List;
 
 /**
  * 交易订单记录服务类
@@ -10,8 +14,8 @@ import com.niro.web.vo.C5OrderDetailVO;
  * @author niro
  * @since 2026-01-22
  */
-public interface TradeOrderRecordService {
-
+public interface TradeOrderRecordService{
+   
     /**
      * 处理订单上报消息
      *
@@ -65,4 +69,13 @@ public interface TradeOrderRecordService {
      * @return 成功数
      */
     Long countSuccess(Long taskId);
+
+    /**
+     * 批量查询指定平台已存在的订单ID
+     *
+     * @param platform 平台标识
+     * @param orderIds 订单ID列表
+     * @return 已存在的订单ID列表
+     */
+    List<String> selectExistingOrderIds(String platform, List<String> orderIds);
 }

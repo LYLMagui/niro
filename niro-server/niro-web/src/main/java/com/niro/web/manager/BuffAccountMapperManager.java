@@ -13,6 +13,6 @@ import org.springframework.stereotype.Service;
  * @date 2026/02/04
  */
 @Service
-public class BuffAccountManagerMapper extends ServiceImpl<BuffAccountMapper, BuffAccount> {
+public class BuffAccountMapperManager extends ServiceImpl<BuffAccountMapper, BuffAccount> {
 
 }

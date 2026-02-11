@@ -1,12 +1,7 @@
 package com.niro.web.jobhandler;
 
-import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
-import java.util.stream.Collectors;
-
-import org.springframework.stereotype.Component;
-
+import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
@@ -14,22 +9,25 @@ import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
-import com.niro.web.manager.TradeOrderRecordManagerMapper;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
-
-import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Component;
+
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 @Slf4j
 @Component
 @RequiredArgsConstructor
 public class C5OrderSyncJobHandler {
 
-    private final TradeOrderRecordManagerMapper tradeOrderRecordManagerMapper;
+    private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
 
     @XxlJob("c5OrderSyncJobHandler")
@@ -41,7 +39,7 @@ public class C5OrderSyncJobHandler {
             // 1. 获取最近 48 小时内的活跃 C5 订单
             // 本地状态为 SUCCESS 但远程可能已 CANCELLED 或 COMPLETED 的订单
             LocalDateTime syncThreshold = LocalDateTime.now().minusHours(48);
-            List<TradeOrderRecord> activeOrders = tradeOrderRecordManagerMapper.selectActiveC5Orders(syncThreshold);
+            List<TradeOrderRecord> activeOrders = tradeOrderRecordMapperManager.selectActiveC5Orders(syncThreshold);
 
             if (CollUtil.isEmpty(activeOrders)) {
                 String msg = "未找到需要同步的活跃 C5 订单。";
@@ -134,7 +132,7 @@ public class C5OrderSyncJobHandler {
                 localOrder.setStatus(OrderStatusEnum.CANCELLED.getCode());
                 localOrder.setErrorMsg("C5平台自动取消");
                 localOrder.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordManagerMapper.updateById(localOrder);
+                tradeOrderRecordMapperManager.updateById(localOrder);
 
                 log.info("已将订单 {} ({}) 的状态更新为 已取消", localOrder.getOrderId(),
                         localOrder.getMarketHashName());
