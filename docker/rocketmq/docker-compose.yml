@@ -55,30 +55,30 @@ services:
     command: sh mqbroker -c /home/rocketmq/conf/broker.conf -p brokerIP1=${ROCKETMQ_IP}
 
   # Proxy 是 5.x 引入的代理模式，支持 gRPC 协议，多语言接入更友好
-  proxy:
-    image: apache/rocketmq:5.4.0
-    container_name: rmqproxy
-    env_file:
-      - .env
-    ports:
-      - 28080:8080
-      - 28081:8081
-    volumes:
-      - ./logs/proxy:/home/rocketmq/logs
-    environment:
-      - NAMESRV_ADDR=rmqnamesrv:9876
-      - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
-    depends_on:
-      - broker
-    networks:
-      - rocketmq
-    # 限制容器日志大小，防止撑爆硬盘
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "100m"
-        max-file: "3"
-    command: sh mqproxy
+  # proxy:
+  #   image: apache/rocketmq:5.4.0
+  #   container_name: rmqproxy
+  #   env_file:
+  #     - .env
+  #   ports:
+  #     - 28080:8080
+  #     - 28081:8081  
+  #   volumes:
+  #     - ./logs/proxy:/home/rocketmq/logs
+  #   environment:
+  #     - NAMESRV_ADDR=rmqnamesrv:9876
+  #     - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
+  #   depends_on:
+  #     - broker
+  #   networks:
+  #     - rocketmq
+  #   # 限制容器日志大小，防止撑爆硬盘
+  #   logging:
+  #     driver: "json-file"
+  #     options:
+  #       max-size: "100m"
+  #       max-file: "3"
+  #   command: sh mqproxy
 
   # Dashboard 提供图形化管理界面，方便查看主题、消费者和消息详情
   dashboard:
