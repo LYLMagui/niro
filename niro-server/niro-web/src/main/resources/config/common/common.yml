@@ -28,3 +28,10 @@ xxl:
       port: ${XXL_JOB_EXECUTOR_PORT:9999}
       logpath: ./logs/xxl-job/jobhandler
       logretentiondays: 30
+
+rocketmq:
+  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  producer:
+    group: ${ROCKETMQ_PRODUCER_GROUP:niro-producer-group}
+    send-message-timeout: 3000
+    retry-times-when-send-failed: 3

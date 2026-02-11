@@ -44,6 +44,7 @@
         <spring.dotenv>4.0.0</spring.dotenv>
         <logstash-logback-encoder.version>7.4</logstash-logback-encoder.version>
         <xxl-job.version>3.3.2</xxl-job.version>
+        <rocketmq-spring-boot-starter.version>2.3.1</rocketmq-spring-boot-starter.version>
     </properties>
 
     <modules>
@@ -233,6 +234,13 @@
                 <groupId>com.xuxueli</groupId>
                 <artifactId>xxl-job-core</artifactId>
                 <version>${xxl-job.version}</version>
+            </dependency>
+
+            <!-- RocketMQ -->
+            <dependency>
+                <groupId>org.apache.rocketmq</groupId>
+                <artifactId>rocketmq-spring-boot-starter</artifactId>
+                <version>${rocketmq-spring-boot-starter.version}</version>
             </dependency>
 
         </dependencies>
