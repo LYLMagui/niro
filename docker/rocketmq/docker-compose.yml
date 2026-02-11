@@ -23,7 +23,7 @@ services:
         max-file: "3"
     command: sh mqnamesrv
     healthcheck:
-      test: ["CMD", "sh", "-c", "nc -z localhost 9876"]
+      test: ["CMD", "sh", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/9876"]
       interval: 5s
       timeout: 3s
       retries: 5
@@ -62,7 +62,7 @@ services:
     command: sh mqbroker -c /home/rocketmq/conf/broker.conf -p brokerIP1=${ROCKETMQ_IP}
     # command: sh mqbroker -c /home/rocketmq/conf/broker.conf
     healthcheck:
-      test: ["CMD", "sh", "-c", "nc -z localhost 10911"]
+      test: ["CMD", "sh", "-c", "cat < /dev/null > /dev/tcp/127.0.0.1/10911"]
       interval: 5s
       timeout: 3s
       retries: 5
