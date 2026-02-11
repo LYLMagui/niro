@@ -88,7 +88,7 @@ services:
     env_file:
       - .env
     ports:
-      - 18080:8080
+      - 18080:8082
     environment:
       # 指定 NameServer 地址
       - NAMESRV_ADDR=rmqnamesrv:9876
