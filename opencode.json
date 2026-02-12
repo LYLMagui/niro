@@ -87,7 +87,7 @@
     }
   },
   "instructions": [
-    ".trae/rules/*.md"
+    ".trae\\rules\\*.md"
   ],
   "permission": {
     "skill": {
@@ -99,5 +99,10 @@
     "@tarquinen/opencode-dcp@latest",
     "@franlol/opencode-md-table-formatter@0.0.3",
     "opencode-websearch-cited"
-  ]
+  ],
+  "keybinds": {
+    "app_exit": "ctrl+d,<leader>q",
+    "input_clear": "escape",
+    "messages_copy": "<leader>y"
+  },
 }
