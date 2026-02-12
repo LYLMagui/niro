@@ -94,6 +94,9 @@ services:
       - NAMESRV_ADDR=rmqnamesrv:9876
       # 限制内存占用
       - JAVA_OPTS=-Xms256m -Xmx256m
+      # 设置默认语言为中文
+      - LANG=zh_CN.UTF-8
+      - LANGUAGE=zh_CN:zh
     depends_on:
       - namesrv
     networks:

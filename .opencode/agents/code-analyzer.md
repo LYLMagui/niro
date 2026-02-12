@@ -1,11 +1,10 @@
 ---
 description: 业务问题分析、业务场景理解、业务需求分析、业务逻辑分析、业务功能分析、业务性能分析、业务安全分析、业务可维护性分析、业务可扩展性分析、业务成本分析、业务风险分析、业务解决方案分析、代码质量分析、代码规范分析、代码注释分析、代码重复分析、代码冗余分析、代码错误分析、代码性能分析、代码安全分析、代码可维护性分析、代码可扩展性分析、代码成本分析、代码风险分析、代码解决方案分析时调用
 mode: subagent
-model: moonshot/kimi-k2.5
 temperature: 0.2
 tools:
-  write: true
-  edit: true
+  write: false
+  edit: false
   bash: true
 ---
 
