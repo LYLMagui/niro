@@ -1,7 +1,6 @@
 ---
 description: 代码编写、代码实现、bug修复、代码优化、代码重构、代码文档编写、业务逻辑实现、文件操作、终端操作等时候调用。
 mode: subagent
-model: moonshot/kimi-k2.5
 temperature: 0.2
 tools:
   write: true

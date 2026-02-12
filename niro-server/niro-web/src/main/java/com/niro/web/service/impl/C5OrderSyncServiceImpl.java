@@ -1,29 +1,14 @@
 package com.niro.web.service.impl;
 
-import java.math.BigDecimal;
-import java.time.Instant;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
-
-import org.redisson.api.RRateLimiter;
-import org.redisson.api.RateIntervalUnit;
-import org.redisson.api.RateType;
-import org.redisson.api.RedissonClient;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
+import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse.OrderBuyDTO;
+import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.dto.UserPlatformSettingsDTO;
-import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
@@ -33,11 +18,27 @@ import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.C5OrderSyncService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
-
-import cn.hutool.core.util.StrUtil;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.client.producer.SendResult;
+import org.apache.rocketmq.client.producer.SendStatus;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.redisson.api.RRateLimiter;
+import org.redisson.api.RateIntervalUnit;
+import org.redisson.api.RateType;
+import org.redisson.api.RedissonClient;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.math.BigDecimal;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
+import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
 
 /**
  * C5 订单同步服务实现
@@ -58,6 +59,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final RedissonClient redissonClient;
+    private final RocketMQTemplate rocketMQTemplate;
 
     private RRateLimiter c5ApiLimiter;
 
@@ -132,7 +134,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         for (UserPlatformSettings settings : settingsList) {
             Long userId = settings.getUserId();
             try {
-                int synced = syncUserOrders(userId, startTime);
+                int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
                 totalSynced += synced;
                 log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
             } catch (Exception e) {
@@ -143,7 +145,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         log.info("C5 订单同步完成，总计新增: {}", totalSynced);
     }
 
-    private int syncUserOrders(Long userId, LocalDateTime startTime) {
+    private int syncUserOrders(Long userId, String appKey, LocalDateTime startTime) {
         C5ApiClient client = getC5Client(userId);
         int totalSynced = 0;
         int pageNum = 1;
@@ -183,7 +185,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                 }
             }
 
-            int synced = processOrders(userId, orders);
+            int synced = processOrders(userId, appKey, orders);
             totalSynced += synced;
 
             log.debug("用户 [{}] 第 {}/{} 页处理完成，新增: {}", userId, pageNum, totalPages, synced);
@@ -194,7 +196,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         return totalSynced;
     }
 
-    private int processOrders(Long userId, List<OrderBuyDTO> orders) {
+    private int processOrders(Long userId, String appKey, List<OrderBuyDTO> orders) {
         if (orders.isEmpty()) {
             return 0;
         }
@@ -225,9 +227,14 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
             records.add(record);
         }
 
-        // 批量保存
+        // 批量保存，MyBatis-Plus 会回填自增 ID
+        boolean saved = tradeOrderRecordMapperManager.saveBatch(records);
+        Assert.isTrue(saved, "批量保存订单记录失败");
+
+        // 发送异步消息获取订单详情，携带 appKey
         for (TradeOrderRecord record : records) {
-            tradeOrderRecordMapperManager.save(record);
+            Assert.notNull(record.getId(), "订单记录 ID 不能为空，数据库 ID 回填失败");
+            sendOrderDetailMessage(record, appKey);
         }
 
         return records.size();
@@ -246,6 +253,57 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         record.setStatus(C5OrderStatusEnum.mapToInternalStatus(order.getStatus()).getCode());
         
         return record;
+    }
+
+    /**
+     * 延迟级别: 10秒 (RocketMQ 延迟级别 3)
+     * 延迟级别对应: 1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
+     */
+    private static final int ORDER_DETAIL_DELAY_LEVEL = 3;
+
+    /**
+     * 发送订单详情同步延迟消息
+     * <p>
+     * 订单刚创建时立即查询可能获取不到完整的详情数据，
+     * 使用延迟消息等待 C5 平台处理完成后再查询。
+     * </p>
+     *
+     * @param record 交易订单记录
+     * @param appKey C5 App Key
+     */
+    private void sendOrderDetailMessage(TradeOrderRecord record, String appKey) {
+        try {
+            C5OrderDetailMessage message = C5OrderDetailMessage.builder()
+                    .orderId(record.getOrderId())
+                    .userId(record.getUserId())
+                    .appKey(appKey)
+                    .timestamp(System.currentTimeMillis())
+                    .build();
+
+            // 构建 Spring Message，RocketMQ 会自动将 payload 序列化为 JSON
+            org.springframework.messaging.Message<C5OrderDetailMessage> springMessage = 
+                    org.springframework.messaging.support.MessageBuilder
+                            .withPayload(message)
+                            .build();
+
+            // 发送延迟消息，使用 RocketMQ 的延迟消息 API
+            SendResult sendResult = rocketMQTemplate.syncSendDelayTimeSeconds(
+                    MqConstant.TOPIC_C5_ORDER + ":" + MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
+                    springMessage,
+                    10  // 延迟 10 秒
+            );
+
+            if (sendResult != null && sendResult.getSendStatus() == SendStatus.SEND_OK) {
+                log.info("【C5订单详情消息】延迟消息发送成功, orderId={}, msgId={}, delayLevel={}",
+                        record.getOrderId(), sendResult.getMsgId(), ORDER_DETAIL_DELAY_LEVEL);
+            } else {
+                log.warn("【C5订单详情消息】延迟消息发送结果异常, orderId={}, result={}",
+                        record.getOrderId(), sendResult);
+            }
+        } catch (Exception e) {
+            log.error("【C5订单详情消息】延迟消息发送异常, orderId={}", record.getOrderId(), e);
+            // 消息发送失败不影响主流程
+        }
     }
 
     private LocalDateTime timestampToLocalDateTime(Long timestamp) {

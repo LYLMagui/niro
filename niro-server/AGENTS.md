@@ -71,7 +71,20 @@ niro-server/
 
 ## 编码规范
 
-### 1. 依赖注入（强制）
+### 1. 禁止全包名引用（强制）
+
+**禁止**在代码中使用全路径类名（如 `org.apache.rocketmq.common.message.Message`），**必须**通过 `import` 引入：
+
+```java
+// ❌ 错误：使用全包名
+org.apache.rocketmq.common.message.Message msg = new org.apache.rocketmq.common.message.Message();
+
+// ✅ 正确：通过 import 引入
+import org.apache.rocketmq.common.message.Message;
+Message msg = new Message();
+```
+
+### 2. 依赖注入（强制）
 
 **禁止**使用 `@Autowired` 字段注入，**必须**使用构造注入：
 
@@ -86,7 +99,7 @@ public class UserService {
 }
 ```
 
-### 2. 响应封装（自动）
+### 3. 响应封装（自动）
 
 Controller **无需手动封装 Result**，已由 `ResponseAdvice` 自动处理：
 
@@ -118,7 +131,7 @@ public class UserController {
 
 **特殊处理**：SSE 流（`SseEmitter`）会自动排除，不进行封装。
 
-### 3. 业务断言（强制）
+### 4. 业务断言（强制）
 
 **禁止**使用 `if + throw` 模式，**必须**使用 `Assert` 工具类：
 
@@ -143,7 +156,7 @@ Assert.isTrue(amount > 0, "金额必须大于0");
 - `Assert.isTrue(boolean, String)` - 表达式为 true
 - `Assert.isFalse(boolean, String)` - 表达式为 false
 
-### 4. 数据库查询（MyBatis-Plus）
+### 5. 数据库查询（MyBatis-Plus）
 
 **禁止**使用 `QueryWrapper`，**必须**使用 Lambda 链式查询：
 
@@ -171,7 +184,7 @@ Page<User> page = userService.lambdaQuery()
     .page(new Page<>(current, size));
 ```
 
-### 5. 软删除处理
+### 6. 软删除处理
 
 所有实体类使用 `@TableLogic` 注解实现逻辑删除：
 
@@ -197,7 +210,7 @@ public void deleteUser(Long id) {
 }
 ```
 
-### 6. 异常处理
+### 7. 异常处理
 
 **禁止**在业务代码中捕获 `Exception`，由 `@RestControllerAdvice` 统一处理：
 
@@ -214,7 +227,7 @@ try {
 userService.save(user);
 ```
 
-### 7. 命名规范
+### 8. 命名规范
 
 | 类型 | 规范 | 示例 |
 |------|------|------|

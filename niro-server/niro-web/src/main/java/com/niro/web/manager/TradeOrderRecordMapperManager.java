@@ -38,4 +38,7 @@ public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordM
                 .count();
     }
 
+    public TradeOrderRecord getByOrderId(String orderId) {
+        return this.lambdaQuery().eq(TradeOrderRecord::getOrderId,orderId).one();
+    }
 }

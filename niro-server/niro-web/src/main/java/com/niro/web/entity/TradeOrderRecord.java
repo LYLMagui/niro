@@ -45,11 +45,6 @@ public class TradeOrderRecord {
     private Long accountId;
 
     /**
-     * 商品ID
-     */
-    private Long goodsId;
-
-    /**
      * 平台: BUFF, C5
      */
     private String platform;
@@ -85,11 +80,6 @@ public class TradeOrderRecord {
     private BigDecimal price;
 
     /**
-     * 磨损值(无磨损则为0)
-     */
-    private BigDecimal paintwear;
-
-    /**
      * 状态: 0-处理中, 1-成功, 2-失败, 3-取消
      */
     private Integer status;
@@ -100,12 +90,7 @@ public class TradeOrderRecord {
     private String errorMsg;
 
     /**
-     * 平台返回的错误码
-     */
-    private String errorCode;
-
-    /**
-     * 扩展字段(印花信息、贴纸等)
+     * 扩展字段(印花信息、贴纸、磨损值等)
      */
     @TableField(typeHandler = PostgresJsonTypeHandler.class, jdbcType = JdbcType.OTHER)
     private Map<String, Object> extraInfo;

@@ -157,4 +157,29 @@ public class RocketMQProducerTest {
             log.error("对象消息发送失败, status={}, message={}", result.getSendStatus(), message);
         }
     }
+
+    /**
+     * 发送消息到 Demo 消费者（随服务启动持续运行）
+     * 需要先启动应用让 DemoMessageConsumer 注册，再运行此测试
+     */
+    @Test
+    void testSendToDemoConsumer() {
+        String messageId = UUID.randomUUID().toString();
+        String payload = "Demo消费者测试消息 - " + LocalDateTime.now() + " - ID:" + messageId.substring(0, 8);
+
+        String destination = "niro-demo-topic:*";
+
+        SendResult result = rocketMQTemplate.syncSend(
+            destination,
+            MessageBuilder.withPayload(payload)
+                .setHeader("KEYS", messageId)
+                .build()
+        );
+
+        if (result.getSendStatus() == SendStatus.SEND_OK) {
+            log.info("Demo消息发送成功, msgId={}, message={}", result.getMsgId(), payload);
+        } else {
+            log.error("Demo消息发送失败, status={}", result.getSendStatus());
+        }
+    }
 }

@@ -197,7 +197,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             BuffGoods goods = findBuffGoods(marketHashName, goodsName);
             if (goods != null) {
                 goodsName = goods.getName();
-                record.setGoodsId(goods.getGoodsId());
                 record.setMarketHashName(goods.getMarketHashName());
                 if (StrUtil.isBlank(goodsImg)) {
                     goodsImg = goods.getIconUrl();
@@ -210,7 +209,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             record.setGoodsImg(goodsImg);
             record.setOrderId(orderId);
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
-            record.setPaintwear(json.getBigDecimal("paintwear", BigDecimal.ZERO));
             record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
 
             // 兼容 failedDesc 和 errorMsg
@@ -219,8 +217,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 errorMsg = json.getStr("failedDesc", "");
             }
             record.setErrorMsg(errorMsg);
-
-            record.setErrorCode(json.getStr("errorCode", ""));
 
             // 额外信息
             if (json.containsKey("extraInfo")) {
@@ -381,22 +377,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         }
         if (dto.getPrice() != null) {
             record.setPrice(dto.getPrice());
-        }
-
-        // 如果修改了商品ID，同步更新商品信息
-        if (dto.getGoodsId() != null && !dto.getGoodsId().equals(record.getGoodsId())) {
-            BuffGoods goods = buffGoodsService.lambdaQuery()
-                    .eq(BuffGoods::getGoodsId, dto.getGoodsId())
-                    .one();
-            if (goods != null) {
-                record.setGoodsId(dto.getGoodsId());
-                record.setGoodsName(goods.getName());
-                record.setMarketHashName(goods.getMarketHashName());
-                record.setGoodsImg(goods.getIconUrl());
-            } else {
-                // 如果库里没找到，仅更新ID，或者抛异常？建议仅更新ID，让前端负责校验
-                record.setGoodsId(dto.getGoodsId());
-            }
         }
 
         tradeOrderRecordMapperManager.updateById(record);

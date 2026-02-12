@@ -361,10 +361,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setPlatform(PlatformEnum.C5.name());
             record.setGoodsName(goods.getMarketHashName()); // 或 item.getMarketHashName()
             record.setMarketHashName(goods.getMarketHashName());
-            record.setGoodsId(task.getGoodsId());
             record.setPrice(item.getPrice());
             record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
 
+            // 磨损值存储到 extra_info
             Double wearVal = null;
             if (item.getAssetInfo() != null) {
                 wearVal = item.getAssetInfo().getFloatWear();
@@ -373,7 +373,9 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 }
             }
             if (wearVal != null) {
-                record.setPaintwear(BigDecimal.valueOf(wearVal));
+                Map<String, Object> extraInfo = new HashMap<>();
+                extraInfo.put("paintwear", wearVal);
+                record.setExtraInfo(extraInfo);
             }
             record.setStatus(0); // 处理中
             record.setCreateTime(LocalDateTime.now());
