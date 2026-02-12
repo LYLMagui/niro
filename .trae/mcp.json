@@ -48,17 +48,9 @@
       ],
       "command": "npx"
     },
-    "chrome-devtools": {
-      "args": [
-        "chrome-devtools-mcp@latest"
-      ],
-      "command": "npx"
-    },
-    "EnhancedBing": {
-      "args": [
-        "bing-cn-mcp-enhanced"
-      ],
-      "command": "npx"
+    "bing-cn-mcp-server": {
+      "type": "sse",
+      "url": "https://mcp.api-inference.modelscope.net/d392b795e2e740/sse"
     },
     "MiniMax": {
       "command": "uvx",
@@ -70,6 +62,10 @@
         "MINIMAX_API_KEY": "sk-cp-fjiu_jJNaDxY1F8vTOBvRjNcqN3g1F4_MGbOfRhQmnOSJGP5WocVp84PWEiVR-s4fGgOKdhM3Vcd4Ws1jMVxSN2v8iBzAmNmwGVutMx5Zsqhyczh6gwk1n0",
         "MINIMAX_API_HOST": "https://api.minimaxi.com"
       }
+    },
+    "context7": {
+      "command": "npx",
+      "args": ["-y", "@upstash/context7-mcp@latest"]
     }
   }
 }

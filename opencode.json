@@ -64,11 +64,12 @@
       ],
       "enabled": true
     },
-    "EnhancedBing": {
+    "bing-search  ": {
       "type": "local",
       "command": [
         "npx",
-        "bing-cn-mcp-enhanced"
+        "-y",
+        "bing-cn-mcp"
       ],
       "enabled": true
     },
@@ -84,6 +85,15 @@
         "MINIMAX_API_KEY": "sk-cp-fjiu_jJNaDxY1F8vTOBvRjNcqN3g1F4_MGbOfRhQmnOSJGP5WocVp84PWEiVR-s4fGgOKdhM3Vcd4Ws1jMVxSN2v8iBzAmNmwGVutMx5Zsqhyczh6gwk1n0",
         "MINIMAX_API_HOST": "https://api.minimaxi.com"
       }
+    },
+    "context7": {
+      "type": "local",
+      "command": [
+        "npx",
+        "-y",
+        "@upstash/context7-mcp@latest"
+      ],
+      "enabled": true
     }
   },
   "instructions": [
@@ -101,8 +111,7 @@
     "opencode-websearch-cited"
   ],
   "keybinds": {
-    "app_exit": "ctrl+d,<leader>q",
-    "input_clear": "escape",
-    "messages_copy": "<leader>y"
-  },
+    "input_clear": "none",
+    "app_exit": "none"
+  }
 }
