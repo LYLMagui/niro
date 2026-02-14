@@ -1,5 +1,11 @@
 # Release Notes
 
+## 2026-02-15 (v3.2.2)
+
+- **事务消息**：新增 MqTxSender 组件，基于 Spring TransactionSynchronization 实现事务提交后才发送消息，解决订单拉取与消息发送时序竞态问题。
+- **工具类增强**：RocketMqHelper 扩展 afterCommitSend 和 afterCommitSendDelay 方法，支持简洁的事务消息调用方式。
+- **代码规范**：修复全包名类引用和通配符 import，提升代码可维护性。
+
 ## 2026-02-12 (v3.2.1)
 
 - **工具类修复**：修复 RocketMqHelper 异常处理缺陷，禁止静默吞没发送异常。
