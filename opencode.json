@@ -119,12 +119,7 @@
       "*": "allow"
     }
   },
-  "plugin": [
-    "opencode-skills",
-    "@tarquinen/opencode-dcp@latest",
-    "@franlol/opencode-md-table-formatter@0.0.3",
-    "opencode-websearch-cited"
-  ],
+
   "keybinds": {
     "input_clear": "none",
     "app_exit": "none"

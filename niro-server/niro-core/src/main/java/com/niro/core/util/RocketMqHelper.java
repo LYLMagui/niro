@@ -1,8 +1,12 @@
 package com.niro.core.util;
 
-import lombok.Getter;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import java.util.function.Consumer;
+
 import org.apache.rocketmq.client.producer.SendCallback;
 import org.apache.rocketmq.client.producer.SendResult;
 import org.apache.rocketmq.client.producer.SendStatus;
@@ -12,17 +16,13 @@ import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.slf4j.MDC;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.messaging.Message;
-import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
-import org.springframework.util.Assert;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.util.ArrayList;
-import java.util.Collection;
-import java.util.List;
-import java.util.concurrent.CompletableFuture;
-import java.util.function.Consumer;
+import lombok.Getter;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * RocketMQ 增强助手 (Refactor版)
@@ -40,16 +40,45 @@ import java.util.function.Consumer;
 @RequiredArgsConstructor
 public class RocketMqHelper {
 
+    private static final String TRACE_ID_MDC_KEY = "traceId";
+    private static final String TRACE_ID_HEADER = "TRACE_ID";
+
     private final RocketMQTemplate template;
+    private final MqTxSender mqTxSender;
 
     @Value("${rocketmq.producer.send-message-timeout:3000}")
     private long defaultTimeout;
 
     /**
+     * 事务提交后发送消息
+     * <p>在 @Transactional 方法中调用，消息会在事务提交后才发送</p>
+     *
+     * @param topic   主题
+     * @param tag     标签
+     * @param payload 消息体
+     */
+    public void afterCommitSend(String topic, String tag, Object payload) {
+        mqTxSender.afterCommitSend(topic, tag, payload);
+    }
+
+    /**
+     * 事务提交后延迟发送消息
+     * <p>在 @Transactional 方法中调用，消息会在事务提交后才发送</p>
+     *
+     * @param topic      主题
+     * @param tag        标签
+     * @param payload    消息体
+     * @param delayLevel 延迟级别
+     */
+    public void afterCommitSendDelay(String topic, String tag, Object payload, DelayLevel delayLevel) {
+        mqTxSender.afterCommitSendDelay(topic, tag, payload, delayLevel);
+    }
+
+    /**
      * 开始构建消息
      */
     public MessageBuilder topic(String topic) {
-        Assert.hasText(topic, "Topic must not be blank");
+        Assert.notBlank(topic, "Topic must not be blank");
         return new MessageBuilder(topic);
     }
 
@@ -57,7 +86,7 @@ public class RocketMqHelper {
      * 批量构建消息（支持 Tag）
      */
     public MessageBuilder topic(String topic, String tag) {
-        Assert.hasText(topic, "Topic must not be blank");
+        Assert.notBlank(topic, "Topic must not be blank");
         return new MessageBuilder(topic).tag(tag);
     }
 
@@ -85,12 +114,13 @@ public class RocketMqHelper {
         private Integer delayLevel;
         private String hashKey;
         private long timeout = defaultTimeout;
+        // Note: 使用全包名避免与内部类 MessageBuilder 命名冲突
         private Consumer<org.springframework.messaging.support.MessageBuilder<?>> customizer;
 
         public MessageBuilder(String topic) {
             this.topic = topic;
             // 默认绑定 MDC 中的 TraceId
-            this.traceId = MDC.get("traceId");
+            this.traceId = MDC.get(TRACE_ID_MDC_KEY);
         }
 
         public MessageBuilder tag(String tag) {
@@ -121,6 +151,7 @@ public class RocketMqHelper {
         }
 
         public MessageBuilder timeout(long timeout) {
+            Assert.isTrue(timeout > 0, "Timeout must be greater than 0");
             this.timeout = timeout;
             return this;
         }
@@ -128,6 +159,7 @@ public class RocketMqHelper {
         /**
          * 高级定制：允许直接操作 Spring Message Builder
          */
+        // Note: 使用全包名避免与内部类 MessageBuilder 命名冲突
         public MessageBuilder customize(Consumer<org.springframework.messaging.support.MessageBuilder<?>> customizer) {
             this.customizer = customizer;
             return this;
@@ -141,6 +173,7 @@ public class RocketMqHelper {
         public SendResult send(Object payload) {
             Message<?> message = buildMessage(payload);
             String destination = buildDestination();
+            String sendContext = buildSendContext(destination, payload);
             try {
                 SendResult result;
                 if (StringUtils.hasText(hashKey)) {
@@ -150,7 +183,7 @@ public class RocketMqHelper {
                 }
                 return validateResult(result);
             } catch (Exception e) {
-                throw new MqException("Sync send failed to " + destination, e);
+                throw new MqException("Sync send failed, " + sendContext, e);
             }
         }
 
@@ -170,16 +203,20 @@ public class RocketMqHelper {
 
             String destination = buildDestination();
             List<Message<?>> messages = new ArrayList<>(payloads.size());
+            int index = 0;
             for (Object payload : payloads) {
+                Assert.notNull(payload, "Batch payload item must not be null, index=" + index);
                 messages.add(buildMessage(payload));
+                index++;
             }
 
+            String sendContext = buildSendContext(destination, "batch(size=" + messages.size() + ")");
             try {
                 SendResult result = template.syncSend(destination, messages, timeout);
                 log.info("Batch sent to {}, count={}, msgId={}", destination, messages.size(), result.getMsgId());
                 return validateResult(result);
             } catch (Exception e) {
-                throw new MqException("Batch send failed to " + destination, e);
+                throw new MqException("Batch send failed, " + sendContext, e);
             }
         }
 
@@ -189,24 +226,49 @@ public class RocketMqHelper {
         public CompletableFuture<SendResult> sendAsync(Object payload) {
             Message<?> message = buildMessage(payload);
             String destination = buildDestination();
+            String sendContext = buildSendContext(destination, payload);
+            String currentTraceId = this.traceId;
             CompletableFuture<SendResult> future = new CompletableFuture<>();
+            Map<String, String> mdcContext = MDC.getCopyOfContextMap();
 
             try {
                 SendCallback callback = new SendCallback() {
+                    private void restoreMdc() {
+                        if (mdcContext == null || mdcContext.isEmpty()) {
+                            MDC.clear();
+                            return;
+                        }
+                        MDC.setContextMap(mdcContext);
+                    }
+
                     @Override
                     public void onSuccess(SendResult result) {
                         try {
+                            restoreMdc();
+                            if (StringUtils.hasText(currentTraceId)) {
+                                MDC.put(TRACE_ID_MDC_KEY, currentTraceId);
+                            }
                             validateResult(result);
                             future.complete(result);
                         } catch (Exception e) {
                             future.completeExceptionally(e);
+                        } finally {
+                            MDC.clear();
                         }
                     }
 
                     @Override
                     public void onException(Throwable e) {
-                        log.error("Async send failed to {}", destination, e);
-                        future.completeExceptionally(new MqException("Async send failed", e));
+                        try {
+                            restoreMdc();
+                            if (StringUtils.hasText(currentTraceId)) {
+                                MDC.put(TRACE_ID_MDC_KEY, currentTraceId);
+                            }
+                            log.error("Async send failed, {}", sendContext, e);
+                        } finally {
+                            MDC.clear();
+                        }
+                        future.completeExceptionally(new MqException("Async send failed, " + sendContext, e));
                     }
                 };
 
@@ -216,7 +278,7 @@ public class RocketMqHelper {
                     template.asyncSend(destination, message, callback, timeout);
                 }
             } catch (Exception e) {
-                future.completeExceptionally(new MqException("Async send trigger failed", e));
+                future.completeExceptionally(new MqException("Async send trigger failed, " + sendContext, e));
             }
             return future;
         }
@@ -227,6 +289,7 @@ public class RocketMqHelper {
         public void sendOneWay(Object payload) {
             Message<?> message = buildMessage(payload);
             String destination = buildDestination();
+            String sendContext = buildSendContext(destination, payload);
             try {
                 if (StringUtils.hasText(hashKey)) {
                     template.sendOneWayOrderly(destination, message, hashKey);
@@ -234,8 +297,8 @@ public class RocketMqHelper {
                     template.sendOneWay(destination, message);
                 }
             } catch (Exception e) {
-                log.error("Oneway send failed to {}", destination, e);
-                throw new MqException("Oneway send failed to " + destination, e);
+                log.error("Oneway send failed, {}", sendContext, e);
+                throw new MqException("Oneway send failed, " + sendContext, e);
             }
         }
 
@@ -245,21 +308,25 @@ public class RocketMqHelper {
         public TransactionSendResult sendTransaction(Object payload, Object arg) {
             Message<?> message = buildMessage(payload);
             String destination = buildDestination();
+            String sendContext = buildSendContext(destination, payload);
             try {
                 TransactionSendResult result = template.sendMessageInTransaction(destination, message, arg);
                 log.info("Tx sent to {}, txId={}", destination, result.getTransactionId());
                 return result;
             } catch (Exception e) {
-                throw new MqException("Transaction send failed to " + destination, e);
+                throw new MqException("Transaction send failed, " + sendContext, e);
             }
         }
 
         // ==================== 内部逻辑 ====================
 
         private Message<?> buildMessage(Object payload) {
+            Assert.notNull(payload, "Payload must not be null");
             // 关键改进：不再手动 JSON 序列化，直接使用 payload。
             // RocketMQTemplate 会根据配置的 MessageConverter 进行转换。
-            org.springframework.messaging.support.MessageBuilder<?> builder = org.springframework.messaging.support.MessageBuilder.withPayload(payload);
+            // Note: 使用全包名避免与内部类 MessageBuilder 命名冲突
+            org.springframework.messaging.support.MessageBuilder<?> builder = 
+                    org.springframework.messaging.support.MessageBuilder.withPayload(payload);
 
             // 1. Keys 处理：用户未设置 Key 时，默认使用 TraceId
             String finalKey = StringUtils.hasText(this.key) ? this.key : this.traceId;
@@ -267,30 +334,25 @@ public class RocketMqHelper {
                 builder.setHeader(MessageConst.PROPERTY_KEYS, finalKey);
             }
 
-            // 2. Tags
-            if (StringUtils.hasText(tag)) {
-                builder.setHeader(MessageConst.PROPERTY_TAGS, tag);
-            }
-
-            // 3. TraceId 透传
+            // 2. TraceId 透传
             if (StringUtils.hasText(traceId)) {
-                builder.setHeader("TRACE_ID", traceId);
+                builder.setHeader(TRACE_ID_HEADER, traceId);
             }
 
-            // 4. 延迟级别
+            // 3. 延迟级别
             if (delayLevel != null && delayLevel > 0) {
                 builder.setHeader(MessageConst.PROPERTY_DELAY_TIME_LEVEL, delayLevel);
             }
 
-            // 5. 扩展定制 (保护系统保留 Header)
+            // 4. 扩展定制 (保护系统保留 Header)
             if (customizer != null) {
                 customizer.accept(builder);
                 // 强制还原核心 Header，防止被 customizer 误改
                 if (StringUtils.hasText(finalKey)) {
                     builder.setHeader(MessageConst.PROPERTY_KEYS, finalKey);
                 }
-                if (StringUtils.hasText(tag)) {
-                    builder.setHeader(MessageConst.PROPERTY_TAGS, tag);
+                if (StringUtils.hasText(traceId)) {
+                    builder.setHeader(TRACE_ID_HEADER, traceId);
                 }
                 if (delayLevel != null && delayLevel > 0) {
                     builder.setHeader(MessageConst.PROPERTY_DELAY_TIME_LEVEL, delayLevel);
@@ -302,6 +364,17 @@ public class RocketMqHelper {
 
         private String buildDestination() {
             return StringUtils.hasText(tag) ? topic + ":" + tag : topic;
+        }
+
+        private String buildSendContext(String destination, Object payload) {
+            String payloadType = payload == null ? "null" : payload.getClass().getName();
+            return "destination=" + destination
+                + ", key=" + key
+                + ", traceId=" + traceId
+                + ", hashKey=" + hashKey
+                + ", delayLevel=" + delayLevel
+                + ", timeout=" + timeout
+                + ", payloadType=" + payloadType;
         }
 
         private SendResult validateResult(SendResult result) {

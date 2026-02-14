@@ -2,6 +2,8 @@ package com.niro.web.service.impl;
 
 import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
+import com.niro.core.util.MqTxSender;
+import com.niro.core.util.RocketMqHelper;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
@@ -21,8 +23,6 @@ import com.niro.web.service.UserPlatformSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.client.producer.SendResult;
-import org.apache.rocketmq.client.producer.SendStatus;
 import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.redisson.api.RRateLimiter;
 import org.redisson.api.RateIntervalUnit;
@@ -36,7 +36,12 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -59,7 +64,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final RedissonClient redissonClient;
-    private final RocketMQTemplate rocketMQTemplate;
+    private final RocketMqHelper rocketMqHelper;
 
     private RRateLimiter c5ApiLimiter;
 
@@ -256,16 +261,14 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     }
 
     /**
-     * 延迟级别: 10秒 (RocketMQ 延迟级别 3)
-     * 延迟级别对应: 1s 5s 10s 30s 1m 2m 3m 4m 5m 6m 7m 8m 9m 10m 20m 30m 1h 2h
-     */
-    private static final int ORDER_DETAIL_DELAY_LEVEL = 3;
-
-    /**
      * 发送订单详情同步延迟消息
      * <p>
      * 订单刚创建时立即查询可能获取不到完整的详情数据，
      * 使用延迟消息等待 C5 平台处理完成后再查询。
+     * </p>
+     * <p>
+     * 使用 MqTxSender.afterCommitSendDelay 确保消息在事务提交后发送，
+     * 解决"消息先于事务提交"导致消费者查不到订单的问题。
      * </p>
      *
      * @param record 交易订单记录
@@ -280,28 +283,18 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                     .timestamp(System.currentTimeMillis())
                     .build();
 
-            // 构建 Spring Message，RocketMQ 会自动将 payload 序列化为 JSON
-            org.springframework.messaging.Message<C5OrderDetailMessage> springMessage = 
-                    org.springframework.messaging.support.MessageBuilder
-                            .withPayload(message)
-                            .build();
+            // 使用事务后发送，确保数据库事务提交后才发送消息
+            // 延迟 10 秒，给 C5 平台处理时间
+        rocketMqHelper.afterCommitSendDelay(
+                MqConstant.TOPIC_C5_ORDER,
+                MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
+                message,
+                RocketMqHelper.DelayLevel.LEVEL_3
+        );
 
-            // 发送延迟消息，使用 RocketMQ 的延迟消息 API
-            SendResult sendResult = rocketMQTemplate.syncSendDelayTimeSeconds(
-                    MqConstant.TOPIC_C5_ORDER + ":" + MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
-                    springMessage,
-                    10  // 延迟 10 秒
-            );
-
-            if (sendResult != null && sendResult.getSendStatus() == SendStatus.SEND_OK) {
-                log.info("【C5订单详情消息】延迟消息发送成功, orderId={}, msgId={}, delayLevel={}",
-                        record.getOrderId(), sendResult.getMsgId(), ORDER_DETAIL_DELAY_LEVEL);
-            } else {
-                log.warn("【C5订单详情消息】延迟消息发送结果异常, orderId={}, result={}",
-                        record.getOrderId(), sendResult);
-            }
+            log.debug("【C5订单详情消息】已注册事务后延迟发送, orderId={}", record.getOrderId());
         } catch (Exception e) {
-            log.error("【C5订单详情消息】延迟消息发送异常, orderId={}", record.getOrderId(), e);
+            log.error("【C5订单详情消息】发送异常, orderId={}", record.getOrderId(), e);
             // 消息发送失败不影响主流程
         }
     }

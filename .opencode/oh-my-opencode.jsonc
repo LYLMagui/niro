@@ -1,0 +1,43 @@
+{
+  "$schema": "https://raw.githubusercontent.com/code-yeongyu/oh-my-opencode/master/assets/oh-my-opencode.schema.json",
+
+  // 【核心策略 1】全局默认模型设为 Kimi k2.5
+  // 这意味着你日常所有的闲聊、简单的增删改查、解释代码，都会走这个便宜的模型。
+  "model": "moonshot/kimi-k2.5", 
+
+  "agents": {
+    // 【核心策略 2】将 Codex 5.3 绑定给 Oracle (先知)
+    // Oracle 是专用于复杂推理和架构设计的 Agent。
+    // 只有当你显式调用 @oracle 时，才会消耗昂贵的 Codex Token。
+    "oracle": {
+      "model": "openai/codex-5.3", // 确保这是 opencode models 命令里显示的正确 ID
+      "thinking": {
+        "type": "enabled",
+        "budgetTokens": 8000 // 给 Codex 足够的预算进行深度思考
+      }
+    },
+
+    // 【核心策略 3】确保“探索”和“文档”都走 Kimi
+    // 这两个 Agent 会读取大量文件，Token 消耗巨大，必须用 Kimi。
+    "explore": {
+      "model": "moonshot/kimi-k2.5"
+    },
+    "librarian": {
+      "model": "moonshot/kimi-k2.5"
+    },
+    
+    // (可选) 如果你希望写代码时稍微聪明点，但又不想全用 Codex
+    // 可以把 Sisyphus (主 Agent) 设为 Kimi，但给它更高的 Temperature
+    "sisyphus": {
+      "model": "moonshot/kimi-k2.5",
+      "temperature": 0.3
+    }
+  },
+
+  // 【核心策略 4】分类任务锁定
+  // 简单的任务强制走 Kimi，防止系统自动升级模型
+  "categories": {
+    "quick": { "model": "moonshot/kimi-k2.5" },
+    "analysis": { "model": "moonshot/kimi-k2.5" }
+  }
+}
