@@ -64,6 +64,12 @@ function resetRouter() {
 
 const whiteList = ["/403", "/404"];
 
+// 路由加载失败防护机制
+let routeLoadFailCount = 0;
+let lastRouteLoadFailTime = 0;
+const MAX_RETRY_COUNT = 3;
+const RETRY_COOLDOWN_MS = 5000; // 5秒冷却期
+
 router.beforeEach(async (to, _from, next) => {
   NProgress.start();
 
@@ -74,7 +80,8 @@ router.beforeEach(async (to, _from, next) => {
   const userStore = useUserStore();
   const permissionStore = usePermissionStore();
 
-  const token = userStore.token || localStorage.getItem("niro-web-token");
+  // 优先使用 localStorage 中的 token，避免内存与存储不一致
+  const token = localStorage.getItem("niro-web-token") || userStore.token;
 
   if (to.path === "/login") {
     if (token) {
@@ -111,6 +118,22 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
   const userStore = useUserStore();
   const permissionStore = usePermissionStore();
 
+  // 检查重试限制
+  const now = Date.now();
+  if (now - lastRouteLoadFailTime > RETRY_COOLDOWN_MS) {
+    routeLoadFailCount = 0; // 冷却期过后重置计数
+  }
+
+  if (routeLoadFailCount >= MAX_RETRY_COUNT) {
+    console.error("路由加载失败次数过多，停止重试");
+    MessagePlugin.error("网络连接异常，请检查后端服务");
+    // 清理所有状态
+    userStore.clearToken();
+    resetRouter();
+    next("/login");
+    return;
+  }
+
   try {
     // 1. 获取用户信息（角色、权限）
     await userStore.getInfo();
@@ -135,7 +158,10 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     // 5. 标记已加载
     permissionStore.isRoutesLoaded = true;
 
-    // 6. 确保目标路由存在后跳转
+    // 6. 重置失败计数
+    routeLoadFailCount = 0;
+
+    // 7. 确保目标路由存在后跳转
     if (router.hasRoute(to.name) || accessRoutes.some(r => r.path === to.path || r.path === to.fullPath)) {
       next({ ...to, replace: true });
     } else {
@@ -143,8 +169,13 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     }
   } catch (error) {
     console.error("加载路由失败:", error);
-    // 失败则清空 token 并跳转登录
-    localStorage.removeItem("niro-web-token");
+    // 增加失败计数
+    routeLoadFailCount++;
+    lastRouteLoadFailTime = Date.now();
+
+    // 失败则清空所有 token 状态（内存 + localStorage）并跳转登录
+    userStore.clearToken();
+    resetRouter();
     next(`/login?redirect=${to.path}`);
   }
 }
