@@ -5,6 +5,12 @@
 - **前端稳定性**：修复后端未启动时前端无限请求问题，添加路由加载失败重试限制（最多3次，5秒冷却期）。
 - **状态一致性**：修复 loadRoutes 失败时未清空内存 token 导致的循环跳转问题，token 检查优先使用 localStorage。
 
+## 2026-02-15 (v3.2.4)
+
+- **架构优化**：重构事务消息实现，MqTxSender 直接注入 RocketMQTemplate，RocketMqHelper 提供简洁的事务消息 API。
+- **调用简化**：业务代码只需注入 RocketMqHelper，通过 `afterCommitSend()` 一行代码完成事务消息发送。
+- **循环依赖修复**：消除 RocketMqHelper 与 MqTxSender 之间的循环依赖，保持职责清晰。
+
 ## 2026-02-15 (v3.2.2)
 
 - **事务消息**：新增 MqTxSender 组件，基于 Spring TransactionSynchronization 实现事务提交后才发送消息，解决订单拉取与消息发送时序竞态问题。
