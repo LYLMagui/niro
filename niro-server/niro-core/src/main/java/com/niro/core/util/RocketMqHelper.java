@@ -44,35 +44,9 @@ public class RocketMqHelper {
     private static final String TRACE_ID_HEADER = "TRACE_ID";
 
     private final RocketMQTemplate template;
-    private final MqTxSender mqTxSender;
 
     @Value("${rocketmq.producer.send-message-timeout:3000}")
     private long defaultTimeout;
-
-    /**
-     * 事务提交后发送消息
-     * <p>在 @Transactional 方法中调用，消息会在事务提交后才发送</p>
-     *
-     * @param topic   主题
-     * @param tag     标签
-     * @param payload 消息体
-     */
-    public void afterCommitSend(String topic, String tag, Object payload) {
-        mqTxSender.afterCommitSend(topic, tag, payload);
-    }
-
-    /**
-     * 事务提交后延迟发送消息
-     * <p>在 @Transactional 方法中调用，消息会在事务提交后才发送</p>
-     *
-     * @param topic      主题
-     * @param tag        标签
-     * @param payload    消息体
-     * @param delayLevel 延迟级别
-     */
-    public void afterCommitSendDelay(String topic, String tag, Object payload, DelayLevel delayLevel) {
-        mqTxSender.afterCommitSendDelay(topic, tag, payload, delayLevel);
-    }
 
     /**
      * 开始构建消息

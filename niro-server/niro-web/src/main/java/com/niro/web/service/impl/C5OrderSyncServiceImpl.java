@@ -64,7 +64,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final RedissonClient redissonClient;
-    private final RocketMqHelper rocketMqHelper;
+    private final MqTxSender mqTxSender;
 
     private RRateLimiter c5ApiLimiter;
 
@@ -285,12 +285,12 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
 
             // 使用事务后发送，确保数据库事务提交后才发送消息
             // 延迟 10 秒，给 C5 平台处理时间
-        rocketMqHelper.afterCommitSendDelay(
-                MqConstant.TOPIC_C5_ORDER,
-                MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
-                message,
-                RocketMqHelper.DelayLevel.LEVEL_3
-        );
+            mqTxSender.afterCommitSendDelay(
+                    MqConstant.TOPIC_C5_ORDER,
+                    MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
+                    message,
+                    RocketMqHelper.DelayLevel.LEVEL_3
+            );
 
             log.debug("【C5订单详情消息】已注册事务后延迟发送, orderId={}", record.getOrderId());
         } catch (Exception e) {
