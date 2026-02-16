@@ -2,6 +2,8 @@ package com.niro.core.util;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.springframework.messaging.support.MessageBuilder;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.support.TransactionSynchronization;
 import org.springframework.transaction.support.TransactionSynchronizationManager;
@@ -16,22 +18,10 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
  *   <li>发送失败仅记录日志，不影响主流程</li>
  * </ul>
  * 
- * <p>使用示例：</p>
- * <pre>
- * &#64;Transactional
- * public void createOrder() {
- *     orderMapper.insert(order);  // 1. 保存数据
- *     
- *     mqTxSender.afterCommitSend(   // 2. 事务提交后自动发送
- *         "order-topic", 
- *         "create",
- *         new OrderCreatedEvent(order.getId())
- *     );
- * }
- * </pre>
- * 
  * <p>注意：此方案为最终一致性，有极小概率丢消息（事务提交后 JVM 崩溃）。
  * 如需强一致性，请使用 RocketMQ 事务消息。</p>
+ * 
+ * <p>此类供 RocketMqHelper 内部使用，业务代码请通过 RocketMqHelper 调用。</p>
  * 
  * @author niro
  * @date 2026-02-15
@@ -41,7 +31,7 @@ import org.springframework.transaction.support.TransactionSynchronizationManager
 @RequiredArgsConstructor
 public class MqTxSender {
 
-    private final RocketMqHelper rocketMqHelper;
+    private final RocketMQTemplate rocketMQTemplate;
 
     /**
      * 事务提交后发送消息
@@ -115,11 +105,19 @@ public class MqTxSender {
      */
     private void doSend(String topic, String tag, Object payload, RocketMqHelper.DelayLevel delayLevel) {
         try {
-            RocketMqHelper.MessageBuilder builder = rocketMqHelper.topic(topic, tag);
+            // 构建 destination（topic:tag 或只有 topic）
+            String destination = (tag != null && !tag.isEmpty()) ? topic + ":" + tag : topic;
+            
+            // 构建 Spring Message
+            org.springframework.messaging.Message<?> message = MessageBuilder.withPayload(payload).build();
+            
+            // 发送消息
             if (delayLevel != null) {
-                builder.delay(delayLevel);
+                rocketMQTemplate.syncSendDelayTimeSeconds(destination, message, delayLevel.getLevel());
+            } else {
+                rocketMQTemplate.syncSend(destination, message);
             }
-            builder.send(payload);
+            
             log.debug("事务提交后消息发送成功, topic={}", topic);
         } catch (Exception e) {
             log.error("事务提交后消息发送失败, topic={}", topic, e);

@@ -2,7 +2,6 @@ package com.niro.web.service.impl;
 
 import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
-import com.niro.core.util.MqTxSender;
 import com.niro.core.util.RocketMqHelper;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
@@ -64,7 +63,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final RedissonClient redissonClient;
-    private final MqTxSender mqTxSender;
+    private final RocketMqHelper rocketMqHelper;
 
     private RRateLimiter c5ApiLimiter;
 
@@ -285,7 +284,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
 
             // 使用事务后发送，确保数据库事务提交后才发送消息
             // 延迟 10 秒，给 C5 平台处理时间
-            mqTxSender.afterCommitSendDelay(
+            rocketMqHelper.afterCommitSendDelay(
                     MqConstant.TOPIC_C5_ORDER,
                     MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
                     message,
