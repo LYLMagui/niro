@@ -1,5 +1,6 @@
 package com.niro.web.service.impl;
 
+import cn.hutool.core.util.StrUtil;
 import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RocketMqHelper;
@@ -275,6 +276,12 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
      */
     private void sendOrderDetailMessage(TradeOrderRecord record, String appKey) {
         try {
+            // 检查订单号是否为空（平台下单失败或尚未下单时可能为空）
+            if (!StrUtil.isNotBlank(record.getOrderId())) {
+                log.warn("【C5订单详情消息】订单号为空，跳过发送, recordId={}", record.getId());
+                return;
+            }
+
             C5OrderDetailMessage message = C5OrderDetailMessage.builder()
                     .orderId(record.getOrderId())
                     .userId(record.getUserId())
