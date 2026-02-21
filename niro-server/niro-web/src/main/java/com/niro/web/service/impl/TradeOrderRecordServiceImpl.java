@@ -15,6 +15,7 @@ import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
 import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
+import com.niro.web.dto.InventoryItemDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffAccount;
@@ -43,8 +44,7 @@ import java.math.BigDecimal;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -398,6 +398,73 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 .list()
                 .stream()
                 .map(TradeOrderRecord::getOrderId)
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<InventoryItemDTO> getInventoryItems(Long userId, String keyword, String startDate, String endDate) {
+        // 查询条件：用户ID + 状态成功
+        var query = tradeOrderRecordMapperManager.lambdaQuery()
+                .eq(TradeOrderRecord::getUserId, userId)
+                .eq(TradeOrderRecord::getStatus, OrderStatusEnum.SUCCESS.getCode());
+
+        // 按日期范围筛选 - 使用LocalDateTime避免类型不匹配
+        if (StrUtil.isNotBlank(startDate)) {
+            LocalDateTime startDateTime = LocalDateTime.parse(startDate + "T00:00:00");
+            query.ge(TradeOrderRecord::getCreateTime, startDateTime);
+        }
+        if (StrUtil.isNotBlank(endDate)) {
+            LocalDateTime endDateTime = LocalDateTime.parse(endDate + "T23:59:59");
+            query.le(TradeOrderRecord::getCreateTime, endDateTime);
+        }
+
+        // 按关键词筛选商品名称
+        if (StrUtil.isNotBlank(keyword)) {
+            query.like(TradeOrderRecord::getGoodsName, keyword);
+        }
+
+        // 查询所有符合条件的记录
+        List<TradeOrderRecord> records = query.list();
+        if (CollUtil.isEmpty(records)) {
+            return List.of();
+        }
+
+        // 按商品名称+价格+日期分组聚合
+        Map<String, List<TradeOrderRecord>> grouped = records.stream()
+                .collect(Collectors.groupingBy(record -> {
+                    String dateStr = DateUtil.format(record.getCreateTime(), "yyyy-MM-dd");
+                    return record.getGoodsName() + "#" + record.getPrice() + "#" + dateStr;
+                }));
+
+        // 转换为DTO列表
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    List<TradeOrderRecord> groupRecords = entry.getValue();
+                    TradeOrderRecord firstRecord = groupRecords.get(0);
+
+                    InventoryItemDTO dto = new InventoryItemDTO();
+                    dto.setGoodsName(firstRecord.getGoodsName());
+                    dto.setMarketHashName(firstRecord.getMarketHashName());
+                    dto.setGoodsImg(firstRecord.getGoodsImg());
+                    dto.setPrice(firstRecord.getPrice());
+                    dto.setQuantity(groupRecords.size());
+                    dto.setTotalAmount(firstRecord.getPrice().multiply(BigDecimal.valueOf(groupRecords.size())));
+                    dto.setPurchaseDate(DateUtil.format(firstRecord.getCreateTime(), "yyyy-MM-dd"));
+                    dto.setPlatform(firstRecord.getPlatform());
+
+                    // 从extraInfo中获取备注
+                    String remark = "";
+                    if (firstRecord.getExtraInfo() != null) {
+                        Object remarkObj = firstRecord.getExtraInfo().get("remark");
+                        if (remarkObj != null) {
+                            remark = remarkObj.toString();
+                        }
+                    }
+                    dto.setRemark(remark);
+
+                    return dto;
+                })
+                .sorted((a, b) -> b.getPurchaseDate().compareTo(a.getPurchaseDate()))
                 .collect(Collectors.toList());
     }
 }

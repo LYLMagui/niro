@@ -41,11 +41,7 @@
               trigger="click"
               :overlay-inner-style="{ padding: 0 }"
             >
-              <t-link
-                theme="primary"
-                variant="underline"
-                :disabled="uiState.isCronImmediate"
-              >
+              <t-link theme="primary" variant="underline" :disabled="uiState.isCronImmediate">
                 <t-icon name="calendar" :class="mode === 'system' ? 'mr-1' : ''" />
                 <template v-if="mode === 'system'">可视化</template>
               </t-link>
@@ -137,7 +133,11 @@
             theme="column"
             style="width: 120px"
             @blur="emit('intervalMinBlur')"
-            @change="(v: any) => { uiState.intervalMaxValue = Number(v); }"
+            @change="
+              (v: any) => {
+                uiState.intervalMaxValue = Number(v);
+              }
+            "
           />
         </template>
 

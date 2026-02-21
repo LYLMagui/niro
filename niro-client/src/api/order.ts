@@ -1,6 +1,6 @@
 import request from "@/utils/request";
 import type { PageResult } from "@/types/goods";
-import type { TradeOrderRecord, OrderQueryParam } from "@/types/order";
+import type { TradeOrderRecord, OrderQueryParam, InventoryItem } from "@/types/order";
 
 export const orderApi = {
   /**
@@ -29,5 +29,12 @@ export const orderApi = {
    */
   update(data: any) {
     return request.put("/order/record", data);
+  },
+
+  /**
+   * 获取库存看板数据
+   */
+  getInventory(params?: { keyword?: string; startDate?: string; endDate?: string }) {
+    return request.get<InventoryItem[]>("/order/record/inventory", { params });
   },
 };

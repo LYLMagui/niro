@@ -2,7 +2,7 @@ import type { Component } from "vue";
 import type { RouterVo, AppRouteRecordRaw } from "@/types/router";
 import { getComponent } from "@/router/componentMap";
 
-export function transformComponent(componentKey: string): (() => Promise<Component>) {
+export function transformComponent(componentKey: string): () => Promise<Component> {
   return getComponent(componentKey);
 }
 

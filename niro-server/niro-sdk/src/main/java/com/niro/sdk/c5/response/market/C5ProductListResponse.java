@@ -47,9 +47,9 @@ public class C5ProductListResponse {
          */
         private String remark;
         /**
-         * 是否支持议价：0：否；1：是
+         * 是否支持议价：false-否；true-是
          */
-        private Integer acceptBargain;
+        private Boolean acceptBargain;
         /**
          * 图片地址
          */

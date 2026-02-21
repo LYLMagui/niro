@@ -365,7 +365,12 @@ import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum, TaskRunModeMap } from "@/enums/TaskRunModeEnum";
 import AccountSelector from "@/components/task/AccountSelector.vue";
 import ScheduleConfig from "@/components/task/ScheduleConfig.vue";
-import { useUiState, convertToUi, DURATION_FACTORS, INTERVAL_FACTORS } from "@/composables/useUiState";
+import {
+  useUiState,
+  convertToUi,
+  DURATION_FACTORS,
+  INTERVAL_FACTORS,
+} from "@/composables/useUiState";
 import { useGoodsSearch } from "@/composables/useGoodsSearch";
 import { useAccountSelect } from "@/composables/useAccountSelect";
 import { useTaskForm } from "@/composables/useTaskForm";
@@ -382,17 +387,26 @@ const systemFormRef = ref();
 const { formData, submitLoading, rules, resetForm, handleSubmit } = useTaskForm(emit);
 
 const {
-  uiState, c5Config,
-  handleIntervalMinBlur, handleIntervalMaxBlur, handleIntervalUnitChange,
-  syncFromUiState, executionSummary,
+  uiState,
+  c5Config,
+  handleIntervalMinBlur,
+  handleIntervalMaxBlur,
+  handleIntervalUnitChange,
+  syncFromUiState,
+  executionSummary,
 } = useUiState(formData as any);
 
-const { goodsLoading, goodsOptions, remoteSearchGoods, isWearable } =
-  useGoodsSearch(toRef(formData, "goodsId") as any);
+const { goodsLoading, goodsOptions, remoteSearchGoods, isWearable } = useGoodsSearch(
+  toRef(formData, "goodsId") as any
+);
 
 const {
-  accounts, accountsLoading, fetchAccounts,
-  tradeTasks, tradeTasksLoading, fetchTradeTasks,
+  accounts,
+  accountsLoading,
+  fetchAccounts,
+  tradeTasks,
+  tradeTasksLoading,
+  fetchTradeTasks,
   filteredAccounts,
 } = useAccountSelect(formData as any);
 
@@ -402,7 +416,7 @@ watch(
   () => {
     formData.targetTaskId = undefined;
     tradeTasks.value = [];
-  },
+  }
 );
 
 watch(
@@ -419,7 +433,7 @@ watch(
     if (filteredIds?.length !== (formData.accountIds as number[])?.length) {
       formData.accountIds = filteredIds;
     }
-  },
+  }
 );
 
 // --- Methods (Exposed) ---
@@ -527,9 +541,7 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
     nextTick(async () => {
       formData.targetTaskId = row.targetTaskId;
       if ((row as any).targetTaskName) {
-        tradeTasks.value = [
-          { id: row.targetTaskId, name: (row as any).targetTaskName } as never,
-        ];
+        tradeTasks.value = [{ id: row.targetTaskId, name: (row as any).targetTaskName } as never];
       } else {
         await fetchTradeTasks(row.goodsId);
       }

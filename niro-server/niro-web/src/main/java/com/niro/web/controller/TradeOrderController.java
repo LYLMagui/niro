@@ -2,7 +2,7 @@ package com.niro.web.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
+import com.niro.web.dto.InventoryItemDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.vo.C5OrderDetailVO;
@@ -11,6 +11,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -60,5 +61,15 @@ public class TradeOrderController {
     @PutMapping
     public void updateOrderRecord(@RequestBody TradeOrderRecordDTO dto) {
         tradeOrderRecordService.updateOrderRecord(dto);
+    }
+
+    @Operation(summary = "获取库存看板数据")
+    @GetMapping("/inventory")
+    public List<InventoryItemDTO> getInventoryItems(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return tradeOrderRecordService.getInventoryItems(userId, keyword, startDate, endDate);
     }
 }

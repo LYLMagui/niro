@@ -79,9 +79,7 @@ export const usePermissionStore = defineStore("permission", () => {
     if (res && Array.isArray(res)) {
       sessionStorage.setItem("niro-dynamic-routes-raw", JSON.stringify(res));
 
-      accessedRoutes = roles.includes("admin")
-        ? filterAsyncRoutes(res)
-        : filterAsyncRoutes(res);
+      accessedRoutes = roles.includes("admin") ? filterAsyncRoutes(res) : filterAsyncRoutes(res);
     }
 
     routes.value = [...accessedRoutes];

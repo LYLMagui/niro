@@ -21,6 +21,7 @@ const componentMap: Record<string, () => Promise<Component>> = {
   logs: () => import("@/views/Logs.vue"),
   taskconfig: () => import("@/views/TaskConfig.vue"),
   system: () => import("@/views/Settings.vue"),
+  inventory: () => import("@/views/InventoryBoard.vue"),
   403: () => import("@/views/403.vue"),
   404: () => import("@/views/404.vue"),
 };
@@ -28,7 +29,12 @@ const componentMap: Record<string, () => Promise<Component>> = {
 export const getComponent = (componentKey?: string, path?: string): (() => Promise<Component>) => {
   if (!componentKey) {
     if (path) {
-      const key = path.replace(/^\/+|\/+$/g, "").split("/").pop()?.toLowerCase() || "";
+      const key =
+        path
+          .replace(/^\/+|\/+$/g, "")
+          .split("/")
+          .pop()
+          ?.toLowerCase() || "";
       return componentMap[key] || componentMap["404"];
     }
     // 严禁返回 Layout，作为容器使用 ParentView
@@ -39,6 +45,11 @@ export const getComponent = (componentKey?: string, path?: string): (() => Promi
     return componentMap[componentKey];
   }
 
-  const cleanKey = componentKey.replace(/^\/+|\/+$/g, "").split("/").pop()?.toLowerCase() || "";
+  const cleanKey =
+    componentKey
+      .replace(/^\/+|\/+$/g, "")
+      .split("/")
+      .pop()
+      ?.toLowerCase() || "";
   return componentMap[cleanKey] || componentMap["404"];
 };

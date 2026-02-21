@@ -1,29 +1,17 @@
 <template>
   <template v-if="!item.hidden">
     <!-- 目录/子菜单：当 alwaysShow 为 true 或有多个子菜单时显示 -->
-    <t-submenu
-      v-if="showSubMenu"
-      :value="item.value"
-      :title="item.label"
-    >
-      <template #icon v-if="item.icon">
+    <t-submenu v-if="showSubMenu" :value="item.value" :title="item.label">
+      <template v-if="item.icon" #icon>
         <component :is="item.icon" />
       </template>
       <!-- 递归渲染子项 -->
-      <sidebar-item
-        v-for="child in item.children"
-        :key="child.value"
-        :item="child"
-      />
+      <sidebar-item v-for="child in item.children" :key="child.value" :item="child" />
     </t-submenu>
 
     <!-- 菜单项：叶子节点或被提升的单子节点 -->
-    <t-menu-item
-      v-else
-      :value="theItem.value"
-      @click="handleMenuClick(theItem)"
-    >
-      <template #icon v-if="theItem.icon">
+    <t-menu-item v-else :value="theItem.value" @click="handleMenuClick(theItem)">
+      <template v-if="theItem.icon" #icon>
         <component :is="theItem.icon" />
       </template>
       {{ theItem.label }}
@@ -32,9 +20,9 @@
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue';
-import { useRouter } from 'vue-router';
-import type { MenuConfig } from '@/utils/menu';
+import { computed } from "vue";
+import { useRouter } from "vue-router";
+import type { MenuConfig } from "@/utils/menu";
 
 const props = defineProps<{
   item: MenuConfig;

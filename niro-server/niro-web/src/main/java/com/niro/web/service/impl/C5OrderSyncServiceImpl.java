@@ -2,9 +2,11 @@ package com.niro.web.service.impl;
 
 import cn.hutool.core.util.StrUtil;
 import com.niro.core.constant.MqConstant;
+import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RocketMqHelper;
 import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
@@ -142,8 +144,13 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                 int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
                 totalSynced += synced;
                 log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
+            } catch (C5ApiException e) {
+                // API 调用失败（如 IP 白名单、认证失败等），属于系统级错误，立即终止任务
+                log.error("用户 [{}] C5 API 调用失败，终止同步任务: {}", userId, e.getMessage(), e);
+                throw new BusinessException("C5 API 调用失败: " + e.getMessage());
             } catch (Exception e) {
-                log.error("同步用户 [{}] 订单失败", userId, e);
+                // 其他异常（如数据处理异常），记录后继续下一个用户
+                log.error("同步用户 [{}] 订单失败，继续处理下一个用户", userId, e);
             }
         }
 

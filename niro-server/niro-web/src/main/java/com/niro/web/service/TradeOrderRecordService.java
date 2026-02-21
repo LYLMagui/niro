@@ -2,6 +2,7 @@ package com.niro.web.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
+import com.niro.web.dto.InventoryItemDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.vo.C5OrderDetailVO;
@@ -78,4 +79,16 @@ public interface TradeOrderRecordService{
      * @return 已存在的订单ID列表
      */
     List<String> selectExistingOrderIds(String platform, List<String> orderIds);
+
+    /**
+     * 获取库存看板数据
+     * 按商品名称+购买价格+购买日期分组聚合订单记录
+     *
+     * @param userId    用户ID
+     * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @return 库存看板项目列表
+     */
+    List<InventoryItemDTO> getInventoryItems(Long userId, String keyword, String startDate, String endDate);
 }

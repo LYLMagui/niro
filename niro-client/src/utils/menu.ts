@@ -194,7 +194,10 @@ export function getBreadcrumbs(currentPath: string, routes: RouterVo[]): Breadcr
  * @param menus 菜单配置数组
  * @returns 匹配的菜单项或 undefined
  */
-export function findMenuByRouteName(routeName: string, menus: MenuConfig[]): MenuConfig | undefined {
+export function findMenuByRouteName(
+  routeName: string,
+  menus: MenuConfig[]
+): MenuConfig | undefined {
   for (const menu of menus) {
     if (menu.routeName === routeName) {
       return menu;

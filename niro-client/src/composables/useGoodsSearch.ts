@@ -4,9 +4,24 @@ import type { GoodsSimple } from "@/types/goods";
 
 /** 非磨损类饰品分类关键词 */
 const NON_WEARABLE_CATEGORIES = [
-  "印花", "Sticker", "容器", "Container", "涂鸦", "Spray",
-  "布章", "Patch", "音乐盒", "Music Kit", "钥匙", "Key",
-  "工具", "Tool", "探员", "Agent", "其他", "Other",
+  "印花",
+  "Sticker",
+  "容器",
+  "Container",
+  "涂鸦",
+  "Spray",
+  "布章",
+  "Patch",
+  "音乐盒",
+  "Music Kit",
+  "钥匙",
+  "Key",
+  "工具",
+  "Tool",
+  "探员",
+  "Agent",
+  "其他",
+  "Other",
 ];
 
 /**

@@ -36,3 +36,31 @@ export interface OrderStats {
   todayFailCount: number;
   todayTotalAmount: number;
 }
+
+/**
+ * 库存看板项目
+ */
+export interface InventoryItem {
+  id?: number;
+  goodsName: string;
+  marketHashName: string;
+  goodsImg: string;
+  price: number;
+  quantity: number;
+  totalAmount: number;
+  purchaseDate: string;
+  remark: string;
+  platform: string;
+}
+
+/**
+ * 库存看板查询参数
+ */
+export interface InventoryQueryParam {
+  page?: number;
+  pageSize?: number;
+  keyword?: string;
+  purchaseDateRange?: string[];
+  startDate?: string;
+  endDate?: string;
+}

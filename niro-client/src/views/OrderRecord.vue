@@ -14,6 +14,7 @@
         <t-tab-panel :value="0" label="全部" />
         <t-tab-panel :value="1" label="成功" />
         <t-tab-panel :value="2" label="失败" />
+        <t-tab-panel :value="3" label="取消" />
       </t-tabs>
 
       <!-- 筛选栏 (对齐 TaskConfig 布局) -->
@@ -322,8 +323,17 @@ const handleSearch = () => {
 
 const handleTabChange = (val: any) => {
   activeTab.value = val;
-  // 0 表示全部 (对应后端 status=null/undefined), 1=成功, 2=失败
-  queryParams.status = val === 0 ? undefined : val;
+  // Tab 映射: 0=全部, 1=成功, 2=失败, 3=取消
+  // status 映射: 1=成功, 2/11=失败, 3=取消
+  if (val === 0) {
+    queryParams.status = undefined; // 全部
+  } else if (val === 1) {
+    queryParams.status = 1; // 成功
+  } else if (val === 2) {
+    queryParams.status = 2; // 失败
+  } else if (val === 3) {
+    queryParams.status = 3; // 取消
+  }
   queryParams.page = 1;
   fetchData();
 };

@@ -5,9 +5,7 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
-import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.request.market.C5ProductListRequest;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
@@ -23,17 +21,16 @@ import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
 import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
+import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -49,6 +46,7 @@ import java.util.stream.Collectors;
 public class C5TradeStrategyImpl implements IPlatformStrategy {
 
     private final C5TaskScheduler c5TaskScheduler;
+    private final C5ApiClientService c5ApiClientService;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
@@ -56,12 +54,6 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final BuffScanTaskMapper buffScanTaskMapper;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
-
-    @Value("${c5.base-url:https://openapi.c5game.com}")
-    private String c5BaseUrl;
-
-    // 客户端缓存 (UserId -> Client)
-    private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     @Override
     public void stopTask(Long taskId) {
@@ -74,12 +66,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private C5ApiClient resolveClient(Long userId) {
-        return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
-    }
-
-
-    public C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache, UserPlatformSettingsService userPlatformSettingsService, String c5BaseUrl) {
-        return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
+        return c5ApiClientService.getClient(userId);
     }
 
     @Override

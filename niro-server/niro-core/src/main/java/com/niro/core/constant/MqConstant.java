@@ -27,4 +27,14 @@ public final class MqConstant {
      */
     public static final String CONSUMER_GROUP_C5_ORDER_DETAIL = "niro-c5-order-detail-consumer";
 
+    /**
+     * C5 订单状态同步 Tag
+     */
+    public static final String TAG_C5_ORDER_STATUS_SYNC = "order-status-sync";
+
+    /**
+     * C5 订单状态同步消费者组
+     */
+    public static final String CONSUMER_GROUP_C5_ORDER_STATUS_SYNC = "niro-c5-order-status-sync-consumer";
+
 }

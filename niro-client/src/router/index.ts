@@ -1,12 +1,7 @@
 import NProgress from "nprogress";
 import "nprogress/nprogress.css";
 import { MessagePlugin } from "tdesign-vue-next";
-import {
-  createRouter,
-  createWebHistory,
-  type RouteRecordRaw,
-  type Router,
-} from "vue-router";
+import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from "vue-router";
 import { useUserStore } from "@/store/user";
 import { usePermissionStore } from "@/store/permission";
 import Layout from "@/components/Layout.vue";
@@ -51,10 +46,7 @@ const router: Router = createRouter({
 function resetRouter() {
   router.getRoutes().forEach((route) => {
     const name = route.name;
-    if (
-      name &&
-      !["Login", "Forbidden", "NotFound", "Root", "Any"].includes(name as string)
-    ) {
+    if (name && !["Login", "Forbidden", "NotFound", "Root", "Any"].includes(name as string)) {
       router.removeRoute(name as string);
     }
   });
@@ -162,7 +154,10 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     routeLoadFailCount = 0;
 
     // 7. 确保目标路由存在后跳转
-    if (router.hasRoute(to.name) || accessRoutes.some(r => r.path === to.path || r.path === to.fullPath)) {
+    if (
+      router.hasRoute(to.name) ||
+      accessRoutes.some((r) => r.path === to.path || r.path === to.fullPath)
+    ) {
       next({ ...to, replace: true });
     } else {
       next({ path: "/dashboard", replace: true });

@@ -4,18 +4,16 @@
     <t-aside
       :width="collapsed ? '64px' : '240px'"
       :style="{ width: collapsed ? '64px' : '240px' }"
-      class="flex flex-col border-r border-gray-100 bg-white transition-all duration-300 relative z-20 flex-shrink-0"
+      class="relative z-20 flex flex-shrink-0 flex-col border-r border-gray-100 bg-white transition-all duration-300"
     >
       <!-- Logo & 收缩按钮 -->
       <div class="flex h-16 items-center justify-between px-4">
-        <div v-show="!collapsed" class="text-xl font-bold text-blue-600 truncate">
-          Niro
-        </div>
+        <div v-show="!collapsed" class="truncate text-xl font-bold text-blue-600">Niro</div>
         <t-button
           variant="text"
           shape="square"
-          @click="collapsed = !collapsed"
           class="text-gray-500 hover:bg-gray-100"
+          @click="collapsed = !collapsed"
         >
           <template #icon>
             <view-list-icon class="text-lg" />
@@ -24,7 +22,7 @@
       </div>
 
       <!-- 菜单区域 -->
-      <div class="flex-1 overflow-y-auto overflow-x-hidden">
+      <div class="flex-1 overflow-x-hidden overflow-y-auto">
         <t-menu
           theme="light"
           :value="activeValue"
@@ -33,24 +31,20 @@
           class="!bg-transparent"
           @change="handleMenuChange"
         >
-          <sidebar-item
-            v-for="menu in sidebarMenus"
-            :key="menu.value"
-            :item="menu"
-          />
+          <sidebar-item v-for="menu in sidebarMenus" :key="menu.value" :item="menu" />
         </t-menu>
       </div>
 
       <!-- 底部用户信息 -->
-      <div class="border-t border-gray-100 p-2 relative">
+      <div class="relative border-t border-gray-100 p-2">
         <!-- 自定义弹出菜单 -->
         <div
           v-if="showUserMenu"
-          class="absolute rounded-lg border border-gray-100 bg-white shadow-xl py-1 animate-fade-in z-50 bottom-full mb-2"
-          :class="[collapsed ? 'left-1 w-48' : 'left-2 right-2']"
+          class="animate-fade-in absolute bottom-full z-50 mb-2 rounded-lg border border-gray-100 bg-white py-1 shadow-xl"
+          :class="[collapsed ? 'left-1 w-48' : 'right-2 left-2']"
         >
           <div
-            class="flex cursor-pointer items-center px-4 py-2 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+            class="flex cursor-pointer items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
             @click="handleLogout"
           >
             <poweroff-icon class="mr-2 text-gray-500" />
@@ -65,7 +59,7 @@
           :class="{ 'justify-center': collapsed, 'bg-gray-100': showUserMenu }"
           @click="showUserMenu = !showUserMenu"
         >
-          <t-avatar size="small" class="bg-blue-100 text-blue-600 shrink-0">
+          <t-avatar size="small" class="shrink-0 bg-blue-100 text-blue-600">
             <template #icon><user-circle-icon /></template>
           </t-avatar>
           <div v-show="!collapsed" class="ml-3 flex flex-1 flex-col overflow-hidden">
@@ -73,7 +67,7 @@
               {{ userStore.userInfo.nickname || userStore.userInfo.username || "用户" }}
             </span>
             <span class="truncate text-xs text-gray-500">
-              {{ userStore.userInfo.roles?.[0] === 'admin' ? '管理员' : '普通用户' }}
+              {{ userStore.userInfo.roles?.[0] === "admin" ? "管理员" : "普通用户" }}
             </span>
           </div>
         </div>
@@ -98,7 +92,6 @@
           </t-breadcrumb>
         </div>
       </t-header>
-
 
       <!-- 内容展示区域 -->
       <t-content
@@ -128,18 +121,10 @@
 <script setup lang="ts">
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import {
-  UserCircleIcon,
-  PoweroffIcon,
-  ViewListIcon,
-} from "tdesign-icons-vue-next";
+import { UserCircleIcon, PoweroffIcon, ViewListIcon } from "tdesign-icons-vue-next";
 import { useUserStore } from "@/store/user";
 import { usePermissionStore } from "@/store/permission";
-import {
-  transformRoutesToMenus,
-  getBreadcrumbs,
-  type MenuConfig,
-} from "@/utils/menu";
+import { transformRoutesToMenus, getBreadcrumbs, type MenuConfig } from "@/utils/menu";
 import SidebarItem from "./SidebarItem.vue";
 
 const route = useRoute();
@@ -182,17 +167,17 @@ const handleLogout = async () => {
 // 点击外部关闭用户菜单
 const closeUserMenu = (e: MouseEvent) => {
   const target = e.target as HTMLElement;
-  if (!target.closest('.relative')) {
+  if (!target.closest(".relative")) {
     showUserMenu.value = false;
   }
 };
 
 onMounted(() => {
-  document.addEventListener('click', closeUserMenu);
+  document.addEventListener("click", closeUserMenu);
 });
 
 onUnmounted(() => {
-  document.removeEventListener('click', closeUserMenu);
+  document.removeEventListener("click", closeUserMenu);
 });
 </script>
 

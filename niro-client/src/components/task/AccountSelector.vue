@@ -26,14 +26,12 @@
             :content="'已绑定任务: ' + item.boundTaskName"
             placement="top"
           >
-            <span class="truncate text-xs text-gray-400">
-              (已绑定: {{ item.boundTaskName }})
-            </span>
+            <span class="truncate text-xs text-gray-400">(已绑定: {{ item.boundTaskName }})</span>
           </t-tooltip>
         </div>
         <t-tag
           v-if="item.status === BuffAccountStatusEnum.NORMAL"
-          :theme="(BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any)"
+          :theme="BuffAccountStatusMap[BuffAccountStatusEnum.NORMAL].theme as any"
           variant="light"
           size="small"
           class="shrink-0"
@@ -43,8 +41,7 @@
         <t-tag
           v-else
           :theme="
-            ((BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) ||
-            'danger')
+            (BuffAccountStatusMap[item.status as BuffAccountStatusEnum]?.theme as any) || 'danger'
           "
           variant="light"
           size="small"
