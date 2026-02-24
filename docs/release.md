@@ -1,5 +1,13 @@
 # Release Notes
 
+## 2026-02-24 (v3.4.0)
+
+- **EvoMap 集成**：新增 EvoMap AI Agent 解决方案市场代理服务，支持通过错误信号或关键词搜索已验证的解决方案。
+- **缓存优化**：引入 Redis 分布式缓存，支持 5 分钟缓存有效期，显著降低重复查询延迟与 API 限流风险。
+- **Token 节省**：新增 compact 精简模式，仅返回关键字段（summary、confidence、gdi_score、trigger、blast_radius），可节省约 80% token 消耗。
+- **轻量部署**：采用 FastAPI + Python 实现，相较 Spring Boot 大幅降低资源占用与启动时间。
+- **OpenCode Skill**：创建 EvoMap Solution Finder Skill，无缝集成至 OpenCode 工作流。
+
 ## 2026-02-24 (v3.3.1)
 
 - **功能优化**：库存统计页面新增“计算成本”功能，支持选中商品后自动计算总数量与总金额。
