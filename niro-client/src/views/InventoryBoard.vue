@@ -1,11 +1,11 @@
 <template>
   <div class="p-6">
-    <!-- 库存统计主卡片 -->
+    <!-- 订单统计主卡片 -->
     <t-card :bordered="false" class="embedded-card shadow-sm">
       <template #title>
         <div class="flex items-center">
           <dashboard-icon class="mr-2 text-blue-600" />
-          <span class="text-lg font-bold text-gray-800">库存统计</span>
+          <span class="text-lg font-bold text-gray-800">订单统计</span>
         </div>
       </template>
       <template #actions>
