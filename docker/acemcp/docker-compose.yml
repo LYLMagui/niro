@@ -1,0 +1,32 @@
+version: '3.8'
+
+services:
+  acemcp:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: acemcp-node:latest
+    container_name: acemcp-server
+    ports:
+      - "8080:8080"
+    volumes:
+      # 持久化配置和数据
+      - acemcp-config:/root/.acemcp
+    environment:
+      - NODE_ENV=production
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    networks:
+      - niro-network
+
+networks:
+  niro-network:
+    external: true
+
+volumes:
+  acemcp-config:
+    name: acemcp-config
