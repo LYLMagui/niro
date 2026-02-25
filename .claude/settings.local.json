@@ -13,7 +13,10 @@
       "mcp__desktop-commander__list_directory",
       "mcp__desktop-commander__read_file",
       "mcp__code-index__*",
-      "mcp__codex-father__codex"
+      "mcp__codex-father__codex",
+      "mcp__ide__getDiagnostics",
+      "mcp__fetch__fetch",
+      "mcp__mini-max-search__web_search"
     ]
   },
   "mcpServers": {
