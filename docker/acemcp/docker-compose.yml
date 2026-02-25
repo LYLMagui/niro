@@ -11,14 +11,13 @@ services:
       - "8080:8080"
     volumes:
       # 持久化配置和数据
-      - acemcp-config:/root/.acemcp
+      - ./data:/root/.acemcp
+      # 挂载 settings.toml 配置文件（可编辑）
+      - ./config/settings.toml:/root/.acemcp/settings.toml:ro
       # 挂载要索引的项目目录（根据需要修改路径）
-      - ${PROJECT_PATH:-../..}:/workspace
+      - ${PROJECT_PATH:-../..}:/workspace:ro
     environment:
       - NODE_ENV=production
-      # API 配置（需要根据实际情况修改）
-      - BASE_URL=${BASE_URL:-https://api.example.com}
-      - TOKEN=${TOKEN:-your-token-here}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "-q", "--spider", "http://localhost:8080"]
@@ -30,15 +29,9 @@ services:
     command: >
       sh -c "acemcp-node
       --project-path /workspace
-      --base-url $${BASE_URL}
-      --token $${TOKEN}
       --web-port 8080
       --host 0.0.0.0"
 
 networks:
   niro-network:
     external: true
-
-volumes:
-  acemcp-config:
-    name: acemcp-config
