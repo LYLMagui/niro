@@ -16,7 +16,8 @@
       "mcp__codex-father__codex",
       "mcp__ide__getDiagnostics",
       "mcp__fetch__fetch",
-      "mcp__mini-max-search__web_search"
+      "mcp__mini-max-search__web_search",
+      "mcp__acemcp__*"
     ]
   },
   "mcpServers": {
@@ -76,6 +77,16 @@
       "args": [
         "-y",
         "bing-cn-mcp"
+      ],
+      "type": "stdio"
+    },
+    "acemcp": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "acemcp-node",
+        "--project-path",
+        "D:/MySpace/niro"
       ],
       "type": "stdio"
     }
