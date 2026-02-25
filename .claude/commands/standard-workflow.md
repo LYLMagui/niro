@@ -28,7 +28,7 @@ tips: /standard-workflow <task_description>
 # 📁 路径规范（高频错误）
 
 ✅ **正确**：`<project>/.claude/context-initial.json`
-❌ **禁止**：`~/.claude/` 或 `C:\Users\WenYu\.claude/`
+❌ **禁止**：`~/.claude/` 或 `C:\Users\24160\.claude/`
 
 ---
 
