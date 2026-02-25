@@ -573,8 +573,8 @@ defineExpose({ handleAdd, handleAddSystem, handleEdit, openWithGoods });
 
 <style scoped>
 :deep(.task-edit-dialog .t-dialog__body) {
-  padding: 4px 12px 8px;
   max-height: 80vh;
+  padding: 4px 12px 8px;
   overflow-y: auto;
 }
 
@@ -595,22 +595,22 @@ defineExpose({ handleAdd, handleAddSystem, handleEdit, openWithGoods });
 }
 
 :deep(.compact-form .t-form__item .t-input__tips) {
-  margin-top: 4px;
-  margin-bottom: 2px;
-  line-height: 1.4;
   position: relative !important;
   display: block !important;
   min-height: auto !important;
+  margin-top: 4px;
+  margin-bottom: 2px;
+  line-height: 1.4;
 }
 
 :deep(.compact-form .t-form__item .t-form__verify-message) {
-  margin-top: 4px;
-  margin-bottom: 2px;
-  line-height: 1.4;
   position: relative !important;
   display: block !important;
   min-height: auto !important;
+  margin-top: 4px;
+  margin-bottom: 2px;
   font-size: 12px;
+  line-height: 1.4;
 }
 
 :deep(.compact-form .t-form__item .t-input__tips + .t-form__verify-message) {

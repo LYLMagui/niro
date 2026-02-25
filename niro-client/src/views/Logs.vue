@@ -693,8 +693,8 @@ onUnmounted(() => eventSource?.close());
 }
 
 .order-step-breathe {
-  animation: order-step-breathe 3s infinite;
   background-color: rgba(59, 130, 246, 0.1);
+  animation: order-step-breathe 3s infinite;
 }
 
 @keyframes order-step-breathe {

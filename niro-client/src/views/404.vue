@@ -21,8 +21,8 @@ function goHome() {
 <style scoped>
 .error-page {
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   min-height: 100vh;
   background-color: #f5f7fa;
 }
@@ -32,16 +32,16 @@ function goHome() {
 }
 
 .error-code {
+  margin-bottom: 20px;
   font-size: 120px;
   font-weight: bold;
-  color: #3498db;
   line-height: 1;
-  margin-bottom: 20px;
+  color: #3498db;
 }
 
 .error-message {
+  margin-bottom: 30px;
   font-size: 24px;
   color: #333;
-  margin-bottom: 30px;
 }
 </style>

@@ -282,10 +282,10 @@ const handleMoreClick = (data: any) => {
 <style scoped>
 /* 覆盖 TDesign Steps 样式，使其更紧凑 */
 :deep(.compact-steps .t-steps-item__title) {
-  font-size: 12px;
-  color: #8c8c8c;
   margin-bottom: 0 !important;
+  font-size: 12px;
   line-height: 1.2;
+  color: #8c8c8c;
 }
 
 :deep(.compact-steps .t-steps-item--process .t-steps-item__title) {
@@ -295,8 +295,8 @@ const handleMoreClick = (data: any) => {
 
 :deep(.compact-steps .t-steps-item__icon) {
   width: 16px;
-  height: 16px;
   min-width: 16px;
+  height: 16px;
   font-size: 10px;
 }
 

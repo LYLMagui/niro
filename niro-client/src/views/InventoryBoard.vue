@@ -307,13 +307,13 @@ const fetchData = async () => {
     const params: InventoryQueryParam = {
       keyword: queryParams.keyword,
     };
-    
+
     // 处理日期范围
     if (queryParams.purchaseDateRange && queryParams.purchaseDateRange.length === 2) {
       params.startDate = queryParams.purchaseDateRange[0];
       params.endDate = queryParams.purchaseDateRange[1];
     }
-    
+
     const res = await orderApi.getInventory(params);
     if (Array.isArray(res)) {
       // 为没有ID的数据生成临时ID，确保表格选择功能正常
