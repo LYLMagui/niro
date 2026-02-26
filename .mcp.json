@@ -1,0 +1,61 @@
+{
+  "mcpServers": {
+    "GitHub": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-github"
+      ],
+      "env": {
+        "GITHUB_PERSONAL_ACCESS_TOKEN": "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"
+      }
+    },
+    "gitee": {
+      "url": "https://api.gitee.com/mcp",
+      "type": "sse",
+      "headers": {
+        "Authorization": "69745181d1c8e3d5ebc7c913319578bb"
+      }
+    },
+    "tdesign-mcp-server": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "tdesign-mcp-server"
+      ]
+    },
+    "PostgreSQL": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "postgresql://niro-admin:Lyl010430.@106.53.11.158:5432/niro"
+      ]
+    },
+    "redis": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-redis",
+        "redis://:Lyl010430.@106.53.11.158:6379"
+      ]
+    },
+    "bing-search": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "bing-cn-mcp"
+      ]
+    }
+  }
+}
