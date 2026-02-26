@@ -21,7 +21,11 @@
       "mcp__bing-search__bing_search",
       "mcp__context7__resolve-library-id",
       "mcp__PostgreSQL__query",
-      "mcp__sequential-thinking__sequentialthinking"
+      "mcp__sequential-thinking__sequentialthinking",
+      "Bash(npx skills:*)",
+      "Bash(PYTHONIOENCODING=utf-8 python:*)",
+      "Bash(which uvx:*)",
+      "Bash(which uv:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
