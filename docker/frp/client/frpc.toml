@@ -1,5 +1,4 @@
-# frpc.toml
-serverAddr = "8.133.242.250"
+serverAddr = "119.29.200.243"
 serverPort = 7000
 auth.token = "niro_frp_token_2024"
 
@@ -9,10 +8,3 @@ type = "tcp"
 localIP = "127.0.0.1"
 localPort = 9999
 remotePort = 9999
-
-[[proxies]]
-name = "web-admin"
-type = "tcp"
-localIP = "127.0.0.1"
-localPort = 8080
-remotePort = 8080
