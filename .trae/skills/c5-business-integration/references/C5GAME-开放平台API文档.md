@@ -18,12 +18,12 @@
 - 订单 [卖家订单列表](https://opendoc.c5game.com/api-111917782.md): 查询卖家订单列表信息
 - 订单 [发货接口](https://opendoc.c5game.com/api-111917784.md): 发货接口
 - 交易报价 [steam 报价查询](https://opendoc.c5game.com/api-112234466.md): #### 使用 steam 官方的 `tradeofferid` 进行查询，来校验是否是 `C5GAME` 平台内的交易报价
+- 商品 [在售列表查询【new】](https://opendoc.c5game.com/api-414956575.md): 接口目前处于内测阶段
+- 商品 [在售列表搜索【new】](https://opendoc.c5game.com/api-414954214.md): 接口目前处于内测阶段
 - 商品 [价格查询](https://opendoc.c5game.com/api-161954984.md): 
 - 商品 [某个hashName符合条件的在售列表](https://opendoc.c5game.com/api-211629706.md): #### 限流说明
 - 商品 [根据hashName批量查询统计信息](https://opendoc.c5game.com/api-304298359.md): 单次查询最多100条
 - 商品 [根据hashName批量查询存世量](https://opendoc.c5game.com/api-304306656.md): 单次查询最多100条
-- 商品 [在售列表查询【new】](https://opendoc.c5game.com/api-414956575.md): 接口目前处于内测阶段
-- 商品 [在售列表搜索【new】](https://opendoc.c5game.com/api-414954214.md): 接口目前处于内测阶段
 - 求购 [发起求购](https://opendoc.c5game.com/api-181496279.md): 
 - 求购 [取消求购](https://opendoc.c5game.com/api-181508072.md): 
 - 求购 [求购列表](https://opendoc.c5game.com/api-184817384.md): 
