@@ -36,7 +36,7 @@ services:
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
       # Broker 比较吃内存，开发环境给到 512M
-      - JAVA_OPT=-server -Xms512m -Xmx1024m -Xmn512m
+      - JAVA_OPT=-server -Xms512m -Xmx512m -Xmn512m
     depends_on:
       - namesrv
     networks:
