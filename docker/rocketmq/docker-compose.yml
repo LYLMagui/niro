@@ -3,13 +3,11 @@ services:
   namesrv:
     image: apache/rocketmq:5.4.0
     container_name: rmqnamesrv
-    env_file:
-      - .env
     ports:
       - 9876:9876
     # 挂载日志，方便宿主机直接看日志排查
     volumes:
-      - ./logs/namesrv:/home/rocketmq/logs
+      - /home/data/rocketmq/logs:/home/rocketmq/logs
     environment:
       # 限制内存占用，防止默认参数太大导致宿主机 OOM
       - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
@@ -27,15 +25,13 @@ services:
   broker:
     image: apache/rocketmq:5.4.0
     container_name: rmqbroker
-    env_file:
-      - .env
     ports:
       - 10909:10909
       - 10911:10911
     # 挂载 store 目录确保消息持久化，不挂载重启消息就丢了
     volumes:
-      - ./logs/broker:/home/rocketmq/rocketmq-5.4.0/logs
-      - ./store/broker:/home/rocketmq/rocketmq-5.4.0/store
+      - /home/data/rocketmq/logs/broker:/home/rocketmq/rocketmq-5.4.0/logs
+      - /home/data/rocketmq/store/broker:/home/rocketmq/rocketmq-5.4.0/store
       - ./conf/broker.conf:/home/rocketmq/rocketmq-5.4.0/conf/broker.conf
     environment:
       - NAMESRV_ADDR=rmqnamesrv:9876
@@ -85,8 +81,6 @@ services:
   dashboard:
     image: apacherocketmq/rocketmq-dashboard:latest
     container_name: rmqdashboard
-    env_file:
-      - .env
     ports:
       - 18080:8082
     environment:

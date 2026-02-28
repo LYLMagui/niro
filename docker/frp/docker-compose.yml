@@ -6,8 +6,6 @@ services:
     network_mode: host
     volumes:
       - ./frps.toml:/etc/frp/frps.toml
-    env_file:
-      - .env
     logging:
       driver: "json-file"
       options:
