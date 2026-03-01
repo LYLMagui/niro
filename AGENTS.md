@@ -200,7 +200,7 @@ pytest -q tests/test_c5_response.py::test_c5_response
 
 | rule_id | instruction | notes |
 | --- | --- | --- |
-| collab.call_format | 主 AI 通过 `mcp__codex__codex model="gpt-5.3-codex-spark" sandbox="danger-full-access" prompt="<TASK>"` 调用 | 固定格式 |
+| collab.call_format | 主 AI 通过 `mcp__codex__codex model="gpt-5.3-codex" sandbox="danger-full-access" prompt="<TASK>"` 调用 | 固定格式 |
 | collab.context_read | 执行前必须读取，如果存在，不存在则创建 `.claude/context-*.json` 获取上下文，避免重复收集 | 主 AI 已完成初步分析 |
 | collab.context_write | 上下文收集结果写入 `.claude/context-*.json`，遵循主 AI 指定的文件名 | 路径规范 |
 | collab.report_format | 执行报告包含：完成状态、输出摘要、观察发现、建议深挖方向、遇到的问题 | 结构化报告 |
