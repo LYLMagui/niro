@@ -442,6 +442,7 @@ onMounted(() => {
                 :max="1.2"
                 :step="0.01"
                 :decimal-places="2"
+                :show-controls="false"
                 size="small"
                 class="discount-input"
               />
@@ -575,33 +576,37 @@ onMounted(() => {
     <t-dialog
       v-model:visible="dialogVisible"
       :header="editingId ? '编辑记录' : '新增记录'"
-      width="640px"
+      width="720px"
       :footer="true"
+      :body-style="{ padding: '20px' }"
+      :close-on-overlay-click="false"
+      :close-on-esc-keydown="false"
       @confirm="handleSubmit"
     >
       <t-form :data="formData" label-width="96px" layout="vertical" class="record-form">
-        <t-row :gutter="16">
+        <t-row :gutter="24">
           <t-col :span="6">
-            <t-form-item label="????" name="boxName" required>
+            <t-form-item label="箱子名称" name="boxName" required>
               <t-input
                 v-model="formData.boxName"
-                placeholder="???? 2 ????"
+                placeholder="如：幻彩 2 号武器箱"
                 maxlength="50"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="?????" name="purchasePrice">
+            <t-form-item label="箱子购入价" name="purchasePrice">
               <t-input-number
                 v-model="formData.purchasePrice"
                 :min="0"
                 :decimal-places="2"
                 :step="0.01"
+                :show-controls="false"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="??" name="screenshot">
+            <t-form-item label="截图" name="screenshot">
               <div class="upload-wrapper" @paste="handlePasteUpload">
                 <t-upload
                   v-model="uploadFiles"
@@ -623,18 +628,18 @@ onMounted(() => {
                         <ImageIcon />
                       </div>
                       <div class="upload-trigger__text">
-                        <div class="upload-title">??/???????</div>
-                        <div class="upload-subtitle">?????????????? 1 ??</div>
+                        <div class="upload-title">点击/拖拽/粘贴上传</div>
+                        <div class="upload-subtitle">支持 JPG/PNG/GIF 不超过 1 张</div>
                       </div>
                     </div>
                   </template>
                 </t-upload>
-                <div class="upload-tip">OCR ???????????</div>
+                <div class="upload-tip">OCR 识别后将自动填入信息</div>
               </div>
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="????" name="weaponName" required>
+            <t-form-item label="枪械名称" name="weaponName" required>
               <t-input
                 v-model="formData.weaponName"
                 placeholder="??AK-47 | ??"
@@ -643,9 +648,9 @@ onMounted(() => {
             </t-form-item>
           </t-col>
         </t-row>
-        <t-row :gutter="16">
+        <t-row :gutter="24">
           <t-col :span="6">
-            <t-form-item label="??" name="wearValue">
+            <t-form-item label="磨损" name="wearValue">
               <t-input-number
                 v-model="formData.wearValue"
                 :min="0"
@@ -657,12 +662,12 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="??" name="attribute">
+            <t-form-item label="属性" name="attribute">
               <t-select v-model="formData.attribute" :options="attributeOptions" />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="Steam???" name="steamPrice" required>
+            <t-form-item label="Steam购入价" name="steamPrice" required>
               <t-input-number
                 v-model="formData.steamPrice"
                 :min="0"
@@ -673,7 +678,7 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="????" name="platformPrice">
+            <t-form-item label="平台售价" name="platformPrice">
               <t-input-number
                 v-model="formData.platformPrice"
                 :min="0"
@@ -684,9 +689,9 @@ onMounted(() => {
             </t-form-item>
           </t-col>
         </t-row>
-        <t-row :gutter="16">
+        <t-row :gutter="24">
           <t-col :span="6">
-            <t-form-item label="??" name="discount" required>
+            <t-form-item label="折扣" name="discount" required>
               <t-input-number
                 :value="formData.discount"
                 :min="0"
@@ -699,7 +704,7 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="????" name="purchaseStatus">
+            <t-form-item label="购买状态" name="purchaseStatus">
               <t-select v-model="formData.purchaseStatus">
                 <t-option
                   v-for="item in purchaseStatusOptions"
@@ -718,7 +723,7 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="?????" name="actualSellPrice">
+            <t-form-item label="实际出售价" name="actualSellPrice">
               <t-input-number
                 v-model="formData.actualSellPrice"
                 :min="0"
@@ -732,23 +737,23 @@ onMounted(() => {
 
         <div class="preview-panel">
           <div class="preview-item">
-            <span class="preview-label">?????</span>
+            <span class="preview-label">实际购入价</span>
             <strong>{{ formatCurrency(previewActualPrice) }}</strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">????</span>
+            <span class="preview-label">预估利润</span>
             <strong :class="previewEstimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatCurrency(previewEstimatedProfit) }}
             </strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">???</span>
+            <span class="preview-label">利润率</span>
             <strong :class="previewProfitRate >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatPercent(previewProfitRate) }}
             </strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">????</span>
+            <span class="preview-label">实际利润</span>
             <strong :class="previewActualProfit >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatCurrency(previewActualProfit) }}
             </strong>
@@ -843,9 +848,18 @@ onMounted(() => {
   padding: 48px 0;
 }
 
+.record-form :deep(.t-form__item) {
+  margin-bottom: 20px;
+}
+
+.record-form :deep(.t-form__controls) {
+  margin-bottom: 0;
+}
+
 .record-form {
-  max-height: 70vh;
+  max-height: calc(100vh - 200px);
   overflow-y: auto;
+  padding-right: 8px;
 }
 
 .preview-panel {
@@ -927,6 +941,14 @@ onMounted(() => {
   display: inline-flex;
   gap: 6px;
   align-items: center;
+}
+
+.text-positive {
+  color: #00a870;
+}
+
+.text-negative {
+  color: #e34d59;
 }
 
 @media (max-width: 1024px) {
