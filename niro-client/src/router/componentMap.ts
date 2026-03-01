@@ -23,6 +23,7 @@ const componentMap: Record<string, () => Promise<Component>> = {
   system: () => import("@/views/Settings.vue"),
   inventory: () => import("@/views/InventoryBoard.vue"),
   profit: () => import("@/views/ProfitStats.vue"),
+  unboxrecord: () => import("@/views/UnboxRecord.vue"),
   403: () => import("@/views/403.vue"),
   404: () => import("@/views/404.vue"),
 };

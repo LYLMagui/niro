@@ -297,7 +297,7 @@ Phase 3 - 质量保证:
 
 #### 调用格式
 - 调用 codex MCP 时必须使用命令：`mcp__codex-father__codex_exec`
-- 必须包含参数：`model: "gpt-5-codex"`, `sandbox: "danger-full-access"`, `approvalPolicy: "on-failure"`
+- 必须包含参数：`model: "gpt-5.3-codex-spark"`, `sandbox: "danger-full-access"`, `approvalPolicy: "on-failure"`
 
 #### 上下文收集前置原则
 - 必须先通过 codex 收集完整上下文并写入 `.claude/` 文件，再进行任务规划。

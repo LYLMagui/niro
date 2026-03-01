@@ -443,9 +443,8 @@ const handleCalculateCost = () => {
     quantity: item.quantity,
   }));
   // 计算平均单价
-  calculatedCost.avgPrice = calculatedCost.quantity > 0
-      ? calculatedCost.amount / calculatedCost.quantity
-      : 0;
+  calculatedCost.avgPrice =
+    calculatedCost.quantity > 0 ? calculatedCost.amount / calculatedCost.quantity : 0;
 
   costDialogVisible.value = true;
 };
