@@ -16,6 +16,8 @@ import type {
   TableRowData,
   InputNumberValue,
   ChangeContext,
+  UploadFile,
+  UploadChangeContext,
 } from "tdesign-vue-next";
 import type {
   UnboxRecord,
@@ -41,6 +43,7 @@ const dialogVisible = ref(false);
 const editingId = ref<string | null>(null);
 const globalDiscount = ref(DEFAULT_DISCOUNT);
 const loading = ref(false);
+const uploadFiles = ref<UploadFile[]>([]);
 
 const formData = reactive<UnboxRecordForm>({
   boxName: "",
@@ -168,6 +171,7 @@ const resetForm = () => {
   formData.discount = globalDiscount.value;
   formData.purchaseStatus = "pending";
   formData.actualSellPrice = 0;
+  uploadFiles.value = [];
 };
 
 const composeRecord = (payload: UnboxRecordForm, meta?: { id?: string; createdAt?: string }) => {
@@ -208,6 +212,15 @@ const handleEdit = (row: UnboxRecord) => {
   formData.discount = row.discount;
   formData.purchaseStatus = row.purchaseStatus;
   formData.actualSellPrice = row.actualSellPrice;
+  uploadFiles.value = row.screenshot
+    ? [
+        {
+          name: "screenshot",
+          url: row.screenshot,
+          status: "success",
+        },
+      ]
+    : [];
   dialogVisible.value = true;
 };
 
@@ -298,6 +311,62 @@ const handleDiscountInput = (value: InputNumberValue, _context: ChangeContext) =
   const numericValue = typeof value === "number" ? value : Number(value);
   const safeValue = Number.isNaN(numericValue) ? 0 : numericValue;
   formData.discount = clampDiscount(safeValue ?? 0);
+};
+
+
+const readFileAsDataUrl = (file: File): Promise<string> =>
+  new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(String(reader.result ?? ""));
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+
+const syncUploadPreview = async (files: UploadFile[]) => {
+  if (!files.length) {
+    formData.screenshot = "";
+    return;
+  }
+  const target = files[0];
+  if (target.url) {
+    formData.screenshot = target.url;
+    return;
+  }
+  if (target.raw) {
+    const dataUrl = await readFileAsDataUrl(target.raw);
+    target.url = dataUrl;
+    formData.screenshot = dataUrl;
+  }
+  // TODO: ?? OCR ??????
+};
+
+const handleUploadChange = async (files: UploadFile[], _context: UploadChangeContext) => {
+  const normalized = files.slice(0, 1);
+  uploadFiles.value = normalized;
+  await syncUploadPreview(normalized);
+};
+
+const handleUploadRemove = () => {
+  uploadFiles.value = [];
+  formData.screenshot = "";
+};
+
+const handlePasteUpload = async (event: ClipboardEvent) => {
+  const items = event.clipboardData?.items ?? [];
+  const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
+  if (!imageItem) return;
+  const file = imageItem.getAsFile();
+  if (!file) return;
+  event.preventDefault();
+  const uploadFile: UploadFile = {
+    name: file.name || "pasted-image",
+    type: file.type,
+    size: file.size,
+    raw: file,
+    status: "success",
+  };
+  uploadFiles.value = [uploadFile];
+  await syncUploadPreview(uploadFiles.value);
 };
 
 const formatCurrency = (value: number): string => `¥${value.toFixed(2)}`;
@@ -513,16 +582,16 @@ onMounted(() => {
       <t-form :data="formData" label-width="96px" layout="vertical" class="record-form">
         <t-row :gutter="16">
           <t-col :span="6">
-            <t-form-item label="箱子名称" name="boxName" required>
+            <t-form-item label="????" name="boxName" required>
               <t-input
                 v-model="formData.boxName"
-                placeholder="如：幻彩 2 号武器箱"
+                placeholder="???? 2 ????"
                 maxlength="50"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="箱子购入价" name="purchasePrice">
+            <t-form-item label="?????" name="purchasePrice">
               <t-input-number
                 v-model="formData.purchasePrice"
                 :min="0"
@@ -532,15 +601,43 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="截图地址" name="screenshot">
-              <t-input v-model="formData.screenshot" placeholder="输入截图链接或路径" />
+            <t-form-item label="??" name="screenshot">
+              <div class="upload-wrapper" @paste="handlePasteUpload">
+                <t-upload
+                  v-model="uploadFiles"
+                  theme="image"
+                  :max="1"
+                  accept="image/*"
+                  :auto-upload="false"
+                  :draggable="true"
+                  :show-image-file-name="false"
+                  :show-upload-progress="false"
+                  :show-thumbnail="true"
+                  :multiple="false"
+                  @change="handleUploadChange"
+                  @remove="handleUploadRemove"
+                >
+                  <template #trigger>
+                    <div class="upload-trigger">
+                      <div class="upload-trigger__icon">
+                        <ImageIcon />
+                      </div>
+                      <div class="upload-trigger__text">
+                        <div class="upload-title">??/???????</div>
+                        <div class="upload-subtitle">?????????????? 1 ??</div>
+                      </div>
+                    </div>
+                  </template>
+                </t-upload>
+                <div class="upload-tip">OCR ???????????</div>
+              </div>
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="枪械名称" name="weaponName" required>
+            <t-form-item label="????" name="weaponName" required>
               <t-input
                 v-model="formData.weaponName"
-                placeholder="如：AK-47 | 红线"
+                placeholder="??AK-47 | ??"
                 maxlength="60"
               />
             </t-form-item>
@@ -548,57 +645,61 @@ onMounted(() => {
         </t-row>
         <t-row :gutter="16">
           <t-col :span="6">
-            <t-form-item label="磨损" name="wearValue">
+            <t-form-item label="??" name="wearValue">
               <t-input-number
                 v-model="formData.wearValue"
                 :min="0"
                 :max="1"
                 :decimal-places="4"
                 :step="0.0001"
+                :show-controls="false"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="属性" name="attribute">
+            <t-form-item label="??" name="attribute">
               <t-select v-model="formData.attribute" :options="attributeOptions" />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="Steam购入价" name="steamPrice" required>
+            <t-form-item label="Steam???" name="steamPrice" required>
               <t-input-number
                 v-model="formData.steamPrice"
                 :min="0"
                 :decimal-places="2"
                 :step="0.01"
+                :show-controls="false"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="平台售价" name="platformPrice">
+            <t-form-item label="????" name="platformPrice">
               <t-input-number
                 v-model="formData.platformPrice"
                 :min="0"
                 :decimal-places="2"
                 :step="0.01"
+                :show-controls="false"
               />
             </t-form-item>
           </t-col>
         </t-row>
         <t-row :gutter="16">
           <t-col :span="6">
-            <t-form-item label="折扣" name="discount" required>
+            <t-form-item label="??" name="discount" required>
               <t-input-number
                 :value="formData.discount"
                 :min="0"
                 :max="1.2"
                 :step="0.01"
                 :decimal-places="2"
+                :show-controls="false"
                 @change="handleDiscountInput"
               />
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="购买状态" name="purchaseStatus">
+            <t-form-item label="????" name="purchaseStatus">
               <t-select v-model="formData.purchaseStatus">
                 <t-option
                   v-for="item in purchaseStatusOptions"
@@ -617,12 +718,13 @@ onMounted(() => {
             </t-form-item>
           </t-col>
           <t-col :span="6">
-            <t-form-item label="实际出售价" name="actualSellPrice">
+            <t-form-item label="?????" name="actualSellPrice">
               <t-input-number
                 v-model="formData.actualSellPrice"
                 :min="0"
                 :decimal-places="2"
                 :step="0.01"
+                :show-controls="false"
               />
             </t-form-item>
           </t-col>
@@ -630,24 +732,24 @@ onMounted(() => {
 
         <div class="preview-panel">
           <div class="preview-item">
-            <span class="preview-label">实际购入价</span>
+            <span class="preview-label">?????</span>
             <strong>{{ formatCurrency(previewActualPrice) }}</strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">预估利润</span>
-            <strong :class="previewEstimatedProfit >= 0 ? 'text-positive' : 'text-negative'">
+            <span class="preview-label">????</span>
+            <strong :class="previewEstimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatCurrency(previewEstimatedProfit) }}
             </strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">利润率</span>
-            <strong :class="previewProfitRate >= 0 ? 'text-positive' : 'text-negative'">
+            <span class="preview-label">???</span>
+            <strong :class="previewProfitRate >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatPercent(previewProfitRate) }}
             </strong>
           </div>
           <div class="preview-item">
-            <span class="preview-label">实际利润</span>
-            <strong :class="previewActualProfit >= 0 ? 'text-positive' : 'text-negative'">
+            <span class="preview-label">????</span>
+            <strong :class="previewActualProfit >= 0 ? 'text-green-600' : 'text-red-600'">
               {{ formatCurrency(previewActualProfit) }}
             </strong>
           </div>
@@ -748,12 +850,14 @@ onMounted(() => {
 
 .preview-panel {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 12px;
-  padding: 16px;
-  margin-top: 16px;
-  background: var(--td-bg-color-secondarycontainer);
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 8px;
+  padding: 12px;
+  margin-top: 12px;
+  background: var(--td-bg-color-container);
+  border: 1px solid var(--td-border-level-1-color);
   border-radius: 10px;
+  box-shadow: var(--td-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.04));
 }
 
 .preview-item {
@@ -764,6 +868,59 @@ onMounted(() => {
 .preview-label {
   font-size: 12px;
   color: var(--td-text-color-secondary);
+}
+
+.upload-wrapper {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.upload-trigger {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  padding: 12px;
+  border: 1px dashed var(--td-border-level-2-color);
+  border-radius: 10px;
+  background: var(--td-bg-color-container);
+}
+
+.upload-trigger__icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  color: var(--td-text-color-secondary);
+  background: var(--td-bg-color-secondarycontainer);
+}
+
+.upload-trigger__text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.upload-title {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--td-text-color-primary);
+}
+
+.upload-subtitle {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
+}
+
+.upload-tip {
+  font-size: 12px;
+  color: var(--td-text-color-secondary);
+}
+
+.record-form :deep(.t-upload) {
+  width: 100%;
 }
 
 .status-option {
