@@ -204,6 +204,12 @@
               ¥{{ calculatedCost.amount.toFixed(2) }}
             </div>
           </div>
+          <div class="rounded-lg bg-green-50 p-4">
+            <div class="mb-1 text-xs text-gray-500">平均单价</div>
+            <div class="text-xl font-bold text-green-600">
+              ¥{{ calculatedCost.avgPrice.toFixed(2) }}
+            </div>
+          </div>
         </div>
         <div class="rounded bg-gray-50 p-3 text-left text-sm text-gray-500">
           <p class="mb-1">包含商品：</p>
@@ -281,6 +287,7 @@ const costDialogVisible = ref(false);
 const calculatedCost = reactive({
   quantity: 0,
   amount: 0,
+  avgPrice: 0,
   items: [] as { goodsName: string; quantity: number }[],
 });
 
@@ -435,6 +442,10 @@ const handleCalculateCost = () => {
     goodsName: item.goodsName,
     quantity: item.quantity,
   }));
+  // 计算平均单价
+  calculatedCost.avgPrice = calculatedCost.quantity > 0
+      ? calculatedCost.amount / calculatedCost.quantity
+      : 0;
 
   costDialogVisible.value = true;
 };
