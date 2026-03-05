@@ -176,9 +176,11 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
 
         // 更新商品信息（如果有）
         if (detail.getOpenItemInfo() != null) {
-            if (detail.getOpenItemInfo().getName() != null) {
-                record.setGoodsName(detail.getOpenItemInfo().getName());
+            String goodsName = detail.getOpenItemInfo().getName();
+            if (goodsName == null || goodsName.isEmpty()) {
+                goodsName = detail.getOpenItemInfo().getMarketHashName();
             }
+            record.setGoodsName(goodsName);
             if (detail.getOpenItemInfo().getImageUrl() != null) {
                 record.setGoodsImg(detail.getOpenItemInfo().getImageUrl());
             }

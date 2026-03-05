@@ -25,7 +25,8 @@
       "Bash(npx skills:*)",
       "Bash(PYTHONIOENCODING=utf-8 python:*)",
       "Bash(which uvx:*)",
-      "Bash(which uv:*)"
+      "Bash(which uv:*)",
+      "Bash(ls -la \"E:/CodeSpace/PYTHON/niro/niro-client/src/stores/\" 2>/dev/null || dir \"E:\\\\CodeSpace\\\\PYTHON\\\\niro\\\\niro-client\\\\src\\\\stores\" 2>/dev/null)"
     ]
   },
   "enableAllProjectMcpServers": true,

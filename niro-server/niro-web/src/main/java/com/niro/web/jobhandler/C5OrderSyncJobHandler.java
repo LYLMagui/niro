@@ -4,8 +4,10 @@ import com.niro.core.constant.MqConstant;
 import com.niro.core.util.RocketMqHelper;
 import com.niro.web.dto.C5OrderStatusSyncMessage;
 import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.manager.UserPlatformSettingsMapperManager;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import lombok.RequiredArgsConstructor;
@@ -13,7 +15,10 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 /**
  * C5 订单状态同步 Job Handler（MQ 异步版）
@@ -33,6 +38,7 @@ import java.util.List;
 public class C5OrderSyncJobHandler {
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
+    private final UserPlatformSettingsMapperManager userPlatformSettingsMapperManager;
     private final RocketMqHelper rocketMqHelper;
 
     /**
@@ -63,17 +69,37 @@ public class C5OrderSyncJobHandler {
 
             log.info("查询到 {} 条需要同步状态的订单", orders.size());
 
+            List<Long> userIds = orders.stream()
+                    .map(TradeOrderRecord::getUserId)
+                    .distinct()
+                    .collect(Collectors.toList());
+
+            Map<Long, String> appKeyMap = new HashMap<>();
+            if (!userIds.isEmpty()) {
+                List<UserPlatformSettings> settingsList = userPlatformSettingsMapperManager.lambdaQuery()
+                        .in(UserPlatformSettings::getUserId, userIds)
+                        .list();
+                for (UserPlatformSettings settings : settingsList) {
+                    if (settings != null && settings.getC5AppKey() != null) {
+                        appKeyMap.put(settings.getUserId(), settings.getC5AppKey());
+                    }
+                }
+            }
+
             int successCount = 0;
             int failCount = 0;
 
             // 循环发送 MQ 消息
             for (TradeOrderRecord order : orders) {
                 try {
+                    String appKey = appKeyMap.get(order.getUserId());
+
                     C5OrderStatusSyncMessage message = C5OrderStatusSyncMessage.builder()
                             .recordId(order.getId())
                             .orderId(order.getOrderId())
                             .orderNo(order.getOutTradeNo())
                             .userId(order.getUserId())
+                            .appKey(appKey)
                             .currentStatus(order.getStatus())
                             .build();
 
