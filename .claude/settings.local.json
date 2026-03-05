@@ -26,7 +26,8 @@
       "Bash(PYTHONIOENCODING=utf-8 python:*)",
       "Bash(which uvx:*)",
       "Bash(which uv:*)",
-      "Bash(ls -la \"E:/CodeSpace/PYTHON/niro/niro-client/src/stores/\" 2>/dev/null || dir \"E:\\\\CodeSpace\\\\PYTHON\\\\niro\\\\niro-client\\\\src\\\\stores\" 2>/dev/null)"
+      "Bash(ls -la \"E:/CodeSpace/PYTHON/niro/niro-client/src/stores/\" 2>/dev/null || dir \"E:\\\\CodeSpace\\\\PYTHON\\\\niro\\\\niro-client\\\\src\\\\stores\" 2>/dev/null)",
+      "mcp__desktop-commander__read_multiple_files"
     ]
   },
   "enableAllProjectMcpServers": true,
@@ -42,5 +43,14 @@
     "ui-ux-pro-max",
     "generate-acceptance-test",
     "find-skills"
-  ]
+  ],
+  "hooks": {
+    "SessionStart": "python .claude/hooks/session_start.py",
+    "PostToolUse": "python .claude/hooks/post_tool_use.py"
+  },
+  "memory": {
+    "maxLayer1Items": 10,
+    "maxLayer2Days": 3,
+    "projectRoot": "."
+  }
 }
