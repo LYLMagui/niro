@@ -29,9 +29,7 @@
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [
-    "project-db"
-  ],
+  "enabledMcpjsonServers": [],
   "enabledSkills": [
     "coding-standards",
     "code-reviewer",
