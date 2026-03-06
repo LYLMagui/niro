@@ -27,7 +27,11 @@
       "Bash(which uvx:*)",
       "Bash(which uv:*)",
       "Bash(ls -la \"E:/CodeSpace/PYTHON/niro/niro-client/src/stores/\" 2>/dev/null || dir \"E:\\\\CodeSpace\\\\PYTHON\\\\niro\\\\niro-client\\\\src\\\\stores\" 2>/dev/null)",
-      "mcp__desktop-commander__read_multiple_files"
+      "mcp__desktop-commander__read_multiple_files",
+      "Bash(py:*)",
+      "Bash(./venv/Scripts/python:*)",
+      "Bash(./venv/Scripts/pip install:*)",
+      "Bash(sed:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
