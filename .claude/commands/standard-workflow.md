@@ -36,8 +36,8 @@ tips: /standard-workflow <task_description>
 
 **首次调用**：
 ## ```
-mcp__codex__codex(
-  model="gpt-5-codex",
+mcp__codex-father__codex(
+  model="gpt-5.4",
   sandbox="danger-full-access",
   approval-policy="on-failure",
   prompt="

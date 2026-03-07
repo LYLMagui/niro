@@ -99,3 +99,13 @@ BUFF_COOKIE = os.getenv("BUFF_COOKIE", "")
 # 后端服务配置
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
 
+# OCR 服务配置
+IMAGES_DIR = os.path.abspath(os.getenv("IMAGES_DIR", os.path.join(PROJECT_ROOT, "images")))
+OCR_QUEUE_NAME = os.getenv("OCR_QUEUE_NAME", "niro:tasks:ocr")
+OCR_QUEUE_BLPOP_TIMEOUT = int(os.getenv("OCR_QUEUE_BLPOP_TIMEOUT", 5))
+OCR_LANG = os.getenv("OCR_LANG", "ch")
+OCR_CALLBACK_TIMEOUT = float(os.getenv("OCR_CALLBACK_TIMEOUT", 10))
+OCR_MAX_CONCURRENCY = int(os.getenv("OCR_MAX_CONCURRENCY", 1))
+OCR_HTTP_MAX_CONNECTIONS = int(os.getenv("OCR_HTTP_MAX_CONNECTIONS", 20))
+OCR_HTTP_KEEPALIVE_CONNECTIONS = int(os.getenv("OCR_HTTP_KEEPALIVE_CONNECTIONS", 10))
+
