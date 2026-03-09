@@ -1,0 +1,31 @@
+services:
+  # 核心服务 (内核)
+  mihomo:
+    image: metacubex/mihomo:latest  # 修正：使用内核镜像
+    container_name: mihomo
+    restart: always
+    # 如果要用 TUN 模式，建议保持 bridge 模式并保留下面的映射
+    ports:
+      - '7890:7890' # HTTP 代理
+      - '7891:7891' # SOCKS5 代理
+      - '9090:9090' # API 控制端口
+    volumes:
+      - /home/mihomo/config:/root/.config/mihomo
+    cap_add:
+      - NET_ADMIN
+    devices:
+      - /dev/net/tun:/dev/net/tun
+
+  # Web 面板 (Metacubexd)
+  panel:
+    image: ghcr.io/metacubex/metacubexd
+    container_name: mihomo-panel
+    restart: always
+    ports:
+      - '7892:80'
+    depends_on:
+      - mihomo
+    environment:
+      # 预设后端地址和密码，解决电脑端转圈问题
+      - DEFAULT_BACKEND_URL=http://119.29.200.243:9090
+      - DEFAULT_SECRET=Lyl010430.
