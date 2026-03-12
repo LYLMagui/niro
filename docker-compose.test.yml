@@ -67,6 +67,7 @@ services:
       - niro_shared_logs_test:/var/log/niro
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
+      - "9999:9999" 
     healthcheck:
       # 使用 nc (netcat) 只检查端口是否开启，不关心业务权限
       test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
