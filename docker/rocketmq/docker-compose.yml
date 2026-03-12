@@ -23,39 +23,38 @@ services:
 
   # Broker 是消息存储核心，负责消息接收和分发
   broker:
-  image: apache/rocketmq:5.4.0
-  container_name: rmqbroker
-  # Docker 内存硬限制（防容器爆内存）
-  mem_limit: 1.5g
-  ports:
-    - 10909:10909
-    - 10911:10911
-  volumes:
-    - /home/data/rocketmq/logs/broker:/home/rocketmq/rocketmq-5.4.0/logs
-    - /home/data/rocketmq/store/broker:/home/rocketmq/rocketmq-5.4.0/store
-    - ./conf/broker.conf:/home/rocketmq/rocketmq-5.4.0/conf/broker.conf
-  environment:
-    - NAMESRV_ADDR=rmqnamesrv:9876
-  # 核心修复：启动前修改脚本里的默认 2G 内存参数，再启动 broker
-  entrypoint: >
-    sh -c '
-    echo "修改 RocketMQ 默认内存配置..." &&
-    sed -i "s|-Xms[0-9]*g|-Xms512m|g; s|-Xmx[0-9]*g|-Xmx512m|g; s|-Xmn[0-9]*g|-Xmn256m|g; s|-XX:MaxDirectMemorySize=[0-9]*g|-XX:MaxDirectMemorySize=256m|g" /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh &&
-    cat /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh | grep JAVA_OPT | head -3 &&
-    echo "启动 Broker..." &&
-    cd /home/rocketmq/rocketmq-5.4.0 &&
-    sh bin/mqbroker -c conf/broker.conf
-    '
-  depends_on:
-    - namesrv
-  networks:
-    - rocketmq
-  logging:
-    driver: "json-file"
-    options:
-      max-size: "100m"
-      max-file: "3"
-
+    image: apache/rocketmq:5.4.0
+    container_name: rmqbroker
+    # Docker 内存硬限制（防容器爆内存）
+    mem_limit: 1.5g
+    ports:
+      - 10909:10909
+      - 10911:10911
+    volumes:
+      - /home/data/rocketmq/logs/broker:/home/rocketmq/rocketmq-5.4.0/logs
+      - /home/data/rocketmq/store/broker:/home/rocketmq/rocketmq-5.4.0/store
+      - ./conf/broker.conf:/home/rocketmq/rocketmq-5.4.0/conf/broker.conf
+    environment:
+      - NAMESRV_ADDR=rmqnamesrv:9876
+    # 核心修复：启动前修改脚本里的默认 2G 内存参数，再启动 broker
+    entrypoint: >
+      sh -c '
+      echo "修改 RocketMQ 默认内存配置..." &&
+      sed -i "s|-Xms[0-9]*g|-Xms512m|g; s|-Xmx[0-9]*g|-Xmx512m|g; s|-Xmn[0-9]*g|-Xmn256m|g; s|-XX:MaxDirectMemorySize=[0-9]*g|-XX:MaxDirectMemorySize=256m|g" /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh &&
+      cat /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh | grep JAVA_OPT | head -3 &&
+      echo "启动 Broker..." &&
+      cd /home/rocketmq/rocketmq-5.4.0 &&
+      sh bin/mqbroker -c conf/broker.conf
+      '
+    depends_on:
+      - namesrv
+    networks:
+      - rocketmq
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "100m"
+        max-file: "3"
   # Proxy 是 5.x 引入的代理模式，支持 gRPC 协议，多语言接入更友好
   # proxy:
   #   image: apache/rocketmq:5.4.0
