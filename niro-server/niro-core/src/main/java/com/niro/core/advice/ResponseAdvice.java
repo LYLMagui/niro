@@ -2,6 +2,7 @@ package com.niro.core.advice;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.niro.core.result.Result;
+import io.swagger.v3.oas.annotations.Hidden;
 import lombok.RequiredArgsConstructor;
 import lombok.SneakyThrows;
 import org.slf4j.MDC;
@@ -22,6 +23,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
  * @date 2025/12/20
  */
 @RestControllerAdvice(basePackages = "com.niro")
+@Hidden
 @RequiredArgsConstructor
 public class ResponseAdvice implements ResponseBodyAdvice<Object> {
 

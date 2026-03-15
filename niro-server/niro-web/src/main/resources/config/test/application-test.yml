@@ -37,7 +37,18 @@ logging:
 
 # Knife4j配置（测试环境启用）
 knife4j:
-  enable: true
+  enable: false
+  setting:
+    language: zh_CN
+
+# SpringDoc 配置
+springdoc:
+  api-docs:
+    enabled: true
+    path: /v3/api-docs
+  swagger-ui:
+    enabled: true
+    path: /swagger-ui.html
 
 # 自定义配置
 buff:

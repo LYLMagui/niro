@@ -52,14 +52,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
                 .in(SysRole::getRoleId, roleIds)
                 .eq(SysRole::getStatus, 0) // 正常
                 .list();
-
-        if (CollUtil.isNotEmpty(sysRoles)) {
-            for (SysRole role : sysRoles) {
-                if (role.getRoleKey() != null) {
-                    roles.addAll(Arrays.asList(role.getRoleKey().trim().split(",")));
-                }
-            }
-        }
+        
         return roles;
     }
 }

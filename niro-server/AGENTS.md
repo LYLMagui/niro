@@ -478,6 +478,19 @@ mvn test -Dtest=ResponseAdviceTest#testSuccessResponse
 mvn spring-boot:run -pl niro-web
 ```
 
+### JDK 启动规则
+
+- 启动后端前，必须临时设置 `JAVA_HOME=D:\Environment\JDK\jdk-21.0.2`
+- 同时将 `%JAVA_HOME%\bin` 追加到当前命令会话的 `Path`
+- 该设置仅对当前启动命令生效，不修改系统级环境变量
+- 推荐启动命令：
+
+```powershell
+$env:JAVA_HOME='D:\Environment\JDK\jdk-21.0.2'
+$env:Path='D:\Environment\JDK\jdk-21.0.2\bin;' + $env:Path
+mvn -s maven-settings.xml -pl niro-web spring-boot:run
+```
+
 ### 配置文件
 
 ```yaml

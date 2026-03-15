@@ -2,6 +2,7 @@ package com.niro.web;
 
 import java.util.TimeZone;
 
+import com.github.xiaoymin.knife4j.spring.annotations.EnableKnife4j;
 import org.mybatis.spring.annotation.MapperScan;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -16,6 +17,7 @@ import jakarta.annotation.Resource;
 @EnableScheduling
 @MapperScan(basePackages = {"com.niro.web.**.mapper"})
 @ComponentScan(basePackages = {"com.niro"})
+@EnableKnife4j
 public class NiroWebApplication {
 
     @Resource

@@ -35,7 +35,6 @@ import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.vo.C5OrderDetailVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.jspecify.annotations.NonNull;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -141,7 +140,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
     }
 
-    @NonNull
     public static C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache, UserPlatformSettingsService userPlatformSettingsService, String c5BaseUrl) {
         return clientCache.computeIfAbsent(userId, uid -> {
             UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
@@ -256,7 +254,7 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
 
     @Override
     public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform,
-            Integer status, Long userId, String keyword, String sortField, String sortOrder) {
+                                                        Integer status, Long userId, String keyword, String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
 
         Page<TradeOrderRecord> result = tradeOrderRecordMapperManager.lambdaQuery()
