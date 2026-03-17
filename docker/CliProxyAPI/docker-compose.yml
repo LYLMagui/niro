@@ -1,0 +1,27 @@
+﻿services:
+  cli-proxy-api:
+    image: ${CLI_PROXY_IMAGE:-eceasy/cli-proxy-api:latest}
+    container_name: cli-proxy-api
+    pull_policy: always
+    restart: unless-stopped
+    environment:
+      DEPLOY: ${DEPLOY:-}
+      MANAGEMENT_PASSWORD: ${MANAGEMENT_PASSWORD:-}
+      PGSTORE_DSN: ${PGSTORE_DSN:-}
+      PGSTORE_SCHEMA: ${PGSTORE_SCHEMA:-}
+      PGSTORE_LOCAL_PATH: ${PGSTORE_LOCAL_PATH:-}
+      GITSTORE_GIT_URL: ${GITSTORE_GIT_URL:-}
+      GITSTORE_GIT_USERNAME: ${GITSTORE_GIT_USERNAME:-}
+      GITSTORE_GIT_TOKEN: ${GITSTORE_GIT_TOKEN:-}
+      GITSTORE_LOCAL_PATH: ${GITSTORE_LOCAL_PATH:-}
+      OBJECTSTORE_ENDPOINT: ${OBJECTSTORE_ENDPOINT:-}
+      OBJECTSTORE_BUCKET: ${OBJECTSTORE_BUCKET:-}
+      OBJECTSTORE_ACCESS_KEY: ${OBJECTSTORE_ACCESS_KEY:-}
+      OBJECTSTORE_SECRET_KEY: ${OBJECTSTORE_SECRET_KEY:-}
+      OBJECTSTORE_LOCAL_PATH: ${OBJECTSTORE_LOCAL_PATH:-}
+    ports:
+      - "8317:8317"
+    volumes:
+      - /home/workspace/CliProxyAPI/config.yaml:/CLIProxyAPI/config.yaml
+      - /home/workspace/CliProxyAPI/auths:/root/.cli-proxy-api
+      - /home/workspace/CliProxyAPI/logs:/CLIProxyAPI/logs
