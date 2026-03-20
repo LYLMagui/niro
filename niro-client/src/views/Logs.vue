@@ -37,6 +37,7 @@
           <t-col :span="3">
             <div class="flex gap-4">
               <t-button
+                v-permission="PermissionConstant.LOG_LIST"
                 :theme="isConnected ? 'danger' : 'primary'"
                 size="medium"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
@@ -48,6 +49,7 @@
                 {{ isConnected ? "断开" : "连接" }}
               </t-button>
               <t-button
+                v-permission="PermissionConstant.LOG_LIST"
                 theme="default"
                 variant="base"
                 size="medium"
@@ -75,6 +77,7 @@
               </div>
 
               <t-button
+                v-permission="PermissionConstant.LOG_LIST"
                 size="medium"
                 variant="outline"
                 :theme="onlyErrors ? 'danger' : 'default'"
@@ -89,6 +92,7 @@
               </t-button>
 
               <t-button
+                v-permission="PermissionConstant.LOG_LIST"
                 size="medium"
                 variant="base"
                 class="hidden rounded-lg transition-all duration-300 hover:shadow active:shadow-none xl:inline-flex"
@@ -293,7 +297,7 @@ export default {
 </script>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, nextTick, computed, watch } from "vue";
+import { ref, onUnmounted, nextTick, computed, watch } from "vue";
 import {
   ClearIcon,
   RefreshIcon,
@@ -307,7 +311,11 @@ import {
 } from "tdesign-icons-vue-next";
 import { type LogItem } from "../api/log";
 import dayjs from "dayjs";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import { usePermission } from "@/hooks/usePermission";
 
+const { hasPermission } = usePermission();
+const canViewLogs = computed(() => hasPermission(PermissionConstant.LOG_LIST));
 const sseLogs = ref<LogItem[]>([]);
 const searchedLogs = ref<LogItem[]>([]);
 const discoveryCount = ref(0); // 发现次数统计
@@ -568,6 +576,13 @@ watch(
 );
 
 const connect = () => {
+  if (!canViewLogs.value) {
+    isConnected.value = false;
+    isConnecting.value = false;
+    eventSource?.close();
+    eventSource = null;
+    return;
+  }
   if (isConnected.value) return;
   isConnecting.value = true;
 
@@ -650,6 +665,9 @@ const connect = () => {
 };
 
 const toggleConnection = () => {
+  if (!canViewLogs.value) {
+    return;
+  }
   if (isConnected.value) {
     eventSource?.close();
     eventSource = null;
@@ -659,7 +677,20 @@ const toggleConnection = () => {
   }
 };
 
-onMounted(() => connect());
+watch(
+  canViewLogs,
+  (allowed) => {
+    if (allowed) {
+      connect();
+      return;
+    }
+    eventSource?.close();
+    eventSource = null;
+    isConnected.value = false;
+    isConnecting.value = false;
+  },
+  { immediate: true }
+);
 onUnmounted(() => eventSource?.close());
 </script>
 

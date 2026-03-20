@@ -21,7 +21,7 @@
             />
           </t-form-item>
           <t-form-item>
-            <div class="flex gap-4">
+            <div v-permission="PermissionConstant.STICKER_LIST" class="flex gap-4">
               <t-button
                 theme="primary"
                 type="submit"
@@ -98,10 +98,14 @@
  * 功能简述: 印花价值列表展示与同步管理
  */
 import { stickerApi } from "@/api/sticker";
+import { usePermission } from "@/hooks/usePermission";
+import { PermissionConstant } from "@/constant/PermissionConstant";
 import { DEFAULT_PAGE_SIZE } from "@/utils/constants";
-import { onMounted, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { type PrimaryTableCol } from "tdesign-vue-next";
 
+const { hasPermission } = usePermission();
+const canViewStickerList = computed(() => hasPermission(PermissionConstant.STICKER_LIST));
 const loading = ref(false);
 const dataList = ref<any[]>([]);
 
@@ -147,6 +151,11 @@ const columns: PrimaryTableCol<any>[] = [
 
 // 获取列表数据
 const fetchData = async () => {
+  if (!canViewStickerList.value) {
+    dataList.value = [];
+    pagination.total = 0;
+    return;
+  }
   loading.value = true;
   try {
     const res = await stickerApi.getStickerList({
@@ -198,9 +207,18 @@ const formatTime = (time: string) => {
   return `${y}-${m}-${d} ${h}:${min}:${s}`;
 };
 
-onMounted(() => {
-  fetchData();
-});
+watch(
+  canViewStickerList,
+  (allowed) => {
+    if (allowed) {
+      fetchData();
+      return;
+    }
+    dataList.value = [];
+    pagination.total = 0;
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

@@ -67,7 +67,7 @@
             </t-select>
           </t-col>
           <t-col :span="3">
-            <div class="flex gap-2">
+            <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex gap-2">
               <t-button theme="primary" @click="fetchData">查询</t-button>
               <t-button theme="default" variant="base" @click="resetQuery">重置</t-button>
             </div>
@@ -78,11 +78,17 @@
                 v-if="activeTab === 'SYSTEM' && isAdmin"
                 theme="default"
                 variant="outline"
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 @click="handleAddSystem"
               >
                 新增系统任务
               </t-button>
-              <t-button v-if="activeTab !== 'SYSTEM'" theme="primary" @click="handleAdd">
+              <t-button
+                v-if="activeTab !== 'SYSTEM'"
+                theme="primary"
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
+                @click="handleAdd"
+              >
                 新增任务
               </t-button>
             </div>
@@ -210,7 +216,10 @@
         </template>
 
         <template #op="{ row }">
-          <div class="flex items-center justify-start space-x-2">
+          <div
+            v-permission="PermissionConstant.TASK_BUFF_LIST"
+            class="flex items-center justify-start space-x-2"
+          >
             <t-link v-if="![1, 4].includes(row.status)" theme="primary" @click="handleEdit(row)">
               编辑
             </t-link>
@@ -256,7 +265,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted, computed, watch } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import { useRoute } from "vue-router";
 import dayjs from "dayjs";
 import { taskApi } from "@/api/task";
@@ -268,8 +277,12 @@ import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
 import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum } from "@/enums/TaskRunModeEnum";
 import { GlobalConstant } from "@/constant/GlobalConstant";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import { usePermission } from "@/hooks/usePermission";
 
 const route = useRoute();
+const { hasPermission } = usePermission();
+const canViewTaskList = computed(() => hasPermission(PermissionConstant.TASK_BUFF_LIST));
 const currentPlatform = computed(() => {
   if (route.path.includes("/c5")) return PlatformEnum.C5;
   return (route.meta.platform as string) || PlatformEnum.BUFF;
@@ -346,6 +359,11 @@ const columns = computed<PrimaryTableCol[]>(() => {
 
 // 方法
 const fetchData = async () => {
+  if (!canViewTaskList.value) {
+    dataList.value = [];
+    pagination.total = 0;
+    return;
+  }
   loading.value = true;
   try {
     // 根据 Tab 调整 runMode
@@ -402,6 +420,10 @@ const resetQuery = () => {
 };
 
 const handleAdd = () => {
+  if (!canViewTaskList.value) {
+    MessagePlugin.warning("当前账号没有任务管理权限");
+    return;
+  }
   configRef.value?.handleAdd(activeTab.value, currentPlatform.value);
 };
 
@@ -420,6 +442,10 @@ watch(
 );
 
 const handleAddSystem = () => {
+  if (!canViewTaskList.value) {
+    MessagePlugin.warning("当前账号没有任务管理权限");
+    return;
+  }
   configRef.value?.handleAddSystem();
 };
 
@@ -447,7 +473,16 @@ const handleDelete = async (row: BuffScanTask) => {
   }
 };
 
-onMounted(() => {
-  fetchData();
-});
+watch(
+  canViewTaskList,
+  (allowed) => {
+    if (allowed) {
+      fetchData();
+      return;
+    }
+    dataList.value = [];
+    pagination.total = 0;
+  },
+  { immediate: true }
+);
 </script>

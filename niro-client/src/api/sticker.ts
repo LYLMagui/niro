@@ -23,11 +23,8 @@ export const stickerApi = {
 
   /**
    * 触发印花同步任务
-   * @param userId 用户ID
    */
-  syncStickers(userId: number) {
-    return request.post("/buff/sticker/sync", null, {
-      params: { userId },
-    });
+  syncStickers() {
+    return request.post("/buff/sticker/sync");
   },
 };

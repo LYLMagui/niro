@@ -272,7 +272,14 @@
             <t-button variant="outline" theme="default" @click="dialogVisible = false">
               取消
             </t-button>
-            <t-button theme="primary" type="submit" :loading="submitLoading">提交</t-button>
+            <t-button
+              v-permission="PermissionConstant.TASK_BUFF_LIST"
+              theme="primary"
+              type="submit"
+              :loading="submitLoading"
+            >
+              提交
+            </t-button>
           </div>
         </t-form>
       </div>
@@ -347,7 +354,14 @@
             <t-button variant="outline" theme="default" @click="systemDialogVisible = false">
               取消
             </t-button>
-            <t-button theme="primary" type="submit" :loading="submitLoading">提交</t-button>
+            <t-button
+              v-permission="PermissionConstant.TASK_BUFF_LIST"
+              theme="primary"
+              type="submit"
+              :loading="submitLoading"
+            >
+              提交
+            </t-button>
           </div>
         </t-form>
       </div>
@@ -374,6 +388,7 @@ import {
 import { useGoodsSearch } from "@/composables/useGoodsSearch";
 import { useAccountSelect } from "@/composables/useAccountSelect";
 import { useTaskForm } from "@/composables/useTaskForm";
+import { PermissionConstant } from "@/constant/PermissionConstant";
 
 const emit = defineEmits(["success"]);
 

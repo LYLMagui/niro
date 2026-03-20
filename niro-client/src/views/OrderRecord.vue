@@ -40,7 +40,7 @@
             </t-select>
           </t-col>
           <t-col :span="7">
-            <div class="flex gap-2">
+            <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="flex gap-2">
               <t-button theme="primary" @click="handleSearch">
                 <template #icon><search-icon /></template>
                 查询
@@ -71,14 +71,11 @@
 
         <!-- 订单号列 -->
         <template #orderId="{ row }">
-          <t-link
-            v-if="row.orderId"
-            theme="primary"
-            class="font-mono text-xs"
-            @click="viewC5Detail(row)"
-          >
-            {{ row.orderId }}
-          </t-link>
+          <span v-if="row.orderId" v-permission="PermissionConstant.TASK_RECORD_LIST">
+            <t-link theme="primary" class="font-mono text-xs" @click="viewC5Detail(row)">
+              {{ row.orderId }}
+            </t-link>
+          </span>
           <span v-else class="text-xs text-gray-400">未生成</span>
         </template>
 
@@ -151,7 +148,7 @@
 
         <!-- 操作列 -->
         <template #operation="{ row }">
-          <div class="flex gap-2">
+          <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="flex gap-2">
             <t-button
               v-if="row.platform === 'C5'"
               variant="text"
@@ -163,7 +160,12 @@
               详情
             </t-button>
             <t-popconfirm content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
-              <t-button variant="text" theme="danger" size="small">
+              <t-button
+                v-permission="PermissionConstant.ORDER_RECORD_DELETE"
+                variant="text"
+                theme="danger"
+                size="small"
+              >
                 <template #icon><delete-icon /></template>
                 删除
               </t-button>
@@ -233,7 +235,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import {
   SearchIcon,
@@ -247,8 +249,12 @@ import { orderApi } from "@/api/order";
 import dayjs from "dayjs";
 import type { TradeOrderRecord } from "@/types/order";
 import type { OrderQueryParam } from "@/types/order";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import { usePermission } from "@/hooks/usePermission";
 
 // --- 状态定义 ---
+const { hasPermission } = usePermission();
+const canViewOrderRecord = computed(() => hasPermission(PermissionConstant.TASK_RECORD_LIST));
 const loading = ref(false);
 const dataList = ref<TradeOrderRecord[]>([]);
 const activeTab = ref(0); // 0: 全部, 1: 成功, 2: 失败
@@ -299,6 +305,11 @@ const columns: PrimaryTableCol[] = [
 
 // --- 方法 ---
 const fetchData = async () => {
+  if (!canViewOrderRecord.value) {
+    dataList.value = [];
+    pagination.total = 0;
+    return;
+  }
   loading.value = true;
   try {
     const res = await orderApi.getPage(queryParams);
@@ -379,6 +390,10 @@ const detailLoading = ref(false);
 const orderDetail = ref<any>(null);
 
 const viewC5Detail = async (row: TradeOrderRecord) => {
+  if (!canViewOrderRecord.value) {
+    MessagePlugin.warning("当前账号没有订单记录权限");
+    return;
+  }
   if (row.platform !== "C5" || !row.orderId) {
     MessagePlugin.info("暂不支持查询非 C5 平台详情");
     return;
@@ -420,9 +435,20 @@ const getStatusTheme = (status: number) => {
   return (map[status] || "default") as any;
 };
 
-onMounted(() => {
-  fetchData();
-});
+watch(
+  canViewOrderRecord,
+  (allowed) => {
+    if (allowed) {
+      fetchData();
+      return;
+    }
+    dataList.value = [];
+    pagination.total = 0;
+    drawerVisible.value = false;
+    orderDetail.value = null;
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

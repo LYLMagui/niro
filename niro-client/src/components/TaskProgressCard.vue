@@ -44,7 +44,7 @@
         </t-tag>
 
         <!-- 操作按钮 -->
-        <div class="flex items-center gap-1 pl-2">
+        <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-1 pl-2">
           <t-button
             v-if="task.status === 0 || task.status === 3"
             theme="primary"
@@ -167,6 +167,7 @@
 import { computed } from "vue";
 import type { BuffScanTask } from "@/types/task";
 import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
+import { PermissionConstant } from "@/constant/PermissionConstant";
 
 import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 

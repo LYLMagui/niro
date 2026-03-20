@@ -26,6 +26,30 @@ function hasPermission(permissions: string[], requiredPermission: PermissionType
   return requiredPermission.some((permission) => permissions.includes(permission));
 }
 
+function getOriginalDisplay(el: HTMLElement): string {
+  const storedDisplay = el.dataset.permissionDisplay;
+  if (storedDisplay !== undefined) {
+    return storedDisplay;
+  }
+
+  const inlineDisplay = el.style.display;
+  const computedDisplay = window.getComputedStyle(el).display;
+  const originalDisplay =
+    inlineDisplay && inlineDisplay !== "none"
+      ? inlineDisplay
+      : computedDisplay === "none"
+        ? ""
+        : computedDisplay;
+
+  el.dataset.permissionDisplay = originalDisplay;
+  return originalDisplay;
+}
+
+function setElementVisible(el: HTMLElement, visible: boolean) {
+  const originalDisplay = getOriginalDisplay(el);
+  el.style.display = visible ? originalDisplay : "none";
+}
+
 /**
  * v-permission 指令
  * 用于控制元素的显示/隐藏
@@ -38,28 +62,12 @@ const permissionDirective: Directive = {
   mounted(el: HTMLElement, binding: DirectiveBinding<PermissionType>) {
     const userStore = useUserStore();
     const permissions = userStore.userInfo.permissions || [];
-
-    // 默认显示元素
-    el.style.display = "block";
-
-    // 执行权限检查
-    const isVisible = hasPermission(permissions, binding.value);
-
-    if (!isVisible) {
-      el.style.display = "none";
-    }
+    setElementVisible(el, hasPermission(permissions, binding.value));
   },
   updated(el: HTMLElement, binding: DirectiveBinding<PermissionType>) {
     const userStore = useUserStore();
     const permissions = userStore.userInfo.permissions || [];
-
-    const isVisible = hasPermission(permissions, binding.value);
-
-    if (!isVisible) {
-      el.style.display = "none";
-    } else {
-      el.style.display = "block";
-    }
+    setElementVisible(el, hasPermission(permissions, binding.value));
   },
 };
 

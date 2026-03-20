@@ -57,7 +57,7 @@
             </t-select>
           </t-form-item>
           <t-form-item>
-            <div class="flex gap-2">
+            <div v-permission="PermissionConstant.GOODS_LIST" class="flex gap-2">
               <t-button theme="primary" type="submit" size="medium">
                 <template #icon><search-icon /></template>
                 查询
@@ -70,6 +70,7 @@
                 theme="warning"
                 variant="base"
                 size="medium"
+                v-permission="PermissionConstant.GOODS_LIST"
                 @click="syncDialogVisible = true"
               >
                 <template #icon><cloud-download-icon /></template>
@@ -153,7 +154,7 @@
 
           <!-- 操作列 -->
           <template #operation="{ row }">
-            <div class="flex items-center justify-center space-x-2">
+            <div v-permission="PermissionConstant.GOODS_LIST" class="flex items-center justify-center space-x-2">
               <t-button
                 variant="text"
                 theme="primary"
@@ -169,6 +170,7 @@
                 theme="warning"
                 size="small"
                 class="transition-all hover:font-bold"
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 @click="openCreateTaskDialog(row)"
               >
                 <template #icon><shop-icon /></template>
@@ -223,6 +225,7 @@
 <script setup lang="ts">
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
+import { usePermission } from "@/hooks/usePermission";
 import TaskConfig from "@/views/TaskConfig.vue";
 import type { Goods, GoodsPageQuery, GoodsSimple, PageResult } from "@/types/goods";
 import {
@@ -234,11 +237,16 @@ import {
 } from "tdesign-icons-vue-next";
 import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
 import { MessagePlugin } from "tdesign-vue-next";
-import { onMounted, reactive, ref } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { debounce } from "lodash-es";
 
 import { ExteriorColorMap, ExteriorMap, ExteriorOptions } from "@/enums/ExteriorEnum";
 import { RarityColorMap, RarityMap } from "@/enums/RarityEnum";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+
+const { hasPermission } = usePermission();
+const canViewGoods = computed(() => hasPermission(PermissionConstant.GOODS_LIST));
+const canCreateTask = computed(() => hasPermission(PermissionConstant.TASK_BUFF_LIST));
 
 // 图片预览状态
 const visible = ref(false);
@@ -278,6 +286,11 @@ const syncForm = reactive({
 });
 
 const handleSync = async () => {
+  if (!canViewGoods.value) {
+    MessagePlugin.warning("当前账号没有商品管理权限");
+    syncDialogVisible.value = false;
+    return;
+  }
   if (!syncForm.categoryId) {
     MessagePlugin.warning("请选择分类");
     return;
@@ -304,6 +317,10 @@ const categoryOptions = ref<CategoryNode[]>([]);
 const loading = ref(false);
 
 const openCreateTaskDialog = (row: GoodsSimple) => {
+  if (!canCreateTask.value) {
+    MessagePlugin.warning("当前账号没有任务创建权限");
+    return;
+  }
   taskConfigRef.value?.openWithGoods(row);
 };
 
@@ -328,6 +345,11 @@ const columns: PrimaryTableCol[] = [
 
 // 加载数据
 const fetchData = async () => {
+  if (!canViewGoods.value) {
+    dataList.value = [];
+    pagination.total = 0;
+    return;
+  }
   loading.value = true;
   try {
     const params: GoodsPageQuery = {
@@ -373,6 +395,10 @@ const onRemoteSearch = debounce(async (keyword: string) => {
 
 // 加载全量商品列表 (仅一次)
 const fetchSimpleList = async () => {
+  if (!canViewGoods.value) {
+    goodsOptions.value = [];
+    return;
+  }
   // 初始化加载前 50 个热门商品或默认商品
   // 传递空字符串会触发后端默认返回前50条
   onRemoteSearch("");
@@ -402,6 +428,10 @@ const onPageChange = (pageInfo: PageInfo) => {
 
 // 加载分类树
 const fetchCategoryTree = async () => {
+  if (!canViewGoods.value) {
+    categoryOptions.value = [];
+    return;
+  }
   try {
     const res = await categoryApi.getTree();
     categoryOptions.value = res as unknown as CategoryNode[];
@@ -410,11 +440,23 @@ const fetchCategoryTree = async () => {
   }
 };
 
-onMounted(() => {
-  fetchSimpleList();
-  fetchCategoryTree();
-  fetchData();
-});
+watch(
+  canViewGoods,
+  (allowed) => {
+    if (allowed) {
+      fetchSimpleList();
+      fetchCategoryTree();
+      fetchData();
+      return;
+    }
+    dataList.value = [];
+    goodsOptions.value = [];
+    categoryOptions.value = [];
+    pagination.total = 0;
+    syncDialogVisible.value = false;
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

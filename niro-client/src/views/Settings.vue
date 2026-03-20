@@ -19,6 +19,7 @@
                 size="small"
                 :loading="checkingAll"
                 class="rounded !border-gray-200 !text-gray-600 transition-all duration-300"
+                v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK_ALL"
                 @click="onCheckAll"
               >
                 <template #icon><t-icon name="refresh" /></template>
@@ -28,6 +29,7 @@
                 theme="primary"
                 size="small"
                 class="rounded transition-all duration-300"
+                v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                 @click="onAddAccount"
               >
                 <template #icon><t-icon name="add" /></template>
@@ -185,6 +187,7 @@
                     theme="default"
                     :disabled="row.checking"
                     class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                     @click="onEditAccount(row)"
                   >
                     <t-icon name="edit" />
@@ -195,6 +198,7 @@
                     theme="default"
                     :disabled="row.checking"
                     class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK"
                     @click="onCheckAccount(row)"
                   >
                     <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
@@ -218,6 +222,7 @@
                       theme="default"
                       :disabled="row.checking || !!row.boundTaskId"
                       class="!text-gray-400 transition-colors hover:!text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      v-permission="PermissionConstant.BUFF_ACCOUNT_DELETE"
                     >
                       <t-icon name="delete" />
                     </t-link>
@@ -497,6 +502,7 @@
                 size="small"
                 :loading="testNotifyLoading"
                 class="!px-2"
+                v-permission="PermissionConstant.SETTINGS_TEST_NOTIFY"
                 @click="onTestNotify"
               >
                 <template #icon><t-icon name="chat" /></template>
@@ -504,6 +510,7 @@
               </t-button>
             </div>
             <t-button
+              v-permission="PermissionConstant.SETTINGS_SAVE"
               theme="primary"
               type="submit"
               block
@@ -587,6 +594,7 @@
             取消
           </t-button>
           <t-button
+            v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
             theme="primary"
             type="submit"
             :loading="accountSubmitLoading"
@@ -608,6 +616,8 @@ import {
   BuffAccountRole,
   BuffAccountStatus,
 } from "@/api/settings";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import { usePermission } from "@/hooks/usePermission";
 import {
   FormRule,
   MessagePlugin,
@@ -615,7 +625,10 @@ import {
   PrimaryTableCol,
   TableRowData,
 } from "tdesign-vue-next";
-import { computed, onMounted, reactive, ref } from "vue";
+import { computed, onMounted, reactive, ref, watch } from "vue";
+
+const { hasPermission } = usePermission();
+const canViewAccountList = computed(() => hasPermission(PermissionConstant.ACCOUNT_LIST));
 
 // --- 通用配置部分 ---
 const loading = ref(false);
@@ -776,6 +789,10 @@ const accountColumns: PrimaryTableCol<TableRowData>[] = [
 ];
 
 const fetchAccounts = async () => {
+  if (!canViewAccountList.value) {
+    accounts.value = [];
+    return;
+  }
   accountsLoading.value = true;
   try {
     const res = await settingsApi.getBuffAccounts();
@@ -926,12 +943,22 @@ const getBalanceClass = (row: BuffAccount) => {
 
 onMounted(async () => {
   fetchSettings();
-  await fetchAccounts();
-  // 进入页面后自动触发一次一键检测
-  if (accounts.value.length > 0) {
-    onCheckAll();
-  }
 });
+
+watch(
+  canViewAccountList,
+  async (allowed) => {
+    if (!allowed) {
+      accounts.value = [];
+      return;
+    }
+    await fetchAccounts();
+    if (accounts.value.length > 0) {
+      onCheckAll();
+    }
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>

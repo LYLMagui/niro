@@ -45,7 +45,7 @@
             />
           </t-col>
           <t-col :span="5">
-            <div class="flex gap-2">
+            <div v-permission="PermissionConstant.TASK_INVENTORY_VIEW" class="flex gap-2">
               <t-button theme="primary" @click="handleSearch">
                 <template #icon><search-icon /></template>
                 查询
@@ -57,7 +57,7 @@
       </div>
 
       <!-- 操作栏 -->
-      <div class="px-6 py-4">
+      <div v-permission="PermissionConstant.TASK_INVENTORY_VIEW" class="px-6 py-4">
         <t-button
           theme="primary"
           :disabled="selectedRowKeys.length === 0"
@@ -125,7 +125,13 @@
 
         <!-- 操作列 -->
         <template #operation="{ row }">
-          <t-button variant="text" theme="primary" size="small" @click="openRemarkDialog(row)">
+          <t-button
+            v-permission="PermissionConstant.TASK_INVENTORY_VIEW"
+            variant="text"
+            theme="primary"
+            size="small"
+            @click="openRemarkDialog(row)"
+          >
             <template #icon><edit-icon /></template>
             编辑备注
           </t-button>
@@ -230,11 +236,13 @@
 </template>
 
 <script setup lang="ts">
-import { ref, reactive, computed, onMounted } from "vue";
+import { ref, reactive, computed, watch } from "vue";
 import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import { SearchIcon, DashboardIcon, EditIcon, CalculatorIcon } from "tdesign-icons-vue-next";
 import { orderApi } from "@/api/order";
+import { usePermission } from "@/hooks/usePermission";
 import type { InventoryItem, InventoryQueryParam } from "@/types/order";
+import { PermissionConstant } from "@/constant/PermissionConstant";
 
 // --- 状态定义 ---
 const loading = ref(false);
@@ -256,6 +264,8 @@ const pagination = reactive({
   total: 0,
   showJumper: true,
 });
+const { hasPermission } = usePermission();
+const canViewInventory = computed(() => hasPermission(PermissionConstant.TASK_INVENTORY_VIEW));
 
 const columns: PrimaryTableCol[] = [
   { colKey: "row-select", type: "multiple", width: 50, fixed: "left" },
@@ -308,6 +318,11 @@ const totalAmount = computed(() => {
 
 // --- 方法 ---
 const fetchData = async () => {
+  if (!canViewInventory.value) {
+    inventoryList.value = [];
+    pagination.total = 0;
+    return;
+  }
   loading.value = true;
   try {
     // 构建查询参数，将日期范围转换为开始和结束日期
@@ -449,9 +464,19 @@ const handleCalculateCost = () => {
   costDialogVisible.value = true;
 };
 
-onMounted(() => {
-  fetchData();
-});
+watch(
+  canViewInventory,
+  (allowed) => {
+    if (allowed) {
+      fetchData();
+      return;
+    }
+    inventoryList.value = [];
+    pagination.total = 0;
+    selectedRowKeys.value = [];
+  },
+  { immediate: true }
+);
 </script>
 
 <style scoped>
