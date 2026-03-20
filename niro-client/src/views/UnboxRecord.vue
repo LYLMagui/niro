@@ -337,7 +337,7 @@ const syncUploadPreview = async (files: UploadFile[]) => {
     target.url = dataUrl;
     formData.screenshot = dataUrl;
   }
-  // TODO: ?? OCR ??????
+  // TODO: 后续可接入 OCR 自动识别。
 };
 
 const handleUploadChange = async (files: UploadFile[], _context: UploadChangeContext) => {
@@ -642,7 +642,7 @@ onMounted(() => {
             <t-form-item label="枪械名称" name="weaponName" required>
               <t-input
                 v-model="formData.weaponName"
-                placeholder="??AK-47 | ??"
+                placeholder="请输入枪械名称"
                 maxlength="60"
               />
             </t-form-item>

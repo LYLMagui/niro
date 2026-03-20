@@ -502,7 +502,7 @@ onMounted(() => {
 }
 
 .summary-value.profit-negative {
-  :#e34d59;
+  color: #e34d59;
 }
 
 .record-form {
