@@ -52,10 +52,10 @@ public class WebConfig implements WebMvcConfigurer {
     private static final String[] API_WHITELIST = {
         "/user/login",
         "/user/register",
+        "/health",
         "/log/stream",
         "/buff/account/report/status",
         "/task/callback/status",
-        "/test/**",
         "/api/buff/account/report/status"
     };
 

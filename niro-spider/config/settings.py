@@ -98,6 +98,16 @@ BUFF_COOKIE = os.getenv("BUFF_COOKIE", "")
 
 # 后端服务配置
 BACKEND_URL = os.getenv("BACKEND_URL", "http://localhost:8080")
+INTERNAL_CALLBACK_TOKEN = os.getenv("NIRO_INTERNAL_CALLBACK_TOKEN", "").strip()
+INTERNAL_CALLBACK_HEADER = (
+    os.getenv("NIRO_INTERNAL_CALLBACK_HEADER", "X-Niro-Internal-Token").strip()
+    or "X-Niro-Internal-Token"
+)
+INTERNAL_CALLBACK_HEADERS = (
+    {INTERNAL_CALLBACK_HEADER: INTERNAL_CALLBACK_TOKEN}
+    if INTERNAL_CALLBACK_TOKEN
+    else {}
+)
 
 # OCR 服务配置
 IMAGES_DIR = os.path.abspath(os.getenv("IMAGES_DIR", os.path.join(PROJECT_ROOT, "images")))

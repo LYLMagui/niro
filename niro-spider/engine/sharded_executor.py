@@ -16,7 +16,7 @@ from utils.browser_helper import BrowserProfile
 from utils.exception_handler import LoginRequiredError
 from storage.redis_pool import redis_async as redis_client_async
 from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX
-from config.settings import BACKEND_URL
+from config.settings import BACKEND_URL, INTERNAL_CALLBACK_HEADERS
 from utils.proxy_helper import get_proxies
 
 # 动态导入蜘蛛逻辑中的保存方法 (避免循环依赖)
@@ -934,9 +934,7 @@ class ShardedSpiderExecutor:
     async def _report_account_invalid(self, account_id: int, reason: str):
         """调用后端 API 标记账号失效"""
         try:
-            # 优先从环境变量获取后端地址，默认为 localhost:8080
-            backend_url = os.getenv("NIRO_BACKEND_URL", "http://localhost:8080")
-            api_url = f"{backend_url}/buff/account/report/status"
+            api_url = f"{BACKEND_URL}/buff/account/report/status"
             
             payload = {
                 "id": account_id,
@@ -944,7 +942,7 @@ class ShardedSpiderExecutor:
                 "warningMsg": reason
             }
             async with httpx.AsyncClient(timeout=10.0) as client:
-                resp = await client.post(api_url, json=payload)
+                resp = await client.post(api_url, json=payload, headers=INTERNAL_CALLBACK_HEADERS)
                 if resp.status_code == 200:
                     logger.info(f"✅ 已成功同步账号 {account_id} 失效状态至后端")
                 else:

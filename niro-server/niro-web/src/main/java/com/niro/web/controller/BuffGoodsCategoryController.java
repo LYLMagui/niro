@@ -1,5 +1,7 @@
 package com.niro.web.controller;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
+import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.BuffGoodsCategoryDTO;
 import com.niro.web.service.BuffGoodsCategoryService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -26,6 +28,7 @@ public class BuffGoodsCategoryController {
     private final BuffGoodsCategoryService buffGoodsCategoryService;
 
     @GetMapping("/tree")
+    @SaCheckPermission(PermissionConstants.GOODS_LIST)
     @Operation(summary = "获取分类树")
     public List<BuffGoodsCategoryDTO> getCategoryTree() {
         return buffGoodsCategoryService.getCategoryTree();

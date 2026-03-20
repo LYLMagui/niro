@@ -1,6 +1,8 @@
 package com.niro.web.controller;
 
 import com.niro.web.service.C5OrderSyncService;
+import com.niro.web.constant.PermissionConstants;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -35,6 +37,7 @@ public class C5OrderSyncController {
      * @return 同步结果
      */
     @PostMapping("/trigger")
+    @SaCheckPermission(PermissionConstants.TASK_C5_LIST)
     @Operation(summary = "手动同步 C5 订单", description = "手动触发 C5 平台订单同步任务")
     public String triggerSync(
             @Parameter(description = "查询几天前的订单，0=今天，1=昨天，-1=全部历史，默认1")

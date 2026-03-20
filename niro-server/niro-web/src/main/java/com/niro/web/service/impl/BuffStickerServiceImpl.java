@@ -1,5 +1,6 @@
 package com.niro.web.service.impl;
 
+import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -53,7 +54,9 @@ public class BuffStickerServiceImpl extends ServiceImpl<BuffStickerMapper, BuffS
     }
 
     @Override
-    public void syncStickers(Long userId) {
+    public void syncStickers() {
+        Long userId = StpUtil.getLoginIdAsLong();
+
         // 权限校验：仅管理员可触发
         if (!GlobalConstant.ADMIN_USER_ID.equals(userId)) {
             throw new BusinessException("仅管理员可触发印花同步任务");

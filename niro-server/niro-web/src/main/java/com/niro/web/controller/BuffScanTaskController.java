@@ -5,9 +5,13 @@ import com.niro.web.dto.BuffScanTaskDTO;
 import com.niro.web.dto.param.BuffScanTaskParam;
 import com.niro.web.dto.param.TaskQueryParam;
 import com.niro.web.entity.BuffScanTask;
+import com.niro.web.constant.PermissionConstants;
+import com.niro.web.config.InternalCallbackGuard;
 import com.niro.web.service.BuffScanTaskService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
@@ -27,26 +31,31 @@ import java.util.List;
 public class BuffScanTaskController {
 
     private final BuffScanTaskService buffScanTaskService;
+    private final InternalCallbackGuard internalCallbackGuard;
 
     @PostMapping("/add")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "创建任务")
     public void addTask(@RequestBody @Valid BuffScanTaskParam param) {
         buffScanTaskService.saveTask(param);
     }
 
     @PutMapping("/update")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "更新任务")
     public void updateTask(@RequestBody @Valid BuffScanTaskParam param) {
         buffScanTaskService.updateTask(param);
     }
 
     @DeleteMapping("/delete/{id}")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "删除任务")
     public void deleteTask(@PathVariable("id") Long id) {
         buffScanTaskService.deleteTask(id);
     }
 
     @PostMapping("/status/{id}/{status}")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "更新任务状态 (0:停止 1:运行)")
     public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status, @RequestParam(required = false) String platform) {
         buffScanTaskService.updateStatus(id, status);
@@ -54,17 +63,20 @@ public class BuffScanTaskController {
 
     @PostMapping("/callback/status")
     @Operation(summary = "Python 端任务状态回调")
-    public void taskCallback(@RequestBody BuffScanTask task) {
+    public void taskCallback(@RequestBody BuffScanTask task, HttpServletRequest request) {
+        internalCallbackGuard.check(request, "任务状态");
         buffScanTaskService.taskCallback(task);
     }
 
     @GetMapping("/page")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "分页查询任务")
     public Page<BuffScanTaskDTO> pageTask(@Valid TaskQueryParam param) {
         return buffScanTaskService.pageTask(param);
     }
 
     @GetMapping("/trade-tasks")
+    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "获取所有下单模式的任务列表")
     public List<BuffScanTask> listTradeTasks(@RequestParam(required = false) Long goodsId) {
         return buffScanTaskService.listTradeTasks(goodsId);

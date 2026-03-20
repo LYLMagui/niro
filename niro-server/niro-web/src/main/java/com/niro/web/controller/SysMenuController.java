@@ -1,6 +1,7 @@
 package com.niro.web.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.niro.core.result.Result;
 import com.niro.web.dto.RouterDTO;
 import com.niro.web.entity.SysMenu;
@@ -19,6 +20,7 @@ import java.util.List;
  */
 @RestController
 @RequestMapping("/api/user")
+@SaCheckLogin
 @RequiredArgsConstructor
 @Tag(name = "菜单管理", description = "动态路由相关接口")
 public class SysMenuController {

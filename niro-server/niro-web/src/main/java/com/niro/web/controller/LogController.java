@@ -8,6 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.redis.core.ReactiveRedisTemplate;
 import org.springframework.data.redis.listener.ChannelTopic;
@@ -19,6 +20,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.niro.web.service.LogService;
+import com.niro.web.constant.PermissionConstants;
 
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -51,6 +53,7 @@ public class LogController {
      * 根据 TraceID 查询日志
      */
     @GetMapping("/search")
+    @SaCheckPermission(PermissionConstants.LOG_LIST)
     @Operation(summary = "全链路日志查询")
     public List<Map<String, Object>> searchLogs(@RequestParam String traceId) {
         return logService.queryLogsByTraceId(traceId);
@@ -95,6 +98,7 @@ public class LogController {
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
+    @SaCheckPermission(PermissionConstants.LOG_LIST)
     @Operation(summary = "实时日志流 (SSE)")
     public Flux<ServerSentEvent<String>> streamLogs() {
         // 1. 构建初始快照流 (最后 100 行)

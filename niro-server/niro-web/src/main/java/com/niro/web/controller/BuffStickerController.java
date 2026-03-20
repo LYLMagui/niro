@@ -1,6 +1,8 @@
 package com.niro.web.controller;
 
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.BuffStickerDTO;
 import com.niro.web.service.BuffStickerService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -24,6 +26,7 @@ public class BuffStickerController {
 
     @Operation(summary = "分页查询印花列表")
     @GetMapping("/page")
+    @SaCheckPermission(PermissionConstants.STICKER_LIST)
     public Page<BuffStickerDTO> getPage(
             @RequestParam(name = "pageNum", defaultValue = "1") Integer pageNum,
             @RequestParam(name = "pageSize", defaultValue = "20") Integer pageSize,
@@ -33,7 +36,8 @@ public class BuffStickerController {
 
     @Operation(summary = "触发印花同步任务")
     @PostMapping("/sync")
-    public void sync(@RequestParam(name = "userId") Long userId) {
-        buffStickerService.syncStickers(userId);
+    @SaCheckPermission(PermissionConstants.STICKER_SYNC)
+    public void sync() {
+        buffStickerService.syncStickers();
     }
 }

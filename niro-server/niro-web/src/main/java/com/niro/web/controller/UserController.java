@@ -1,6 +1,7 @@
 package com.niro.web.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
+import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.hutool.core.bean.BeanUtil;
 import com.niro.web.dto.UserDTO;
 import com.niro.web.dto.UserInfoDTO;
@@ -48,12 +49,14 @@ public class UserController {
     }
 
     @PostMapping("/logout")
+    @SaCheckLogin
     @Operation(summary = "退出登录")
     public void logout(){
         userService.logout();
     }
 
     @GetMapping("/getInfo")
+    @SaCheckLogin
     @Operation(summary = "获取用户信息详情")
     public UserInfoDTO getInfo() {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -74,6 +77,7 @@ public class UserController {
     }
     
     @GetMapping("/getUser/{id}")
+    @SaCheckLogin
     @Operation(summary = "根据id获取用户")
     public UserDTO getUser(@PathVariable("id") Long id){
         return userService.getUser(id);

@@ -24,9 +24,7 @@ public interface BuffStickerService extends IService<BuffSticker> {
     Page<BuffStickerDTO> getStickerPage(Integer pageNum, Integer pageSize, String keyword);
 
     /**
-     * 触发印花价值同步任务
-     *
-     * @param userId 操作用户ID
+     * 触发印花价值同步任务，当前仅管理员可执行
      */
-    void syncStickers(Long userId);
+    void syncStickers();
 }

@@ -1,10 +1,12 @@
 package com.niro.web.controller;
 
 import com.niro.core.result.Result;
+import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.param.NotifySendParam;
 import com.niro.web.enums.NotifyTypeEnum;
 import com.niro.web.service.EmailNotifyService;
 import com.niro.web.service.WeComNotifyService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,6 +35,7 @@ public class NotifyController {
 
     @Operation(summary = "发送通知")
     @PostMapping("/send")
+    @SaCheckPermission(PermissionConstants.NOTIFY_SEND)
     public Result<Void> send(@RequestBody @Valid NotifySendParam param) {
         log.info("接收到发送通知请求: {}", param);
         

@@ -16,7 +16,7 @@ from redis.asyncio import Redis
 
 from engine.sharded_executor import ShardedSpiderExecutor
 from config.constants import REDIS_TASK_STOP_SIGNAL_PREFIX, REDIS_TASK_LAST_SCAN_PREFIX, REDIS_TASK_NEXT_SLOT_PREFIX, SCAN_ADMISSION_INTERVAL, REDIS_TASK_STATS_PREFIX
-from config.settings import BACKEND_URL
+from config.settings import BACKEND_URL, INTERNAL_CALLBACK_HEADERS
 from utils.notifier import Notifier
 from utils.exception_handler import LoginRequiredError
 from enums.buff_enums import BuffPaymentMethod, BuffGameType
@@ -1526,7 +1526,7 @@ class AsyncBuffSpider:
         
         try:
             async with httpx.AsyncClient(timeout=5.0) as client:
-                resp = await client.post(url, json=payload)
+                resp = await client.post(url, json=payload, headers=INTERNAL_CALLBACK_HEADERS)
                 if resp.status_code == 200:
                     logger.info(f"📊 状态/余额上报成功")
                 else:

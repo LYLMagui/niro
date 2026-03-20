@@ -634,7 +634,12 @@ class BuffSpider:
         if warning_msg: payload["warningMsg"] = warning_msg
         
         try:
-            resp = requests.post(url, json=payload, timeout=5)
+            resp = requests.post(
+                url,
+                json=payload,
+                timeout=5,
+                headers=settings.INTERNAL_CALLBACK_HEADERS,
+            )
             if resp.status_code == 200:
                 self.logger.info(f"📊 状态/余额上报成功")
             else:

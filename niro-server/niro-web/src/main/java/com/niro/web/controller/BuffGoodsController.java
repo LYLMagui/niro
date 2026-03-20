@@ -1,12 +1,14 @@
 package com.niro.web.controller;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.BuffGoodsDTO;
 import com.niro.web.dto.BuffGoodsSimpleDTO;
 import com.niro.web.dto.param.GoodsQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskService;
+import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -33,6 +35,7 @@ public class BuffGoodsController {
     private final BuffScanTaskService buffScanTaskService;
 
     @PostMapping("/sync-category/{categoryId}")
+    @SaCheckPermission(PermissionConstants.GOODS_LIST)
     @Operation(summary = "触发指定分类的商品同步")
     public void syncCategoryGoods(@PathVariable("categoryId") Long categoryId) {
         buffScanTaskService.syncCategoryGoods(categoryId);
@@ -40,6 +43,7 @@ public class BuffGoodsController {
     
 
     @GetMapping("/page")
+    @SaCheckPermission(PermissionConstants.GOODS_LIST)
     @Operation(summary = "分页查询商品列表")
     public Page<BuffGoodsDTO> queryGoodsPage(@Valid GoodsQueryParam param) {
         Page<BuffGoods> page = new Page<>(param.getPage(), param.getPageSize());
@@ -47,6 +51,7 @@ public class BuffGoodsController {
     }
 
     @GetMapping("/simple-list")
+    @SaCheckPermission(PermissionConstants.GOODS_LIST)
     @Operation(summary = "获取商品简单列表(支持搜索)")
     public List<BuffGoodsSimpleDTO> getSimpleList(@RequestParam(name = "keyword", required = false) String keyword) {
         return buffGoodsService.getSimpleList(keyword);
