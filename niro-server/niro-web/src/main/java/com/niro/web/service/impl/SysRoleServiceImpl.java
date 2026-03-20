@@ -1,7 +1,9 @@
 package com.niro.web.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
+import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.web.constant.UserConstants;
 import com.niro.web.entity.SysRole;
 import com.niro.web.entity.SysUserRole;
 import com.niro.web.mapper.SysRoleMapper;
@@ -10,7 +12,6 @@ import com.niro.web.service.SysUserRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
-import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -29,7 +30,7 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
     public Set<String> selectRolePermissionByUserId(Long userId) {
         Set<String> roles = new HashSet<>();
         // 管理员拥有所有权限
-        if (userId == 1L) {
+        if (UserConstants.ADMIN_ID.equals(userId)) {
             roles.add("admin");
             return roles;
         }
@@ -50,9 +51,18 @@ public class SysRoleServiceImpl extends ServiceImpl<SysRoleMapper, SysRole> impl
         // 2. 查询角色信息
         List<SysRole> sysRoles = this.lambdaQuery()
                 .in(SysRole::getRoleId, roleIds)
-                .eq(SysRole::getStatus, 0) // 正常
+                .eq(SysRole::getStatus, UserConstants.ROLE_STATUS_NORMAL)
                 .list();
-        
+
+        if (CollUtil.isEmpty(sysRoles)) {
+            return roles;
+        }
+
+        sysRoles.stream()
+                .map(SysRole::getRoleKey)
+                .filter(StrUtil::isNotBlank)
+                .forEach(roles::add);
+
         return roles;
     }
 }

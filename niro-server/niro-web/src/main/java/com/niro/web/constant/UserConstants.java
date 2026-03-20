@@ -10,6 +10,16 @@ public class UserConstants {
     public static final Long ADMIN_ID = 1L;
 
     /**
+     * 默认角色编码
+     */
+    public static final String DEFAULT_ROLE_KEY = "user";
+
+    /**
+     * 角色状态: 正常
+     */
+    public static final Integer ROLE_STATUS_NORMAL = 1;
+
+    /**
      * 组件标识：Layout
      */
     public static final String LAYOUT = "Layout";

@@ -27,6 +27,11 @@ public class SysRole implements Serializable {
      * 角色名称
      */
     private String roleName;
+
+    /**
+     * 角色权限字符串
+     */
+    private String roleKey;
     
     /**
      * 显示顺序
@@ -41,7 +46,7 @@ public class SysRole implements Serializable {
   
 
     /**
-     * 角色状态（0正常 1停用）
+     * 角色状态（1正常 0停用）
      */
     private Integer status;
 

@@ -37,7 +37,7 @@ public interface UserService extends IService<User> {
     void logout();
 
     /**
-     * 获取用户
+     * 获取用户，当前仅本人或管理员可查看
      * @param id
      * @return
      */
