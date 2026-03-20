@@ -40,12 +40,33 @@
             </t-select>
           </t-col>
           <t-col :span="7">
-            <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="flex gap-2">
-              <t-button theme="primary" @click="handleSearch">
+            <div class="flex gap-2">
+              <t-button
+                v-permission="PermissionConstant.TASK_C5_LIST"
+                theme="default"
+                variant="outline"
+                :loading="c5SyncLoading"
+                @click="handleC5Sync"
+              >
+                同步C5订单
+              </t-button>
+
+              <t-button
+                v-permission="PermissionConstant.TASK_RECORD_LIST"
+                theme="primary"
+                @click="handleSearch"
+              >
                 <template #icon><search-icon /></template>
                 查询
               </t-button>
-              <t-button theme="default" variant="base" @click="handleReset">重置</t-button>
+              <t-button
+                v-permission="PermissionConstant.TASK_RECORD_LIST"
+                theme="default"
+                variant="base"
+                @click="handleReset"
+              >
+                重置
+              </t-button>
             </div>
           </t-col>
         </t-row>
@@ -255,7 +276,9 @@ import { usePermission } from "@/hooks/usePermission";
 // --- 状态定义 ---
 const { hasPermission } = usePermission();
 const canViewOrderRecord = computed(() => hasPermission(PermissionConstant.TASK_RECORD_LIST));
+const canTriggerC5Sync = computed(() => hasPermission(PermissionConstant.TASK_C5_LIST));
 const loading = ref(false);
+const c5SyncLoading = ref(false);
 const dataList = ref<TradeOrderRecord[]>([]);
 const activeTab = ref(0); // 0: 全部, 1: 成功, 2: 失败
 
@@ -377,6 +400,25 @@ const handleDelete = async (id: number) => {
     fetchData();
   } catch (error) {
     console.error(error);
+  }
+};
+
+const handleC5Sync = async () => {
+  if (!canTriggerC5Sync.value) {
+    MessagePlugin.warning("当前账号没有 C5 同步权限");
+    return;
+  }
+  c5SyncLoading.value = true;
+  try {
+    const res = await orderApi.triggerC5Sync(1);
+    MessagePlugin.success(typeof res === "string" ? res : "C5 订单同步任务已触发");
+    if (canViewOrderRecord.value) {
+      fetchData();
+    }
+  } catch (error) {
+    console.error(error);
+  } finally {
+    c5SyncLoading.value = false;
   }
 };
 

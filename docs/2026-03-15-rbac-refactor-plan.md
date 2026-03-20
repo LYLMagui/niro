@@ -16,6 +16,12 @@
 - 每完成一个阶段，更新本文档的状态、完成日期、审查结论
 - 若范围发生变化，先更新分析文档，再回写本文档
 
+范围更新（2026-03-21）：
+
+- 由于产品方向已明确，**后续会移除 Buff 相关功能**。
+- 因此，Buff 扫货任务、BUFF 账号、商品、印花等模块的权限工作从“继续完善”调整为“冻结规划、保留现有保护、待功能删除时统一清理”。
+- 本计划后续主线转为：通用 RBAC 骨架、登录/菜单链路、C5、日志、通知、订单记录/库存，以及最小权限管理能力。
+
 ## 2. 重构目标
 
 本次重构目标不是做一个复杂权限平台，而是基于 Sa-Token 建成一套“小项目可用”的基础 RBAC。
@@ -123,11 +129,11 @@
     ->
 阶段2：后端授权闭环
     ->
-阶段3：前端权限落地
+阶段3：前端权限落地（非 Buff 面收口）
     ->
-阶段4：最小管理能力补齐
+阶段4：最小管理能力补齐（后续主线）
     ->
-阶段5：测试、验收、清理历史脚本
+阶段5：测试、验收、Buff 退场清理
 ```
 
 ## 6. 重构计划总表
@@ -135,10 +141,10 @@
 | 阶段 | 阶段名称 | 主要目标 | 关联问题 | 交付物 | 状态 | 计划顺序 |
 | --- | --- | --- | --- | --- | --- | --- |
 | P1 | 权限模型与数据修正 | 让数据库、实体、服务返回结果一致 | A01 A02 A03 A05 A06 A07 A09 A11 A12 | 实体修正、迁移脚本、初始化脚本、数据修复脚本 | 进行中 | 1 |
-| P2 | 后端授权闭环 | 让关键接口具备真实权限校验 | A04 | 权限加载机制、权限注解接入、接口权限矩阵 | 进行中（基本收口） | 2 |
-| P3 | 前端权限落地 | 让菜单与按钮权限按角色真实生效 | A07 A08 A09 | 路由修正、按钮控制接入、前端权限点清单 | 进行中（后半段） | 3 |
-| P4 | 最小权限管理能力 | 提供可操作的分配角色和菜单授权能力 | A10 | 后端管理接口、前端管理页或弹窗 | 未开始 | 4 |
-| P5 | 验收与清理 | 完成联调、测试、文档、遗留清理 | A01-A10 | 测试记录、回归清单、上线说明 | 未开始 | 5 |
+| P2 | 后端授权闭环 | 让关键接口具备真实权限校验 | A04 | 权限加载机制、权限注解接入、接口权限矩阵 | 已完成（非 Buff 面） | 2 |
+| P3 | 前端权限落地 | 让保留页面的菜单与按钮权限按角色真实生效，并冻结 Buff 面继续打磨 | A07 A08 A09 | 路由修正、按钮控制接入、前端权限点清单 | 已完成（非 Buff 面） | 3 |
+| P4 | 最小权限管理能力 | 提供可操作的分配角色和菜单授权能力 | A10 | 后端管理接口、前端管理页或弹窗 | 未开始（下一主线） | 4 |
+| P5 | 验收与清理 | 完成联调、测试、文档、遗留清理 | A01-A10 | 测试记录、回归清单、上线说明、Buff 退场清单 | 未开始 | 5 |
 
 ## 7. 分阶段详细计划
 
@@ -176,6 +182,7 @@
 阶段目标：
 
 - 把权限控制从“只是返回菜单”升级为“接口真实受控”
+- Buff 相关接口不再继续扩展权限设计，但现有保护保留到功能正式删除
 
 核心任务：
 
@@ -185,14 +192,15 @@
 | P2-02 | 确认 Sa-Token 权限加载方式，统一角色/权限获取入口 | A04 | P1 | 后端授权入口唯一、逻辑清晰 | 已完成 |
 | P2-03 | 给关键写操作接口补充权限校验 | A04 | P2-01 P2-02 | 无权限调用返回明确拒绝结果 | 已完成 |
 | P2-04 | 给敏感读接口补充权限校验 | A04 | P2-01 P2-02 | 日志、账号、系统配置等接口受控 | 已完成 |
-| P2-05 | 输出后端接口权限矩阵 | A04 | P2-03 P2-04 | 审查时可逐接口核对权限 | 进行中 |
+| P2-05 | 输出后端接口权限矩阵 | A04 | P2-03 P2-04 | 审查时可逐接口核对权限 | 已完成（非 Buff 面） |
 
-建议首批纳入授权的接口范围：
+当前后续仍需重点审查的接口范围：
 
-- 任务管理写操作
-- 账号管理写操作
-- 商品/印花管理写操作
+- 用户/菜单基础链路
+- 订单记录与库存
+- C5 同步
 - 系统日志查看
+- 通知发送
 - 权限管理接口本身
 
 阶段验收：
@@ -201,59 +209,96 @@
 - 管理员可正常访问
 - 权限拒绝信息可在前端被识别和处理
 
-当前接口权限矩阵（草案）：
+当前接口权限矩阵（验收版）：
+
+非 Buff 面（本轮验收口径）：
+
+| 接口 | 鉴权方式 | 权限码 | 说明 |
+| --- | --- | --- | --- |
+| `GET /user/getInfo` | `@SaCheckLogin` | - | 用户信息、角色、权限聚合入口 |
+| `POST /user/logout` | `@SaCheckLogin` | - | 登录态退出 |
+| `GET /user/getUser/{id}` | `@SaCheckLogin` | - | 用户详情查询（登录边界） |
+| `GET /api/user/menus` | `@SaCheckLogin` | - | 动态路由菜单入口 |
+| `GET /order/record/page` | `@SaCheckPermission` | `task:record:list` | 订单记录列表 |
+| `GET /order/record/c5/detail/{orderId}` | `@SaCheckPermission` | `task:record:list` | C5 订单详情 |
+| `GET /order/record/inventory` | `@SaCheckPermission` | `task:inventory:view` | 库存看板 |
+| `DELETE /order/record/{id}` | `@SaCheckPermission` | `order:record:delete` | 删除订单记录 |
+| `PUT /order/record` | `@SaCheckPermission` | `order:record:update` | 更新订单记录 |
+| `POST /api/c5/order-sync/trigger` | `@SaCheckPermission` | `task:c5:list` | 手动触发 C5 同步 |
+| `GET /log/search` | `@SaCheckPermission` | `system:logs:list` | 日志检索 |
+| `GET /log/stream` | `@SaCheckPermission` | `system:logs:list` | 日志流读取 |
+| `POST /notify/send` | `@SaCheckPermission` | `notify:send` | 通知发送 |
+| `GET /settings` | `@SaCheckLogin` | - | 系统配置读取（登录边界） |
+| `POST /settings` | `@SaCheckPermission` | `settings:save` | 系统配置保存 |
+| `POST /settings/test-notify` | `@SaCheckPermission` | `settings:test-notify` | 通知测试 |
+| `GET /health` | 匿名白名单 | - | 健康检查入口，不纳入 RBAC |
+
+Buff 面（冻结记录，非本轮验收重点）：
 
 | 接口范围 | 当前权限码 | 说明 |
 | --- | --- | --- |
-| `/task/page`、`/task/trade-tasks`、`/task/add`、`/task/update`、`/task/delete/{id}`、`/task/status/{id}/{status}` | `task:buff:list` | 先按 BUFF 任务页权限收口 |
-| `/order/record/page`、`/order/record/c5/detail/{orderId}` | `task:record:list` | 订单记录读权限 |
-| `/order/record/inventory` | `task:inventory:view` | 库存看板读权限 |
-| `/order/record/{id}` `DELETE`、`PUT` | `order:record:delete`、`order:record:update` | 仍保留按钮级扩展码 |
+| `/task/page`、`/task/trade-tasks`、`/task/add`、`/task/update`、`/task/delete/{id}`、`/task/status/{id}/{status}` | `task:buff:list` | BUFF 任务接口，保留现有保护 |
 | `/buff/account/list` | `system:account:list` | 账号列表读权限 |
 | `/buff/account/save`、`/buff/account/{id}`、`/buff/account/check/{id}`、`/buff/account/check/all` | `buff:account:save`、`buff:account:delete`、`buff:account:check`、`buff:account:check:all` | 账号管理写权限 |
-| `/goods/page`、`/goods/simple-list`、`/goods/sync-category/{categoryId}`、`/category/tree` | `system:goods:list` | 商品页、分类树与同步入口先共用页面权限 |
-| `/buff/sticker/page`、`/buff/sticker/sync` | `system:sticker:list`、`system:sticker:sync` | 印花管理读写权限，先按独立权限码收口 |
-| `/log/search`、`/log/stream` | `system:logs:list` | 系统日志读权限 |
-| `/api/c5/order-sync/trigger` | `task:c5:list` | 复用 C5 任务页权限 |
-| `/notify/send` | `notify:send` | 通知发送独立控制 |
-| `/health` | 匿名白名单 | 健康检查入口，明确不纳入登录态与 RBAC 权限控制 |
-| `/buff/account/report/status`、`/task/callback/status` | 内部共享令牌守卫（可选） | 内部状态回报入口；不纳入用户 RBAC，配置 token 后要求请求头携带内部令牌 |
+| `/goods/page`、`/goods/simple-list`、`/goods/sync-category/{categoryId}`、`/category/tree` | `system:goods:list` | 商品与分类接口 |
+| `/buff/sticker/page`、`/buff/sticker/sync` | `system:sticker:list`、`system:sticker:sync` | 印花管理接口 |
+| `/buff/account/report/status`、`/task/callback/status` | 内部共享令牌守卫（可选） | 内部状态回报入口 |
+
+补充说明：
+
+- 上表中的 Buff 相关条目当前仅作为“已落地现状记录”保留。
+- 在 Buff 功能真正删除前，不回退现有 `@SaCheckPermission` 与内部守卫。
+- `P2-05` 已按非 Buff 面完成矩阵补齐，后续仅在接口变动时增量维护。
 
 ### P3 前端权限落地
 
 阶段目标：
 
 - 让前端不只控制“能不能看到页面”，还要控制“能不能操作页面”
+- 在 Buff 后续移除的前提下，停止继续细化 Buff 页面的权限点清单，只收口仍保留页面
 
 核心任务：
 
 | 任务编号 | 任务内容 | 关联问题 | 前置依赖 | 验收标准 | 状态 |
 | --- | --- | --- | --- | --- | --- |
-| P3-01 | 修正动态菜单与路由生成的稳定性问题 | A07 A09 | P1 | 普通用户与管理员路由均可正常进入 | 进行中 |
+| P3-01 | 修正动态菜单与路由生成的稳定性问题 | A07 A09 | P1 | 普通用户与管理员路由均可正常进入 | 已完成（当前范围） |
 | P3-02 | 统一前端权限判断方式，确定 `v-permission` 为主入口 | A08 | P2 | 页面权限控制方式统一 | 已完成 |
-| P3-03 | 在核心页面接入按钮级权限控制 | A08 | P3-02 P2 | 核心按钮能随权限变化显示/隐藏 | 进行中 |
-| P3-04 | 补充前端权限点清单，和后端权限码对齐 | A08 A09 | P2-05 | 可逐页核对权限接入情况 | 进行中 |
-| P3-05 | 处理无权限场景的前端交互提示 | A08 | P3-03 | 无权限反馈明确，不出现静默失败 | 进行中 |
+| P3-03 | 在保留页面接入按钮级权限控制，并冻结 Buff 页面的新增权限规划 | A08 | P3-02 P2 | 核心按钮能随权限变化显示/隐藏，Buff 页面不再继续细化 | 已完成（非 Buff 面） |
+| P3-04 | 补充非 Buff 面前端权限点清单，和后端权限码对齐 | A08 A09 | P2-05 | 可逐页核对长期保留页面的权限接入情况 | 已完成（非 Buff 面） |
+| P3-05 | 处理无权限场景的前端交互提示 | A08 | P3-03 | 无权限反馈明确，不出现静默失败 | 已完成（非 Buff 面） |
 
 优先接入页面建议：
 
-- 任务管理
 - 订单记录
-- 商品管理
+- 库存看板
+- C5 相关入口
 - 日志查看
-- 账号管理
+- 系统配置（保留部分）
+- 通知相关入口
 
 阶段验收：
 
 - 不同角色登录后，菜单和按钮可见范围符合预期
 - 前端不会仅靠隐藏按钮“假装有权限控制”
 - 与后端权限矩阵可以逐项对应
+- Buff 页面在删除前保留当前保护，但不再作为继续打磨对象
+
+非 Buff 面前端权限点清单（验收版）：
+
+| 页面/入口 | 权限点 | 对齐后端权限码 | 收口方式 |
+| --- | --- | --- | --- |
+| `OrderRecord.vue` | 列表查询、详情、删除、C5 同步入口 | `task:record:list`、`order:record:delete`、`task:c5:list` | `v-permission` + `canViewOrderRecord` 读守卫 |
+| `InventoryBoard.vue` | 库存查询与交互 | `task:inventory:view` | `v-permission` + `canViewInventory` 读守卫 |
+| `Logs.vue` | 日志检索/流式查看 | `system:logs:list` | `v-permission` + `canViewLogs` 读守卫 |
+| `Settings.vue`（非 Buff 区域） | 配置保存、通知测试 | `settings:save`、`settings:test-notify` | `v-permission` + 登录态读守卫 |
+| 动态路由入口 | 菜单加载 | `GET /api/user/menus`（登录边界） | 登录后动态注入路由 |
 
 ### P4 最小权限管理能力
 
 阶段目标：
 
 - 补齐最小管理能力，支持系统维护权限关系
+- 在 Buff 退场背景下，P4 从“后续阶段”上升为“下一主线”
 
 核心任务：
 
@@ -282,6 +327,7 @@
 阶段目标：
 
 - 对整个重构做统一回归和文档收口，确保可交付
+- 在功能下线时统一完成 Buff 相关菜单、权限、路由与历史授权残留清理
 
 核心任务：
 
@@ -290,7 +336,7 @@
 | P5-01 | 建立权限场景测试清单 | A01-A10 | P1-P4 | 覆盖管理员、普通用户、无角色用户 | 未开始 |
 | P5-02 | 执行接口级回归测试 | A04 A10 | P2 P4 | 权限拒绝与放行结果正确 | 未开始 |
 | P5-03 | 执行前端场景回归测试 | A07 A08 A10 | P3 P4 | 菜单与按钮表现符合预期 | 未开始 |
-| P5-04 | 清理废弃脚本、历史兼容代码、无用权限逻辑 | A05 A06 A09 | P1-P4 | 旧代码不再影响新逻辑 | 未开始 |
+| P5-04 | 清理废弃脚本、历史兼容代码、无用权限逻辑，以及 Buff 退场后的菜单/路由/权限残留 | A05 A06 A09 | P1-P4 | 旧代码与 Buff 残留不再影响新逻辑 | 未开始 |
 | P5-05 | 更新最终文档与上线说明 | A01-A10 | P1-P4 | 重构结果可追溯、可交接 | 未开始 |
 
 阶段验收：
@@ -311,8 +357,8 @@
 | R4 | 角色菜单数据健康 | 无孤儿数据、普通用户菜单可用 | 未审查 |  |
 | R4A | 数据库约束补齐 | `role_key` 唯一，关系表逻辑关联校验可用，且未引入外键 | 未审查 |  |
 | R4B | 角色状态语义统一 | 数据库、实体、查询逻辑一致 | 未审查 |  |
-| R5 | 后端接口真实受控 | 越权调用被拒绝 | 进行中 | 关键写接口、敏感读接口与内部回调边界已基本收口，待接口矩阵继续补齐 |
-| R6 | 前端菜单与按钮权限生效 | 不同角色显示不同 | 进行中 | 主干管理页按钮显隐与页面读守卫已落地，剩余组件级入口继续清点 |
+| R5 | 后端接口真实受控 | 越权调用被拒绝 | 已完成（非 Buff 面） | 非 Buff 接口矩阵已补齐并完成注解复核；Buff 面维持冻结保护 |
+| R6 | 前端菜单与按钮权限生效 | 不同角色显示不同 | 已完成（非 Buff 面） | 非 Buff 页面权限点清单已落地并对齐后端；Buff 面冻结不再新增打磨 |
 | R7 | 管理端可维护权限关系 | 可完成分配角色与授权菜单 | 未审查 |  |
 | R8 | 脚本和文档一致 | 新环境可按脚本初始化 | 进行中 | P1 脚本与进度文档已持续回写，最终收口仍依赖 P4/P5 完成 |
 
@@ -326,6 +372,7 @@
 | RISK-03 | 前后端权限码命名不一致 | 菜单与按钮控制失真 | 先输出权限码映射表，再编码 |
 | RISK-04 | 只做前端显隐，后端仍可越权 | 安全边界失效 | 关键写接口必须优先加后端校验 |
 | RISK-05 | 权限管理页范围失控 | 项目复杂度上升 | 严格限制为“用户分配角色 + 角色授权菜单” |
+| RISK-06 | Buff 功能进入删除期后，计划与现网保护边界混淆 | 可能出现“以为要删就先拆保护”的回退问题 | 明确采用“冻结规划、不回退保护、删除时统一清理”的策略 |
 
 ## 10. 进度更新模板
 
@@ -351,9 +398,13 @@
 | 2026-03-20 | P3 商品/订单/印花/库存页收口 | 给 `TaskList`、`OrderRecord`、`GoodsList`、`StickerList`、`InventoryBoard` 的读/操作入口补上前端权限控制 | 进行中 | 页面级读入口与主要管理按钮已继续收口 | 还需继续清点剩余公共页是否需要保留或继续加权限 |
 | 2026-03-20 | P3 会话总结与剩余页判定 | 确认 `ProfitStats` / `UnboxRecord` 为本地工具页，保留菜单级访问，不新增权限码 | 是 | 边界已明确，后续只继续收口真正的管理页按钮入口 | 无 |
 | 2026-03-21 | P2 内部边界补强 | 给 `/health` 明确开放边界，并为账号状态回报、任务状态回调补可选共享令牌守卫，Spider 同步携带内部头 | 是 | 后端编译通过，未配置 token 时保持兼容，配置后可立即启用内部鉴权 | `/api/buff/account/report/status` 仍依赖现网代理/转发约定，后续可再统一入口 |
-| 2026-03-21 | P3 页面读权限收口 | 给 `TaskList`、`GoodsList`、`OrderRecord`、`StickerList`、`InventoryBoard`、`Dashboard`、`Logs`、`Settings` 补“无读权限不主动请求”守卫，并改成权限就绪后自动拉取 | 进行中 | `pnpm type-check` 通过，前端不再只靠按钮显隐，越权页面也不会主动打受控接口 | `CronEditor`、`Layout` 等剩余组件仍需继续判定是否属于真正入口 |
-| 2026-03-21 | P3 组件级边界继续收口 | `TaskConfig` 核心按钮已纳入 `v-permission`，`Settings` 按混合页边界拆分读入口，全局配置保留登录态读取，账号列表仅在具备 `system:account:list` 时主动加载 | 进行中 | 主干管理页的按钮显隐与读入口边界继续清晰化，且保持“不扩权限码范围”原则 | `CronEditor`、`Layout`、`TaskProgressCard` 仍需继续复核是否存在残余真入口 |
+| 2026-03-21 | P3 页面读权限收口 | 给 `TaskList`、`GoodsList`、`OrderRecord`、`StickerList`、`InventoryBoard`、`Dashboard`、`Logs`、`Settings` 补“无读权限不主动请求”守卫，并改成权限就绪后自动拉取 | 进行中 | `pnpm type-check` 通过，前端不再只靠按钮显隐，越权页面也不会主动打受控接口 | 剩余重点转为 `TaskConfig` 表单级读入口与权限点清单整理 |
+| 2026-03-21 | P3 组件级边界继续收口 | `TaskConfig` 核心按钮已纳入 `v-permission`，`Settings` 按混合页边界拆分读入口，全局配置保留登录态读取，账号列表仅在具备 `system:account:list` 时主动加载 | 进行中 | 主干管理页的按钮显隐与读入口边界继续清晰化，且保持“不扩权限码范围”原则 | `TaskConfig` 表单级读入口仍需继续收口，`CronEditor`、`Layout`、`TaskProgressCard` 需复核真入口属性 |
 | 2026-03-21 | 验证补充 | 在后端编译、前端 `pnpm type-check` 之外，补记 Spider 侧 `python -m py_compile ...` 语法检查通过 | 是 | 三端最小验证链路已补齐，可继续支撑后续 P2/P3 小步收口 | 若后端控制器、白名单或内部回调边界继续变更，仍需重复验证 |
+| 2026-03-21 | P3 TaskConfig 表单读入口收口 | 给 `TaskConfig.vue`、`useGoodsSearch.ts`、`useAccountSelect.ts`、`AccountSelector.vue` 补齐权限守卫，使商品搜索、执行账号、关联下单任务在无权限时不主动请求并进入禁用态 | 是 | `pnpm type-check` 再次通过；`CronEditor.vue`、`Layout.vue` 已确认不是 RBAC 真入口 | 前端主干入口已接近收口，后续主要整理权限点清单并补齐 `P2` 接口矩阵 |
+| 2026-03-21 | 计划改线 | 明确 Buff 功能后续整体移除，权限计划调整为“冻结 Buff 规划、保留现有保护、主线转向非 Buff 面与 P4 最小权限管理能力” | 是 | 文档基线已更新，后续不再继续投入 Buff 权限体系打磨 | 需在功能真正删除时统一执行菜单、路由、权限残留清理 |
+| 2026-03-21 | P2/P3 本轮收口完成 | 完成非 Buff 面接口矩阵与前端权限点清单收口，新增 `OrderRecord` C5 同步入口并对齐 `task:c5:list`，同步移除冲刺任务清单段落 | 是 | `P2-05`、`P3-03/04/05` 在非 Buff 范围内均已收口为完成状态 | Buff 相关能力继续冻结，待功能下线时统一清理 |
+| 2026-03-21 | 记忆与计划同步 | 将 `P2/P3` 收口结论、Buff 冻结策略与 `P4` 下一主线同步回写到 `session-memory.md` 与本计划文档，统一后续会话口径 | 是 | 跨会话记忆与计划状态保持一致，可直接进入 `P4` 执行 | 后续仅在范围变化或验收结果变化时再次回写 |
 
 ## 11. 最终验收口径
 
@@ -362,10 +413,11 @@
 1. 用户登录后能稳定获取角色、权限、菜单
 2. 普通用户与管理员权限表现明显不同，且符合配置
 3. 关键后端接口具备真实权限拦截
-4. 前端核心页面已接入按钮级权限控制
+4. 前端保留页面已接入按钮级权限控制，Buff 页面在删除前保留现有保护且不回退
 5. 管理员可以完成最小的角色分配与菜单授权
 6. 初始化脚本、数据库结构、实体类、权限码文档保持一致
-7. 数据库约束与字段语义达到最小可信状态，不再依赖“人工记忆”维持正确性
+7. Buff 退场后，相关菜单、路由、权限码与历史授权残留可被统一清理
+8. 数据库约束与字段语义达到最小可信状态，不再依赖“人工记忆”维持正确性
 
 ## 12. 一句话总结
 
