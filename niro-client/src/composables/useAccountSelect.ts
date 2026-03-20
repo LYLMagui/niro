@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, type Ref } from "vue";
 import { settingsApi, type BuffAccount } from "@/api/settings";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask } from "@/types/task";
@@ -7,7 +7,13 @@ import { PlatformEnum } from "@/enums/PlatformEnum";
 /**
  * 账号获取 + 按平台/模式角色过滤 + 关联任务管理
  */
-export function useAccountSelect(formData: { platform: string; runMode: string; id?: number }) {
+export function useAccountSelect(
+  formData: { platform: string; runMode: string; id?: number },
+  options?: {
+    canViewAccounts?: Ref<boolean>;
+    canViewTradeTasks?: Ref<boolean>;
+  }
+) {
   const accounts = ref<BuffAccount[]>([]);
   const accountsLoading = ref(false);
 
@@ -15,6 +21,10 @@ export function useAccountSelect(formData: { platform: string; runMode: string; 
   const tradeTasksLoading = ref(false);
 
   const fetchAccounts = async () => {
+    if (options?.canViewAccounts && !options.canViewAccounts.value) {
+      accounts.value = [];
+      return;
+    }
     accountsLoading.value = true;
     try {
       accounts.value = await settingsApi.getBuffAccounts();
@@ -24,6 +34,10 @@ export function useAccountSelect(formData: { platform: string; runMode: string; 
   };
 
   const fetchTradeTasks = async (goodsId?: number) => {
+    if (options?.canViewTradeTasks && !options.canViewTradeTasks.value) {
+      tradeTasks.value = [];
+      return;
+    }
     tradeTasksLoading.value = true;
     try {
       tradeTasks.value = await taskApi.getTradeTasks(goodsId);

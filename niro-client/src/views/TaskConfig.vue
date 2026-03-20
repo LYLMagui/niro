@@ -93,10 +93,10 @@
               <t-select
                 v-model="formData.goodsId"
                 filterable
-                placeholder="输入商品名称搜索"
+                :placeholder="goodsSelectPlaceholder"
                 :loading="goodsLoading"
-                :on-search="remoteSearchGoods"
-                :disabled="!!formData.id"
+                :on-search="handleGoodsSearch"
+                :disabled="!!formData.id || !canViewGoods"
                 style="width: 320px"
               >
                 <t-option
@@ -120,11 +120,11 @@
               <t-select
                 v-model="formData.targetTaskId"
                 filterable
-                placeholder="请选择关联的下单任务 (可选)"
+                :placeholder="tradeTaskPlaceholder"
                 :loading="tradeTasksLoading"
-                :disabled="!formData.goodsId"
+                :disabled="!formData.goodsId || !canManageTasks"
                 style="width: 320px"
-                @focus="fetchTradeTasks(formData.goodsId)"
+                @focus="handleTradeTaskFocus"
               >
                 <t-option
                   v-for="item in tradeTasks"
@@ -143,7 +143,9 @@
               </t-select>
               <template #tips>
                 {{
-                  formData.goodsId
+                  !canManageTasks
+                    ? "当前账号没有任务管理权限，无法读取关联下单任务"
+                    : formData.goodsId
                     ? "仅显示相同商品的任务。选择后，扫描结果将自动路由给该任务执行购买"
                     : "请先选择商品以关联对应的下单任务"
                 }}
@@ -246,10 +248,18 @@
                 v-model="formData.accountIds"
                 :accounts="filteredAccounts"
                 :loading="accountsLoading"
+                :disabled="!canViewAccounts"
                 :current-task-id="formData.id"
+                :placeholder="accountPlaceholder"
                 @focus="fetchAccounts"
               />
-              <template #tips>多选账号可实现多并发扫货，提高抢购成功率</template>
+              <template #tips>
+                {{
+                  !canViewAccounts
+                    ? "当前账号没有账号列表权限，无法为任务绑定执行账号"
+                    : "多选账号可实现多并发扫货，提高抢购成功率"
+                }}
+              </template>
             </t-form-item>
 
             <t-form-item v-if="formData.runMode !== TaskRunModeEnum.TRADE" label-width="0">
@@ -332,10 +342,18 @@
                 v-model="formData.accountIds"
                 :accounts="accounts"
                 :loading="accountsLoading"
+                :disabled="!canViewAccounts"
                 :current-task-id="formData.id"
+                :placeholder="accountPlaceholder"
                 @focus="fetchAccounts"
               />
-              <template #tips>系统任务建议绑定多个扫描账号以平衡负载</template>
+              <template #tips>
+                {{
+                  !canViewAccounts
+                    ? "当前账号没有账号列表权限，无法为系统任务绑定执行账号"
+                    : "系统任务建议绑定多个扫描账号以平衡负载"
+                }}
+              </template>
             </t-form-item>
 
             <!-- 调度配置 -->
@@ -373,7 +391,7 @@
 import { goodsApi } from "@/api/goods";
 import type { GoodsSimple } from "@/types/goods";
 import type { BuffScanTask } from "@/types/task";
-import { nextTick, ref, toRef, watch } from "vue";
+import { computed, nextTick, ref, toRef, watch } from "vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum, TaskRunModeMap } from "@/enums/TaskRunModeEnum";
@@ -389,6 +407,7 @@ import { useGoodsSearch } from "@/composables/useGoodsSearch";
 import { useAccountSelect } from "@/composables/useAccountSelect";
 import { useTaskForm } from "@/composables/useTaskForm";
 import { PermissionConstant } from "@/constant/PermissionConstant";
+import { usePermission } from "@/hooks/usePermission";
 
 const emit = defineEmits(["success"]);
 
@@ -398,8 +417,24 @@ const systemDialogVisible = ref(false);
 const dialogTitle = ref("新增任务");
 const formRef = ref();
 const systemFormRef = ref();
+const { hasPermission } = usePermission();
+const canViewGoods = computed(() => hasPermission(PermissionConstant.GOODS_LIST));
+const canViewAccounts = computed(() => hasPermission(PermissionConstant.ACCOUNT_LIST));
+const canManageTasks = computed(() => hasPermission(PermissionConstant.TASK_BUFF_LIST));
+const goodsSelectPlaceholder = computed(() =>
+  canViewGoods.value ? "输入商品名称搜索" : "当前账号无商品管理权限"
+);
+const accountPlaceholder = computed(() =>
+  canViewAccounts.value ? "请选择执行账号" : "当前账号无账号列表权限"
+);
 
 const { formData, submitLoading, rules, resetForm, handleSubmit } = useTaskForm(emit);
+const tradeTaskPlaceholder = computed(() => {
+  if (!canManageTasks.value) {
+    return "当前账号无任务管理权限";
+  }
+  return formData.goodsId ? "请选择关联的下单任务 (可选)" : "请先选择商品";
+});
 
 const {
   uiState,
@@ -412,7 +447,8 @@ const {
 } = useUiState(formData as any);
 
 const { goodsLoading, goodsOptions, remoteSearchGoods, isWearable } = useGoodsSearch(
-  toRef(formData, "goodsId") as any
+  toRef(formData, "goodsId") as any,
+  { canViewGoods }
 );
 
 const {
@@ -423,7 +459,19 @@ const {
   tradeTasksLoading,
   fetchTradeTasks,
   filteredAccounts,
-} = useAccountSelect(formData as any);
+} = useAccountSelect(formData as any, {
+  canViewAccounts,
+  canViewTradeTasks: canManageTasks,
+});
+
+const handleGoodsSearch = (keyword: string) => remoteSearchGoods(keyword);
+
+const handleTradeTaskFocus = () => {
+  if (!formData.goodsId) {
+    return;
+  }
+  fetchTradeTasks(formData.goodsId);
+};
 
 // --- Watchers ---
 watch(
@@ -433,6 +481,25 @@ watch(
     tradeTasks.value = [];
   }
 );
+
+watch(canViewGoods, (allowed) => {
+  if (!allowed) {
+    goodsOptions.value = [];
+  }
+});
+
+watch(canViewAccounts, (allowed) => {
+  if (!allowed) {
+    formData.accountIds = [];
+  }
+});
+
+watch(canManageTasks, (allowed) => {
+  if (!allowed) {
+    formData.targetTaskId = undefined;
+    tradeTasks.value = [];
+  }
+});
 
 watch(
   () => formData.runMode,
@@ -541,15 +608,17 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
 
   if (row.goodsId) {
     goodsOptions.value = [{ goodsId: row.goodsId, name: row.name } as GoodsSimple];
-    goodsLoading.value = true;
-    goodsApi
-      .getSimpleList(row.name)
-      .then((res) => {
-        const match = res.find((g) => g.goodsId === row.goodsId);
-        if (match) goodsOptions.value = [match];
-      })
-      .catch((e) => console.error("Fetch goods info failed", e))
-      .finally(() => (goodsLoading.value = false));
+    if (canViewGoods.value) {
+      goodsLoading.value = true;
+      goodsApi
+        .getSimpleList(row.name)
+        .then((res) => {
+          const match = res.find((g) => g.goodsId === row.goodsId);
+          if (match) goodsOptions.value = [match];
+        })
+        .catch((e) => console.error("Fetch goods info failed", e))
+        .finally(() => (goodsLoading.value = false));
+    }
   }
 
   if (row.targetTaskId) {

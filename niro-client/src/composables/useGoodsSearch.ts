@@ -27,12 +27,19 @@ const NON_WEARABLE_CATEGORIES = [
 /**
  * 商品远程搜索 + 磨损类型判断
  */
-export function useGoodsSearch(goodsId: Ref<number | undefined>) {
+export function useGoodsSearch(
+  goodsId: Ref<number | undefined>,
+  options?: { canViewGoods?: Ref<boolean> }
+) {
   const goodsLoading = ref(false);
   const goodsOptions = ref<GoodsSimple[]>([]);
 
   const remoteSearchGoods = async (keyword: string) => {
     if (!keyword) return;
+    if (options?.canViewGoods && !options.canViewGoods.value) {
+      goodsOptions.value = [];
+      return;
+    }
     goodsLoading.value = true;
     try {
       goodsOptions.value = await goodsApi.getSimpleList(keyword);

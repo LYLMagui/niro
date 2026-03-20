@@ -3,8 +3,9 @@
     :model-value="modelValue"
     multiple
     filterable
-    placeholder="请选择执行账号"
+    :placeholder="placeholder || '请选择执行账号'"
     :loading="loading"
+    :disabled="disabled"
     style="width: 320px"
     :min-collapsed-num="2"
     :tips="tips"
@@ -64,6 +65,8 @@ defineProps<{
   loading: boolean;
   currentTaskId?: number;
   tips?: string;
+  placeholder?: string;
+  disabled?: boolean;
 }>();
 
 const emit = defineEmits<{
