@@ -113,7 +113,7 @@ npx skills add <owner/repo@skill> -g -y
 
 1. **使用具体关键词**："react testing" 比单纯的 "testing" 更好
 2. **尝试替代术语**：如果 "deploy" 没有结果，尝试 "deployment" 或 "ci-cd"
-3. **检查热门来源**：许多技能来自 `vercel-labs/agent-skills` 或 `ComposioHQ/awesome-claude-skills`
+3. **检查热门来源**：许多技能来自 `vercel-labs/agent-skills` 或 `ComposioHQ/awesome-Codex-skills`
 
 ## 当未找到技能时
 
