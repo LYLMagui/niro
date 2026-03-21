@@ -21,6 +21,7 @@ export interface RbacMenu {
   title: string;
   type: number;
   permission?: string;
+  status?: number;
 }
 
 export const rbacApi = {
@@ -42,6 +43,10 @@ export const rbacApi = {
 
   assignUserRoles(userId: number, roleIds: number[]) {
     return request.put<unknown>(`/api/rbac/users/${userId}/roles`, { roleIds });
+  },
+
+  batchAppendUserRoles(userIds: number[], roleIds: number[]) {
+    return request.post<unknown>("/api/rbac/users/roles/batch-append", { userIds, roleIds });
   },
 
   assignRoleMenus(roleId: number, menuIds: number[]) {

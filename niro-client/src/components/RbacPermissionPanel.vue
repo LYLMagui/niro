@@ -156,12 +156,13 @@ const roleLabelMap = computed(() => {
 });
 
 const menuTreeData = computed<MenuTreeNode[]>(() => {
-  if (!menus.value.length) {
+  const effectiveMenus = menus.value.filter((menu) => menu.status !== 0);
+  if (!effectiveMenus.length) {
     return [];
   }
 
   const nodeMap = new Map<number, MenuTreeNode>();
-  menus.value.forEach((menu) => {
+  effectiveMenus.forEach((menu) => {
     const permissionSuffix = menu.permission ? ` [${menu.permission}]` : "";
     nodeMap.set(menu.id, {
       label: `${menu.title}${permissionSuffix}`,
@@ -171,7 +172,7 @@ const menuTreeData = computed<MenuTreeNode[]>(() => {
   });
 
   const roots: MenuTreeNode[] = [];
-  menus.value.forEach((menu) => {
+  effectiveMenus.forEach((menu) => {
     const current = nodeMap.get(menu.id);
     if (!current) return;
 
