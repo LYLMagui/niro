@@ -27,8 +27,8 @@ public final class PermissionConstants {
     public static final String ORDER_RECORD_UPDATE = "order:record:update";
     public static final String ORDER_RECORD_DELETE = "order:record:delete";
 
-    public static final String SETTINGS_SAVE = "settings:save";
-    public static final String SETTINGS_TEST_NOTIFY = "settings:test-notify";
+    public static final String SETTINGS_SAVE = "system:settings:save";
+    public static final String SETTINGS_TEST_NOTIFY = "system:settings:test-notify";
 
-    public static final String NOTIFY_SEND = "notify:send";
+    public static final String NOTIFY_SEND = "system:notify:send";
 }

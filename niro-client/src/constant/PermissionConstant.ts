@@ -21,8 +21,8 @@ export const PermissionConstant = {
   ORDER_RECORD_UPDATE: "order:record:update",
   ORDER_RECORD_DELETE: "order:record:delete",
 
-  SETTINGS_SAVE: "settings:save",
-  SETTINGS_TEST_NOTIFY: "settings:test-notify",
+  SETTINGS_SAVE: "system:settings:save",
+  SETTINGS_TEST_NOTIFY: "system:settings:test-notify",
 
-  NOTIFY_SEND: "notify:send",
+  NOTIFY_SEND: "system:notify:send",
 } as const;
