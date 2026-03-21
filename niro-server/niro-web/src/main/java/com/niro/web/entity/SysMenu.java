@@ -72,6 +72,11 @@ public class SysMenu implements Serializable {
     private String permission;
 
     /**
+     * 菜单状态（1正常 0停用）
+     */
+    private Integer status;
+
+    /**
      * 是否隐藏（false显示 true隐藏）
      */
     private Boolean hidden;

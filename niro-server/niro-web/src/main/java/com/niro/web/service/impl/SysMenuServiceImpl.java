@@ -38,6 +38,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             // 管理员显示所有菜单
             menus = this.lambdaQuery()
                     .in(SysMenu::getType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
+                    .eq(SysMenu::getStatus, UserConstants.MENU_STATUS_NORMAL)
                     .orderByAsc(SysMenu::getSortOrder)
                     .list();
         } else {
@@ -63,6 +64,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
             menus = this.lambdaQuery()
                     .in(SysMenu::getId, menuIds)
                     .in(SysMenu::getType, MenuTypeEnum.DIR.getCode(), MenuTypeEnum.MENU.getCode())
+                    .eq(SysMenu::getStatus, UserConstants.MENU_STATUS_NORMAL)
                     .orderByAsc(SysMenu::getSortOrder)
                     .list();
         }
@@ -99,6 +101,7 @@ public class SysMenuServiceImpl extends ServiceImpl<SysMenuMapper, SysMenu> impl
         // 3. 查询菜单权限
         List<SysMenu> menus = this.lambdaQuery()
                 .in(SysMenu::getId, menuIds)
+                .eq(SysMenu::getStatus, UserConstants.MENU_STATUS_NORMAL)
                 .list();
 
         for (SysMenu menu : menus) {

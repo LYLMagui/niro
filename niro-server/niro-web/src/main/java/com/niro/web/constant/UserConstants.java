@@ -20,6 +20,11 @@ public class UserConstants {
     public static final Integer ROLE_STATUS_NORMAL = 1;
 
     /**
+     * 菜单状态: 正常
+     */
+    public static final Integer MENU_STATUS_NORMAL = 1;
+
+    /**
      * 组件标识：Layout
      */
     public static final String LAYOUT = "Layout";

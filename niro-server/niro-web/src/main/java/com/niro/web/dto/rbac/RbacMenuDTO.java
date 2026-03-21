@@ -32,4 +32,9 @@ public class RbacMenuDTO {
      * 权限标识
      */
     private String permission;
+
+    /**
+     * 菜单状态（1正常 0停用）
+     */
+    private Integer status;
 }
