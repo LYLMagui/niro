@@ -113,7 +113,10 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
     loginLoading.value = true;
     try {
       // 调用 userStore.login() 进行登录，内部已处理 Token 存储
-      await userStore.login(accountFormData);
+      const loginSuccess = await userStore.login(accountFormData);
+      if (!loginSuccess) {
+        return;
+      }
 
       // 清除菜单缓存，确保重新获取
       sessionStorage.removeItem("niro-dynamic-routes-raw");
