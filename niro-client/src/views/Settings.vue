@@ -526,7 +526,6 @@
       </div>
     </div>
     <!-- 账号编辑弹窗 (保持原样) -->
-    <RbacPermissionPanel v-if="isAdmin" class="mt-6" />
     <t-dialog
       v-model:visible="accountDialogVisible"
       :header="accountDialogTitle"
@@ -617,7 +616,6 @@ import {
   BuffAccountRole,
   BuffAccountStatus,
 } from "@/api/settings";
-import RbacPermissionPanel from "@/components/RbacPermissionPanel.vue";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
 import {
@@ -629,9 +627,8 @@ import {
 } from "tdesign-vue-next";
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
-const { hasPermission, hasRole } = usePermission();
+const { hasPermission } = usePermission();
 const canViewAccountList = computed(() => hasPermission(PermissionConstant.ACCOUNT_LIST));
-const isAdmin = computed(() => hasRole("admin"));
 
 // --- 通用配置部分 ---
 const loading = ref(false);
