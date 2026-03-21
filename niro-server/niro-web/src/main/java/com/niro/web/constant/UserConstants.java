@@ -14,15 +14,23 @@ public class UserConstants {
      */
     public static final String DEFAULT_ROLE_KEY = "user";
 
+    public static final String ADMIN_ROLE_KEY = "admin";
+
+    public static final String DEFAULT_DATA_SCOPE = "1";
+
     /**
      * 角色状态: 正常
      */
     public static final Integer ROLE_STATUS_NORMAL = 1;
 
+    public static final Integer ROLE_STATUS_DISABLED = 0;
+
     /**
      * 菜单状态: 正常
      */
     public static final Integer MENU_STATUS_NORMAL = 1;
+
+    public static final Integer MENU_STATUS_DISABLED = 0;
 
     /**
      * 组件标识：Layout

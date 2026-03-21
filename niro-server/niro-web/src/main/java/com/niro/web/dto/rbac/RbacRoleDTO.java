@@ -24,7 +24,17 @@ public class RbacRoleDTO {
     private String roleKey;
 
     /**
+     * 角色排序
+     */
+    private Integer roleSort;
+
+    /**
      * 角色状态（1正常 0停用）
      */
     private Integer status;
+
+    /**
+     * 备注
+     */
+    private String remark;
 }
