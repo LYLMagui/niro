@@ -1,31 +1,28 @@
 package com.niro.web.service.impl;
 
 import cn.hutool.core.util.StrUtil;
-import com.niro.core.constant.MqConstant;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
-import com.niro.core.util.RocketMqHelper;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
+import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse.OrderBuyDTO;
-import com.niro.web.dto.C5OrderDetailMessage;
+import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
-import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.C5OrderSyncService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
 import org.redisson.api.RRateLimiter;
 import org.redisson.api.RateIntervalUnit;
 import org.redisson.api.RateType;
@@ -42,7 +39,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -64,9 +60,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final TradeOrderRecordService tradeOrderRecordService;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
-    private final BuffGoodsService buffGoodsService;
     private final RedissonClient redissonClient;
-    private final RocketMqHelper rocketMqHelper;
 
     private RRateLimiter c5ApiLimiter;
 
@@ -243,10 +237,10 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         boolean saved = tradeOrderRecordMapperManager.saveBatch(records);
         Assert.isTrue(saved, "批量保存订单记录失败");
 
-        // 发送异步消息获取订单详情，携带 appKey
+        // 同步补齐订单详情，简化版不再走 MQ 异步链路
         for (TradeOrderRecord record : records) {
             Assert.notNull(record.getId(), "订单记录 ID 不能为空，数据库 ID 回填失败");
-            sendOrderDetailMessage(record, appKey);
+            enrichOrderDetail(record, appKey);
         }
 
         return records.size();
@@ -268,48 +262,74 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     }
 
     /**
-     * 发送订单详情同步延迟消息
-     * <p>
-     * 订单刚创建时立即查询可能获取不到完整的详情数据，
-     * 使用延迟消息等待 C5 平台处理完成后再查询。
-     * </p>
-     * <p>
-     * 使用 MqTxSender.afterCommitSendDelay 确保消息在事务提交后发送，
-     * 解决"消息先于事务提交"导致消费者查不到订单的问题。
-     * </p>
-     *
-     * @param record 交易订单记录
-     * @param appKey C5 App Key
+     * 同步补齐订单详情
      */
-    private void sendOrderDetailMessage(TradeOrderRecord record, String appKey) {
+    private void enrichOrderDetail(TradeOrderRecord record, String appKey) {
         try {
-            // 检查订单号是否为空（平台下单失败或尚未下单时可能为空）
             if (!StrUtil.isNotBlank(record.getOrderId())) {
-                log.warn("【C5订单详情消息】订单号为空，跳过发送, recordId={}", record.getId());
+                log.warn("【C5订单详情同步】订单号为空，跳过补齐, recordId={}", record.getId());
                 return;
             }
 
-            C5OrderDetailMessage message = C5OrderDetailMessage.builder()
-                    .orderId(record.getOrderId())
-                    .userId(record.getUserId())
-                    .appKey(appKey)
-                    .timestamp(System.currentTimeMillis())
-                    .build();
+            acquireLimiter();
 
-            // 使用事务后发送，确保数据库事务提交后才发送消息
-            // 延迟 10 秒，给 C5 平台处理时间
-            rocketMqHelper.afterCommitSendDelay(
-                    MqConstant.TOPIC_C5_ORDER,
-                    MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
-                    message,
-                    RocketMqHelper.DelayLevel.LEVEL_3
-            );
+            C5Config config = new C5Config()
+                    .setAppKey(appKey)
+                    .setBaseUrl(c5BaseUrl);
+            C5ApiClient c5ApiClient = new C5ApiClient(config);
 
-            log.debug("【C5订单详情消息】已注册事务后延迟发送, orderId={}", record.getOrderId());
+            C5OrderDetailRequest request = new C5OrderDetailRequest()
+                    .setOrderId(record.getOrderId());
+            C5OrderDetailResponse detail = c5ApiClient.getTrade().getOrderDetail(request);
+
+            if (detail == null) {
+                record.setErrorMsg("C5 订单详情返回为空");
+                tradeOrderRecordMapperManager.updateById(record);
+                log.warn("【C5订单详情同步】C5 订单详情返回为空, orderId={}", record.getOrderId());
+                return;
+            }
+
+            updateOrderDetail(record, detail);
         } catch (Exception e) {
-            log.error("【C5订单详情消息】发送异常, orderId={}", record.getOrderId(), e);
-            // 消息发送失败不影响主流程
+            log.error("【C5订单详情同步】补齐订单详情失败, orderId={}", record.getOrderId(), e);
+            record.setErrorMsg("调用 C5 订单详情接口失败: " + e.getMessage());
+            tradeOrderRecordMapperManager.updateById(record);
         }
+    }
+
+    private void updateOrderDetail(TradeOrderRecord record, C5OrderDetailResponse detail) {
+        if (detail.getPrice() != null &&
+                (record.getPrice() == null || record.getPrice().compareTo(detail.getPrice()) != 0)) {
+            record.setPrice(detail.getPrice());
+        }
+
+        Integer localStatus = C5OrderStatusEnum.mapToInternalStatus(detail.getStatus()).getCode();
+        record.setStatus(localStatus);
+
+        if (detail.getFailedDesc() != null) {
+            record.setErrorMsg(detail.getFailedDesc());
+        }
+
+        if (detail.getOpenItemInfo() != null) {
+            String goodsName = detail.getOpenItemInfo().getName();
+            if (!StrUtil.isNotBlank(goodsName)) {
+                goodsName = detail.getOpenItemInfo().getMarketHashName();
+            }
+            record.setGoodsName(goodsName);
+            if (detail.getOpenItemInfo().getImageUrl() != null) {
+                record.setGoodsImg(detail.getOpenItemInfo().getImageUrl());
+            }
+            if (detail.getOpenItemInfo().getMarketHashName() != null) {
+                record.setMarketHashName(detail.getOpenItemInfo().getMarketHashName());
+            }
+        }
+
+        if (detail.getExtra() != null && !detail.getExtra().isEmpty()) {
+            record.setExtraInfo(detail.getExtra());
+        }
+
+        boolean updated = tradeOrderRecordMapperManager.updateById(record);
+        Assert.isTrue(updated, "更新订单记录失败");
     }
 
     private LocalDateTime timestampToLocalDateTime(Long timestamp) {
