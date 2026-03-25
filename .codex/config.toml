@@ -1,0 +1,41 @@
+# Local placeholders only. Replace before use.
+model = "gpt-5.4-mini"
+
+[mcp_servers.GitHub]
+command = "cmd"
+args = ["/c", "npx", "-y", "@modelcontextprotocol/server-github"]
+
+[mcp_servers.GitHub.env]
+GITHUB_PERSONAL_ACCESS_TOKEN = "REPLACE_ME"
+
+[mcp_servers.gitee]
+url = "https://api.gitee.com/mcp"
+http_headers = { Authorization = "REPLACE_ME" }
+
+[mcp_servers."tdesign-mcp-server"]
+command = "cmd"
+args = ["/c", "npx", "-y", "tdesign-mcp-server"]
+
+[mcp_servers.PostgreSQL]
+command = "cmd"
+args = [
+  "/c",
+  "npx",
+  "-y",
+  "@modelcontextprotocol/server-postgres",
+  "postgresql://USER:PASSWORD@HOST:5432/DB",
+]
+
+[mcp_servers.redis]
+command = "cmd"
+args = [
+  "/c",
+  "npx",
+  "-y",
+  "@modelcontextprotocol/server-redis",
+  "redis://:PASSWORD@HOST:6379",
+]
+
+[mcp_servers."bing-search"]
+command = "cmd"
+args = ["/c", "npx", "-y", "bing-cn-mcp"]
