@@ -307,7 +307,6 @@ Verification: [准备如何验证]
   - `mcp__context7__resolve-library-id` — 把库名解析成 Context7 ID
   - `mcp__context7__query-docs` — 抓取最新官方文档
 - 思考与分析：
-  - 复杂需求可用 `mcp__sequential-thinking__sequentialthinking` 评估技术可行性
 
 ---
 
