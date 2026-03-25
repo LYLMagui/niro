@@ -31,44 +31,15 @@
       "Bash(py:*)",
       "Bash(./venv/Scripts/python:*)",
       "Bash(./venv/Scripts/pip install:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "mcp__serena__get_symbols_overview",
+      "mcp__serena__find_symbol",
+      "mcp__serena__find_referencing_symbols",
+      "Bash(printf '\\\\n---STAGED---\\\\n')",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
     ]
   },
   "enableAllProjectMcpServers": true,
-  "enabledMcpjsonServers": [],
-  "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume|clear|compact",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python D:/MySpace/niro/.claude/hooks/memory_loader.py"
-          }
-        ]
-      }
-    ],
-    "PostToolUse": [
-      {
-        "matcher": "Write|Edit|MultiEdit|Bash|Read",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python D:/MySpace/niro/.claude/hooks/memory_extractor.py"
-          }
-        ]
-      }
-    ],
-    "PreCompact": [
-      {
-        "matcher": "manual|auto",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python D:/MySpace/niro/.claude/hooks/pre_compact.py"
-          }
-        ]
-      }
-    ]
-  }
+  "enabledMcpjsonServers": []
 }
