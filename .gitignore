@@ -50,6 +50,10 @@ niro-server/**/.DS_Store
 .env.local
 .env.*.local
 
+# Local tooling state
+.serena/
+.worktrees/
+
 # Python (General)
 __pycache__/
 *.py[cod]
@@ -60,6 +64,8 @@ env/
 venv/
 .venv/
 venv*/
+.pytest_cache/
+*.egg-info/
 
 
 
