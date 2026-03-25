@@ -1,11 +1,3 @@
-
-# 爬虫相关配置
-spider:
-  log:
-    # 爬虫日志路径，优先使用环境变量 SPIDER_LOG_PATH
-    # 默认指向 ../niro-spider/logs/niro_spider.log
-    path: ${SPIDER_LOG_PATH:../niro-spider/logs/niro_spider.log}
-
 # Spring 全局配置
 spring:
   jackson:
@@ -14,53 +6,3 @@ spring:
 
 c5:
   base-url: https://openapi.c5game.com
-
-# XXL-JOB 任务调度配置
-xxl:
-  job:
-    admin:
-      addresses: ${XXL_JOB_ADMIN_ADDRESS:http://localhost:8080/xxl-job-admin}
-    accessToken: ${XXL_JOB_ACCESS_TOKEN:niro-xxl-job}
-    executor:
-      appname: niro-executor
-      address: ${XXL_JOB_EXECUTOR_ADDRESS:}
-      ip: ${XXL_JOB_EXECUTOR_IP:}
-      port: ${XXL_JOB_EXECUTOR_PORT:9999}
-      logpath: ./logs/xxl-job/jobhandler
-      logretentiondays: 30
-
-rocketmq:
-  name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
-  producer:
-    # 生产者组名
-    group: ${ROCKETMQ_PRODUCER_GROUP:niro-producer-group}
-    # 发送消息超时时间（毫秒）
-    send-message-timeout: 3000
-    # 发送失败时重试次数
-    retry-times-when-send-failed: 3
-    # 异步发送失败时重试次数
-    retry-times-when-send-async-failed: 3
-    # 消息压缩阈值（字节），超过此大小进行压缩
-    compress-message-body-threshold: 4096
-    # 最大消息大小（4MB）
-    max-message-size: 4194304
-    # 是否启用 VIP 通道
-    vip-channel-enabled: false
-    # 访问通道类型：LOCAL（本地）或 CLOUD（云）
-    access-channel: LOCAL
-  consumer:
-    # 默认消费者组名（可被 @RocketMQMessageListener 覆盖）
-    group: ${ROCKETMQ_CONSUMER_GROUP:niro-consumer-group}
-    # 消费线程数配置
-    consume-thread-min: 20
-    consume-thread-max: 64
-    # 消费超时时间（分钟）
-    consume-timeout: 15
-    # 消息最大重试次数
-    max-retry-times: 16
-    # 消费模式：CONCURRENTLY（并发）或 ORDERLY（顺序）
-    consume-mode: CONCURRENTLY
-    # 消息模式：CLUSTERING（集群，默认）或 BROADCASTING（广播）
-    message-model: CLUSTERING
-    # 批量消费大小
-    consume-batch-size: 1
