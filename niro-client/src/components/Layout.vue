@@ -1,125 +1,106 @@
-<template>
-  <t-layout class="h-screen w-full overflow-hidden">
-    <!-- 侧边栏 -->
-    <t-aside
-      :width="collapsed ? '64px' : '240px'"
-      :style="{ width: collapsed ? '64px' : '240px' }"
-      class="relative z-20 flex flex-shrink-0 flex-col border-r border-gray-100 bg-white transition-all duration-300"
-    >
-      <!-- Logo & 收缩按钮 -->
-      <div class="flex h-16 items-center justify-between px-4">
-        <div v-show="!collapsed" class="truncate text-xl font-bold text-blue-600">Niro</div>
-        <t-button
-          variant="text"
-          shape="square"
-          class="text-gray-500 hover:bg-gray-100"
-          @click="collapsed = !collapsed"
-        >
-          <template #icon>
-            <view-list-icon class="text-lg" />
-          </template>
-        </t-button>
-      </div>
-
-      <!-- 菜单区域 -->
-      <div class="flex-1 overflow-x-hidden overflow-y-auto">
-        <t-menu
-          theme="light"
-          :value="activeValue"
-          :collapsed="collapsed"
-          width="100%"
-          class="!bg-transparent"
-          @change="handleMenuChange"
-        >
-          <sidebar-item v-for="menu in sidebarMenus" :key="menu.value" :item="menu" />
-        </t-menu>
-      </div>
-
-      <!-- 底部用户信息 -->
-      <div class="relative border-t border-gray-100 p-2">
-        <!-- 自定义弹出菜单 -->
-        <div
-          v-if="showUserMenu"
-          class="animate-fade-in absolute bottom-full z-50 mb-2 rounded-lg border border-gray-100 bg-white py-1 shadow-xl"
-          :class="[collapsed ? 'left-1 w-48' : 'right-2 left-2']"
-        >
-          <div
-            class="flex cursor-pointer items-center px-4 py-2 text-sm text-gray-700 transition-colors hover:bg-gray-50"
-            @click="handleLogout"
+﻿<template>
+  <t-layout class="erp-shell h-screen w-full overflow-hidden">
+    <t-header class="!h-[49px] !p-0">
+      <div class="flex h-[49px] items-center justify-between bg-[#1890ff] px-3 text-white">
+        <div class="flex items-center gap-2">
+          <t-button
+            variant="text"
+            shape="square"
+            class="erp-top-btn"
+            @click="collapsed = !collapsed"
           >
-            <poweroff-icon class="mr-2 text-gray-500" />
-            <span v-if="!collapsed">退出登录</span>
-            <span v-else>退出登录</span>
-          </div>
+            <template #icon>
+              <view-list-icon class="text-base" />
+            </template>
+          </t-button>
+          <span class="text-[15px] font-medium tracking-[0.2px]">Niro Control</span>
         </div>
 
-        <!-- 用户信息卡片 -->
-        <div
-          class="flex cursor-pointer items-center rounded-lg p-2 transition-colors hover:bg-gray-100"
-          :class="{ 'justify-center': collapsed, 'bg-gray-100': showUserMenu }"
-          @click="showUserMenu = !showUserMenu"
-        >
-          <t-avatar size="small" class="shrink-0 bg-blue-100 text-blue-600">
-            <template #icon><user-circle-icon /></template>
-          </t-avatar>
-          <div v-show="!collapsed" class="ml-3 flex flex-1 flex-col overflow-hidden">
-            <span class="truncate text-sm font-medium text-gray-900">
-              {{ userStore.userInfo.nickname || userStore.userInfo.username || "用户" }}
-            </span>
-            <span class="truncate text-xs text-gray-500">
-              {{ userStore.userInfo.roles?.[0] === "admin" ? "管理员" : "普通用户" }}
-            </span>
-          </div>
+        <div class="flex items-center gap-1">
+          <t-button variant="text" shape="square" class="erp-top-btn" @click="refreshCurrentPage">
+            <template #icon>
+              <t-icon name="refresh" />
+            </template>
+          </t-button>
+
+          <t-popup trigger="click" placement="bottom-right">
+            <template #content>
+              <div class="w-44 rounded border border-[#e8e8e8] bg-white py-1 shadow-lg">
+                <button
+                  class="flex w-full items-center px-3 py-2 text-left text-sm text-[#303133] transition-colors hover:bg-[#f5f5f5]"
+                  @click="handleLogout"
+                >
+                  <poweroff-icon class="mr-2 text-[#909399]" />
+                  退出登录
+                </button>
+              </div>
+            </template>
+
+            <button
+              class="flex items-center gap-2 rounded px-2 py-1 text-sm text-white transition-colors hover:bg-white/15"
+            >
+              <t-avatar size="28px" class="bg-white/20 text-white">
+                <template #icon><user-circle-icon /></template>
+              </t-avatar>
+              <span class="max-w-[140px] truncate text-[13px]">{{ displayName }}</span>
+            </button>
+          </t-popup>
         </div>
       </div>
-    </t-aside>
+    </t-header>
 
-    <!-- 主体内容区域 -->
-    <t-layout class="flex flex-1 flex-col overflow-hidden">
-      <!-- 顶部导航栏 -->
-      <t-header class="border-b border-gray-100 bg-white">
-        <div class="flex h-16 items-center px-6">
-          <!-- 面包屑导航 -->
-          <t-breadcrumb>
-            <t-breadcrumb-item
-              v-for="(item, index) in breadcrumbs"
-              :key="index"
-              :to="item.path"
-              :clickable="item.clickable"
-            >
-              <span>{{ item.title }}</span>
-            </t-breadcrumb-item>
-          </t-breadcrumb>
-        </div>
-      </t-header>
-
-      <!-- 内容展示区域 -->
-      <t-content
-        class="flex flex-1 flex-col bg-gray-50"
-        :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
+    <t-layout class="min-h-0 flex-1 overflow-hidden">
+      <t-aside
+        :width="collapsed ? '64px' : '150px'"
+        :style="{ width: collapsed ? '64px' : '150px' }"
+        class="erp-side relative z-10 flex h-full flex-shrink-0 flex-col border-r border-[#e8e8e8] bg-white"
       >
-        <div :class="[activeValue === 'Logs' ? 'flex-1 overflow-hidden' : 'flex-1 p-3']">
+        <div class="flex h-[41px] items-center border-b border-[#e8e8e8] px-3 text-xs text-[#909399]">
+          {{ collapsed ? '菜单' : '导航菜单' }}
+        </div>
+
+        <div class="min-h-0 flex-1 overflow-y-auto py-2">
+          <t-menu
+            theme="light"
+            :value="activeValue"
+            :collapsed="collapsed"
+            width="100%"
+            class="erp-side-menu !border-0"
+            @change="handleMenuChange"
+          >
+            <sidebar-item v-for="menu in sidebarMenus" :key="menu.value" :item="menu" />
+          </t-menu>
+        </div>
+      </t-aside>
+
+      <t-layout class="min-w-0 flex-1 overflow-hidden">
+        <div class="h-[35px] border-b border-[#d9d9d9] bg-white px-1">
+          <div class="flex h-full items-end overflow-x-auto">
+            <button
+              class="h-[34px] min-w-[112px] border border-b-0 border-[#d9d9d9] bg-white px-4 text-[13px] text-[#303133]"
+            >
+              {{ currentPageTitle }}
+            </button>
+          </div>
+        </div>
+
+        <t-content
+          class="erp-main-content min-h-0 flex-1 bg-[#f5f5f5] p-1"
+          :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
+        >
           <router-view v-slot="{ Component }">
             <keep-alive include="Logs">
               <component :is="Component" />
             </keep-alive>
           </router-view>
-        </div>
-
-        <!-- 底部版权信息：日志页隐藏，其他页显示 -->
-        <t-footer
-          v-if="activeValue !== 'Logs'"
-          class="border-t border-gray-100 bg-white p-6 text-center text-xs text-gray-400"
-        >
-          Copyright @ 2024 Niro Control
-        </t-footer>
-      </t-content>
+        </t-content>
+      </t-layout>
     </t-layout>
   </t-layout>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, onMounted, onUnmounted } from "vue";
+import { computed, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import { UserCircleIcon, PoweroffIcon, ViewListIcon } from "tdesign-icons-vue-next";
 import { useUserStore } from "@/store/user";
@@ -133,56 +114,122 @@ const router = useRouter();
 const userStore = useUserStore();
 const permissionStore = usePermissionStore();
 
-// 侧边栏收缩状态
 const collapsed = ref(false);
-// 用户菜单显示状态
-const showUserMenu = ref(false);
 
-// 当前激活的菜单值
-const activeValue = computed(() => route.path);
+const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefined => {
+  for (const menu of menus) {
+    if (menu.path === path) return menu.value;
+    if (menu.children?.length) {
+      const childValue = findMenuValueByPath(menu.children, path);
+      if (childValue) return childValue;
+    }
+  }
+  return undefined;
+};
 
-// 侧边栏菜单配置
+const activeValue = computed(() => {
+  const matchedValue = findMenuValueByPath(sidebarMenus.value, route.path);
+  if (matchedValue) return matchedValue;
+  return String(route.name || route.path);
+});
+
 const sidebarMenus = computed((): MenuConfig[] => {
   const routes = permissionStore.topbarRouters;
   return transformRoutesToMenus(routes as any);
 });
 
-// 面包屑数据
 const breadcrumbs = computed(() => {
   const routes = permissionStore.topbarRouters;
   return getBreadcrumbs(route.path, routes as any);
 });
 
-// 处理菜单切换
+const currentPageTitle = computed(() => {
+  const fallbackTitle = (route.meta?.title as string) || "首页";
+  const lastCrumb = breadcrumbs.value[breadcrumbs.value.length - 1];
+  return lastCrumb?.title || fallbackTitle;
+});
+
+const displayName = computed(
+  () => userStore.userInfo.nickname || userStore.userInfo.username || "用户"
+);
+
 const handleMenuChange = (_value: string | number) => {
-  // 已经在 SidebarItem 中处理跳转，这里仅作为占位或处理额外逻辑
+  // 菜单跳转在 SidebarItem 中处理
 };
 
-// 退出登录
+const refreshCurrentPage = () => {
+  window.location.reload();
+};
+
 const handleLogout = async () => {
   await userStore.logout();
   router.push(`/login?redirect=${route.fullPath}`);
 };
-
-// 点击外部关闭用户菜单
-const closeUserMenu = (e: MouseEvent) => {
-  const target = e.target as HTMLElement;
-  if (!target.closest(".relative")) {
-    showUserMenu.value = false;
-  }
-};
-
-onMounted(() => {
-  document.addEventListener("click", closeUserMenu);
-});
-
-onUnmounted(() => {
-  document.removeEventListener("click", closeUserMenu);
-});
 </script>
 
 <style scoped>
-.t-layout {
-  background: #f3f4f5;
+.erp-shell {
+  background: #f5f5f5;
+}
+
+.erp-side {
+  transition: width 0.2s ease;
+}
+
+.erp-top-btn {
+  color: #fff !important;
+}
+
+.erp-top-btn:hover {
+  background: rgba(255, 255, 255, 0.2) !important;
+}
+
+:deep(.erp-side-menu .t-menu__operations) {
+  display: none;
+}
+
+:deep(.erp-side-menu .t-default-menu__inner) {
+  padding: 0 0 8px;
+}
+
+:deep(.erp-side-menu .t-menu__item),
+:deep(.erp-side-menu .t-submenu__title) {
+  margin: 0 8px 4px;
+  height: 34px;
+  line-height: 34px;
+  border-radius: 0;
+  color: #303133;
+}
+
+:deep(.erp-side-menu .t-menu__item:hover),
+:deep(.erp-side-menu .t-submenu__title:hover) {
+  background: #f5f7fa;
+}
+
+:deep(.erp-side-menu .t-is-active.t-menu__item),
+:deep(.erp-side-menu .t-submenu__title.t-is-active) {
+  position: relative;
+  background: #e6f7ff !important;
+  color: #1890ff !important;
+}
+
+:deep(.erp-side-menu .t-is-active.t-menu__item::before),
+:deep(.erp-side-menu .t-submenu__title.t-is-active::before) {
+  content: "";
+  position: absolute;
+  top: 7px;
+  bottom: 7px;
+  left: 0;
+  width: 3px;
+  background: #1890ff;
+}
+
+:deep(.erp-side-menu .t-submenu__content .t-menu__item) {
+  margin-left: 16px;
+}
+
+.erp-main-content {
+  scrollbar-gutter: stable;
 }
 </style>
+
