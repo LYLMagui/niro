@@ -54,7 +54,7 @@ values  (3672, '驾驶手套', 2970, 'weapon_driver_gloves', 'weapon_driver_glov
         (3643, 'MP5-SD', 2973, 'weapon_mp5sd', 'weapon_mp5sd', '2026-01-24 17:07:30.378522', '2026-01-24 17:07:30.378522', 'weapon'),
         (3690, '挂件', 2979, 'csgo_tool_keychain', 'csgo_tool_keychain', '2026-01-24 18:05:51.788950', '2026-01-24 18:05:51.788950', 'type'),
         (3691, '武器箱', 2979, 'csgo_type_weaponcase', 'csgo_type_weaponcase', '2026-01-24 18:05:51.788950', '2026-01-24 18:05:51.788950', 'type'),
-        (3692, '布章', 2979, 'csgo_tool_patch', 'csgo_tool_patch', '2026-01-24 18:05:51.788950', '2026-01-24 18:05:51.788950', 'type');
+        (3692, '布章', 2979, 'csgo_tool_patch', 'csgo_tool_patch', '2026-01-24 18:05:51.788950', '2026-01-24 18:05:51.788950', 'type')
 on conflict (internal_name) do nothing;
 
 -- 序列回填：确保后续插入不会撞 ID
