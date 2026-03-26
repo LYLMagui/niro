@@ -1,5 +1,5 @@
 import { computed, reactive, ref } from "vue";
-import { MessagePlugin } from "tdesign-vue-next";
+import { MessagePlugin, type FormRule, type FormRules } from "tdesign-vue-next";
 import { taskApi } from "@/api/task";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 
@@ -144,15 +144,22 @@ export function useTaskForm(emit: (event: "success") => void) {
     }
   };
 
-  const rules = computed(() => ({
-    accountIds: [{ required: false, message: "请选择执行账号", type: "error", trigger: "change" }],
+  const rules = computed<FormRules<FormData>>(() => ({
+    accountIds: [
+      {
+        required: false,
+        message: "请选择执行账号",
+        type: "error",
+        trigger: "change",
+      } satisfies FormRule,
+    ],
     goodsId: [
       {
         validator: (val: number | undefined) => !!val,
         message: "请选择商品",
         type: "error",
         trigger: "submit",
-      },
+      } satisfies FormRule,
     ],
     maxPrice: [
       {
@@ -165,7 +172,7 @@ export function useTaskForm(emit: (event: "success") => void) {
         message: "请输入最高价格",
         type: "error",
         trigger: "submit",
-      },
+      } satisfies FormRule,
     ],
     minProfit: [
       {
@@ -178,7 +185,7 @@ export function useTaskForm(emit: (event: "success") => void) {
         message: "请输入最小预期利润",
         type: "error",
         trigger: "submit",
-      },
+      } satisfies FormRule,
     ],
     buyCount: [
       {
@@ -191,7 +198,7 @@ export function useTaskForm(emit: (event: "success") => void) {
         message: "请输入购买数量",
         type: "error",
         trigger: "submit",
-      },
+      } satisfies FormRule,
     ],
   }));
 

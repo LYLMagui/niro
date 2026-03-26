@@ -292,7 +292,7 @@
 import { computed, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import dayjs from "dayjs";
-import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
+import { MessagePlugin, type PrimaryTableCol, type TabValue } from "tdesign-vue-next";
 import type { TableRowData } from "tdesign-vue-next";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
@@ -407,7 +407,7 @@ const fetchData = async () => {
   }
 };
 
-const handleTabChange = (val: string) => {
+const handleTabChange = (val: TabValue) => {
   activeTab.value = val as "SCAN" | "TRADE";
   queryParams.page = 1;
   selectedRowKeys.value = [];
