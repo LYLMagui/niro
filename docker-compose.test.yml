@@ -11,6 +11,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - niro_db_data_test:/var/lib/postgresql/data
+      - ./niro-server/sql:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     shm_size: "1gb" # 生产环境建议提升共享内存
