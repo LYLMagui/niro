@@ -1,7 +1,7 @@
 services:
-  niro-db-test:
+  niro-db-test2:
     image: postgres:18-alpine
-    container_name: niro-db-test
+    container_name: niro-db-test2
     restart: always
     environment:
       POSTGRES_DB: niro
@@ -10,8 +10,7 @@ services:
       TZ: Asia/Shanghai
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - niro_db_data_test:/var/lib/postgresql/data
-      - ./niro-server/sql:/docker-entrypoint-initdb.d:ro
+      - niro_db_data_test2:/var/lib/postgresql/data
     ports:
       - "5432:5432"
     shm_size: "1gb" # 生产环境建议提升共享内存
@@ -21,17 +20,17 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - niro-data-net-test
+      - niro-data-net-test2
 
-  niro-redis-test:
+  niro-redis-test2:
     image: redis:8.0-alpine
-    container_name: niro-redis-test
+    container_name: niro-redis-test2
     restart: always
     # 使用配置文件启动，并同时通过命令行强制设置密码（双重保障）
     command: ["redis-server", "/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-redis_niro_pwd}"]
     volumes:
-      - ./docker/redis/redis-test.conf:/etc/redis/redis.conf
-      - niro_redis_data_test:/data
+      - ./docker/redis/redis-test2.conf:/etc/redis/redis.conf
+      - niro_redis_data_test2:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -40,31 +39,31 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - niro-data-net-test
+      - niro-data-net-test2
 
-  niro-web-test:
+  niro-web-test2:
     build:
       context: ./niro-server
       dockerfile: Dockerfile
-    container_name: niro-web-test
+    container_name: niro-web-test2
     restart: always
     depends_on:
-      niro-db-test:
+      niro-db-test2:
         condition: service_healthy
-      niro-redis-test:
+      niro-redis-test2:
         condition: service_healthy
     env_file:
       - .env
     environment:
-      - SPRING_PROFILES_ACTIVE=test
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://niro-db-test:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
+      - SPRING_PROFILES_ACTIVE=test2
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://niro-db-test2:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME:-niro-admin}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
-      - SPRING_DATA_REDIS_HOST=niro-redis-test
+      - SPRING_DATA_REDIS_HOST=niro-redis-test2
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
     volumes:
-      - niro_shared_logs_test:/var/log/niro
+      - niro_shared_logs_test2:/var/log/niro
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
       - "9999:9999"
@@ -76,33 +75,33 @@ services:
       retries: 3
       start_period: 40s # Spring Boot 启动较慢，给 40 秒宽限期
     networks:
-      - niro-data-net-test
+      - niro-data-net-test2
 
-  niro-client-test:
+  niro-client-test2:
     build:
       context: ./niro-client
       dockerfile: Dockerfile
       args:
         - ENV_TYPE=${CLIENT_ENV}
-    container_name: niro-client-test
+    container_name: niro-client-test2
     restart: always
     depends_on:
-      niro-web-test:
+      niro-web-test2:
         condition: service_healthy
     ports:
       - "80:80" # 生产环境映射到 81，避免与测试环境 80 冲突
     networks:
-      - niro-data-net-test
+      - niro-data-net-test2
 
 networks:
-  niro-data-net-test:
-    name: niro-data-net-test
+  niro-data-net-test2:
+    name: niro-data-net-test2
     driver: bridge
 
 volumes:
-  niro_db_data_test:
-    name: niro_db_data_test
-  niro_redis_data_test:
-    name: niro_redis_data_test
-  niro_shared_logs_test:
-    name: niro_shared_logs_test
+  niro_db_data_test2:
+    name: niro_db_data_test2
+  niro_redis_data_test2:
+    name: niro_redis_data_test2
+  niro_shared_logs_test2:
+    name: niro_shared_logs_test2
