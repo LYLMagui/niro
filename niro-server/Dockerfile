@@ -14,7 +14,7 @@ RUN mvn dependency:go-offline -s maven-settings.xml -B
 COPY niro-sdk/src niro-sdk/src
 COPY niro-core/src niro-core/src
 COPY niro-web/src niro-web/src
-RUN mvn clean package -s maven-settings.xml -DskipTests
+RUN mvn clean package -s maven-settings.xml -Dmaven.test.skip=true
 
 # Run stage
 FROM eclipse-temurin:21-jre-alpine

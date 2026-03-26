@@ -50,12 +50,3 @@ springdoc:
     enabled: true
     path: /swagger-ui.html
 
-# 自定义配置
-buff:
-  # 文件上传路径
-  upload-path: ${UPLOAD_PATH:/data/buff/uploads/}
-  # 是否启用调试模式
-  debug: false
-  # JWT配置
-  jwt:
-    secret: ${JWT_SECRET:test_secret_key}

@@ -1,6 +1,20 @@
 -- Migration DDL generated from current PostgreSQL schema snapshot.
 -- Review before applying to a different environment.
 
+-- 初始化序列，确保 nextval 引用存在
+create sequence if not exists public.buff_goods_id_seq;
+create sequence if not exists public.buff_goods_categories_id_seq;
+create sequence if not exists public.buff_goods_stats_id_seq;
+create sequence if not exists public.buff_leak_alerts_id_seq;
+create sequence if not exists public.buff_price_history_id_seq;
+create sequence if not exists public.buff_scan_task_id_seq;
+create sequence if not exists public.buff_scan_task_account_id_seq;
+create sequence if not exists public.buff_stickers_id_seq;
+create sequence if not exists public.sys_role_role_id_seq;
+create sequence if not exists public.sys_user_id_seq;
+create sequence if not exists public.trade_order_record_id_seq;
+create sequence if not exists public.user_buff_settings_id_seq;
+
 create table public.buff_account (
   id bigint generated always as identity not null,
   user_id bigint not null default 0,
