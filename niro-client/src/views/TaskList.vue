@@ -1,4 +1,4 @@
-﻿<template>
+<template>
   <div class="bg-[#f5f5f5] px-1 pb-2 pt-1">
     <section class="overflow-hidden border border-[#d9d9d9] bg-white">
       <t-tabs
@@ -14,11 +14,6 @@
           v-if="currentPlatform !== PlatformEnum.C5"
           :value="TaskRunModeEnum.TRADE"
           label="下单任务"
-        />
-        <t-tab-panel
-          v-if="isAdmin && currentPlatform !== PlatformEnum.C5"
-          value="SYSTEM"
-          label="系统任务"
         />
       </t-tabs>
 
@@ -36,7 +31,9 @@
           </div>
           <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-2">
             <t-button theme="primary" class="!h-8 px-4" @click="fetchData">查询</t-button>
-            <t-button theme="default" variant="base" class="!h-8 px-4" @click="resetQuery">重置</t-button>
+            <t-button theme="default" variant="base" class="!h-8 px-4" @click="resetQuery">
+              重置
+            </t-button>
             <a class="jsh-expand-link" @click="toggleAdvancedFilters">
               {{ showAdvancedFilters ? "收起" : "展开" }}
             </a>
@@ -64,10 +61,6 @@
                 :value="TaskStatusEnum.RUNNING"
               />
               <t-option
-                :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
-                :value="TaskStatusEnum.SYSTEM_RUNNING"
-              />
-              <t-option
                 :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
                 :value="TaskStatusEnum.COMPLETED"
               />
@@ -88,18 +81,6 @@
         <div class="flex flex-wrap items-start justify-between gap-y-2">
           <div class="table-operator flex flex-wrap items-center">
             <t-button
-              v-if="activeTab === 'SYSTEM' && isAdmin"
-              theme="default"
-              variant="outline"
-              class="!h-8"
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
-              @click="handleAddSystem"
-            >
-              新增系统任务
-            </t-button>
-
-            <t-button
-              v-if="activeTab !== 'SYSTEM'"
               theme="primary"
               class="!h-8"
               v-permission="PermissionConstant.TASK_BUFF_LIST"
@@ -143,10 +124,6 @@
                 批量删除
               </t-button>
             </t-popconfirm>
-
-            <t-button variant="text" theme="default" class="!h-8" @click="handleColumnSetting">
-              列设置
-            </t-button>
           </div>
 
           <div class="mb-2 flex items-center gap-2 text-xs text-[#909399]">
@@ -184,12 +161,6 @@
           <template #goods="{ row }">
             <div class="flex items-center">
               <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="mr-2 h-9 w-9 rounded" />
-              <div
-                v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
-                class="mr-2 flex h-9 w-9 items-center justify-center rounded bg-blue-100 text-blue-600"
-              >
-                <t-icon name="setting" />
-              </div>
               <div>
                 <div class="max-w-xs truncate font-medium" :title="row.name">
                   {{ row.name }}
@@ -200,35 +171,31 @@
           </template>
 
           <template #taskType="{ row }">
-            <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
-            <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
-            <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
-            <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">印花同步</t-tag>
-            <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">分类商品同步</t-tag>
+            <t-tag v-if="row.taskType === TaskTypeEnum.FLIPPING" theme="warning" variant="light">
+              站内倒卖
+            </t-tag>
             <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
           </template>
 
           <template #target="{ row }">
-            <div v-if="row.taskType === 1">
+            <div v-if="row.taskType === TaskTypeEnum.FLIPPING">
               <div class="text-xs text-gray-500">最小利润</div>
-              <div class="font-medium text-orange-600">¥{{ row.minProfit }}</div>
-            </div>
-            <div v-else-if="row.taskType >= 2">
-              <div class="text-xs text-gray-500">系统自动执行</div>
+              <div class="font-medium text-orange-600">¥{{ row.minProfit ?? 0 }}</div>
             </div>
             <div v-else>
-              <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
-              <div class="text-xs text-gray-500">磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}</div>
+              <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice ?? 0 }}</div>
+              <div class="text-xs text-gray-500">
+                磨损: {{ row.minPaintwear ?? 0 }}-{{ row.maxPaintwear ?? 1 }}
+              </div>
             </div>
           </template>
 
           <template #progress="{ row }">
-            <template v-if="row.runMode === 'TRADE'">
+            <template v-if="row.runMode === TaskRunModeEnum.TRADE">
               <span class="text-gray-400">-</span>
             </template>
             <template v-else>
-              <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
-              <span v-else>-</span>
+              <span>{{ row.successCount }} / {{ row.buyCount }}</span>
             </template>
           </template>
 
@@ -252,25 +219,15 @@
           </template>
 
           <template #status="{ row }">
-            <template v-if="row.runMode === 'TRADE'">
-              <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-              <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
-              <t-tag v-else-if="row.status === 4" theme="warning" variant="light">
-                <template #icon><t-loading size="small" inherit-color /></template>
-                监听中
-              </t-tag>
-              <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
-              <t-tag v-else theme="danger">异常</t-tag>
-            </template>
-            <template v-else>
-              <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-              <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
-              <t-tag v-else-if="row.status === 4" theme="warning">
-                {{ !row.accountNames || row.accountNames.length === 0 ? "监控中" : "执行中" }}
-              </t-tag>
-              <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
-              <t-tag v-else theme="danger">异常</t-tag>
-            </template>
+            <t-tag v-if="row.status === TaskStatusEnum.STOPPED" theme="default">停止</t-tag>
+            <t-tag v-else-if="row.status === TaskStatusEnum.RUNNING" theme="success">运行中</t-tag>
+            <t-tag v-else-if="row.status === TaskStatusEnum.COMPLETED" theme="primary">
+              已完成
+            </t-tag>
+            <t-tag v-else-if="row.status === TaskStatusEnum.SYSTEM_RUNNING" theme="warning">
+              {{ !row.accountNames || row.accountNames.length === 0 ? "监控中" : "执行中" }}
+            </t-tag>
+            <t-tag v-else theme="danger">异常</t-tag>
           </template>
 
           <template #createTime="{ row }">
@@ -287,40 +244,38 @@
 
           <template #op="{ row }">
             <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-2">
-              <t-link v-if="![1, 4].includes(row.status)" theme="primary" @click="handleEdit(row)">
+              <t-link
+                v-if="![TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(row.status)"
+                theme="primary"
+                @click="handleEdit(row)"
+              >
                 编辑
               </t-link>
               <t-link v-else theme="primary" disabled>编辑</t-link>
 
               <t-popconfirm
-                v-if="[0, 3].includes(row.status)"
+                v-if="[TaskStatusEnum.STOPPED, TaskStatusEnum.ERROR].includes(row.status)"
                 :content="
                   !row.accountNames || row.accountNames.length === 0
                     ? '当前任务未配置下单账号，将以“仅监控”模式启动，确认吗？'
                     : '确认要启动任务吗？'
                 "
-                @confirm="handleStatus(row, 1)"
+                @confirm="handleStatus(row, TaskStatusEnum.RUNNING)"
               >
-                <t-link
-                  :theme="!row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'"
-                >
+                <t-link :theme="!row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'">
                   启动
                 </t-link>
               </t-popconfirm>
 
               <t-popconfirm
-                v-if="[1, 4].includes(row.status)"
+                v-if="[TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(row.status)"
                 content="确认要停止任务吗？"
-                @confirm="handleStatus(row, 0)"
+                @confirm="handleStatus(row, TaskStatusEnum.STOPPED)"
               >
                 <t-link theme="warning">停止</t-link>
               </t-popconfirm>
 
-              <t-popconfirm
-                v-if="![2, 3, 4].includes(row.taskType)"
-                content="确认要删除任务吗？"
-                @confirm="handleDelete(row)"
-              >
+              <t-popconfirm content="确认要删除任务吗？" @confirm="handleDelete(row)">
                 <t-link theme="danger">删除</t-link>
               </t-popconfirm>
             </div>
@@ -332,21 +287,32 @@
     <TaskConfig ref="configRef" dialog-only @success="fetchData" />
   </div>
 </template>
+
 <script setup lang="ts">
-import { ref, reactive, computed, watch } from "vue";
+import { computed, reactive, ref, watch } from "vue";
 import { useRoute } from "vue-router";
 import dayjs from "dayjs";
+import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
+import type { TableRowData } from "tdesign-vue-next";
 import { taskApi } from "@/api/task";
 import type { BuffScanTask, TaskQueryParam } from "@/types/task";
-import { MessagePlugin, type PrimaryTableCol } from "tdesign-vue-next";
 import TaskConfig from "./TaskConfig.vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
 import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum } from "@/enums/TaskRunModeEnum";
-import { GlobalConstant } from "@/constant/GlobalConstant";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
+
+interface TaskConfigExpose {
+  handleAdd: (defaultMode?: "SCAN" | "TRADE" | "BOTH", platform?: string) => void;
+  handleEdit: (row: BuffScanTask, platform?: string) => void;
+}
+
+interface PageInfo {
+  current: number;
+  pageSize: number;
+}
 
 const route = useRoute();
 const { hasPermission } = usePermission();
@@ -357,25 +323,19 @@ const currentPlatform = computed(() => {
   return (route.meta.platform as string) || PlatformEnum.BUFF;
 });
 
-const userInfo = computed(() => {
-  const info = localStorage.getItem("niro-user-info");
-  return info ? JSON.parse(info) : null;
-});
-const isAdmin = computed(() => userInfo.value?.id === GlobalConstant.ADMIN_USER_ID);
-
-const activeTab = ref<string>(TaskRunModeEnum.SCAN);
+const activeTab = ref<"SCAN" | "TRADE">(TaskRunModeEnum.SCAN);
 const loading = ref(false);
 const dataList = ref<BuffScanTask[]>([]);
-const selectedRowKeys = ref<(string | number)[]>([]);
+const selectedRowKeys = ref<Array<string | number>>([]);
 const showAdvancedFilters = ref(true);
-const configRef = ref();
+const configRef = ref<TaskConfigExpose | null>(null);
 
 const queryParams = reactive<TaskQueryParam>({
   page: 1,
   pageSize: 10,
   keyword: "",
   status: undefined,
-  runMode: "SCAN" as any,
+  runMode: TaskRunModeEnum.SCAN,
 });
 
 const pagination = reactive({
@@ -384,33 +344,34 @@ const pagination = reactive({
   total: 0,
 });
 
-const columns = computed<PrimaryTableCol[]>(() => {
-  const cols: PrimaryTableCol[] = [
-    { colKey: "row-select", type: "multiple", width: 56, fixed: "left" as any },
+const columns = computed<PrimaryTableCol<TableRowData>[]>(() => {
+  const baseColumns: PrimaryTableCol<TableRowData>[] = [
+    { colKey: "row-select", type: "multiple", width: 56, fixed: "left" as const },
     { colKey: "id", title: "ID", width: 80, align: "left" },
-    { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" as any },
-    ...(currentPlatform.value !== PlatformEnum.C5
-      ? [{ colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" as any }]
-      : []),
-    { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" as any },
-    ...(currentPlatform.value !== PlatformEnum.C5
-      ? [
-          {
-            colKey: "accounts",
-            title: "执行账号",
-            width: 150,
-            cell: "accounts",
-            align: "left" as any,
-          },
-        ]
-      : []),
-    { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
-    { colKey: "createTime", title: "创建时间", width: 170, cell: "createTime", align: "left" as any },
-    { colKey: "finishTime", title: "完成时间", width: 170, cell: "finishTime", align: "left" as any },
-    { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" as any },
-    { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "left" as any },
+    { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" },
   ];
-  return cols;
+
+  const taskTypeColumn: PrimaryTableCol<TableRowData>[] =
+    currentPlatform.value !== PlatformEnum.C5
+      ? [{ colKey: "taskType", title: "模式", width: 100, cell: "taskType", align: "left" }]
+      : [];
+
+  const accountColumns: PrimaryTableCol<TableRowData>[] =
+    currentPlatform.value !== PlatformEnum.C5
+      ? [{ colKey: "accounts", title: "执行账号", width: 150, cell: "accounts", align: "left" }]
+      : [];
+
+  return [
+    ...baseColumns,
+    ...taskTypeColumn,
+    { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" },
+    ...accountColumns,
+    { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" },
+    { colKey: "createTime", title: "创建时间", width: 170, cell: "createTime", align: "left" },
+    { colKey: "finishTime", title: "完成时间", width: 170, cell: "finishTime", align: "left" },
+    { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
+    { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "left" },
+  ];
 });
 
 const selectedTasks = computed(() => {
@@ -428,24 +389,10 @@ const fetchData = async () => {
 
   loading.value = true;
   try {
-    if (activeTab.value === "SYSTEM") {
-      queryParams.runMode = undefined;
-      queryParams.taskTypes = [
-        TaskTypeEnum.SYNC_CATEGORY,
-        TaskTypeEnum.SYNC_GOODS,
-        TaskTypeEnum.SYNC_STICKER,
-        TaskTypeEnum.SYNC_CATEGORY_GOODS,
-      ];
-    } else {
-      if (currentPlatform.value === PlatformEnum.C5) {
-        queryParams.runMode = "BOTH";
-      } else {
-        queryParams.runMode = activeTab.value as any;
-      }
-      queryParams.taskTypes = [TaskTypeEnum.SNIPING, TaskTypeEnum.FLIPPING];
-    }
-
     queryParams.platform = currentPlatform.value;
+    queryParams.taskTypes = [TaskTypeEnum.SNIPING, TaskTypeEnum.FLIPPING];
+    queryParams.runMode =
+      currentPlatform.value === PlatformEnum.C5 ? TaskRunModeEnum.BOTH : activeTab.value;
 
     const res = await taskApi.getPage(queryParams);
     dataList.value = res.records;
@@ -460,14 +407,14 @@ const fetchData = async () => {
   }
 };
 
-const handleTabChange = (val: any) => {
-  activeTab.value = val;
+const handleTabChange = (val: string) => {
+  activeTab.value = val as "SCAN" | "TRADE";
   queryParams.page = 1;
   selectedRowKeys.value = [];
   fetchData();
 };
 
-const onPageChange = (pageInfo: any) => {
+const onPageChange = (pageInfo: PageInfo) => {
   queryParams.page = pageInfo.current;
   queryParams.pageSize = pageInfo.pageSize;
   pagination.current = pageInfo.current;
@@ -480,6 +427,7 @@ const resetQuery = () => {
   queryParams.keyword = "";
   queryParams.status = undefined;
   queryParams.page = 1;
+  pagination.current = 1;
   selectedRowKeys.value = [];
   fetchData();
 };
@@ -490,26 +438,6 @@ const handleAdd = () => {
     return;
   }
   configRef.value?.handleAdd(activeTab.value, currentPlatform.value);
-};
-
-watch(
-  () => currentPlatform.value,
-  (val) => {
-    if (val === PlatformEnum.C5) {
-      activeTab.value = "SCAN";
-    }
-    queryParams.page = 1;
-    selectedRowKeys.value = [];
-    fetchData();
-  }
-);
-
-const handleAddSystem = () => {
-  if (!canViewTaskList.value) {
-    MessagePlugin.warning("当前账号没有任务管理权限");
-    return;
-  }
-  configRef.value?.handleAddSystem();
 };
 
 const handleEdit = (row: BuffScanTask) => {
@@ -536,7 +464,7 @@ const handleDelete = async (row: BuffScanTask) => {
   }
 };
 
-const handleSelectChange = (value: (string | number)[]) => {
+const handleSelectChange = (value: Array<string | number>) => {
   selectedRowKeys.value = value;
 };
 
@@ -548,19 +476,19 @@ const toggleAdvancedFilters = () => {
   showAdvancedFilters.value = !showAdvancedFilters.value;
 };
 
-const handleColumnSetting = () => {
-  MessagePlugin.info("列设置能力将在下一轮迭代接入");
-};
-
 const handleBatchStart = async () => {
-  const pendingTasks = selectedTasks.value.filter((row) => [0, 3].includes(row.status));
+  const pendingTasks = selectedTasks.value.filter((row) =>
+    [TaskStatusEnum.STOPPED, TaskStatusEnum.ERROR].includes(row.status)
+  );
   if (pendingTasks.length === 0) {
     MessagePlugin.warning("未找到可启动的任务，请检查所选数据状态");
     return;
   }
 
   try {
-    await Promise.all(pendingTasks.map((row) => taskApi.updateStatus(row.id, 1, row.platform)));
+    await Promise.all(
+      pendingTasks.map((row) => taskApi.updateStatus(row.id, TaskStatusEnum.RUNNING, row.platform))
+    );
     MessagePlugin.success(`已批量启动 ${pendingTasks.length} 个任务`);
     selectedRowKeys.value = [];
     fetchData();
@@ -570,14 +498,18 @@ const handleBatchStart = async () => {
 };
 
 const handleBatchStop = async () => {
-  const runningTasks = selectedTasks.value.filter((row) => [1, 4].includes(row.status));
+  const runningTasks = selectedTasks.value.filter((row) =>
+    [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(row.status)
+  );
   if (runningTasks.length === 0) {
     MessagePlugin.warning("未找到可停止的任务，请检查所选数据状态");
     return;
   }
 
   try {
-    await Promise.all(runningTasks.map((row) => taskApi.updateStatus(row.id, 0, row.platform)));
+    await Promise.all(
+      runningTasks.map((row) => taskApi.updateStatus(row.id, TaskStatusEnum.STOPPED, row.platform))
+    );
     MessagePlugin.success(`已批量停止 ${runningTasks.length} 个任务`);
     selectedRowKeys.value = [];
     fetchData();
@@ -587,21 +519,33 @@ const handleBatchStop = async () => {
 };
 
 const handleBatchDelete = async () => {
-  const deletableTasks = selectedTasks.value.filter((row) => ![2, 3, 4].includes(row.taskType));
-  if (deletableTasks.length === 0) {
-    MessagePlugin.warning("未找到可删除的任务，请检查所选任务类型");
+  if (selectedTasks.value.length === 0) {
+    MessagePlugin.warning("请先选择需要删除的任务");
     return;
   }
 
   try {
-    await Promise.all(deletableTasks.map((row) => taskApi.delete(row.id)));
-    MessagePlugin.success(`已批量删除 ${deletableTasks.length} 个任务`);
+    await Promise.all(selectedTasks.value.map((row) => taskApi.delete(row.id)));
+    MessagePlugin.success(`已批量删除 ${selectedTasks.value.length} 个任务`);
     selectedRowKeys.value = [];
     fetchData();
   } catch (error) {
     console.error("批量删除任务失败", error);
   }
 };
+
+watch(
+  () => currentPlatform.value,
+  (val) => {
+    if (val === PlatformEnum.C5) {
+      activeTab.value = TaskRunModeEnum.SCAN;
+    }
+    queryParams.page = 1;
+    pagination.current = 1;
+    selectedRowKeys.value = [];
+    fetchData();
+  }
+);
 
 watch(
   canViewTaskList,
@@ -692,13 +636,6 @@ watch(
 }
 
 :deep(.jsh-ledger-table .t-table__row--hover td) {
-  background: #f5f5f5 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__empty) {
-  min-height: 320px;
-  background: #ffffff !important;
+  background: #fafcff !important;
 }
 </style>
-
-

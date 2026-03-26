@@ -80,17 +80,14 @@
       <!-- 指标1: 进度 -->
       <div class="flex flex-col items-center justify-center px-2">
         <div class="text-lg font-bold text-gray-900">
-          <span v-if="isSystemTask">
-            {{ task.stats?.finished || 0 }}/{{ task.stats?.total || 0 }}
-          </span>
-          <span v-else>{{ task.successCount }}/{{ task.buyCount }}</span>
+          <span>{{ task.successCount }}/{{ task.buyCount }}</span>
         </div>
         <!-- 进度条可视化 -->
         <div class="mt-1 w-full max-w-[80px]">
           <t-progress
             theme="line"
             stroke-width="2px"
-            :percentage="isSystemTask ? task.stats?.percentage || 0 : progressPercentage"
+            :percentage="progressPercentage"
             :show-label="false"
             :status="progressStatus"
           />
@@ -142,13 +139,7 @@
 
       <!-- 右侧：步骤条或状态信息 -->
       <div class="flex flex-1 justify-center pl-4">
-        <!-- 系统任务显示 TPS -->
-        <div v-if="isSystemTask" class="text-xs font-medium text-blue-600">
-          TPS: {{ task.stats?.tps || 0 }} 条/秒
-        </div>
-        <!-- 普通任务显示步骤条 -->
         <t-steps
-          v-else
           :current="currentStep"
           theme="dot"
           size="small"
@@ -174,8 +165,6 @@ import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 const props = defineProps<{
   task: BuffScanTask & { accountNames?: string[] };
 }>();
-
-const isSystemTask = computed(() => props.task.taskType >= TaskTypeEnum.SYNC_CATEGORY);
 
 const emit = defineEmits(["start", "stop", "edit", "delete"]);
 

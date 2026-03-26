@@ -159,7 +159,7 @@ const totalDiscoveryCount = computed(() => {
     return 0;
   }
   return runningTasks.value.reduce((total, task) => {
-    return total + (task.stats?.discovery_count || 0);
+    return total + Math.max(task.buyCount - task.successCount, 0);
   }, 0);
 });
 

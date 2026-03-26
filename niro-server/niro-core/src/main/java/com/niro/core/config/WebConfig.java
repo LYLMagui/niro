@@ -53,7 +53,6 @@ public class WebConfig implements WebMvcConfigurer {
         "/user/login",
         "/user/register",
         "/health",
-        "/log/stream",
         "/buff/account/report/status",
         "/task/callback/status",
         "/api/buff/account/report/status"

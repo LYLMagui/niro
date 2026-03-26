@@ -2,7 +2,6 @@ import { computed, reactive, ref } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import { taskApi } from "@/api/task";
 import { PlatformEnum } from "@/enums/PlatformEnum";
-import { isSystemTask } from "@/enums/TaskTypeEnum";
 
 export interface FormData {
   id?: number;
@@ -14,7 +13,7 @@ export interface FormData {
   cronExpression: string;
   durationMinutes: number;
   restPeriod: number;
-  scanInterval: number;
+  scanInterval: number | undefined;
   scanIntervalMin: number;
   scanIntervalMax: number;
   taskType: number;
@@ -27,7 +26,17 @@ export interface FormData {
   name?: string;
 }
 
-export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
+interface SubmitContext {
+  validateResult: true | unknown;
+  firstError?: string;
+}
+
+interface C5Config {
+  safeMargin: number;
+  anchorTierIndex: number;
+}
+
+export function useTaskForm(emit: (event: "success") => void) {
   const formData = reactive<FormData>({
     id: undefined,
     goodsId: undefined,
@@ -47,6 +56,11 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
     runMode: "SCAN",
     targetTaskId: undefined,
     platform: PlatformEnum.BUFF,
+  });
+
+  const c5Config = reactive<C5Config>({
+    safeMargin: 3,
+    anchorTierIndex: 2,
   });
 
   const submitLoading = ref(false);
@@ -72,9 +86,11 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
       targetTaskId: undefined,
       platform: PlatformEnum.BUFF,
     });
+    c5Config.safeMargin = 3;
+    c5Config.anchorTierIndex = 2;
   };
 
-  const handleSubmit = async (context: any, uiState: any, c5Config: any) => {
+  const handleSubmit = async (context: SubmitContext) => {
     const { validateResult, firstError } = context;
     if (validateResult !== true) {
       MessagePlugin.warning(firstError || "表单校验未通过");
@@ -83,21 +99,33 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
 
     submitLoading.value = true;
     try {
-      const data: any = {
+      const data = {
         ...formData,
+        targetTaskId: undefined,
+        cronExpression: "",
+        durationMinutes: 0,
+        restPeriod: 0,
         safetyMargin: c5Config.safeMargin / 100,
         ladderStep: c5Config.anchorTierIndex,
+        scanIntervalMin:
+          formData.platform === PlatformEnum.C5
+            ? Math.max(formData.scanIntervalMin || 1, 1)
+            : Math.max(formData.scanIntervalMin || 15, 15),
+        scanIntervalMax:
+          formData.platform === PlatformEnum.C5
+            ? Math.max(formData.scanIntervalMax || formData.scanIntervalMin || 1, 1)
+            : Math.max(formData.scanIntervalMax || formData.scanIntervalMin || 20, 15),
       };
+
+      data.scanInterval =
+        data.scanIntervalMin === data.scanIntervalMax ? data.scanIntervalMin : undefined;
 
       if (formData.platform === PlatformEnum.C5) {
         data.extraConfig = JSON.stringify({
-          ...c5Config,
           safeMargin: c5Config.safeMargin / 100,
+          anchorTierIndex: c5Config.anchorTierIndex,
         });
       }
-
-      if (uiState.isCronImmediate) data.cronExpression = "* * * * * ?";
-      if (uiState.isDurationUnlimited && !uiState.isCycleMode) data.durationMinutes = 0;
 
       if (data.id) {
         await taskApi.update(data);
@@ -118,13 +146,9 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
 
   const rules = computed(() => ({
     accountIds: [{ required: false, message: "请选择执行账号", type: "error", trigger: "change" }],
-    targetTaskId: [{ required: false, type: "error", trigger: "submit" }],
     goodsId: [
       {
-        validator: (val: number) => {
-          if (!isSystemTask(formData.taskType)) return !!val;
-          return true;
-        },
+        validator: (val: number | undefined) => !!val,
         message: "请选择商品",
         type: "error",
         trigger: "submit",
@@ -133,7 +157,9 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
     maxPrice: [
       {
         validator: (val: number) => {
-          if (formData.taskType === 0 && formData.runMode !== "TRADE") return !!val;
+          if (formData.taskType === 0 && formData.runMode !== "TRADE") {
+            return !!val;
+          }
           return true;
         },
         message: "请输入最高价格",
@@ -144,8 +170,9 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
     minProfit: [
       {
         validator: (val: number) => {
-          if (formData.taskType === 1 && formData.runMode !== "TRADE")
+          if (formData.taskType === 1 && formData.runMode !== "TRADE") {
             return val !== undefined && val !== null;
+          }
           return true;
         },
         message: "请输入最小预期利润",
@@ -156,35 +183,12 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
     buyCount: [
       {
         validator: (val: number) => {
-          if (formData.taskType < 2 && formData.runMode !== "SCAN" && formData.runMode !== "TRADE")
+          if (formData.taskType < 2 && formData.runMode !== "SCAN") {
             return !!val;
+          }
           return true;
         },
         message: "请输入购买数量",
-        type: "error",
-        trigger: "submit",
-      },
-    ],
-    scanInterval: [
-      {
-        validator: (val: number) => {
-          if (formData.taskType >= 2 || formData.runMode === "TRADE") return true;
-          return !!val;
-        },
-        message: "请输入扫描间隔",
-        type: "error",
-        trigger: "submit",
-      },
-      {
-        validator: (val: number) => {
-          if (formData.taskType >= 2 || formData.runMode === "TRADE") return true;
-          if (formData.platform === PlatformEnum.C5) return val >= 1;
-          return val >= 15;
-        },
-        message: () =>
-          formData.platform === PlatformEnum.C5
-            ? "最小扫描间隔不能低于1秒"
-            : "最小扫描间隔不能低于15秒",
         type: "error",
         trigger: "submit",
       },
@@ -193,8 +197,9 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
 
   return {
     formData,
+    c5Config,
     submitLoading,
-    rules: rules as any,
+    rules,
     resetForm,
     handleSubmit,
   };

@@ -37,11 +37,4 @@ export const taskApi = {
   updateStatus(id: number, status: number, platform?: string) {
     return request.post(`/task/status/${id}/${status}`, null, { params: { platform } });
   },
-
-  /**
-   * 获取所有下单模式的任务列表
-   */
-  getTradeTasks(goodsId?: number) {
-    return request.get<BuffScanTask[]>("/task/trade-tasks", { params: { goodsId } });
-  },
 };

@@ -1,4 +1,5 @@
 import { computed } from "vue";
+import type { Ref } from "vue";
 import { useUserStore } from "@/store/user";
 
 /**

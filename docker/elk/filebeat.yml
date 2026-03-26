@@ -2,30 +2,12 @@ filebeat.inputs:
 - type: log
   enabled: true
   paths:
-    - /var/log/niro/spider/*.json
-  tags: ["spider"]
-  json.keys_under_root: true
-  json.add_error_key: true
-
-- type: log
-  enabled: true
-  paths:
     - /var/log/niro/java/*.json
   tags: ["backend"]
   json.keys_under_root: true
   json.add_error_key: true
 
 processors:
-  # 1. 核心修复：将 Loguru 的真实时间 repr (字符串) 转换为 ES 的 @timestamp
-  - timestamp:
-      if: contains(tags, "spider")
-      field: record.time.repr
-      layouts:
-        - '2006-01-02 15:04:05.999999-07:00'
-        - '2006-01-02 15:04:05.999999'
-      timezone: 'Asia/Shanghai'
-
-  # 2. 将 Java 日志的 timestamp 转换为 @timestamp
   - timestamp:
       if: contains(tags, "backend")
       field: timestamp
@@ -34,7 +16,6 @@ processors:
         - '2006-01-02 15:04:05.999'
       timezone: 'Asia/Shanghai'
 
-  # 3. 清理多余字段，节省磁盘空间
   - drop_fields:
       fields: ["log", "input", "agent", "ecs", "host"]
       ignore_missing: true
@@ -42,9 +23,6 @@ processors:
 output.elasticsearch:
   hosts: ["elasticsearch:9200"]
   indices:
-    - index: "niro-spider-%{+yyyy.MM.dd}"
-      when.contains:
-        tags: "spider"
     - index: "niro-backend-%{+yyyy.MM.dd}"
       when.contains:
         tags: "backend"

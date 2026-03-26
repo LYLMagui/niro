@@ -4,6 +4,10 @@
 
 niro-server 是 Niro 项目的后端服务，基于 Spring Boot 3 + Java 21 构建，采用多模块 Maven 架构。
 
+### 本地 JDK 规范
+- 后端编译、测试、运行统一使用 JDK：`D:\Environment\JDK\jdk-21.0.2`
+- 执行 Maven 相关命令前，默认按该 JDK 环境理解和验证
+
 ### 核心定位
 - Buff 饰品交易平台的数据管理与自动化交易系统
 - 支持多账号管理、扫货任务调度、订单同步等核心业务

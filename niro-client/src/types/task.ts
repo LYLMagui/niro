@@ -10,7 +10,7 @@ export interface BuffScanTask {
   maxPaintwear?: number;
   buyCount: number;
   successCount: number;
-  status: number; // 0-停止, 1-运行中, 2-已完成, 3-异常
+  status: number;
   cronExpression?: string;
   durationMinutes?: number;
   restPeriod?: number;
@@ -21,29 +21,10 @@ export interface BuffScanTask {
   minProfit?: number;
   accountIds?: number[];
   accountNames?: string[];
-  stats?: {
-    total: number;
-    finished: number;
-    percentage: number;
-    discovery_count?: number;
-    tps: number;
-    update_time: number;
-    pending_categories: number[];
-    account_stats?: Record<
-      string,
-      {
-        total: number;
-        finished: number;
-        percentage: number;
-        tps: number;
-      }
-    >;
-  };
   createTime: string;
   updateTime: string;
   finishTime?: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTaskId?: number;
   platform?: string;
   extraConfig?: string;
 }
@@ -75,6 +56,6 @@ export interface TaskSaveParam {
   minProfit?: number;
   accountIds?: number[];
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTaskId?: number;
   platform?: string;
+  extraConfig?: string;
 }

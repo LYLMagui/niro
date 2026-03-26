@@ -62,12 +62,11 @@ services:
       - SPRING_DATA_REDIS_HOST=niro-redis-test
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
-      - SPIDER_LOG_PATH=/var/log/niro/spider/niro_spider.log
     volumes:
       - niro_shared_logs_test:/var/log/niro
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
-      - "9999:9999" 
+      - "9999:9999"
     healthcheck:
       # 使用 nc (netcat) 只检查端口是否开启，不关心业务权限
       test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
@@ -75,37 +74,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 40s # Spring Boot 启动较慢，给 40 秒宽限期
-    networks:
-      - niro-data-net-test
-
-  niro-spider-test:
-    build:
-      context: ./niro-spider
-      dockerfile: Dockerfile
-    container_name: niro-spider-test
-    restart: always
-    depends_on:
-      niro-db-test:
-        condition: service_healthy
-      niro-redis-test:
-        condition: service_healthy
-      niro-web-test:
-        condition: service_healthy
-    env_file:
-      - .env
-    environment:
-      - DB_HOST=niro-db-test
-      - DB_NAME=niro
-      - DB_USERNAME=${DB_USERNAME:-niro-admin}
-      - DB_PASSWORD=${DB_PASSWORD:-db_niro_pwd}
-      - REDIS_HOST=niro-redis-test
-      - REDIS_PORT=6379
-      - REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
-      - LOG_DIR=/app/logs/spider
-    extra_hosts:
-      - "host.docker.internal:host-gateway"
-    volumes:
-      - niro_shared_logs_test:/app/logs
     networks:
       - niro-data-net-test
 

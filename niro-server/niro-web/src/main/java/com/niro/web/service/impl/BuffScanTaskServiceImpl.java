@@ -76,20 +76,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setUpdateTime(LocalDateTime.now());
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
-            // 权限校验：仅管理员可创建系统任务
-            if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId)) {
-                throw new BusinessException("权限不足：仅管理员可创建系统任务");
-            }
-            // 系统任务唯一性校验：禁止创建多个相同类型的系统任务
-            long count = this.lambdaQuery()
-                    .eq(BuffScanTask::getTaskType, param.getTaskType())
-                    .count();
-            if (count > 0) {
-                throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(param.getTaskType()) + "】已存在，不可重复创建");
-            }
-            // 系统任务不需要关联商品，手动设置任务名
-            task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
-            task.setRunMode(TaskRunModeEnum.SCAN); // 系统任务默认为扫描模式
+            throw new BusinessException("简化版已移除系统任务，请创建普通任务");
         } else if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
             // 仅下单模式：如果有关联商品，则使用商品名，否则设为"下单任务"
             if (param.getGoodsId() != null) {
@@ -215,18 +202,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 如果修改了任务类型，且改为系统任务，需要校验唯一性
         if (param.getTaskType() != null && !param.getTaskType().equals(task.getTaskType())) {
             if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
-                // 仅管理员可修改为系统任务
-                if (!GlobalConstant.ADMIN_USER_ID.equals(currentUserId)) {
-                    throw new BusinessException("权限不足：仅管理员可操作系统任务");
-                }
-                long count = this.lambdaQuery()
-                        .eq(BuffScanTask::getTaskType, param.getTaskType())
-                        .ne(BuffScanTask::getId, task.getId())
-                        .count();
-                if (count > 0) {
-                    throw new BusinessException("系统任务【" + TaskTypeEnum.getDescByCode(param.getTaskType()) + "】已存在，不可重复创建/修改");
-                }
-                task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
+                throw new BusinessException("简化版已移除系统任务，不支持修改为系统任务");
             }
             task.setTaskType(param.getTaskType());
         }
@@ -253,8 +229,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
-            // 系统任务不需要校验 goodsId、maxPrice 和 scanInterval 限制
-            return;
+            throw new BusinessException("简化版已移除系统任务，请创建普通任务");
         }
 
         if (param.getRunMode() == null) {
@@ -355,6 +330,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 }
 
                 if (needReEnqueue) {
+                    if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
+                        BuffScanTask update = new BuffScanTask();
+                        update.setId(task.getId());
+                        update.setStatus(TaskStatusEnum.ERROR.getCode());
+                        update.setLastError("简化版已移除系统任务自愈链路");
+                        update.setUpdateTime(LocalDateTime.now());
+                        this.updateById(update);
+                        log.warn("任务 [{}] 为系统任务，简化版不再执行自愈重入", task.getId());
+                        continue;
+                    }
                     platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
                 }
             } catch (Exception e) {
@@ -383,6 +368,9 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
 
         // 如果是开启任务，则推送至 Redis 队列
         if (TaskStatusEnum.RUNNING.getCode().equals(status) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(status)) {
+            if (TaskTypeEnum.isSystemTask(task.getTaskType())) {
+                throw new BusinessException("简化版已移除系统任务启动能力");
+            }
             // 校验任务是否绑定了执行账号 (C5 平台无需绑定)
             if (!PlatformEnum.C5.getCode().equals(task.getPlatform())) {
                 long accountCount = buffScanTaskAccountManagerMapper.lambdaQuery()

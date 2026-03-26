@@ -4,7 +4,6 @@ export enum TaskStatusEnum {
   COMPLETED = 2,
   ERROR = 3,
   SYSTEM_RUNNING = 4,
-  SCHEDULED = 5,
 }
 
 export const TaskStatusMap = {
@@ -12,6 +11,5 @@ export const TaskStatusMap = {
   [TaskStatusEnum.RUNNING]: { label: "运行中", color: "success" },
   [TaskStatusEnum.COMPLETED]: { label: "已完成", color: "primary" },
   [TaskStatusEnum.ERROR]: { label: "异常", color: "danger" },
-  [TaskStatusEnum.SYSTEM_RUNNING]: { label: "系统运行中", color: "warning" },
-  [TaskStatusEnum.SCHEDULED]: { label: "定时等待中", color: "warning" },
+  [TaskStatusEnum.SYSTEM_RUNNING]: { label: "执行中", color: "warning" },
 };

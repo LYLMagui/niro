@@ -29,6 +29,11 @@ niro-server 是 Niro 项目的后端服务，基于 Spring Boot 3.5 + Java 21 �
 | 搜索 | Elasticsearch | 8.11.1 | 全文检索 |
 | 构建 | Maven | - | 项目构建 |
 
+### 1.3 本地 JDK 规范
+
+- 后端编译、测试、运行统一使用 JDK：`D:\Environment\JDK\jdk-21.0.2`
+- 执行 Maven 相关命令前，默认按该 JDK 环境理解和验证
+
 ---
 
 ## 2. 项目结构

@@ -32,6 +32,8 @@ pnpm build            # 生产环境构建
 
 ### 后端 (niro-server)
 
+> 后端编译/构建固定使用 JDK：`D:\Environment\JDK\jdk-21.0.2`
+
 ```bash
 cd niro-server
 mvn clean install -DskipTests  # 构建跳过测试
@@ -39,7 +41,7 @@ mvn spring-boot:run -pl niro-web  # 运行 Web 模块
 
 # 测试
 mvn test -Dtest=ResponseAdviceTest#testSuccessResponse
-mvn -pl niro-web test -Dtest=RocketMQProducerTest
+mvn -pl niro-web test
 ```
 
 ### 爬虫 (niro-spider)
