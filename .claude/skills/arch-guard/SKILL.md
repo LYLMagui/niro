@@ -97,7 +97,7 @@ src/
 ## 4. 爬虫架构 (Python)
 
 ```
-niro-spider/
+niro-python/
 ├── spiders/         # 具体的爬虫逻辑
 ├── storage/         # 数据库/Redis 操作
 ├── utils/           # 工具库

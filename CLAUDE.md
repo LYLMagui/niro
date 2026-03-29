@@ -4,23 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 项目概述
 
-Niro 是一个 Buff/CS2 饰品交易自动化平台，采用多语言多模块架构。
-
-## 技术栈
-
-| 模块 | 技术栈 | 描述 |
-|------|--------|------|
-| niro-client | Vue3 + TypeScript + Pinia + TDesign + Tailwind + Vite | 前端界面 |
-| niro-server | Spring Boot 3.5 + Java 21 + MyBatis-Plus + Redis + PostgreSQL | 后端服务 |
-| niro-spider | Python asyncio + Redis + httpx | 爬虫任务执行 |
-
-关键业务链路：**前端任务配置 → 后端持久化/调度 → Redis 队列 → 爬虫消费执行 → 状态/日志回流**
-
----
+Niro 是一个 Buff/CS2 饰品交易自动化平台。
 
 ## 常用命令
-
-### 前端 (niro-client)
 
 ```bash
 cd niro-client
@@ -41,16 +27,6 @@ mvn spring-boot:run -pl niro-web  # 运行 Web 模块
 mvn test -Dtest=ResponseAdviceTest#testSuccessResponse
 mvn -pl niro-web test -Dtest=RocketMQProducerTest
 ```
-
-### 爬虫 (niro-spider)
-
-```bash
-cd niro-spider
-python main.py                    # 启动（Redis 消息驱动）
-pytest -q tests/test_c5_response.py  # 运行测试
-```
-
----
 
 ## 项目结构
 
@@ -90,15 +66,6 @@ niro/
 │   │
 │   └── niro-sdk/         # SDK 模块（第三方平台集成）
 │       └── c5/           # C5Game 平台 SDK
-│
-├── niro-spider/          # 爬虫模块
-│   ├── config/           # 配置（settings.py 入口）
-│   ├── spiders/          # 爬虫实现
-│   ├── dto/              # 数据传输对象
-│   ├── engine/           # 爬虫引擎
-│   ├── storage/          # 存储层
-│   ├── utils/            # 工具类
-│   └── tests/            # 测试用例
 │
 ├── docker/               # Docker 配置
 ├── sql/                  # 数据库脚本

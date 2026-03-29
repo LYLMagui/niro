@@ -8,7 +8,6 @@ allowed-tools: "Read,Write,RunCommand,PostGreSQL,redis,tdesign-mcp-server,Search
 
 - 涉及 C5 平台的任何业务逻辑开发或修改。
 - 涉及 `niro-server` 中 `com.niro.sdk.c5` 包下的 SDK 调用或扩展。
-- 涉及 `niro-spider` 中 C5 相关的爬虫、数据解析或网络请求。
 - 处理 C5 订单同步、自动下单、余额校验、风控熔断等核心流程。
 - 分析或修复与 C5 接口返回错误码（如频率限制、参数错误）相关的 Bug。
 - 需要通过 SQL 或 Redis 查看 C5 相关的任务状态或缓存数据。
@@ -24,7 +23,7 @@ allowed-tools: "Read,Write,RunCommand,PostGreSQL,redis,tdesign-mcp-server,Search
 - **理解协议**：明确接口的 URL、Method、Headers、Params 以及 Response 结构。
 
 ### 脚本验证 (Script Verification)
-- **编写脚本**：在编写正式业务代码前，**必须**创建一个临时的 Python 脚本，位置在 `niro-spider` 模块下的测试目录（例如 `\niro\niro-spider\tests\temp_c5_test.py`）。
+- **编写脚本**：在编写正式业务代码前，**必须**创建一个临时的 Python 脚本，位置在 `niro-python` 模块下的测试目录（例如 `\niro\niro-python\tests\temp_c5_test.py`）。
 - **参数构造**：根据接口文档，构造正确的请求参数，如果有必要，调用 `PostGreSQL` 工具从数据库中获取动态参数（如用户 ID、订单号、商品表的 `marketHashName` 等）。
 - **真实调用**：使用 `requests` 或项目封装的 `network_util` 发起真实的 API 调用，获取实际的响应数据。
 - **分析响应**：打印并分析返回的 JSON 数据，确保后端的响应实体类字段含义与接口返回的 JSON 一致。

@@ -74,7 +74,7 @@ public class BuffStickerServiceImpl extends ServiceImpl<BuffStickerMapper, BuffS
             throw new BusinessException("印花同步任务正在运行中，请勿重复触发");
         }
 
-        // 创建一个特殊的系统任务，由 niro-spider 的 TaskScanner 识别并执行
+        // 创建一个特殊的系统任务，由任务扫描器识别并执行
         BuffScanTask syncTask = new BuffScanTask();
         syncTask.setName("系统-印花价值自动同步");
         syncTask.setUserId(userId);

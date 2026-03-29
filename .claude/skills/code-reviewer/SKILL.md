@@ -53,7 +53,7 @@ description: Niro 项目专用代码审查，严格执行 backend_rules, fronten
 ### 3. Python 爬虫
 > 依据: `python_rules.md`
 
-- [ ] **模块边界**: 代码是否在 `niro-spider` 模块内？
+- [ ] **模块边界**: 代码是否位于正确的业务模块内？
 - [ ] **依赖**: 是否使用了 `utils.logger` 而非 `print`？
 - [ ] **网络**: 是否使用了 `utils.network_util` 进行 IP 检测？
 

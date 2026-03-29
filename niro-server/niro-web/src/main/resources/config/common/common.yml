@@ -1,11 +1,4 @@
 
-# 爬虫相关配置
-spider:
-  log:
-    # 爬虫日志路径，优先使用环境变量 SPIDER_LOG_PATH
-    # 默认指向 ../niro-spider/logs/niro_spider.log
-    path: ${SPIDER_LOG_PATH:../niro-spider/logs/niro_spider.log}
-
 # Spring 全局配置
 spring:
   jackson:

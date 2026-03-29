@@ -46,7 +46,7 @@ public class LogController {
     // 使用 ReactiveRedisTemplate 进行响应式订阅
     private final ReactiveRedisTemplate<String, String> reactiveRedisTemplate;
 
-    @Value("${spider.log.path:../../niro-spider/logs/niro_spider.log}")
+    @Value("${log.path:../../logs/niro_spider.log}")
     private String logPath;
 
     /**
@@ -77,19 +77,12 @@ public class LogController {
         log.info("🔍 正在尝试自动定位日志文件 (Relative)，当前工作目录: {}", userDir);
         File current = new File(userDir);
         while (current != null) {
-            File spiderLogs = new File(current, "niro-spider/logs/niro_spider.log");
+            File spiderLogs = new File(current, "logs/niro_spider.log");
             if (spiderLogs.exists()) {
                 log.info("✅ 找到日志文件: {}", spiderLogs.getAbsolutePath());
                 return spiderLogs;
             }
-            
-            // 兼容可能直接在 niro-spider 目录下的情况
-            File directLogs = new File(current, "logs/niro_spider.log");
-            if (directLogs.exists() && current.getName().equals("niro-spider")) {
-                log.info("✅ 找到日志文件: {}", directLogs.getAbsolutePath());
-                return directLogs;
-            }
-            
+
             current = current.getParentFile();
         }
 
