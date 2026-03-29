@@ -66,13 +66,7 @@
             class="erp-side-menu !border-0"
             @change="handleMenuChange"
           >
-            <sidebar-item
-              v-for="menu in sidebarMenus"
-              :key="menu.value"
-              :item="menu"
-              :level="1"
-              :collapsed="collapsed"
-            />
+            <sidebar-item v-for="menu in sidebarMenus" :key="menu.value" :item="menu" />
           </t-menu>
         </div>
       </t-aside>
@@ -340,10 +334,6 @@ const handleLogout = async () => {
   width: 3px;
   content: "";
   background: #1890ff;
-}
-
-:deep(.erp-side-menu .t-submenu__content .t-menu__item) {
-  margin-left: 16px;
 }
 
 .erp-main-content {

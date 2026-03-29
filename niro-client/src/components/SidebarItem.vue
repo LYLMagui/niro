@@ -1,31 +1,13 @@
 <template>
   <template v-if="!item.hidden">
-    <t-submenu
-      v-if="showSubMenu"
-      :value="item.value"
-      :title="item.label"
-      :style="menuStyle"
-      class="erp-menu-node"
-    >
+    <t-submenu v-if="showSubMenu" :value="item.value" :title="item.label" class="erp-menu-node">
       <template v-if="item.icon" #icon>
         <component :is="item.icon" />
       </template>
-      <sidebar-item
-        v-for="child in item.children"
-        :key="child.value"
-        :item="child"
-        :level="level + 1"
-        :collapsed="collapsed"
-      />
+      <sidebar-item v-for="child in item.children" :key="child.value" :item="child" />
     </t-submenu>
 
-    <t-menu-item
-      v-else
-      :value="theItem.value"
-      :style="menuStyle"
-      class="erp-menu-node"
-      @click="handleMenuClick(theItem)"
-    >
+    <t-menu-item v-else :value="theItem.value" class="erp-menu-node" @click="handleMenuClick(theItem)">
       <template v-if="theItem.icon" #icon>
         <component :is="theItem.icon" />
       </template>
@@ -39,17 +21,9 @@ import { computed } from "vue";
 import { useRouter } from "vue-router";
 import type { MenuConfig } from "@/utils/menu";
 
-const props = withDefaults(
-  defineProps<{
-    item: MenuConfig;
-    level?: number;
-    collapsed?: boolean;
-  }>(),
-  {
-    level: 1,
-    collapsed: false,
-  }
-);
+const props = defineProps<{
+  item: MenuConfig;
+}>();
 
 const router = useRouter();
 
@@ -72,26 +46,6 @@ const theItem = computed(() => {
     }
   }
   return props.item;
-});
-
-const menuStyle = computed(() => {
-  if (props.collapsed) {
-    return {
-      minHeight: "40px",
-      width: "100%",
-      paddingInlineStart: "0px",
-      paddingInlineEnd: "0px",
-      justifyContent: "center",
-    };
-  }
-
-  return {
-    minHeight: "40px",
-    width: "100%",
-    justifyContent: "flex-start",
-    paddingInlineStart: `calc(27px + ${(props.level - 1) * 15}px)`,
-    paddingInlineEnd: "37px",
-  };
 });
 
 const handleMenuClick = (menu: MenuConfig) => {
