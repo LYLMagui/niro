@@ -12,7 +12,9 @@ import configPrettier from "eslint-config-prettier"; // 与 Prettier 兼容
 import pluginPrettier from "eslint-plugin-prettier"; // 运行 Prettier
 import fs from "fs";
 
-const autoImportConfig = JSON.parse(fs.readFileSync(".eslintrc-auto-import.json", "utf-8"));
+const autoImportConfig = fs.existsSync(".eslintrc-auto-import.json")
+  ? JSON.parse(fs.readFileSync(".eslintrc-auto-import.json", "utf-8"))
+  : { globals: {} };
 // 自动导入函数
 
 /** @type {import("eslint").Linter.Config[]} */

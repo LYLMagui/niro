@@ -1,5 +1,5 @@
-﻿<template>
-  <div class="bg-[#f5f5f5] px-1 pb-2 pt-1">
+<template>
+  <div class="bg-[#f5f5f5] px-1 pt-1 pb-2">
     <section class="overflow-hidden border border-[#d9d9d9] bg-white">
       <t-tabs
         v-model="activeTab"
@@ -36,7 +36,9 @@
           </div>
           <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-2">
             <t-button theme="primary" class="!h-8 px-4" @click="fetchData">查询</t-button>
-            <t-button theme="default" variant="base" class="!h-8 px-4" @click="resetQuery">重置</t-button>
+            <t-button theme="default" variant="outline" class="!h-8 px-4" @click="resetQuery">
+              重置
+            </t-button>
             <a class="jsh-expand-link" @click="toggleAdvancedFilters">
               {{ showAdvancedFilters ? "收起" : "展开" }}
             </a>
@@ -84,15 +86,14 @@
         </div>
       </div>
 
-      <div class="mt-[5px] border-t border-[#f2f2f2] px-4 pt-2">
-        <div class="flex flex-wrap items-start justify-between gap-y-2">
+      <div class="mt-3 px-4 pt-2">
+        <div class="flex flex-wrap items-start justify-between gap-y-3">
           <div class="table-operator flex flex-wrap items-center">
             <t-button
               v-if="activeTab === 'SYSTEM' && isAdmin"
-              theme="default"
-              variant="outline"
-              class="!h-8"
               v-permission="PermissionConstant.TASK_BUFF_LIST"
+              theme="primary"
+              class="!h-8"
               @click="handleAddSystem"
             >
               新增系统任务
@@ -100,9 +101,9 @@
 
             <t-button
               v-if="activeTab !== 'SYSTEM'"
+              v-permission="PermissionConstant.TASK_BUFF_LIST"
               theme="primary"
               class="!h-8"
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
               @click="handleAdd"
             >
               新增任务
@@ -110,10 +111,10 @@
 
             <t-popconfirm content="确认批量启动选中任务吗？" @confirm="handleBatchStart">
               <t-button
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 variant="outline"
                 theme="success"
                 class="!h-8"
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 :disabled="selectedRowKeys.length === 0"
               >
                 批量启动
@@ -122,10 +123,10 @@
 
             <t-popconfirm content="确认批量停止选中任务吗？" @confirm="handleBatchStop">
               <t-button
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 variant="outline"
                 theme="warning"
                 class="!h-8"
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 :disabled="selectedRowKeys.length === 0"
               >
                 批量停止
@@ -134,10 +135,10 @@
 
             <t-popconfirm content="确认批量删除选中任务吗？" @confirm="handleBatchDelete">
               <t-button
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 variant="outline"
                 theme="danger"
                 class="!h-8"
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 :disabled="selectedRowKeys.length === 0"
               >
                 批量删除
@@ -149,7 +150,7 @@
             </t-button>
           </div>
 
-          <div class="mb-2 flex items-center gap-2 text-xs text-[#909399]">
+          <div class="flex items-center gap-2 text-xs text-[#909399]">
             <span>提示：批量操作仅处理当前页勾选数据</span>
             <t-tag theme="primary" variant="light" class="rounded-[2px]">
               已选择 {{ selectedRowKeys.length }} 项
@@ -167,7 +168,7 @@
         </div>
       </div>
 
-      <div class="px-4 pb-4">
+      <div class="px-4 pt-3 pb-4">
         <t-table
           row-key="id"
           :data="dataList"
@@ -183,7 +184,11 @@
         >
           <template #goods="{ row }">
             <div class="flex items-center">
-              <t-image v-if="row.goodsIconUrl" :src="row.goodsIconUrl" class="mr-2 h-9 w-9 rounded" />
+              <t-image
+                v-if="row.goodsIconUrl"
+                :src="row.goodsIconUrl"
+                class="mr-2 h-9 w-9 rounded"
+              />
               <div
                 v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
                 class="mr-2 flex h-9 w-9 items-center justify-center rounded bg-blue-100 text-blue-600"
@@ -204,7 +209,9 @@
             <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
             <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
             <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">印花同步</t-tag>
-            <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">分类商品同步</t-tag>
+            <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">
+              分类商品同步
+            </t-tag>
             <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
           </template>
 
@@ -218,7 +225,9 @@
             </div>
             <div v-else>
               <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
-              <div class="text-xs text-gray-500">磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}</div>
+              <div class="text-xs text-gray-500">
+                磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}
+              </div>
             </div>
           </template>
 
@@ -233,7 +242,10 @@
           </template>
 
           <template #accounts="{ row }">
-            <div v-if="row.accountNames && row.accountNames.length > 0" class="flex flex-wrap gap-1">
+            <div
+              v-if="row.accountNames && row.accountNames.length > 0"
+              class="flex flex-wrap gap-1"
+            >
               <t-tag
                 v-for="name in row.accountNames"
                 :key="name"
@@ -302,7 +314,9 @@
                 @confirm="handleStatus(row, 1)"
               >
                 <t-link
-                  :theme="!row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'"
+                  :theme="
+                    !row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'
+                  "
                 >
                   启动
                 </t-link>
@@ -405,8 +419,20 @@ const columns = computed<PrimaryTableCol[]>(() => {
         ]
       : []),
     { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
-    { colKey: "createTime", title: "创建时间", width: 170, cell: "createTime", align: "left" as any },
-    { colKey: "finishTime", title: "完成时间", width: 170, cell: "finishTime", align: "left" as any },
+    {
+      colKey: "createTime",
+      title: "创建时间",
+      width: 170,
+      cell: "createTime",
+      align: "left" as any,
+    },
+    {
+      colKey: "finishTime",
+      title: "完成时间",
+      width: 170,
+      cell: "finishTime",
+      align: "left" as any,
+    },
     { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" as any },
     { colKey: "op", title: "操作", width: 180, cell: "op", fixed: "right", align: "left" as any },
   ];
@@ -621,15 +647,15 @@ watch(
 <style scoped>
 .jsh-label {
   padding-right: 8px;
-  color: #303133;
   font-size: 13px;
   line-height: 32px;
+  color: #303133;
   white-space: nowrap;
 }
 
 .jsh-expand-link {
-  color: #1890ff;
   line-height: 32px;
+  color: #1890ff;
   user-select: none;
 }
 
@@ -643,9 +669,9 @@ watch(
 
 :deep(.jsh-tabs .t-tabs__nav-item) {
   height: 35px;
-  line-height: 35px;
   padding: 0 14px;
   font-size: 13px;
+  line-height: 35px;
 }
 
 :deep(.jsh-tabs .t-is-active) {
@@ -668,27 +694,27 @@ watch(
 }
 
 :deep(.jsh-ledger-table .t-table__content) {
-  border-radius: 0 !important;
   background: #fff !important;
+  border-radius: 0 !important;
 }
 
 :deep(.jsh-ledger-table .t-table__header th) {
   padding: 11px 10px !important;
-  border-bottom: 1px solid #e8e8e8 !important;
-  background: #fafafa !important;
-  color: #606266 !important;
   font-size: 13px !important;
   font-weight: 500 !important;
+  color: #606266 !important;
+  background: #fafafa !important;
+  border-bottom: 1px solid #e8e8e8 !important;
 }
 
 :deep(.jsh-ledger-table .t-table__body td) {
   padding-top: 15px !important;
+  padding-right: 10px !important;
   padding-bottom: 15px !important;
   padding-left: 10px !important;
-  padding-right: 10px !important;
-  border-bottom: 1px solid #f0f0f0 !important;
   font-size: 13px;
   color: #303133;
+  border-bottom: 1px solid #f0f0f0 !important;
 }
 
 :deep(.jsh-ledger-table .t-table__row--hover td) {
@@ -700,5 +726,3 @@ watch(
   background: #ffffff !important;
 }
 </style>
-
-
