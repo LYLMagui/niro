@@ -1,0 +1,117 @@
+services:
+  niro-db-prod:
+    image: postgres:18-alpine
+    container_name: niro-db-prod
+    restart: always
+    environment:
+      POSTGRES_DB: niro
+      POSTGRES_USER: ${DB_USERNAME:-niro-admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
+      TZ: Asia/Shanghai
+      PGDATA: /var/lib/postgresql/data/pgdata
+    volumes:
+      - niro_db_data_prod:/var/lib/postgresql/data
+    ports:
+      - "5433:5432"
+    shm_size: "1gb"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-niro-admin} -d niro"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - niro-data-net-prod
+
+  niro-redis-prod:
+    image: redis:8.0-alpine
+    container_name: niro-redis-prod
+    restart: always
+    command: ["redis-server", "/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-redis_niro_pwd}"]
+    volumes:
+      - ./docker/redis/redis-prod.conf:/etc/redis/redis.conf
+      - niro_redis_data_prod:/data
+    ports:
+      - "6380:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - niro-data-net-prod
+
+  niro-web-prod:
+    image: niro_web_prod
+    build:
+      context: ./niro-server
+      dockerfile: Dockerfile
+      args:
+        ENV_TYPE: prod
+    container_name: niro-web-prod
+    restart: always
+    depends_on:
+      niro-db-prod:
+        condition: service_healthy
+      niro-redis-prod:
+        condition: service_healthy
+    environment:
+      SPRING_PROFILES_ACTIVE: prod
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://niro-db-prod:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8"
+      SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-niro-admin}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
+      SPRING_DATA_REDIS_HOST: niro-redis-prod
+      SPRING_DATA_REDIS_PORT: "6379"
+      SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_niro_pwd}
+      XXL_JOB_ADMIN_ADDRESS: ${XXL_JOB_ADMIN_ADDRESS:-http://119.29.200.243:8001/xxl-job-admin}
+      XXL_JOB_ACCESS_TOKEN: ${XXL_JOB_ACCESS_TOKEN:-niro-xxl-job}
+      XXL_JOB_EXECUTOR_APPNAME: ${XXL_JOB_EXECUTOR_APPNAME:-niro-executor}
+      XXL_JOB_EXECUTOR_PORT: ${XXL_JOB_EXECUTOR_PORT:-9999}
+      XXL_JOB_EXECUTOR_IP: ${XXL_JOB_EXECUTOR_IP:-}
+      XXL_JOB_EXECUTOR_ADDRESS: ${XXL_JOB_EXECUTOR_ADDRESS:-http://119.29.200.243:10000}
+      ROCKETMQ_NAME_SERVER: ${ROCKETMQ_NAME_SERVER:-119.29.200.243:9876}
+      ROCKETMQ_PRODUCER_GROUP: ${ROCKETMQ_PRODUCER_GROUP:-niro-producer-group}
+      ROCKETMQ_CONSUMER_GROUP: ${ROCKETMQ_CONSUMER_GROUP:-niro-consumer-group}
+      JWT_SECRET: ${JWT_SECRET:-prod_secret_key}
+    volumes:
+      - niro_shared_logs_prod:/var/log/niro
+    ports:
+      - "8081:8080"
+      - "10000:9999"
+    healthcheck:
+      test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - niro-data-net-prod
+
+  niro-client-prod:
+    image: niro_client_prod
+    build:
+      context: ./niro-client
+      dockerfile: Dockerfile
+      args:
+        ENV_TYPE: prod
+    container_name: niro-client-prod
+    restart: always
+    depends_on:
+      niro-web-prod:
+        condition: service_healthy
+    ports:
+      - "81:80"
+    networks:
+      - niro-data-net-prod
+
+networks:
+  niro-data-net-prod:
+    name: niro-data-net-prod
+    driver: bridge
+
+volumes:
+  niro_db_data_prod:
+    name: niro_db_data_prod
+  niro_redis_data_prod:
+    name: niro_redis_data_prod
+  niro_shared_logs_prod:
+    name: niro_shared_logs_prod

@@ -42,6 +42,7 @@ services:
       - niro-data-net-test
 
   niro-web-test:
+    image: niro_web_test
     build:
       context: ./niro-server
       dockerfile: Dockerfile
@@ -78,6 +79,7 @@ services:
       - niro-data-net-test
 
   niro-client-test:
+    image: niro_client_test
     build:
       context: ./niro-client
       dockerfile: Dockerfile
