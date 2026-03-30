@@ -62,7 +62,8 @@
             theme="light"
             :value="activeValue"
             :collapsed="collapsed"
-            width="100%"
+            :width="['150px', '64px']"
+            :expand-type="collapsed ? 'popup' : 'normal'"
             class="erp-side-menu !border-0"
             @change="handleMenuChange"
           >
