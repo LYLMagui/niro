@@ -53,16 +53,16 @@
 
     <t-layout class="min-h-0 flex-1 overflow-hidden">
       <t-aside
-        :width="collapsed ? '64px' : '150px'"
-        :style="{ width: collapsed ? '64px' : '150px' }"
+        :width="collapsed ? '64px' : '168px'"
+        :style="{ width: collapsed ? '64px' : '168px' }"
         class="erp-side relative z-10 flex h-full flex-shrink-0 flex-col border-r border-[#e8e8e8] bg-white"
       >
-        <div class="min-h-0 flex-1 overflow-y-auto py-2 pr-[37px] pl-[27px]">
+        <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
           <t-menu
             theme="light"
             :value="activeValue"
             :collapsed="collapsed"
-            :width="['150px', '64px']"
+            :width="['168px', '64px']"
             :expand-type="collapsed ? 'popup' : 'normal'"
             class="erp-side-menu !border-0"
             @change="handleMenuChange"
@@ -303,15 +303,42 @@ const handleLogout = async () => {
 }
 
 :deep(.erp-side-menu .t-default-menu__inner) {
-  padding: 0 0 8px;
+  padding: 0 0 4px;
+}
+
+:deep(.erp-side-menu .t-menu__content) {
+  margin-left: 0;
 }
 
 :deep(.erp-side-menu .t-menu__item),
 :deep(.erp-side-menu .t-submenu__title) {
-  min-height: 40px;
+  min-height: 36px;
   margin: 0;
+  padding: 0 8px;
   color: #303133;
   border-radius: 0;
+  font-size: 13px;
+}
+
+:deep(.erp-side-menu .t-menu__item .t-menu__icon),
+:deep(.erp-side-menu .t-submenu__title .t-menu__icon) {
+  width: 16px;
+  min-width: 16px;
+  font-size: 16px;
+}
+
+:deep(.erp-side-menu .t-submenu__children .t-menu__item),
+:deep(.erp-side-menu .t-submenu__children .t-submenu__title) {
+  padding-left: 24px;
+}
+
+:deep(.erp-side-menu .t-submenu__children .t-submenu__children .t-menu__item),
+:deep(.erp-side-menu .t-submenu__children .t-submenu__children .t-submenu__title) {
+  padding-left: 36px;
+}
+
+:deep(.erp-side-menu .t-fake-arrow) {
+  margin-left: 4px;
 }
 
 :deep(.erp-side-menu .t-menu__item:hover),
@@ -329,10 +356,10 @@ const handleLogout = async () => {
 :deep(.erp-side-menu .t-is-active.t-menu__item::before),
 :deep(.erp-side-menu .t-submenu__title.t-is-active::before) {
   position: absolute;
-  top: 7px;
-  bottom: 7px;
+  top: 6px;
+  bottom: 6px;
   left: 0;
-  width: 3px;
+  width: 2px;
   content: "";
   background: #1890ff;
 }
