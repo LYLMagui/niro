@@ -51,8 +51,8 @@ niro-server/**/.DS_Store
 .env.*.local
 
 # Local tooling state
-.serena/
 .worktrees/
+.claude/worktrees/
 
 # Python (General)
 __pycache__/

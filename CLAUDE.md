@@ -273,16 +273,14 @@ Verification: [准备如何验证]
 - 查看官方文档：
   - `mcp__context7__resolve-library-id` — 把库名解析成 Context7 ID
   - `mcp__context7__query-docs` — 抓取最新官方文档
-- 思考与分析：
-
+- 定位/搜索代码、方法、类：
+  - serena-niro-claude mcp
 ---
 
 ## 开发准则
-
-### CLI 工具上下文协议
-
-- **智能工具策略**（C:\Users\24160\.claude\workflows\intelligent-tools-strategy.md）：在调用组合工具前先确认上下文注入顺序与冲突处理方式。
-- **上下文搜索命令**（C:\Users\24160\.claude\workflows\context-search-strategy.md）：按照既定查询模板管理检索结果，并回写引用来源。
+请遵循 AGENT.md 中的工具调用规范：
+- 调用工具前检查上下文与缓存
+- 高风险操作必须确认
 
 ### Skills 使用原则
 

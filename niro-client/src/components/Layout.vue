@@ -57,7 +57,7 @@
         :style="{ width: collapsed ? '64px' : '168px' }"
         class="erp-side relative z-10 flex h-full flex-shrink-0 flex-col border-r border-[#e8e8e8] bg-white"
       >
-        <div class="min-h-0 flex-1 overflow-y-auto px-2 py-2">
+        <div class="min-h-0 flex-1 overflow-y-auto px-0 py-2">
           <t-menu
             theme="light"
             :value="activeValue"
@@ -221,150 +221,19 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-.erp-shell {
-  --erp-sidebar-width: clamp(210px, 16vw, 276px);
-  background: #f5f5f5;
+/* Force submenu padding left */
+:deep(.t-default-menu .t-menu__sub .t-menu__item) {
+  --padding-left: 28px;
+  padding-left: 28px !important;
 }
 
-.erp-side {
-  transition: width 0.2s ease;
+:deep(.t-default-menu .t-menu__sub .t-submenu__title) {
+  --padding-left: 28px;
+  padding-left: 28px !important;
 }
 
-.erp-top-btn {
-  color: #fff !important;
-  background: transparent !important;
-  border: 0 !important;
-  box-shadow: none !important;
-}
-
-.erp-top-btn:hover {
-  background: rgba(255, 255, 255, 0.2) !important;
-}
-
-.erp-tabbar {
-  scrollbar-gutter: stable;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav) {
-  padding-right: 0;
-  padding-left: 0;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-item) {
-  height: 35px;
-  padding: 0 14px;
-  font-size: 13px;
-  line-height: 35px;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-item:hover) {
-  color: #1890ff;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-item.t-is-active) {
+:deep(.erp-side-menu .t-is-active.t-menu__item .t-icon),
+:deep(.erp-side-menu .t-submenu__title.t-is-active .t-icon) {
   color: #1890ff !important;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-track) {
-  background-color: #1890ff !important;
-}
-
-:deep(.erp-page-tabs .t-tab-panel) {
-  margin-right: 0;
-}
-
-:deep(.erp-page-tabs .t-tab-panel__content) {
-  display: none;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-wrap) {
-  overflow-x: auto;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-wrap::-webkit-scrollbar) {
-  height: 0;
-}
-
-:deep(.erp-page-tabs .t-button.erp-tab-close) {
-  width: 16px;
-  min-width: 16px;
-  height: 16px;
-  padding: 0;
-  color: #909399;
-  border-radius: 0;
-}
-
-:deep(.erp-page-tabs .t-button.erp-tab-close:hover) {
-  color: #1890ff;
-}
-
-:deep(.erp-side-menu .t-menu__operations) {
-  display: none;
-}
-
-:deep(.erp-side-menu .t-default-menu__inner) {
-  padding: 0 0 4px;
-}
-
-:deep(.erp-side-menu .t-menu__content) {
-  margin-left: 0;
-}
-
-:deep(.erp-side-menu .t-menu__item),
-:deep(.erp-side-menu .t-submenu__title) {
-  min-height: 36px;
-  margin: 0;
-  padding: 0 8px;
-  color: #303133;
-  border-radius: 0;
-  font-size: 13px;
-}
-
-:deep(.erp-side-menu .t-menu__item .t-menu__icon),
-:deep(.erp-side-menu .t-submenu__title .t-menu__icon) {
-  width: 16px;
-  min-width: 16px;
-  font-size: 16px;
-}
-
-:deep(.erp-side-menu .t-submenu__children .t-menu__item),
-:deep(.erp-side-menu .t-submenu__children .t-submenu__title) {
-  padding-left: 24px;
-}
-
-:deep(.erp-side-menu .t-submenu__children .t-submenu__children .t-menu__item),
-:deep(.erp-side-menu .t-submenu__children .t-submenu__children .t-submenu__title) {
-  padding-left: 36px;
-}
-
-:deep(.erp-side-menu .t-fake-arrow) {
-  margin-left: 4px;
-}
-
-:deep(.erp-side-menu .t-menu__item:hover),
-:deep(.erp-side-menu .t-submenu__title:hover) {
-  background: #f5f7fa;
-}
-
-:deep(.erp-side-menu .t-is-active.t-menu__item),
-:deep(.erp-side-menu .t-submenu__title.t-is-active) {
-  position: relative;
-  color: #1890ff !important;
-  background: #e6f7ff !important;
-}
-
-:deep(.erp-side-menu .t-is-active.t-menu__item::before),
-:deep(.erp-side-menu .t-submenu__title.t-is-active::before) {
-  position: absolute;
-  top: 6px;
-  bottom: 6px;
-  left: 0;
-  width: 2px;
-  content: "";
-  background: #1890ff;
-}
-
-.erp-main-content {
-  scrollbar-gutter: stable;
 }
 </style>

@@ -7,7 +7,12 @@
       <sidebar-item v-for="child in item.children" :key="child.value" :item="child" />
     </t-submenu>
 
-    <t-menu-item v-else :value="theItem.value" class="erp-menu-node" @click="handleMenuClick(theItem)">
+    <t-menu-item
+      v-else
+      :value="theItem.value"
+      class="erp-menu-node"
+      @click="handleMenuClick(theItem)"
+    >
       <template v-if="theItem.icon" #icon>
         <component :is="theItem.icon" />
       </template>
