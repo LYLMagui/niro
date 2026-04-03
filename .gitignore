@@ -53,6 +53,8 @@ niro-server/**/.DS_Store
 # Local tooling state
 .worktrees/
 .claude/worktrees/
+.superpowers/
+memory/
 
 # Python (General)
 __pycache__/
