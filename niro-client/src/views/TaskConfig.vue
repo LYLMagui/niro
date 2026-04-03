@@ -1,390 +1,350 @@
 <template>
-  <div>
-    <!-- 扫货任务对话框 -->
-    <t-dialog
-      v-model:visible="dialogVisible"
-      :header="dialogTitle"
-      :confirm-btn="{ content: '提交', loading: submitLoading }"
-      :width="uiState.isCycleMode ? '720px' : '640px'"
-      placement="center"
-      class="task-edit-dialog"
-      :footer="false"
-      destroy-on-close
-    >
-      <div class="form-container">
-        <t-form
-          ref="formRef"
-          :data="formData"
-          :rules="rules"
-          :label-width="110"
-          class="compact-form"
-          label-align="right"
-          scroll-to-first-error="smooth"
-          validation-trigger="submit"
-          prevent-submit-default
-          @submit="onFormSubmit"
-        >
-          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
-            <t-form-item
-              v-if="formData.platform !== PlatformEnum.C5"
-              label="任务类型"
-              name="taskType"
-            >
-              <t-radio-group v-model="formData.taskType">
-                <t-radio :value="TaskTypeEnum.SNIPING">
-                  {{ TaskTypeMap[TaskTypeEnum.SNIPING] }}
-                </t-radio>
-                <t-radio :value="TaskTypeEnum.FLIPPING">
-                  {{ TaskTypeMap[TaskTypeEnum.FLIPPING] }}
-                </t-radio>
-              </t-radio-group>
-            </t-form-item>
+  <PageOverlayDialog
+    v-model:visible="dialogVisible"
+    :title="dialogTitle"
+    :width="uiState.isCycleMode ? '920px' : '820px'"
+    :attach="overlayAttach"
+    :origin-rect="overlayOriginRect"
+  >
+    <div class="dialog-shell">
+      <t-form
+        ref="formRef"
+        :data="formData"
+        :rules="rules"
+        :label-width="110"
+        class="compact-form"
+        label-align="right"
+        scroll-to-first-error="smooth"
+        validation-trigger="submit"
+        prevent-submit-default
+        @submit="onFormSubmit"
+      >
+        <div class="form-container">
+          <t-form-item
+            v-if="formData.platform !== PlatformEnum.C5"
+            label="任务类型"
+            name="taskType"
+          >
+            <t-radio-group v-model="formData.taskType">
+              <t-radio :value="TaskTypeEnum.SNIPING">
+                {{ TaskTypeMap[TaskTypeEnum.SNIPING] }}
+              </t-radio>
+              <t-radio :value="TaskTypeEnum.FLIPPING">
+                {{ TaskTypeMap[TaskTypeEnum.FLIPPING] }}
+              </t-radio>
+            </t-radio-group>
+          </t-form-item>
 
-            <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务模式">
-              <t-tag
-                v-if="formData.runMode === TaskRunModeEnum.SCAN"
-                theme="primary"
-                variant="light-outline"
-              >
-                {{ TaskRunModeMap[TaskRunModeEnum.SCAN] }}
-              </t-tag>
-              <t-tag
-                v-else-if="formData.runMode === TaskRunModeEnum.TRADE"
-                theme="warning"
-                variant="light-outline"
-              >
-                {{ TaskRunModeMap[TaskRunModeEnum.TRADE] }}
-              </t-tag>
-              <t-tag v-else theme="success" variant="light-outline">
-                {{ TaskRunModeMap[TaskRunModeEnum.BOTH] }}
-              </t-tag>
-              <template #tips>
-                <span v-if="formData.runMode === TaskRunModeEnum.TRADE" class="text-orange-500">
-                  此模式下，任务将基于现有扫描结果执行下单，不占用扫描频率
-                </span>
-              </template>
-            </t-form-item>
-
-            <!-- C5 专属策略配置 -->
-            <template v-if="formData.platform === PlatformEnum.C5">
-              <t-form-item label="安全边际">
-                <t-input-number
-                  v-model="c5Config.safeMargin"
-                  :min="0"
-                  :max="50"
-                  :step="0.1"
-                  :decimal-places="1"
-                  suffix="%"
-                  theme="column"
-                  style="width: 160px"
-                />
-                <span class="ml-2 text-xs text-gray-400">建议 3%-5%</span>
-              </t-form-item>
-              <t-form-item label="锚定阶梯">
-                <t-select v-model="c5Config.anchorTierIndex" style="width: 160px">
-                  <t-option :value="1" label="最低价 (Top 1)" />
-                  <t-option :value="2" label="次低价 (Top 2)" />
-                  <t-option :value="3" label="第3阶梯 (Top 3)" />
-                </t-select>
-              </t-form-item>
-            </template>
-
-            <t-form-item label="选择商品" name="goodsId">
-              <t-select
-                v-model="formData.goodsId"
-                filterable
-                :placeholder="goodsSelectPlaceholder"
-                :loading="goodsLoading"
-                :on-search="handleGoodsSearch"
-                :disabled="!!formData.id || !canViewGoods"
-                style="width: 320px"
-              >
-                <t-option
-                  v-for="item in goodsOptions"
-                  :key="item.goodsId"
-                  :value="item.goodsId"
-                  :label="item.name"
-                >
-                  {{ item.name }}
-                </t-option>
-              </t-select>
-            </t-form-item>
-
-            <t-form-item
-              v-if="
-                formData.runMode !== TaskRunModeEnum.TRADE && formData.platform !== PlatformEnum.C5
-              "
-              label="关联下单任务"
-              name="targetTaskId"
-            >
-              <t-select
-                v-model="formData.targetTaskId"
-                filterable
-                :placeholder="tradeTaskPlaceholder"
-                :loading="tradeTasksLoading"
-                :disabled="!formData.goodsId || !canManageTasks"
-                style="width: 320px"
-                @focus="handleTradeTaskFocus"
-              >
-                <t-option
-                  v-for="item in tradeTasks"
-                  :key="item.id"
-                  :value="item.id"
-                  :label="item.name"
-                >
-                  <div class="flex w-full items-center justify-between">
-                    <span class="font-medium">{{ item.name }}</span>
-                    <t-tag v-if="item.status === 1" theme="success" variant="light" size="small">
-                      运行中
-                    </t-tag>
-                    <t-tag v-else theme="default" variant="light" size="small">停止</t-tag>
-                  </div>
-                </t-option>
-              </t-select>
-              <template #tips>
-                {{
-                  !canManageTasks
-                    ? "当前账号没有任务管理权限，无法读取关联下单任务"
-                    : formData.goodsId
-                    ? "仅显示相同商品的任务。选择后，扫描结果将自动路由给该任务执行购买"
-                    : "请先选择商品以关联对应的下单任务"
-                }}
-              </template>
-            </t-form-item>
-
-            <t-form-item
-              v-if="
-                formData.taskType === TaskTypeEnum.FLIPPING &&
-                formData.runMode !== TaskRunModeEnum.TRADE
-              "
-              label="预期利润"
-              name="minProfit"
-            >
-              <t-input-number
-                v-model="formData.minProfit"
-                :min="0"
-                :step="1"
-                :decimal-places="2"
-                suffix="元"
-                theme="column"
-                style="width: 160px"
-              />
-              <span class="ml-2 text-xs text-gray-400">低于此利润将不购买 (已扣除手续费)</span>
-            </t-form-item>
-
-            <t-form-item
-              v-if="
-                formData.taskType === TaskTypeEnum.SNIPING &&
-                formData.runMode !== TaskRunModeEnum.TRADE
-              "
-              label="最高价格"
-              name="maxPrice"
-            >
-              <t-input-number
-                v-model="formData.maxPrice"
-                :min="0.01"
-                :step="0.1"
-                :decimal-places="2"
-                suffix="元"
-                theme="column"
-                style="width: 140px"
-              />
-            </t-form-item>
-
-            <t-form-item
-              v-if="
-                formData.taskType === TaskTypeEnum.SNIPING &&
-                formData.runMode !== TaskRunModeEnum.TRADE &&
-                isWearable
-              "
-              label="磨损范围"
-              name="wear"
-            >
-              <div class="flex items-center gap-3">
-                <t-input-number
-                  v-model="formData.minPaintwear"
-                  :min="0"
-                  :max="1"
-                  :step="0.001"
-                  :decimal-places="3"
-                  placeholder="最小"
-                  theme="column"
-                  style="width: 110px"
-                />
-                <span class="text-gray-400">至</span>
-                <t-input-number
-                  v-model="formData.maxPaintwear"
-                  :min="0"
-                  :max="1"
-                  :step="0.001"
-                  :decimal-places="3"
-                  placeholder="最大"
-                  theme="column"
-                  style="width: 110px"
-                />
-              </div>
-            </t-form-item>
-
-            <t-form-item
-              v-if="formData.runMode !== 'SCAN' || formData.targetTaskId"
-              label="购买数量"
-              name="buyCount"
-            >
-              <t-input-number
-                v-model="formData.buyCount"
-                :min="1"
-                :step="1"
-                theme="column"
-                style="width: 120px"
-              />
-            </t-form-item>
-
-            <t-form-item
-              v-if="formData.platform !== PlatformEnum.C5"
-              label="执行账号"
-              name="accountIds"
-            >
-              <AccountSelector
-                v-model="formData.accountIds"
-                :accounts="filteredAccounts"
-                :loading="accountsLoading"
-                :disabled="!canViewAccounts"
-                :current-task-id="formData.id"
-                :placeholder="accountPlaceholder"
-                @focus="fetchAccounts"
-              />
-              <template #tips>
-                {{
-                  !canViewAccounts
-                    ? "当前账号没有账号列表权限，无法为任务绑定执行账号"
-                    : "多选账号可实现多并发扫货，提高抢购成功率"
-                }}
-              </template>
-            </t-form-item>
-
-            <t-form-item v-if="formData.runMode !== TaskRunModeEnum.TRADE" label-width="0">
-              <ScheduleConfig
-                mode="scan"
-                :ui-state="uiState"
-                :cron-expression="formData.cronExpression"
-                :platform="formData.platform"
-                :execution-summary="executionSummary"
-                @update:cron-expression="formData.cronExpression = $event"
-                @interval-min-blur="handleIntervalMinBlur"
-                @interval-max-blur="handleIntervalMaxBlur"
-                @interval-unit-change="handleIntervalUnitChange"
-              />
-            </t-form-item>
-          </div>
-
-          <!-- 底部按钮 -->
-          <div class="mt-2 flex justify-end gap-3 border-t border-gray-100 pt-2">
-            <t-button variant="outline" theme="default" @click="dialogVisible = false">
-              取消
-            </t-button>
-            <t-button
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
+          <t-form-item v-if="formData.platform !== PlatformEnum.C5" label="任务模式">
+            <t-tag
+              v-if="formData.runMode === TaskRunModeEnum.SCAN"
               theme="primary"
-              type="submit"
-              :loading="submitLoading"
+              variant="light-outline"
             >
-              提交
-            </t-button>
-          </div>
-        </t-form>
-      </div>
-    </t-dialog>
+              {{ TaskRunModeMap[TaskRunModeEnum.SCAN] }}
+            </t-tag>
+            <t-tag
+              v-else-if="formData.runMode === TaskRunModeEnum.TRADE"
+              theme="warning"
+              variant="light-outline"
+            >
+              {{ TaskRunModeMap[TaskRunModeEnum.TRADE] }}
+            </t-tag>
+            <t-tag v-else theme="success" variant="light-outline">
+              {{ TaskRunModeMap[TaskRunModeEnum.BOTH] }}
+            </t-tag>
+            <template #tips>
+              <span v-if="formData.runMode === TaskRunModeEnum.TRADE" class="text-orange-500">
+                此模式下，任务将基于现有扫描结果执行下单，不占用扫描频率
+              </span>
+            </template>
+          </t-form-item>
 
-    <!-- 系统任务对话框 -->
-    <t-dialog
-      v-model:visible="systemDialogVisible"
-      :header="dialogTitle"
-      :confirm-btn="{ content: '提交', loading: submitLoading }"
-      width="600px"
-      placement="center"
-      class="task-edit-dialog"
-      :footer="false"
-      destroy-on-close
-    >
-      <div class="form-container">
-        <t-form
-          ref="systemFormRef"
-          :data="formData"
-          :rules="rules"
-          :label-width="110"
-          class="compact-form"
-          label-align="right"
-          scroll-to-first-error="smooth"
-          validation-trigger="submit"
-          prevent-submit-default
-          @submit="onFormSubmit"
-        >
-          <div class="mb-4 rounded-lg border border-gray-100 bg-gray-50/50 px-3 pt-3 pb-3">
-            <t-form-item label="任务类型" name="taskType">
-              <t-radio-group v-model="formData.taskType">
-                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY">
-                  {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY] }}
-                </t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_GOODS">
-                  {{ TaskTypeMap[TaskTypeEnum.SYNC_GOODS] }}
-                </t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_STICKER">
-                  {{ TaskTypeMap[TaskTypeEnum.SYNC_STICKER] }}
-                </t-radio>
-                <t-radio :value="TaskTypeEnum.SYNC_CATEGORY_GOODS">
-                  {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY_GOODS] }}
-                </t-radio>
-              </t-radio-group>
-            </t-form-item>
+          <t-form-item label="选择商品" name="goodsId">
+            <t-select
+              v-model="formData.goodsId"
+              filterable
+              :placeholder="goodsSelectPlaceholder"
+              :loading="goodsLoading"
+              :on-search="handleGoodsSearch"
+              :disabled="!!formData.id || !canViewGoods"
+              style="width: 320px"
+            >
+              <t-option
+                v-for="item in goodsOptions"
+                :key="item.goodsId"
+                :value="item.goodsId"
+                :label="item.name"
+              >
+                {{ item.name }}
+              </t-option>
+            </t-select>
+          </t-form-item>
 
-            <t-form-item label="执行账号" name="accountIds">
-              <AccountSelector
-                v-model="formData.accountIds"
-                :accounts="accounts"
-                :loading="accountsLoading"
-                :disabled="!canViewAccounts"
-                :current-task-id="formData.id"
-                :placeholder="accountPlaceholder"
-                @focus="fetchAccounts"
+          <t-form-item
+            v-if="
+              formData.runMode !== TaskRunModeEnum.TRADE && formData.platform !== PlatformEnum.C5
+            "
+            label="关联下单任务"
+            name="targetTaskId"
+          >
+            <t-select
+              v-model="formData.targetTaskId"
+              filterable
+              :placeholder="tradeTaskPlaceholder"
+              :loading="tradeTasksLoading"
+              :disabled="!formData.goodsId || !canManageTasks"
+              style="width: 320px"
+              @focus="handleTradeTaskFocus"
+            >
+              <t-option
+                v-for="item in tradeTasks"
+                :key="item.id"
+                :value="item.id"
+                :label="item.name"
+              >
+                <div class="flex w-full items-center justify-between">
+                  <span class="font-medium">{{ item.name }}</span>
+                  <t-tag v-if="item.status === 1" theme="success" variant="light" size="small">
+                    运行中
+                  </t-tag>
+                  <t-tag v-else theme="default" variant="light" size="small">停止</t-tag>
+                </div>
+              </t-option>
+            </t-select>
+            <template #tips>
+              {{
+                !canManageTasks
+                  ? "当前账号没有任务管理权限，无法读取关联下单任务"
+                  : formData.goodsId
+                  ? "仅显示相同商品的任务。选择后，扫描结果将自动路由给该任务执行购买"
+                  : "请先选择商品以关联对应的下单任务"
+              }}
+            </template>
+          </t-form-item>
+
+          <t-form-item
+            v-if="
+              formData.taskType === TaskTypeEnum.FLIPPING &&
+              formData.runMode !== TaskRunModeEnum.TRADE
+            "
+            label="预期利润"
+            name="minProfit"
+          >
+            <t-input-number
+              v-model="formData.minProfit"
+              :min="0"
+              :step="1"
+              :decimal-places="2"
+              suffix="元"
+              theme="column"
+              style="width: 160px"
+            />
+            <span class="ml-2 text-xs text-gray-400">低于此利润将不购买 (已扣除手续费)</span>
+          </t-form-item>
+
+          <t-form-item
+            v-if="
+              formData.taskType === TaskTypeEnum.SNIPING &&
+              formData.runMode !== TaskRunModeEnum.TRADE
+            "
+            label="最高价格"
+            name="maxPrice"
+          >
+            <t-input-number
+              v-model="formData.maxPrice"
+              :min="0.01"
+              :step="0.1"
+              :decimal-places="2"
+              suffix="元"
+              theme="column"
+              style="width: 140px"
+            />
+          </t-form-item>
+
+          <t-form-item
+            v-if="
+              formData.taskType === TaskTypeEnum.SNIPING &&
+              formData.runMode !== TaskRunModeEnum.TRADE &&
+              isWearable
+            "
+            label="磨损范围"
+            name="wear"
+          >
+            <div class="flex items-center gap-3">
+              <t-input-number
+                v-model="formData.minPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.001"
+                :decimal-places="3"
+                placeholder="最小"
+                theme="column"
+                style="width: 110px"
               />
-              <template #tips>
-                {{
-                  !canViewAccounts
-                    ? "当前账号没有账号列表权限，无法为系统任务绑定执行账号"
-                    : "系统任务建议绑定多个扫描账号以平衡负载"
-                }}
-              </template>
-            </t-form-item>
-
-            <!-- 调度配置 -->
-            <div class="mt-0.5">
-              <ScheduleConfig
-                mode="system"
-                :ui-state="uiState"
-                :cron-expression="formData.cronExpression"
-                @update:cron-expression="formData.cronExpression = $event"
+              <span class="text-gray-400">至</span>
+              <t-input-number
+                v-model="formData.maxPaintwear"
+                :min="0"
+                :max="1"
+                :step="0.001"
+                :decimal-places="3"
+                placeholder="最大"
+                theme="column"
+                style="width: 110px"
               />
             </div>
-          </div>
+          </t-form-item>
 
-          <!-- 底部按钮 -->
-          <div class="mt-2 flex justify-end gap-3 border-t border-gray-100 pt-2">
-            <t-button variant="outline" theme="default" @click="systemDialogVisible = false">
-              取消
-            </t-button>
-            <t-button
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
-              theme="primary"
-              type="submit"
-              :loading="submitLoading"
-            >
-              提交
-            </t-button>
+          <t-form-item
+            v-if="formData.runMode !== 'SCAN' || formData.targetTaskId"
+            label="购买数量"
+            name="buyCount"
+          >
+            <t-input-number
+              v-model="formData.buyCount"
+              :min="1"
+              :step="1"
+              theme="column"
+              style="width: 120px"
+            />
+          </t-form-item>
+
+          <t-form-item
+            v-if="formData.platform !== PlatformEnum.C5"
+            label="执行账号"
+            name="accountIds"
+          >
+            <AccountSelector
+              v-model="formData.accountIds"
+              :accounts="filteredAccounts"
+              :loading="accountsLoading"
+              :disabled="!canViewAccounts"
+              :current-task-id="formData.id"
+              :placeholder="accountPlaceholder"
+              @focus="fetchAccounts"
+            />
+            <template #tips>
+              {{
+                !canViewAccounts
+                  ? "当前账号没有账号列表权限，无法为任务绑定执行账号"
+                  : "多选账号可实现多并发扫货，提高抢购成功率"
+              }}
+            </template>
+          </t-form-item>
+
+          <t-form-item v-if="formData.runMode !== TaskRunModeEnum.TRADE" label-width="0">
+            <ScheduleConfig
+              mode="scan"
+              :ui-state="uiState"
+              :cron-expression="formData.cronExpression"
+              :platform="formData.platform"
+              :execution-summary="executionSummary"
+              @update:cron-expression="formData.cronExpression = $event"
+              @interval-min-blur="handleIntervalMinBlur"
+              @interval-max-blur="handleIntervalMaxBlur"
+              @interval-unit-change="handleIntervalUnitChange"
+            />
+          </t-form-item>
+        </div>
+      </t-form>
+    </div>
+
+    <template #footer>
+      <t-button variant="outline" theme="default" @click="dialogVisible = false">取消</t-button>
+      <t-button
+        v-permission="PermissionConstant.TASK_BUFF_LIST"
+        theme="primary"
+        :loading="submitLoading"
+        @click="submitTaskForm"
+      >
+        提交
+      </t-button>
+    </template>
+  </PageOverlayDialog>
+
+  <PageOverlayDialog
+    v-model:visible="systemDialogVisible"
+    :title="dialogTitle"
+    width="920px"
+    :attach="overlayAttach"
+    :origin-rect="overlayOriginRect"
+  >
+    <div class="dialog-shell">
+      <t-form
+        ref="systemFormRef"
+        :data="formData"
+        :rules="rules"
+        :label-width="110"
+        class="compact-form"
+        label-align="right"
+        scroll-to-first-error="smooth"
+        validation-trigger="submit"
+        prevent-submit-default
+        @submit="onFormSubmit"
+      >
+        <div class="form-container">
+          <t-form-item label="任务类型" name="taskType">
+            <t-radio-group v-model="formData.taskType">
+              <t-radio :value="TaskTypeEnum.SYNC_CATEGORY">
+                {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY] }}
+              </t-radio>
+              <t-radio :value="TaskTypeEnum.SYNC_GOODS">
+                {{ TaskTypeMap[TaskTypeEnum.SYNC_GOODS] }}
+              </t-radio>
+              <t-radio :value="TaskTypeEnum.SYNC_STICKER">
+                {{ TaskTypeMap[TaskTypeEnum.SYNC_STICKER] }}
+              </t-radio>
+              <t-radio :value="TaskTypeEnum.SYNC_CATEGORY_GOODS">
+                {{ TaskTypeMap[TaskTypeEnum.SYNC_CATEGORY_GOODS] }}
+              </t-radio>
+            </t-radio-group>
+          </t-form-item>
+
+          <t-form-item label="执行账号" name="accountIds">
+            <AccountSelector
+              v-model="formData.accountIds"
+              :accounts="accounts"
+              :loading="accountsLoading"
+              :disabled="!canViewAccounts"
+              :current-task-id="formData.id"
+              :placeholder="accountPlaceholder"
+              @focus="fetchAccounts"
+            />
+            <template #tips>
+              {{
+                !canViewAccounts
+                  ? "当前账号没有账号列表权限，无法为系统任务绑定执行账号"
+                  : "系统任务建议绑定多个扫描账号以平衡负载"
+              }}
+            </template>
+          </t-form-item>
+
+          <!-- 调度配置 -->
+          <div class="mt-0.5">
+            <ScheduleConfig
+              mode="system"
+              :ui-state="uiState"
+              :cron-expression="formData.cronExpression"
+              @update:cron-expression="formData.cronExpression = $event"
+            />
           </div>
-        </t-form>
-      </div>
-    </t-dialog>
-  </div>
+        </div>
+      </t-form>
+    </div>
+
+    <template #footer>
+      <t-button variant="outline" theme="default" @click="systemDialogVisible = false">取消</t-button>
+      <t-button
+        v-permission="PermissionConstant.TASK_BUFF_LIST"
+        theme="primary"
+        :loading="submitLoading"
+        @click="submitSystemTaskForm"
+      >
+        提交
+      </t-button>
+    </template>
+  </PageOverlayDialog>
 </template>
 
 <script setup lang="ts">
@@ -396,6 +356,7 @@ import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 import { TaskRunModeEnum, TaskRunModeMap } from "@/enums/TaskRunModeEnum";
 import AccountSelector from "@/components/task/AccountSelector.vue";
+import PageOverlayDialog from "@/components/PageOverlayDialog.vue";
 import ScheduleConfig from "@/components/task/ScheduleConfig.vue";
 import {
   useUiState,
@@ -409,7 +370,10 @@ import { useTaskForm } from "@/composables/useTaskForm";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
 
-const emit = defineEmits(["success"]);
+const emit = defineEmits(["success", "open-change"]);
+
+const overlayAttach = ref("");
+const overlayOriginRect = ref<{ left: number; top: number; width: number; height: number }>();
 
 // --- Composables & State ---
 const dialogVisible = ref(false);
@@ -519,7 +483,11 @@ watch(
 );
 
 // --- Methods (Exposed) ---
-const handleAdd = (defaultMode: string = "SCAN", platform: string = PlatformEnum.BUFF) => {
+const handleAdd = (
+  defaultMode: string = "SCAN",
+  platform: string = PlatformEnum.BUFF,
+  originRect?: { left: number; top: number; width: number; height: number },
+) => {
   resetForm();
   formData.platform = platform;
 
@@ -537,15 +505,24 @@ const handleAdd = (defaultMode: string = "SCAN", platform: string = PlatformEnum
   }
 
   dialogTitle.value = "新增任务";
+  overlayAttach.value = ".task-list-body";
+  overlayOriginRect.value = originRect;
   dialogVisible.value = true;
   nextTick(() => formRef.value?.clearValidate());
   fetchAccounts();
 };
 
-const handleAddSystem = () => {
+const handleAddSystem = (originRect?: {
+  left: number;
+  top: number;
+  width: number;
+  height: number;
+}) => {
   resetForm();
   formData.taskType = TaskTypeEnum.SYNC_CATEGORY;
   dialogTitle.value = "新增系统任务";
+  overlayAttach.value = ".task-list-body";
+  overlayOriginRect.value = originRect;
   systemDialogVisible.value = true;
   nextTick(() => systemFormRef.value?.clearValidate());
   fetchAccounts();
@@ -556,6 +533,7 @@ const openWithGoods = (goods: GoodsSimple) => {
   formData.goodsId = goods.goodsId;
   goodsOptions.value = [goods];
   dialogTitle.value = `新增扫货任务 - ${goods.name}`;
+  overlayAttach.value = ".task-list-body";
 };
 
 const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => {
@@ -633,6 +611,8 @@ const handleEdit = (row: BuffScanTask, platform: string = PlatformEnum.BUFF) => 
   }
 
   dialogTitle.value = "编辑任务";
+  overlayAttach.value = ".task-list-body";
+  overlayOriginRect.value = undefined;
   if (row.taskType >= 2) {
     systemDialogVisible.value = true;
     nextTick(() => systemFormRef.value?.clearValidate());
@@ -649,25 +629,46 @@ const onFormSubmit = async (context: any) => {
   if (success) {
     dialogVisible.value = false;
     systemDialogVisible.value = false;
+    overlayAttach.value = "";
+    overlayOriginRect.value = undefined;
   }
+};
+
+const submitTaskForm = () => {
+  formRef.value?.submit({ showErrorMessage: true });
+};
+
+const submitSystemTaskForm = () => {
+  systemFormRef.value?.submit({ showErrorMessage: true });
 };
 
 defineExpose({ handleAdd, handleAddSystem, handleEdit, openWithGoods });
 </script>
 
 <style scoped>
-:deep(.task-edit-dialog .t-dialog__body) {
-  max-height: 80vh;
-  padding: 4px 12px 8px;
+.dialog-shell {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  background: #fff;
+}
+
+.form-container {
+  max-height: min(640px, calc(100vh - 260px));
   overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 20px 24px;
+  background: #fff;
+  border-top: 1px solid #f0f0f0;
+  border-bottom: 1px solid #f0f0f0;
 }
 
-:deep(.task-edit-dialog .t-dialog__header) {
-  padding: 12px 12px 4px;
-}
-
-:deep(.task-edit-dialog .t-dialog) {
-  max-height: 90vh;
+.dialog-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  background: #fff;
 }
 
 :deep(.compact-form .t-form__item) {

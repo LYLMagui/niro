@@ -1,6 +1,6 @@
 ﻿<template>
-  <div class="bg-[#f5f5f5] px-1 pb-2 pt-1">
-    <section class="overflow-hidden border border-[#d9d9d9] bg-white">
+  <div class="flex h-full min-h-0 flex-col px-1 pb-2 pt-1">
+    <section class="flex min-h-0 flex-1 flex-col overflow-hidden border border-[#d9d9d9] bg-white">
       <div class="px-4 pt-3">
         <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
           <div class="flex items-center">
@@ -84,7 +84,7 @@
         </div>
       </div>
 
-      <div class="px-4 pb-4">
+      <div class="min-h-0 flex-1 px-4 pb-4">
         <t-table
           row-key="id"
           :data="pagedInventoryList"
@@ -481,49 +481,6 @@ watch(
   margin: 0 8px 8px 0;
 }
 
-:deep(.jsh-ledger-table.t-table) {
-  border: 1px solid #e8e8e8 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-:deep(.jsh-ledger-table::before),
-:deep(.jsh-ledger-table::after) {
-  display: none !important;
-}
-
-:deep(.jsh-ledger-table .t-table__content) {
-  border-radius: 0 !important;
-  background: #fff !important;
-}
-
-:deep(.jsh-ledger-table .t-table__header th) {
-  padding: 11px 10px !important;
-  border-bottom: 1px solid #e8e8e8 !important;
-  background: #fafafa !important;
-  color: #606266 !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__body td) {
-  padding-top: 15px !important;
-  padding-bottom: 15px !important;
-  padding-left: 10px !important;
-  padding-right: 10px !important;
-  border-bottom: 1px solid #f0f0f0 !important;
-  font-size: 13px;
-  color: #303133;
-}
-
-:deep(.jsh-ledger-table .t-table__row--hover td) {
-  background: #f5f5f5 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__empty) {
-  min-height: 320px;
-  background: #ffffff !important;
-}
 </style>
 
 

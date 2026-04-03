@@ -1,349 +1,356 @@
 <template>
-  <div class="bg-[#f5f5f5] px-1 pt-1 pb-2">
-    <section class="overflow-hidden border border-[#d9d9d9] bg-white">
+  <div class="flex h-full min-h-0 flex-col px-1 pt-1 pb-2">
+    <section class="flex min-h-0 flex-1 flex-col overflow-hidden rounded-[1px] bg-white">
       <t-tabs
+        v-if="currentPlatform !== PlatformEnum.C5"
         v-model="activeTab"
         class="jsh-tabs border-b border-[#e8e8e8] bg-white px-4"
         @change="handleTabChange"
       >
-        <t-tab-panel
-          :value="TaskRunModeEnum.SCAN"
-          :label="currentPlatform === PlatformEnum.C5 ? '下单任务' : '扫货扫描'"
-        />
-        <t-tab-panel
-          v-if="currentPlatform !== PlatformEnum.C5"
-          :value="TaskRunModeEnum.TRADE"
-          label="下单任务"
-        />
-        <t-tab-panel
-          v-if="isAdmin && currentPlatform !== PlatformEnum.C5"
-          value="SYSTEM"
-          label="系统任务"
-        />
+        <t-tab-panel :value="TaskRunModeEnum.SCAN" label="扫货扫描" />
+        <t-tab-panel :value="TaskRunModeEnum.TRADE" label="下单任务" />
+        <t-tab-panel v-if="isAdmin" value="SYSTEM" label="系统任务" />
       </t-tabs>
 
-      <div class="px-4 pt-3">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div class="flex items-center">
-            <span class="jsh-label">任务关键词</span>
-            <t-input
-              v-model="queryParams.keyword"
-              placeholder="请输入任务/商品关键词"
-              clearable
-              class="!h-8 w-[320px]"
-              @enter="fetchData"
-            />
-          </div>
-          <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-2">
-            <t-button theme="primary" class="!h-8 px-4" @click="fetchData">查询</t-button>
-            <t-button theme="default" variant="outline" class="!h-8 px-4" @click="resetQuery">
-              重置
-            </t-button>
-            <a class="jsh-expand-link" @click="toggleAdvancedFilters">
-              {{ showAdvancedFilters ? "收起" : "展开" }}
-            </a>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="showAdvancedFilters" class="px-4 pt-1">
-        <div class="flex flex-wrap items-center gap-x-6 gap-y-3">
-          <div class="flex items-center">
-            <span class="jsh-label">任务状态</span>
-            <t-select
-              v-model="queryParams.status"
-              placeholder="请选择任务状态"
-              clearable
-              class="!h-8 w-[240px]"
-              @change="fetchData"
-            >
-              <t-option
-                :label="TaskStatusMap[TaskStatusEnum.STOPPED].label"
-                :value="TaskStatusEnum.STOPPED"
+      <div class="task-list-body relative flex min-h-0 flex-1 flex-col overflow-hidden">
+        <div class="px-4 pt-3">
+          <div class="jsh-filter-layout flex flex-wrap items-center gap-x-6 gap-y-3">
+            <div class="jsh-filter-item flex items-center">
+              <span class="jsh-label">任务关键词：</span>
+              <t-input
+                v-model="queryParams.keyword"
+                placeholder="请输入任务/商品关键词"
+                clearable
+                class="jsh-filter-input !h-8"
+                @enter="fetchData"
               />
-              <t-option
-                :label="TaskStatusMap[TaskStatusEnum.RUNNING].label"
-                :value="TaskStatusEnum.RUNNING"
-              />
-              <t-option
-                :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
-                :value="TaskStatusEnum.SYSTEM_RUNNING"
-              />
-              <t-option
-                :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
-                :value="TaskStatusEnum.COMPLETED"
-              />
-              <t-option
-                :label="TaskStatusMap[TaskStatusEnum.ERROR].label"
-                :value="TaskStatusEnum.ERROR"
-              />
-            </t-select>
-          </div>
-          <div class="flex items-center">
-            <span class="jsh-label">当前平台</span>
-            <t-input :value="currentPlatform" readonly class="!h-8 w-[240px]" />
-          </div>
-        </div>
-      </div>
-
-      <div class="mt-3 px-4 pt-2">
-        <div class="flex flex-wrap items-start justify-between gap-y-3">
-          <div class="table-operator flex flex-wrap items-center">
-            <t-button
-              v-if="activeTab === 'SYSTEM' && isAdmin"
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
-              theme="primary"
-              class="!h-8"
-              @click="handleAddSystem"
-            >
-              新增系统任务
-            </t-button>
-
-            <t-button
-              v-if="activeTab !== 'SYSTEM'"
-              v-permission="PermissionConstant.TASK_BUFF_LIST"
-              theme="primary"
-              class="!h-8"
-              @click="handleAdd"
-            >
-              新增任务
-            </t-button>
-
-            <t-popconfirm content="确认批量启动选中任务吗？" @confirm="handleBatchStart">
-              <t-button
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
-                variant="outline"
-                theme="success"
-                class="!h-8"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量启动
-              </t-button>
-            </t-popconfirm>
-
-            <t-popconfirm content="确认批量停止选中任务吗？" @confirm="handleBatchStop">
-              <t-button
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
-                variant="outline"
-                theme="warning"
-                class="!h-8"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量停止
-              </t-button>
-            </t-popconfirm>
-
-            <t-popconfirm content="确认批量删除选中任务吗？" @confirm="handleBatchDelete">
-              <t-button
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
-                variant="outline"
-                theme="danger"
-                class="!h-8"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量删除
-              </t-button>
-            </t-popconfirm>
-
-            <t-button variant="text" theme="default" class="!h-8" @click="handleColumnSetting">
-              列设置
-            </t-button>
-          </div>
-
-          <div class="flex items-center gap-2 text-xs text-[#909399]">
-            <span>提示：批量操作仅处理当前页勾选数据</span>
-            <t-tag theme="primary" variant="light" class="rounded-[2px]">
-              已选择 {{ selectedRowKeys.length }} 项
-            </t-tag>
-            <t-button
-              variant="text"
-              theme="default"
-              class="!h-8"
-              :disabled="selectedRowKeys.length === 0"
-              @click="clearSelection"
-            >
-              清空勾选
-            </t-button>
-          </div>
-        </div>
-      </div>
-
-      <div class="px-4 pt-3 pb-4">
-        <t-table
-          row-key="id"
-          :data="dataList"
-          :columns="columns"
-          :loading="loading"
-          :pagination="pagination"
-          :selected-row-keys="selectedRowKeys"
-          select-on-row-click
-          hover
-          class="jsh-ledger-table"
-          @page-change="onPageChange"
-          @select-change="handleSelectChange"
-        >
-          <template #goods="{ row }">
-            <div class="flex items-center">
-              <t-image
-                v-if="row.goodsIconUrl"
-                :src="row.goodsIconUrl"
-                class="mr-2 h-9 w-9 rounded"
-              />
-              <div
-                v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
-                class="mr-2 flex h-9 w-9 items-center justify-center rounded bg-blue-100 text-blue-600"
-              >
-                <t-icon name="setting" />
-              </div>
-              <div>
-                <div class="max-w-xs truncate font-medium" :title="row.name">
-                  {{ row.name }}
-                </div>
-                <div v-if="row.goodsId" class="text-xs text-gray-500">ID: {{ row.goodsId }}</div>
-              </div>
             </div>
-          </template>
-
-          <template #taskType="{ row }">
-            <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
-            <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">分类同步</t-tag>
-            <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">商品同步</t-tag>
-            <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">印花同步</t-tag>
-            <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">
-              分类商品同步
-            </t-tag>
-            <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
-          </template>
-
-          <template #target="{ row }">
-            <div v-if="row.taskType === 1">
-              <div class="text-xs text-gray-500">最小利润</div>
-              <div class="font-medium text-orange-600">¥{{ row.minProfit }}</div>
+            <div v-if="showAdvancedFilters" class="jsh-filter-item flex items-center">
+              <span class="jsh-label">任务状态：</span>
+              <t-select
+                v-model="queryParams.status"
+                placeholder="请选择任务状态"
+                clearable
+                class="jsh-filter-select !h-8"
+                @change="fetchData"
+              >
+                <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.STOPPED].label"
+                  :value="TaskStatusEnum.STOPPED"
+                />
+                <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.RUNNING].label"
+                  :value="TaskStatusEnum.RUNNING"
+                />
+                <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
+                  :value="TaskStatusEnum.SYSTEM_RUNNING"
+                />
+                <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
+                  :value="TaskStatusEnum.COMPLETED"
+                />
+                <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.ERROR].label"
+                  :value="TaskStatusEnum.ERROR"
+                />
+              </t-select>
             </div>
-            <div v-else-if="row.taskType >= 2">
-              <div class="text-xs text-gray-500">系统自动执行</div>
-            </div>
-            <div v-else>
-              <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
-              <div class="text-xs text-gray-500">
-                磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}
-              </div>
-            </div>
-          </template>
-
-          <template #progress="{ row }">
-            <template v-if="row.runMode === 'TRADE'">
-              <span class="text-gray-400">-</span>
-            </template>
-            <template v-else>
-              <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
-              <span v-else>-</span>
-            </template>
-          </template>
-
-          <template #accounts="{ row }">
             <div
-              v-if="row.accountNames && row.accountNames.length > 0"
-              class="flex flex-wrap gap-1"
+              v-permission="PermissionConstant.TASK_BUFF_LIST"
+              class="jsh-filter-actions flex items-center gap-2"
             >
-              <t-tag
-                v-for="name in row.accountNames"
-                :key="name"
+              <t-button theme="primary" class="!h-8 px-4" @click="fetchData">查询</t-button>
+              <t-button variant="outline" theme="default" class="!h-8 px-4" @click="resetQuery">
+                重置
+              </t-button>
+              <a class="jsh-expand-link" @click="toggleAdvancedFilters">
+                {{ showAdvancedFilters ? "收起" : "展开" }}
+              </a>
+            </div>
+          </div>
+        </div>
+
+        <div class="mt-3 px-4 pt-2">
+          <div class="jsh-toolbar flex flex-wrap items-start justify-between gap-y-3">
+            <div class="table-operator flex flex-wrap items-center">
+              <t-button
+                v-if="activeTab === 'SYSTEM' && isAdmin"
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 theme="primary"
-                variant="light"
-                size="small"
-                class="rounded"
+                class="jsh-action-btn jsh-action-btn--primary !h-8"
+                @click="handleAddSystem($event)"
               >
-                {{ name }}
-              </t-tag>
-            </div>
-            <t-tag v-else theme="warning" variant="light" size="small" class="rounded">
-              <template #icon><t-icon name="view-module" /></template>
-              仅监控
-            </t-tag>
-          </template>
+                新增系统任务
+              </t-button>
 
-          <template #status="{ row }">
-            <template v-if="row.runMode === 'TRADE'">
-              <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-              <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
-              <t-tag v-else-if="row.status === 4" theme="warning" variant="light">
-                <template #icon><t-loading size="small" inherit-color /></template>
-                监听中
-              </t-tag>
-              <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
-              <t-tag v-else theme="danger">异常</t-tag>
-            </template>
-            <template v-else>
-              <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
-              <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
-              <t-tag v-else-if="row.status === 4" theme="warning">
-                {{ !row.accountNames || row.accountNames.length === 0 ? "监控中" : "执行中" }}
-              </t-tag>
-              <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
-              <t-tag v-else theme="danger">异常</t-tag>
-            </template>
-          </template>
-
-          <template #createTime="{ row }">
-            {{ row.createTime ? dayjs(row.createTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
-          </template>
-
-          <template #finishTime="{ row }">
-            {{ row.finishTime ? dayjs(row.finishTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
-          </template>
-
-          <template #op-header>
-            <div class="w-full text-center">操作</div>
-          </template>
-
-          <template #op="{ row }">
-            <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-2">
-              <t-link v-if="![1, 4].includes(row.status)" theme="primary" @click="handleEdit(row)">
-                编辑
-              </t-link>
-              <t-link v-else theme="primary" disabled>编辑</t-link>
-
-              <t-popconfirm
-                v-if="[0, 3].includes(row.status)"
-                :content="
-                  !row.accountNames || row.accountNames.length === 0
-                    ? '当前任务未配置下单账号，将以“仅监控”模式启动，确认吗？'
-                    : '确认要启动任务吗？'
-                "
-                @confirm="handleStatus(row, 1)"
+              <t-button
+                v-if="activeTab !== 'SYSTEM'"
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
+                theme="primary"
+                class="jsh-action-btn jsh-action-btn--primary !h-8"
+                @click="handleAdd($event)"
               >
-                <t-link
-                  :theme="
-                    !row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'
-                  "
+                新增任务
+              </t-button>
+
+              <t-popconfirm content="确认批量启动选中任务吗？" @confirm="handleBatchStart">
+                <t-button
+                  v-permission="PermissionConstant.TASK_BUFF_LIST"
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn !h-8"
+                  :disabled="selectedRowKeys.length === 0"
                 >
-                  启动
-                </t-link>
+                  批量启动
+                </t-button>
               </t-popconfirm>
 
-              <t-popconfirm
-                v-if="[1, 4].includes(row.status)"
-                content="确认要停止任务吗？"
-                @confirm="handleStatus(row, 0)"
-              >
-                <t-link theme="warning">停止</t-link>
+              <t-popconfirm content="确认批量停止选中任务吗？" @confirm="handleBatchStop">
+                <t-button
+                  v-permission="PermissionConstant.TASK_BUFF_LIST"
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn !h-8"
+                  :disabled="selectedRowKeys.length === 0"
+                >
+                  批量停止
+                </t-button>
               </t-popconfirm>
 
-              <t-popconfirm
-                v-if="![2, 3, 4].includes(row.taskType)"
-                content="确认要删除任务吗？"
-                @confirm="handleDelete(row)"
-              >
-                <t-link theme="danger">删除</t-link>
+              <t-popconfirm content="确认批量删除选中任务吗？" @confirm="handleBatchDelete">
+                <t-button
+                  v-permission="PermissionConstant.TASK_BUFF_LIST"
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn !h-8"
+                  :disabled="selectedRowKeys.length === 0"
+                >
+                  批量删除
+                </t-button>
               </t-popconfirm>
             </div>
-          </template>
-        </t-table>
+
+            <div class="flex items-center gap-2 text-xs text-[#909399]">
+              <span>提示：批量操作仅处理当前页勾选数据</span>
+              <t-tag theme="primary" variant="light" class="rounded-[2px]">
+                已选择 {{ selectedRowKeys.length }} 项
+              </t-tag>
+              <t-button
+                variant="outline"
+                theme="default"
+                class="jsh-action-btn !h-8"
+                :disabled="selectedRowKeys.length === 0"
+                @click="clearSelection"
+              >
+                清空勾选
+              </t-button>
+            </div>
+          </div>
+        </div>
+
+        <div class="task-list-main relative min-h-0 flex-1 px-4 pt-3 pb-4">
+          <div class="relative h-full min-h-0 overflow-hidden">
+            <t-table
+              row-key="id"
+              :data="dataList"
+              :columns="columns"
+              :loading="loading"
+              :pagination="pagination"
+              :selected-row-keys="selectedRowKeys"
+              select-on-row-click
+              hover
+              :class="[
+                'jsh-ledger-table',
+                { 'jsh-ledger-table--empty': !loading && dataList.length === 0 },
+              ]"
+              @page-change="onPageChange"
+              @select-change="handleSelectChange"
+            >
+              <template #empty>
+                <div class="jsh-ledger-empty">
+                  <t-empty description="暂无任务数据" />
+                </div>
+              </template>
+              <template #goods="{ row }">
+                <div class="flex items-center">
+                  <t-image
+                    v-if="row.goodsIconUrl"
+                    :src="row.goodsIconUrl"
+                    class="mr-2 h-9 w-9 rounded"
+                  />
+                  <div
+                    v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
+                    class="mr-2 flex h-9 w-9 items-center justify-center rounded bg-blue-100 text-blue-600"
+                  >
+                    <t-icon name="setting" />
+                  </div>
+                  <div>
+                    <div class="max-w-xs truncate font-medium" :title="row.name">
+                      {{ row.name }}
+                    </div>
+                    <div v-if="row.goodsId" class="text-xs text-gray-500">
+                      ID: {{ row.goodsId }}
+                    </div>
+                  </div>
+                </div>
+              </template>
+
+              <template #taskType="{ row }">
+                <t-tag v-if="row.taskType === 1" theme="warning" variant="light">站内倒卖</t-tag>
+                <t-tag v-else-if="row.taskType === 2" theme="primary" variant="light">
+                  分类同步
+                </t-tag>
+                <t-tag v-else-if="row.taskType === 3" theme="primary" variant="light">
+                  商品同步
+                </t-tag>
+                <t-tag v-else-if="row.taskType === 4" theme="primary" variant="light">
+                  印花同步
+                </t-tag>
+                <t-tag v-else-if="row.taskType === 5" theme="primary" variant="light">
+                  分类商品同步
+                </t-tag>
+                <t-tag v-else theme="primary" variant="light">炼金扫货</t-tag>
+              </template>
+
+              <template #target="{ row }">
+                <div v-if="row.taskType === 1">
+                  <div class="text-xs text-gray-500">最小利润</div>
+                  <div class="font-medium text-orange-600">¥{{ row.minProfit }}</div>
+                </div>
+                <div v-else-if="row.taskType >= 2">
+                  <div class="text-xs text-gray-500">系统自动执行</div>
+                </div>
+                <div v-else>
+                  <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
+                  <div class="text-xs text-gray-500">
+                    磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}
+                  </div>
+                </div>
+              </template>
+
+              <template #progress="{ row }">
+                <template v-if="row.runMode === 'TRADE'">
+                  <span class="text-gray-400">-</span>
+                </template>
+                <template v-else>
+                  <span v-if="row.taskType < 2">{{ row.successCount }} / {{ row.buyCount }}</span>
+                  <span v-else>-</span>
+                </template>
+              </template>
+
+              <template #accounts="{ row }">
+                <div
+                  v-if="row.accountNames && row.accountNames.length > 0"
+                  class="flex flex-wrap gap-1"
+                >
+                  <t-tag
+                    v-for="name in row.accountNames"
+                    :key="name"
+                    theme="primary"
+                    variant="light"
+                    size="small"
+                    class="rounded"
+                  >
+                    {{ name }}
+                  </t-tag>
+                </div>
+                <t-tag v-else theme="warning" variant="light" size="small" class="rounded">
+                  <template #icon><t-icon name="view-module" /></template>
+                  仅监控
+                </t-tag>
+              </template>
+
+              <template #status="{ row }">
+                <template v-if="row.runMode === 'TRADE'">
+                  <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
+                  <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
+                  <t-tag v-else-if="row.status === 4" theme="warning" variant="light">
+                    <template #icon><t-loading size="small" inherit-color /></template>
+                    监听中
+                  </t-tag>
+                  <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
+                  <t-tag v-else theme="danger">异常</t-tag>
+                </template>
+                <template v-else>
+                  <t-tag v-if="row.status === 0" theme="default">停止</t-tag>
+                  <t-tag v-else-if="row.status === 1" theme="success">运行中</t-tag>
+                  <t-tag v-else-if="row.status === 4" theme="warning">
+                    {{ !row.accountNames || row.accountNames.length === 0 ? "监控中" : "执行中" }}
+                  </t-tag>
+                  <t-tag v-else-if="row.status === 2" theme="primary">已完成</t-tag>
+                  <t-tag v-else theme="danger">异常</t-tag>
+                </template>
+              </template>
+
+              <template #createTime="{ row }">
+                {{ row.createTime ? dayjs(row.createTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
+              </template>
+
+              <template #finishTime="{ row }">
+                {{ row.finishTime ? dayjs(row.finishTime).format("YYYY-MM-DD HH:mm:ss") : "-" }}
+              </template>
+
+              <template #op-header>
+                <div class="w-full text-center">操作</div>
+              </template>
+
+              <template #op="{ row }">
+                <div
+                  v-permission="PermissionConstant.TASK_BUFF_LIST"
+                  class="flex items-center gap-2"
+                >
+                  <t-link
+                    v-if="![1, 4].includes(row.status)"
+                    theme="primary"
+                    @click="handleEdit(row)"
+                  >
+                    编辑
+                  </t-link>
+                  <t-link v-else theme="primary" disabled>编辑</t-link>
+
+                  <t-popconfirm
+                    v-if="[0, 3].includes(row.status)"
+                    :content="
+                      !row.accountNames || row.accountNames.length === 0
+                        ? '当前任务未配置下单账号，将以“仅监控”模式启动，确认吗？'
+                        : '确认要启动任务吗？'
+                    "
+                    @confirm="handleStatus(row, 1)"
+                  >
+                    <t-link
+                      :theme="
+                        !row.accountNames || row.accountNames.length === 0 ? 'warning' : 'success'
+                      "
+                    >
+                      启动
+                    </t-link>
+                  </t-popconfirm>
+
+                  <t-popconfirm
+                    v-if="[1, 4].includes(row.status)"
+                    content="确认要停止任务吗？"
+                    @confirm="handleStatus(row, 0)"
+                  >
+                    <t-link theme="warning">停止</t-link>
+                  </t-popconfirm>
+
+                  <t-popconfirm
+                    v-if="![2, 3, 4].includes(row.taskType)"
+                    content="确认要删除任务吗？"
+                    @confirm="handleDelete(row)"
+                  >
+                    <t-link theme="danger">删除</t-link>
+                  </t-popconfirm>
+                </div>
+              </template>
+            </t-table>
+          </div>
+        </div>
+
+        <TaskConfig ref="configRef" dialog-only :dialog-compact="true" @success="fetchData" />
       </div>
     </section>
-
-    <TaskConfig ref="configRef" dialog-only @success="fetchData" />
   </div>
 </template>
 <script setup lang="ts">
@@ -510,12 +517,24 @@ const resetQuery = () => {
   fetchData();
 };
 
-const handleAdd = () => {
+const getButtonRect = (event?: MouseEvent) => {
+  const target = event?.currentTarget as HTMLElement | null;
+  if (!target) return undefined;
+  const rect = target.getBoundingClientRect();
+  return {
+    left: rect.left,
+    top: rect.top,
+    width: rect.width,
+    height: rect.height,
+  };
+};
+
+const handleAdd = (event?: MouseEvent) => {
   if (!canViewTaskList.value) {
     MessagePlugin.warning("当前账号没有任务管理权限");
     return;
   }
-  configRef.value?.handleAdd(activeTab.value, currentPlatform.value);
+  configRef.value?.handleAdd(activeTab.value, currentPlatform.value, getButtonRect(event));
 };
 
 watch(
@@ -530,12 +549,12 @@ watch(
   }
 );
 
-const handleAddSystem = () => {
+const handleAddSystem = (event?: MouseEvent) => {
   if (!canViewTaskList.value) {
     MessagePlugin.warning("当前账号没有任务管理权限");
     return;
   }
-  configRef.value?.handleAddSystem();
+  configRef.value?.handleAddSystem(getButtonRect(event));
 };
 
 const handleEdit = (row: BuffScanTask) => {
@@ -572,10 +591,6 @@ const clearSelection = () => {
 
 const toggleAdvancedFilters = () => {
   showAdvancedFilters.value = !showAdvancedFilters.value;
-};
-
-const handleColumnSetting = () => {
-  MessagePlugin.info("列设置能力将在下一轮迭代接入");
 };
 
 const handleBatchStart = async () => {
@@ -645,84 +660,43 @@ watch(
 </script>
 
 <style scoped>
+.jsh-filter-layout {
+  row-gap: 12px;
+}
+
+.jsh-filter-item {
+  flex-shrink: 0;
+}
+
 .jsh-label {
-  padding-right: 8px;
+  width: 96px;
+  padding-right: 10px;
+  color: #303133;
   font-size: 13px;
   line-height: 32px;
-  color: #303133;
+  text-align: right;
   white-space: nowrap;
 }
 
 .jsh-expand-link {
+  padding: 0 4px;
+  color: rgb(24, 144, 255);
   line-height: 32px;
-  color: #1890ff;
   user-select: none;
-}
-
-.jsh-expand-link:hover {
-  color: #40a9ff;
 }
 
 .table-operator :deep(.t-button) {
   margin: 0 8px 8px 0;
 }
 
-:deep(.jsh-tabs .t-tabs__nav-item) {
-  height: 35px;
-  padding: 0 14px;
-  font-size: 13px;
-  line-height: 35px;
+.jsh-ledger-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
 }
 
-:deep(.jsh-tabs .t-is-active) {
-  color: #1890ff !important;
-}
-
-:deep(.jsh-tabs .t-tabs__nav-track) {
-  background-color: #1890ff !important;
-}
-
-:deep(.jsh-ledger-table.t-table) {
-  border: 1px solid #e8e8e8 !important;
-  border-radius: 0 !important;
-  box-shadow: none !important;
-}
-
-:deep(.jsh-ledger-table::before),
-:deep(.jsh-ledger-table::after) {
-  display: none !important;
-}
-
-:deep(.jsh-ledger-table .t-table__content) {
-  background: #fff !important;
-  border-radius: 0 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__header th) {
-  padding: 11px 10px !important;
-  font-size: 13px !important;
-  font-weight: 500 !important;
-  color: #606266 !important;
-  background: #fafafa !important;
-  border-bottom: 1px solid #e8e8e8 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__body td) {
-  padding-top: 15px !important;
-  padding-right: 10px !important;
-  padding-bottom: 15px !important;
-  padding-left: 10px !important;
-  font-size: 13px;
-  color: #303133;
-  border-bottom: 1px solid #f0f0f0 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__row--hover td) {
-  background: #f5f5f5 !important;
-}
-
-:deep(.jsh-ledger-table .t-table__empty) {
-  min-height: 320px;
-  background: #ffffff !important;
+:deep(.jsh-ledger-table--empty .t-table__empty) {
+  height: 100%;
 }
 </style>
