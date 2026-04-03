@@ -92,7 +92,7 @@ skills/
 ## SKILL.md 结构
 
 **Frontmatter（YAML）：**
-- 仅支持两个字段：`name` 和 `description`
+- 两个必需字段：`name` 和 `description`（完整支持字段参见 [agentskills.io/specification](https://agentskills.io/specification)）
 - 总计最多 1024 字符
 - `name`：只使用字母、数字和连字符（不要用括号、特殊字符）
 - `description`：第三人称，仅描述何时使用（不是做什么）
@@ -603,7 +603,7 @@ helper1、helper2、step3、pattern4
 
 **绿色阶段 - 编写最小技能：**
 - [ ] 名称只使用字母、数字、连字符（无括号/特殊字符）
-- [ ] YAML frontmatter 仅包含 name 和 description（最多 1024 字符）
+- [ ] YAML frontmatter 包含必需的 `name` 和 `description` 字段（最多 1024 字符；参见 [spec](https://agentskills.io/specification)）
 - [ ] 描述以"Use when..."开头并包含具体的触发条件/症状
 - [ ] 描述用第三人称
 - [ ] 全文包含搜索关键词（错误、症状、工具）
