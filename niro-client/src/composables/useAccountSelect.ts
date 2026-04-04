@@ -1,7 +1,7 @@
 import { computed, ref, type Ref } from "vue";
 import { settingsApi, type BuffAccount } from "@/api/settings";
 import { taskApi } from "@/api/task";
-import type { BuffScanTask } from "@/types/task";
+import type { TaskItem } from "@/types/task";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 
 /**
@@ -17,7 +17,7 @@ export function useAccountSelect(
   const accounts = ref<BuffAccount[]>([]);
   const accountsLoading = ref(false);
 
-  const tradeTasks = ref<BuffScanTask[]>([]);
+  const tradeTasks = ref<TaskItem[]>([]);
   const tradeTasksLoading = ref(false);
 
   const fetchAccounts = async () => {

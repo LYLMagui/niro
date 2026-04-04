@@ -1,10 +1,21 @@
 <template>
   <template v-if="!item.hidden">
-    <t-submenu v-if="showSubMenu" :value="item.value" :title="item.label" class="erp-menu-node">
+    <t-submenu
+      v-if="showSubMenu"
+      :value="item.value"
+      :title="item.label"
+      :mode="collapsed ? 'popup' : 'normal'"
+      class="erp-menu-node"
+    >
       <template v-if="item.icon" #icon>
         <component :is="item.icon" />
       </template>
-      <sidebar-item v-for="child in item.children" :key="child.value" :item="child" />
+      <sidebar-item
+        v-for="child in item.children"
+        :key="child.value"
+        :item="child"
+        :collapsed="collapsed"
+      />
     </t-submenu>
 
     <t-menu-item
@@ -28,6 +39,7 @@ import type { MenuConfig } from "@/utils/menu";
 
 const props = defineProps<{
   item: MenuConfig;
+  collapsed?: boolean;
 }>();
 
 const router = useRouter();

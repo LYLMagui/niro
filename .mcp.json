@@ -25,7 +25,7 @@
         "/c",
         "npx",
         "-y",
-        "tdesign-mcp-server"
+        "tdesign-mcp-server@latest"
       ]
     },
     "PostgreSQL": {

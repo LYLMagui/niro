@@ -165,14 +165,14 @@
 
 <script setup lang="ts">
 import { computed } from "vue";
-import type { BuffScanTask } from "@/types/task";
+import type { TaskItem } from "@/types/task";
 import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 
 import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
 
 const props = defineProps<{
-  task: BuffScanTask & { accountNames?: string[] };
+  task: TaskItem & { accountNames?: string[] };
 }>();
 
 const isSystemTask = computed(() => props.task.taskType >= TaskTypeEnum.SYNC_CATEGORY);

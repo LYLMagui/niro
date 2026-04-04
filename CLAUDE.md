@@ -273,7 +273,7 @@ Verification: [准备如何验证]
 - 查看官方文档：
   - `mcp__context7__resolve-library-id` — 把库名解析成 Context7 ID
   - `mcp__context7__query-docs` — 抓取最新官方文档
-- 定位/搜索代码、方法、类：
+- **读取/定位/搜索代码、方法、类时必须使用以下MCP：**
   - serena-niro-claude mcp
 ---
 
@@ -281,7 +281,7 @@ Verification: [准备如何验证]
 请遵循 AGENT.md 中的工具调用规范：
 - 调用工具前检查上下文与缓存
 - 高风险操作必须确认
-
+- **涉及到前端UI组件的修改时，必须使用`tdesign-mcp`查询官方组件的API**
 ### Skills 使用原则
 
 - 任务明显匹配某个 skill 时，优先使用对应 skill

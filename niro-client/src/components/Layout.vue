@@ -2,8 +2,21 @@
   <t-layout class="erp-shell h-screen w-full overflow-hidden">
     <t-header class="!h-[48px] !p-0">
       <div class="flex h-[48px] items-center justify-between bg-[#1890ff] px-2 text-white">
-        <div class="flex items-center">
-          <span class="text-[24px] font-semibold tracking-[0.5px] leading-none text-white">Niro Control</span>
+        <div class="flex items-center gap-1">
+          <t-button
+            variant="text"
+            shape="square"
+            class="erp-top-btn"
+            :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
+            @click="toggleSidebar"
+          >
+            <template #icon>
+              <t-icon :name="collapsed ? 'chevron-right' : 'chevron-left'" />
+            </template>
+          </t-button>
+          <span class="erp-brand-title pl-1 text-[24px] leading-none font-semibold tracking-[0.5px] text-white">
+            Niro Control
+          </span>
         </div>
 
         <div class="flex items-center gap-1">
@@ -44,16 +57,31 @@
     </t-header>
 
     <t-layout class="min-h-0 flex-1 overflow-hidden">
-      <t-aside width="156px" class="erp-side relative z-10 flex h-full flex-shrink-0 flex-col border-r border-[#e8e8e8] bg-white">
+      <div
+        v-if="isMobile && !collapsed"
+        class="erp-side-mask absolute inset-0 z-20 bg-black/30"
+        @click="toggleSidebar"
+      ></div>
+      <t-aside
+        :width="sideWidth"
+        class="erp-side relative z-30 flex h-full flex-shrink-0 flex-col border-r border-[#e8e8e8] bg-white transition-all duration-200"
+        :class="{ 'erp-side--collapsed': collapsed, 'erp-side--mobile': isMobile }"
+      >
         <div class="min-h-0 flex-1 overflow-x-hidden overflow-y-auto px-0 pt-0 pb-3">
           <t-menu
             theme="light"
             :value="activeValue"
-            width="156px"
+            :collapsed="collapsed"
+            :width="['150px', '56px']"
             class="erp-side-menu !border-0"
             @change="handleMenuChange"
           >
-            <sidebar-item v-for="menu in sidebarMenus" :key="menu.value" :item="menu" />
+            <sidebar-item
+              v-for="menu in sidebarMenus"
+              :key="menu.value"
+              :item="menu"
+              :collapsed="collapsed"
+            />
           </t-menu>
         </div>
       </t-aside>
@@ -113,7 +141,8 @@
 </template>
 
 <script setup lang="ts">
-import { computed, watch } from "vue";
+import { computed, ref, watch } from "vue";
+import { useWindowSize } from "@vueuse/core";
 import { useRoute, useRouter } from "vue-router";
 import { CloseIcon, PoweroffIcon, UserCircleIcon } from "tdesign-icons-vue-next";
 import { usePermissionStore } from "@/store/permission";
@@ -128,6 +157,15 @@ const router = useRouter();
 const userStore = useUserStore();
 const permissionStore = usePermissionStore();
 const tabsStore = useTabsStore();
+const { width } = useWindowSize();
+const isMobile = computed(() => width.value <= 768);
+const collapsed = ref(isMobile.value);
+const sideWidth = computed(() => {
+  if (isMobile.value) {
+    return collapsed.value ? '0px' : '156px';
+  }
+  return collapsed.value ? '56px' : '156px';
+});
 
 const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefined => {
   for (const menu of menus) {
@@ -177,9 +215,16 @@ watch(
   () => route.fullPath,
   () => {
     tabsStore.syncRoute(route as any);
+    if (isMobile.value) {
+      collapsed.value = true;
+    }
   },
   { immediate: true }
 );
+
+watch(isMobile, (mobile) => {
+  collapsed.value = mobile;
+});
 
 const handleTabChange = (value: string | number) => {
   const nextTab = tabsStore.tabs.find((tab) => tab.key === String(value));
@@ -197,6 +242,10 @@ const handleCloseTab = (tab: PageTab) => {
 
 const handleMenuChange = () => {};
 
+const toggleSidebar = () => {
+  collapsed.value = !collapsed.value;
+};
+
 const refreshCurrentPage = () => {
   window.location.reload();
 };
@@ -208,7 +257,9 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
+
 :deep(.erp-side-menu .t-default-menu__inner) {
+  width: 100%;
   padding: 0;
 }
 
@@ -220,11 +271,80 @@ const handleLogout = async () => {
   margin-left: 0;
 }
 
+.erp-side {
+  overflow: hidden;
+  transition:
+    width 0.2s ease,
+    min-width 0.2s ease,
+    transform 0.2s ease;
+}
+
+.erp-side-mask {
+  position: absolute;
+}
+
+.erp-side--collapsed :deep(.t-default-menu) {
+  width: 56px !important;
+}
+
+.erp-side--collapsed :deep(.t-default-menu__inner) {
+  width: 56px;
+}
+
+.erp-side--collapsed :deep(.t-default-menu__inner .t-menu) {
+  padding: 0;
+}
+
+.erp-side--collapsed :deep(.t-menu__item),
+.erp-side--collapsed :deep(.t-submenu > .t-menu__item),
+.erp-side--collapsed :deep(.t-submenu__title) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 56px;
+  min-width: 56px;
+  margin: 4px 0;
+  padding: 0 !important;
+  line-height: 1;
+}
+
+.erp-side--collapsed :deep(.t-menu__item .t-menu__content),
+.erp-side--collapsed :deep(.t-submenu > .t-menu__item .t-menu__content),
+.erp-side--collapsed :deep(.t-submenu__title .t-menu__content) {
+  display: none !important;
+}
+
+.erp-side--collapsed :deep(.t-fake-arrow) {
+  display: none !important;
+}
+
+.erp-side--collapsed :deep(.t-menu__item .t-menu__icon),
+.erp-side--collapsed :deep(.t-submenu > .t-menu__item .t-menu__icon),
+.erp-side--collapsed :deep(.t-submenu__title .t-menu__icon) {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  min-width: 20px;
+  margin: 0;
+  flex: 0 0 20px;
+}
+
+.erp-side--collapsed :deep(.t-menu__item .t-icon),
+.erp-side--collapsed :deep(.t-submenu > .t-menu__item .t-icon),
+.erp-side--collapsed :deep(.t-submenu__title .t-icon) {
+  width: 20px;
+  min-width: 20px;
+  height: 20px;
+  margin: 0;
+}
+
 :deep(.erp-side-menu .t-menu__item),
 :deep(.erp-side-menu .t-submenu__title) {
   position: relative;
   min-height: 30px;
-  margin: 0;
+  margin: 4px 0;
   padding: 0 9px;
   color: rgb(106, 106, 106);
   border-radius: 0;
@@ -246,9 +366,10 @@ const handleLogout = async () => {
 
 :deep(.erp-side-menu .t-menu__item .t-icon),
 :deep(.erp-side-menu .t-submenu__title .t-icon) {
-  width: 1em;
-  min-width: 1em;
-  height: 1em;
+  display: block;
+  width: 16px;
+  min-width: 16px;
+  height: 16px;
   color: rgb(106, 106, 106);
 }
 
@@ -257,6 +378,7 @@ const handleLogout = async () => {
   min-width: 0;
   flex: 1;
 }
+
 
 :deep(.erp-side-menu .t-menu__item:hover),
 :deep(.erp-side-menu .t-submenu__title:hover) {
@@ -320,6 +442,10 @@ const handleLogout = async () => {
   display: none !important;
 }
 
+:deep(.erp-page-tabs .t-tabs__nav) {
+  align-items: stretch;
+}
+
 :deep(.erp-page-tabs .t-tabs__nav-wrap) {
   min-height: 40px;
   height: 40px;
@@ -340,6 +466,38 @@ const handleLogout = async () => {
 
 :deep(.erp-page-tabs .t-tabs__bar) {
   height: 2px;
+}
+
+:deep(.erp-page-tabs .t-tabs__operations) {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  min-width: 32px;
+  height: 40px;
+  color: #909399;
+  background: transparent;
+  border-bottom: 1px solid #e5e7eb;
+  transition:
+    color 0.2s ease,
+    background-color 0.2s ease;
+}
+
+:deep(.erp-page-tabs .t-tabs__operations:empty) {
+  display: none;
+}
+
+:deep(.erp-page-tabs .t-tabs__operations:hover) {
+  color: #606266;
+  background: #f8fafc;
+}
+
+:deep(.erp-page-tabs .t-tabs__operations--left) {
+  border-right: 1px solid #f0f0f0;
+}
+
+:deep(.erp-page-tabs .t-tabs__operations--right) {
+  border-left: 1px solid #f0f0f0;
 }
 
 .erp-tab-label {
@@ -417,4 +575,60 @@ const handleLogout = async () => {
   color: #fff;
 }
 
+.erp-brand-title {
+  font-size: 24px;
+  transition: font-size 0.2s ease;
+}
+
+@media (max-width: 768px) {
+  .erp-brand-title {
+    font-size: 20px;
+    letter-spacing: 0.2px;
+  }
+
+  .erp-shell {
+    min-width: 320px;
+  }
+
+  .erp-side--mobile {
+    position: absolute;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    z-index: 30;
+    box-shadow: 4px 0 16px rgba(15, 23, 42, 0.12);
+  }
+
+  .erp-side--mobile.erp-side--collapsed {
+    min-width: 0 !important;
+    border-right: 0;
+    box-shadow: none;
+  }
+
+  :deep(.erp-page-tabs .t-tabs__operations) {
+    width: 28px;
+    min-width: 28px;
+  }
+
+  :deep(.erp-page-tabs .t-tabs__nav-next),
+  :deep(.erp-page-tabs .t-tabs__nav-prev) {
+    width: 20px;
+  }
+
+  :deep(.erp-page-tabs .t-tabs__nav-item) {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .erp-tab-label__text {
+    max-width: 84px;
+  }
+}
+
+@media (max-width: 480px) {
+  .erp-brand-title {
+    font-size: 18px;
+    letter-spacing: 0;
+  }
+}
 </style>

@@ -30,6 +30,8 @@
   --td-brand-color-active: rgb(9, 109, 217);
   --td-brand-color-disabled: rgba(24, 144, 255, 0.35);
   --td-brand-color-light: rgb(230, 247, 255);
+  --td-mask-active: rgb(0, 0, 0,0.1);
+  --td-comp-paddingTB-l: 10px;
 }
 
 body {
@@ -149,3 +151,40 @@ body {
   background: #fff !important;
 }
 
+/* TDesign Dialog 全局样式 */
+.t-dialog {
+  border-radius: 4px !important;
+}
+
+.t-dialog__header {
+  margin: 0 !important;
+  padding: 16px 24px !important;
+  border-bottom: 1px solid #f0f0f0 !important;
+  font-weight: 500;
+}
+
+.t-dialog__body {
+  padding: 0 !important;
+}
+
+.t-dialog__footer {
+  margin: 0 !important;
+  padding: 10px 16px !important;
+  border-top: 1px solid #f0f0f0 !important;
+}
+
+.t-dialog__header + .t-dialog__body {
+  border-top: 0 !important;
+}
+
+.t-dialog__body + .t-dialog__footer {
+  border-top-width: 1px !important;
+}
+
+.t-dialog__mask {
+  background-color: #e5e5e5;
+}
+
+.t-input__extra, .t-input__help{
+  margin: 2px 0;
+}

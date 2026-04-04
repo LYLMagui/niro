@@ -26,28 +26,11 @@ function hasPermission(permissions: string[], requiredPermission: PermissionType
   return requiredPermission.some((permission) => permissions.includes(permission));
 }
 
-function getOriginalDisplay(el: HTMLElement): string {
-  const storedDisplay = el.dataset.permissionDisplay;
-  if (storedDisplay !== undefined) {
-    return storedDisplay;
-  }
-
-  const inlineDisplay = el.style.display;
-  const computedDisplay = window.getComputedStyle(el).display;
-  const originalDisplay =
-    inlineDisplay && inlineDisplay !== "none"
-      ? inlineDisplay
-      : computedDisplay === "none"
-        ? ""
-        : computedDisplay;
-
-  el.dataset.permissionDisplay = originalDisplay;
-  return originalDisplay;
-}
-
 function setElementVisible(el: HTMLElement, visible: boolean) {
-  const originalDisplay = getOriginalDisplay(el);
-  el.style.display = visible ? originalDisplay : "none";
+  if (!(el instanceof HTMLElement)) {
+    return;
+  }
+  el.style.display = visible ? "" : "none";
 }
 
 /**

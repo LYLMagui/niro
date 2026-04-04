@@ -1,13 +1,13 @@
 import request from "@/utils/request";
 import type { PageResult } from "@/types/goods";
-import type { BuffScanTask, TaskQueryParam, TaskSaveParam } from "@/types/task";
+import type { TaskItem, TaskQueryParam, TaskSaveParam } from "@/types/task";
 
 export const taskApi = {
   /**
    * 分页获取任务列表
    */
   getPage(params: TaskQueryParam) {
-    return request.get<PageResult<BuffScanTask>>("/task/page", { params });
+    return request.get<PageResult<TaskItem>>("/task/page", { params });
   },
 
   /**
@@ -42,6 +42,6 @@ export const taskApi = {
    * 获取所有下单模式的任务列表
    */
   getTradeTasks(goodsId?: number) {
-    return request.get<BuffScanTask[]>("/task/trade-tasks", { params: { goodsId } });
+    return request.get<TaskItem[]>("/task/trade-tasks", { params: { goodsId } });
   },
 };

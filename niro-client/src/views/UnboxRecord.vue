@@ -578,8 +578,7 @@ onMounted(() => {
       :header="editingId ? '编辑记录' : '新增记录'"
       width="720px"
       :footer="true"
-      :body-style="{ padding: '20px' }"
-      :close-on-overlay-click="false"
+      :close-on-overlay-click="true"
       :close-on-esc-keydown="false"
       @confirm="handleSubmit"
     >

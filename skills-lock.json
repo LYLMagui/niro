@@ -1,6 +1,21 @@
 {
   "version": 1,
   "skills": {
+    "context-compression": {
+      "source": "sickn33/antigravity-awesome-skills",
+      "sourceType": "github",
+      "computedHash": "58723a18a1c563f89aaafcb8d33976dd9593b919119e29b5be41476df6932b94"
+    },
+    "tailwind-design-system": {
+      "source": "wshobson/agents",
+      "sourceType": "github",
+      "computedHash": "f54f39ce967af3a4bba1f662c3600f0253467508d5fbbc7c545c67e102da2253"
+    },
+    "token-guard": {
+      "source": "aaaaqwq/claude-code-skills",
+      "sourceType": "github",
+      "computedHash": "cfd99425af9410f14223964bdd5d7b182b4e3ceaedff0b65d8e4f68493a5dfcf"
+    },
     "web-design-guidelines": {
       "source": "vercel-labs/agent-skills",
       "sourceType": "github",

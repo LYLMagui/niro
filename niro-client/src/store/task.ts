@@ -1,7 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { taskApi } from "@/api/task";
-import type { BuffScanTask } from "@/types/task";
+import type { TaskItem } from "@/types/task";
 import { TaskStatusEnum } from "@/enums/TaskStatusEnum";
 
 // 定义任务状态 Store
@@ -9,7 +9,7 @@ export const useTaskStore = defineStore("task", () => {
   // 状态：任务是否正在运行
   const isRunning = ref(false);
   // 状态：正在运行的任务列表
-  const runningTasks = ref<BuffScanTask[]>([]);
+  const runningTasks = ref<TaskItem[]>([]);
   // 状态：上次运行时间
   const lastRunTime = ref<string>("");
 

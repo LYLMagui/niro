@@ -1,4 +1,4 @@
-export interface BuffScanTask {
+export interface TaskItem {
   id: number;
   name: string;
   goodsId?: number;
@@ -19,7 +19,6 @@ export interface BuffScanTask {
   scanIntervalMax?: number;
   taskType: number;
   minProfit?: number;
-  accountIds?: number[];
   accountNames?: string[];
   stats?: {
     total: number;
@@ -43,7 +42,6 @@ export interface BuffScanTask {
   updateTime: string;
   finishTime?: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTaskId?: number;
   platform?: string;
   extraConfig?: string;
 }
@@ -73,8 +71,6 @@ export interface TaskSaveParam {
   scanIntervalMax?: number;
   taskType?: number;
   minProfit?: number;
-  accountIds?: number[];
   runMode?: "SCAN" | "TRADE" | "BOTH";
-  targetTaskId?: number;
   platform?: string;
 }
