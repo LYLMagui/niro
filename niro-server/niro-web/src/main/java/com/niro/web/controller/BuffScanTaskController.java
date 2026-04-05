@@ -57,7 +57,7 @@ public class BuffScanTaskController {
     @PostMapping("/status/{id}/{status}")
     @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "更新任务状态 (0:停止 1:运行)")
-    public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status, @RequestParam(required = false) String platform) {
+    public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status) {
         buffScanTaskService.updateStatus(id, status);
     }
 

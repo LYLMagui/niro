@@ -53,4 +53,14 @@ public class BuffConstant {
      * Redis 账号信息 Hash Key
      */
     public static final String REDIS_ACCOUNT_INFO_HASH = "niro:account:info";
+
+    /**
+     * Redis 任务剩余配额 Key 前缀
+     */
+    public static final String REDIS_TASK_QUOTA_PREFIX = "niro:task:quota:";
+
+    /**
+     * Redis 任务总配额 Key 前缀
+     */
+    public static final String REDIS_TASK_QUOTA_TOTAL_PREFIX = "niro:task:quota:total:";
 }

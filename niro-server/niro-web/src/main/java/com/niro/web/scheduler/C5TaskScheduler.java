@@ -65,19 +65,14 @@ public class C5TaskScheduler {
      * @param task          任务实体
      * @param businessLogic 业务逻辑回调
      */
-    public void start(BuffScanTask task, Consumer<BuffScanTask> businessLogic) {
+    public TaskStatusEnum start(BuffScanTask task, Consumer<BuffScanTask> businessLogic) {
         Assert.notNull(task, "任务不能为空");
         Assert.notNull(businessLogic, "业务逻辑回调不能为空");
         Long taskId = task.getId();
 
-        // 1. 存储回调逻辑，供后续会话重启使用
+        // 先彻底停止旧任务，防止状态不一致，再重新注册回调
+        stopWithoutRemovingCallback(taskId);
         taskCallbacks.put(taskId, businessLogic);
-
-        // 2. 先彻底停止旧任务，防止状态不一致
-        // 注意：此处 stop 会移除 callback，所以必须先 put 再 stop (不对，stop 会移除 callback)
-        // 修正：先 stop 清理旧状态，再 put callback
-        stopWithoutRemovingCallback(taskId); 
-        taskCallbacks.put(taskId, businessLogic); // 重新放入
 
         log.info("开始调度 C5 任务: {} (ID: {})", task.getName(), taskId);
 
@@ -93,22 +88,23 @@ public class C5TaskScheduler {
                         new CronTrigger(cron.trim())
                 );
                 cronFutures.put(taskId, future);
-                log.info("任务 [{}] 已注册 Cron 调度: {}", taskId, cron);
-
-                // 初始状态置为 SCHEDULED (等待 Cron 触发)
                 updateTaskStatus(taskId, TaskStatusEnum.SCHEDULED);
+                log.info("任务 [{}] 已注册 Cron 调度: {}", taskId, cron);
+                return TaskStatusEnum.SCHEDULED;
             } catch (Exception e) {
                 log.error("Cron 表达式非法: {}", cron, e);
-                updateTaskStatus(taskId, TaskStatusEnum.ERROR);
+                throw e;
             }
-        } else {
-            // --- 直连模式 ---
-            // 无 Cron 或 "立即执行"占位符，直接启动 Session
-            if (isLoopMode && StrUtil.isNotBlank(cron)) {
-                log.info("任务 [{}] 检测到立即执行标识 ({})，转为 Direct Start 模式", taskId, cron);
-            }
-            startSession(taskId);
         }
+
+        // --- 直连模式 ---
+        // 无 Cron 或 "立即执行"占位符，先持久化为 RUNNING，再启动 Session
+        if (isLoopMode && StrUtil.isNotBlank(cron)) {
+            log.info("任务 [{}] 检测到立即执行标识 ({})，转为 Direct Start 模式", taskId, cron);
+        }
+        updateTaskStatus(taskId, TaskStatusEnum.RUNNING);
+        startSession(taskId);
+        return TaskStatusEnum.RUNNING;
     }
 
     /**
@@ -148,8 +144,10 @@ public class C5TaskScheduler {
                 return null;
             }
             
-            if (dbTask.getStatus() == TaskStatusEnum.STOPPED.getCode()) {
-                log.info("任务 [{}] 已被停止，忽略本次会话启动", taskId);
+            if (dbTask.getStatus() == TaskStatusEnum.STOPPED.getCode()
+                    || dbTask.getStatus() == TaskStatusEnum.COMPLETED.getCode()
+                    || dbTask.getStatus() == TaskStatusEnum.ERROR.getCode()) {
+                log.info("任务 [{}] 当前状态不可启动，忽略本次会话启动", taskId);
                 return null;
             }
 
@@ -185,10 +183,21 @@ public class C5TaskScheduler {
 
         // --- 3. 后置处理 ---
         if (newFuture == null) {
-            // 启动失败（状态校验未通过），确保清理
+            // 启动失败（状态校验未通过），确保清理句柄，但不要覆盖已落地状态
             BuffScanTask check = buffScanTaskMapper.selectById(taskId);
-            if (check == null || check.getStatus() == TaskStatusEnum.STOPPED.getCode()) {
+            if (check == null) {
+                stopWithoutRemovingCallback(taskId);
+                taskCallbacks.remove(taskId);
+                return;
+            }
+            if (check.getStatus() == TaskStatusEnum.STOPPED.getCode()) {
                 stop(taskId);
+                return;
+            }
+            if (check.getStatus() == TaskStatusEnum.COMPLETED.getCode()
+                    || check.getStatus() == TaskStatusEnum.ERROR.getCode()) {
+                stopWithoutRemovingCallback(taskId);
+                taskCallbacks.remove(taskId);
             }
             return;
         }

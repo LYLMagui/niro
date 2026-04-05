@@ -62,8 +62,9 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     }
 
     @Override
-    public void handleTask(BuffScanTask task) {
+    public TaskStatusEnum handleTask(BuffScanTask task) {
         pushTaskToQueue(task);
+        return TaskStatusEnum.RUNNING;
     }
 
     @Override

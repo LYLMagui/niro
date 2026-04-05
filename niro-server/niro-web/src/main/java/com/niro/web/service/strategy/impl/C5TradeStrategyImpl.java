@@ -5,6 +5,8 @@ import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
+import com.niro.core.constant.BuffConstant;
+import com.niro.core.util.RedisUtil;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.request.market.C5ProductListRequest;
@@ -16,6 +18,7 @@ import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.*;
 import com.niro.web.enums.PlatformEnum;
+import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
@@ -26,6 +29,7 @@ import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.redis.core.script.DefaultRedisScript;
 import org.springframework.stereotype.Component;
 
 import java.math.BigDecimal;
@@ -52,12 +56,56 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final BuffScanTaskMapper buffScanTaskMapper;
+    private final RedisUtil redisUtil;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
+    private static final DefaultRedisScript<Long> RESERVE_QUOTA_SCRIPT = new DefaultRedisScript<>();
+    private static final DefaultRedisScript<Long> RESTORE_QUOTA_SCRIPT = new DefaultRedisScript<>();
+
+    static {
+        RESERVE_QUOTA_SCRIPT.setResultType(Long.class);
+        RESERVE_QUOTA_SCRIPT.setScriptText("""
+                local current = redis.call('GET', KEYS[1])
+                if not current then
+                  return 0
+                end
+                current = tonumber(current)
+                if not current or current <= 0 then
+                  return 0
+                end
+                local requested = tonumber(ARGV[1])
+                local approved = math.min(current, requested)
+                redis.call('DECRBY', KEYS[1], approved)
+                return approved
+                """);
+
+        RESTORE_QUOTA_SCRIPT.setResultType(Long.class);
+        RESTORE_QUOTA_SCRIPT.setScriptText("""
+                local quota = redis.call('INCRBY', KEYS[1], ARGV[1])
+                local total = redis.call('GET', KEYS[2])
+                if not total then
+                  return quota
+                end
+                total = tonumber(total)
+                if not total then
+                  return quota
+                end
+                if quota > total then
+                  redis.call('SET', KEYS[1], total)
+                  return total
+                end
+                return quota
+                """);
+    }
 
     @Override
     public void stopTask(Long taskId) {
         c5TaskScheduler.stop(taskId);
+    }
+
+    @Override
+    public void completeTask(Long taskId) {
+        c5TaskScheduler.complete(taskId);
     }
 
     @Override
@@ -70,9 +118,9 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     @Override
-    public void handleTask(BuffScanTask task) {
+    public TaskStatusEnum handleTask(BuffScanTask task) {
         // 使用 lambda 替代方法引用，避免可能的 Spring 代理方法解析问题
-        c5TaskScheduler.start(task, this::executeTrade);
+        return c5TaskScheduler.start(task, this::executeTrade);
     }
 
     @Override
@@ -115,7 +163,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
             String errorMsg = goods == null ? "商品不存在" : "商品 MarketHashName 为空";
             log.error("任务 [{}] {}", task.getId(), errorMsg);
-            updateLastError(task, errorMsg);
+            markTaskError(task, errorMsg);
             c5TaskScheduler.stop(task.getId());
             return;
         }
@@ -185,18 +233,18 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 6. 批量下单
-        // 计算本轮最大购买数
-        long currentSuccess = tradeOrderRecordMapperManager.countSuccess(task.getId());
-        int remaining = (task.getBuyCount() != null && task.getBuyCount() > 0)
-                ? (int) (task.getBuyCount() - currentSuccess)
-                : 1; // 未限制数量时默认为1，避免并发风险
-        // 如果 remaining <= 0，前面已经拦截，但在并发下可能需要再次检查
-        if (remaining <= 0)
+        int requested = task.getBuyCount() != null && task.getBuyCount() > 0
+                ? Math.min(qualifiedItems.size(), task.getBuyCount())
+                : 1;
+        int approved = reserveQuota(task, requested);
+        if (approved <= 0) {
+            log.info("任务 [{}] 当前无可用配额，跳过本轮下单", task.getId());
             return;
+        }
 
         List<C5ProductListResponse.ProductDTO> toBuyList = qualifiedItems.subList(0,
-                Math.min(qualifiedItems.size(), remaining));
-        doBatchBuy(client, task, toBuyList, goods);
+                Math.min(qualifiedItems.size(), approved));
+        doBatchBuy(client, task, toBuyList, goods, approved);
     }
 
     private boolean checkWear(C5ProductListResponse.ProductDTO item, BuffScanTask task, boolean isNonWearable) {
@@ -304,10 +352,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items,
-                            BuffGoods goods) {
+                            BuffGoods goods, int reservedQuota) {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
+            restoreQuota(task, reservedQuota);
             return;
         }
 
@@ -322,7 +371,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
         String tradeUrl = (settings != null) ? settings.getSteamTradeUrl() : null;
         if (StrUtil.isBlank(tradeUrl)) {
-            updateLastError(task, "未配置 Steam Trade URL");
+            markTaskError(task, "未配置 Steam Trade URL");
+            restoreQuota(task, reservedQuota);
             return;
         }
 
@@ -330,6 +380,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             // 中断检查 (循环内)
             if (Thread.currentThread().isInterrupted()) {
                 log.warn("任务 [{}] 在构造订单记录时被中断", task.getId());
+                restoreQuota(task, reservedQuota);
                 return;
             }
             String outTradeNo = IdUtil.getSnowflakeNextIdStr(); // 每个商品独立的流水号
@@ -382,6 +433,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             // 中断检查 (API 调用前)
             if (Thread.currentThread().isInterrupted()) {
                 log.warn("任务 [{}] 在调用 C5 购买 API 前被中断", task.getId());
+                markPendingAsFailed(records, "任务已中断");
+                restoreQuota(task, reservedQuota);
                 return;
             }
             C5BatchBuyRequest req = new C5BatchBuyRequest()
@@ -393,6 +446,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (resp == null) {
                 updateLastError(task, "C5 批量下单响应为空");
                 markPendingAsFailed(records, "API返回为空");
+                restoreQuota(task, reservedQuota);
                 return;
             }
 
@@ -450,6 +504,11 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 }
             }
 
+            int failedQuota = (int) records.stream()
+                    .filter(record -> !Integer.valueOf(1).equals(record.getStatus()))
+                    .count();
+            restoreQuota(task, failedQuota);
+
             // 7. 更新任务进度
             if (successCount > 0) {
                 // 清空错误信息
@@ -484,6 +543,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 updateLastError(task, "批量下单异常: " + e.getMessage());
                 // 只有在真正的系统异常（如网络不通）时才标记为失败，且只标记那些还是“处理中”的记录
                 markPendingAsFailed(records, "异常: " + e.getMessage());
+                restoreQuota(task, reservedQuota);
             } catch (Exception dbEx) {
                 log.error("任务 [{}] 状态回写失败 (严重): {}", task.getId(), dbEx.getMessage());
             }
@@ -545,7 +605,35 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
     }
 
+    private int reserveQuota(BuffScanTask task, int requested) {
+        if (requested <= 0) {
+            return 0;
+        }
+        if (task.getBuyCount() == null || task.getBuyCount() <= 0) {
+            return Math.min(requested, 1);
+        }
+
+        String quotaKey = BuffConstant.REDIS_TASK_QUOTA_PREFIX + task.getId();
+        Long approved = redisUtil.getStringRedisTemplate().execute(RESERVE_QUOTA_SCRIPT, List.of(quotaKey), String.valueOf(requested));
+        return approved == null ? 0 : approved.intValue();
+    }
+
+    private void restoreQuota(BuffScanTask task, int amount) {
+        if (amount <= 0 || task.getBuyCount() == null || task.getBuyCount() <= 0) {
+            return;
+        }
+        String quotaKey = BuffConstant.REDIS_TASK_QUOTA_PREFIX + task.getId();
+        String totalKey = BuffConstant.REDIS_TASK_QUOTA_TOTAL_PREFIX + task.getId();
+        redisUtil.getStringRedisTemplate().execute(RESTORE_QUOTA_SCRIPT, List.of(quotaKey, totalKey), String.valueOf(amount));
+    }
+
     private void updateLastError(BuffScanTask task, String error) {
+        task.setLastError(StrUtil.maxLength(error, 500));
+        buffScanTaskMapper.updateById(task);
+    }
+
+    private void markTaskError(BuffScanTask task, String error) {
+        task.setStatus(TaskStatusEnum.ERROR.getCode());
         task.setLastError(StrUtil.maxLength(error, 500));
         buffScanTaskMapper.updateById(task);
     }

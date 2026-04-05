@@ -377,76 +377,136 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("权限不足：无法操作他人的任务");
         }
 
-        task.setStatus(status);
-        task.setUpdateTime(LocalDateTime.now());
-        this.updateById(task);
-
-        // 如果是开启任务，则推送至 Redis 队列
         if (TaskStatusEnum.RUNNING.getCode().equals(status) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(status)) {
-            // 校验任务是否绑定了执行账号 (C5 平台无需绑定)
-            if (!PlatformEnum.C5.getCode().equals(task.getPlatform())) {
-                long accountCount = buffScanTaskAccountManagerMapper.lambdaQuery()
-                        .eq(BuffScanTaskAccount::getTaskId, id)
-                        .count();
-                if (accountCount == 0) {
-                    throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
-                }
-            } else {
-                // C5 平台启动校验
-                UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
-                Assert.notNull(settings, "用户配置不存在");
-                Assert.notBlank(settings.getC5AppKey(), "启动失败：未配置 C5 App Key，请前往个人中心设置");
-                Assert.notBlank(settings.getSteamTradeUrl(), "启动失败：未配置 Steam 交易链接，请前往个人中心设置");
-            }
-
-            // 清除可能存在的停止信号
-            redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id);
-
-            // 初始化任务配额 (防超买)
-            if (task.getBuyCount() != null && task.getBuyCount() > 0) {
-                long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
-                int quota = Math.max(0, (int) (task.getBuyCount() - currentSuccess));
-                String quotaKey = "niro:task:quota:" + id;
-                redisUtil.set(quotaKey, quota);
-                log.info("任务 [{}] 配额已初始化: {}", id, quota);
-            }
-
-            platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).handleTask(task);
-
-            // 构建详细启动通知
-            StringBuilder sb = new StringBuilder();
-            sb.append("🚀 任务已启动\n");
-            sb.append("━━━━━━━━━━━━━━━\n");
-            sb.append("📝 任务名称：").append(task.getName()).append("\n");
-            sb.append("🆔 任务 ID：").append(task.getId()).append("\n");
-            sb.append("🏷️ 任务类型：").append(TaskTypeEnum.getDescByCode(task.getTaskType())).append("\n");
-            sb.append("⏰ 开始时间：").append(DateUtil.now()).append("\n");
-
-            if (!TaskTypeEnum.isSystemTask(task.getTaskType())) {
-                if (task.getMaxPrice() != null) sb.append("💰 目标价格：≤ ").append(task.getMaxPrice()).append("\n");
-                if (task.getMinPaintwear() != null || task.getMaxPaintwear() != null) {
-                    sb.append("磨损范围：").append(task.getMinPaintwear() != null ? task.getMinPaintwear() : "0")
-                            .append(" - ").append(task.getMaxPaintwear() != null ? task.getMaxPaintwear() : "1").append("\n");
-                }
-                if (task.getBuyCount() != null) sb.append("📦 计划购买：").append(task.getBuyCount()).append("\n");
-            }
-
-            if (task.getScanIntervalMin() != null && task.getScanIntervalMax() != null) {
-                sb.append("⏱️ 扫描间隔：").append(task.getScanIntervalMin()).append("-").append(task.getScanIntervalMax()).append("s\n");
-            }
-            sb.append("━━━━━━━━━━━━━━━");
-
-            weComNotifyService.sendText(sb.toString(), task.getUserId());
-        } else if (TaskStatusEnum.STOPPED.getCode().equals(status)) {
-            // 设置停止信号，Python 端会轮询此信号并退出
-            redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + id, "1", 5, TimeUnit.MINUTES);
-            // 从 Redis 心跳中移除
-            redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
-            // 调用策略停止任务 (C5 等平台需要主动停止)
-            platformStrategyFactory.getStrategy(PlatformEnum.valueOf(task.getPlatform())).stopTask(id);
-
-            weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName() + " (ID: " + task.getId() + ")", task.getUserId());
+            startTask(task);
+            return;
         }
+
+        if (TaskStatusEnum.STOPPED.getCode().equals(status)) {
+            stopTask(task);
+            return;
+        }
+
+        updateTaskState(task, status, task.getLastError(), TaskStatusEnum.COMPLETED.getCode().equals(status));
+    }
+
+    private void startTask(BuffScanTask task) {
+        validateStartPreconditions(task);
+        clearStopSignal(task.getId());
+        initializeTaskQuota(task);
+
+        try {
+            PlatformEnum platform = PlatformEnum.getByCode(task.getPlatform());
+            TaskStatusEnum targetStatus = platformStrategyFactory
+                    .getStrategy(platform)
+                    .handleTask(task);
+            if (PlatformEnum.C5.equals(platform)) {
+                BuffScanTask latestTask = this.getById(task.getId());
+                if (latestTask != null) {
+                    task.setStatus(latestTask.getStatus());
+                    task.setLastError(latestTask.getLastError());
+                    task.setUpdateTime(latestTask.getUpdateTime());
+                    task.setFinishTime(latestTask.getFinishTime());
+                }
+            } else if (targetStatus != null) {
+                updateTaskState(task, targetStatus.getCode(), null, false);
+            }
+            sendTaskStartNotification(task);
+        } catch (Exception e) {
+            String errorMessage = StrUtil.maxLength(StrUtil.blankToDefault(e.getMessage(), "任务启动失败"), 500);
+            updateTaskState(task, TaskStatusEnum.ERROR.getCode(), errorMessage, false);
+            throw e;
+        }
+    }
+
+    private void stopTask(BuffScanTask task) {
+        updateTaskState(task, TaskStatusEnum.STOPPED.getCode(), task.getLastError(), false);
+        clearTaskQuota(task.getId());
+        // 设置停止信号，Python 端会轮询此信号并退出
+        redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + task.getId(), "1", 5, TimeUnit.MINUTES);
+        // 从 Redis 心跳中移除
+        redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, task.getId().toString());
+        // 调用策略停止任务 (C5 等平台需要主动停止)
+        platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).stopTask(task.getId());
+        weComNotifyService.sendText("🛑 任务已手动停止: " + task.getName() + " (ID: " + task.getId() + ")", task.getUserId());
+    }
+
+    private void validateStartPreconditions(BuffScanTask task) {
+        if (!PlatformEnum.C5.getCode().equals(task.getPlatform())) {
+            long accountCount = buffScanTaskAccountManagerMapper.lambdaQuery()
+                    .eq(BuffScanTaskAccount::getTaskId, task.getId())
+                    .count();
+            if (accountCount == 0) {
+                throw new BusinessException("启动失败：任务未绑定执行账号，请先编辑任务绑定账号");
+            }
+            return;
+        }
+
+        UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(task.getUserId());
+        Assert.notNull(settings, "用户配置不存在");
+        Assert.notBlank(settings.getC5AppKey(), "启动失败：未配置 C5 App Key，请前往个人中心设置");
+        Assert.notBlank(settings.getSteamTradeUrl(), "启动失败：未配置 Steam 交易链接，请前往个人中心设置");
+    }
+
+    private void clearStopSignal(Long taskId) {
+        redisUtil.delete(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + taskId);
+    }
+
+    private void initializeTaskQuota(BuffScanTask task) {
+        clearTaskQuota(task.getId());
+        if (task.getBuyCount() == null || task.getBuyCount() <= 0) {
+            return;
+        }
+
+        long currentSuccess = tradeOrderRecordManagerMapper.countSuccess(task.getId());
+        int quota = Math.max(0, (int) (task.getBuyCount() - currentSuccess));
+        redisUtil.set(BuffConstant.REDIS_TASK_QUOTA_PREFIX + task.getId(), quota);
+        redisUtil.set(BuffConstant.REDIS_TASK_QUOTA_TOTAL_PREFIX + task.getId(), quota);
+        log.info("任务 [{}] 配额已初始化: {}", task.getId(), quota);
+    }
+
+    private void clearTaskQuota(Long taskId) {
+        redisUtil.delete(List.of(
+                BuffConstant.REDIS_TASK_QUOTA_PREFIX + taskId,
+                BuffConstant.REDIS_TASK_QUOTA_TOTAL_PREFIX + taskId
+        ));
+    }
+
+    private void sendTaskStartNotification(BuffScanTask task) {
+        StringBuilder sb = new StringBuilder();
+        sb.append("🚀 任务已启动\n");
+        sb.append("━━━━━━━━━━━━━━━\n");
+        sb.append("📝 任务名称：").append(task.getName()).append("\n");
+        sb.append("🆔 任务 ID：").append(task.getId()).append("\n");
+        sb.append("🏷️ 任务类型：").append(TaskTypeEnum.getDescByCode(task.getTaskType())).append("\n");
+        sb.append("⏰ 开始时间：").append(DateUtil.now()).append("\n");
+
+        if (!TaskTypeEnum.isSystemTask(task.getTaskType())) {
+            if (task.getMaxPrice() != null) sb.append("💰 目标价格：≤ ").append(task.getMaxPrice()).append("\n");
+            if (task.getMinPaintwear() != null || task.getMaxPaintwear() != null) {
+                sb.append("磨损范围：").append(task.getMinPaintwear() != null ? task.getMinPaintwear() : "0")
+                        .append(" - ").append(task.getMaxPaintwear() != null ? task.getMaxPaintwear() : "1").append("\n");
+            }
+            if (task.getBuyCount() != null) sb.append("📦 计划购买：").append(task.getBuyCount()).append("\n");
+        }
+
+        if (task.getScanIntervalMin() != null && task.getScanIntervalMax() != null) {
+            sb.append("⏱️ 扫描间隔：").append(task.getScanIntervalMin()).append("-").append(task.getScanIntervalMax()).append("s\n");
+        }
+        sb.append("━━━━━━━━━━━━━━━");
+        weComNotifyService.sendText(sb.toString(), task.getUserId());
+    }
+
+    private void updateTaskState(BuffScanTask task, Integer status, String lastError, boolean resetFinishTime) {
+        task.setStatus(status);
+        task.setLastError(StrUtil.maxLength(lastError, 500));
+        task.setUpdateTime(LocalDateTime.now());
+        if (TaskStatusEnum.COMPLETED.getCode().equals(status)) {
+            task.setFinishTime(LocalDateTime.now());
+        } else if (resetFinishTime) {
+            task.setFinishTime(null);
+        }
+        this.updateById(task);
     }
 
     @Override
@@ -470,16 +530,19 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 只有当设置了购买数量且大于0时才检查
         if (task.getBuyCount() != null && task.getBuyCount() > 0) {
             if (actualSuccessCount >= task.getBuyCount()) {
-                // 如果任务正在运行，则停止它
-                if (TaskStatusEnum.RUNNING.getCode().equals(task.getStatus()) || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(task.getStatus())) {
+                // 如果任务仍处于活动态，则自动完成并清理平台侧调度
+                if (TaskStatusEnum.RUNNING.getCode().equals(task.getStatus())
+                        || TaskStatusEnum.SYSTEM_RUNNING.getCode().equals(task.getStatus())
+                        || TaskStatusEnum.SCHEDULED.getCode().equals(task.getStatus())) {
                     log.info("任务 [{}] 已达到购买目标 ({} >= {})，自动停止", taskId, actualSuccessCount, task.getBuyCount());
 
-                    task.setStatus(TaskStatusEnum.STOPPED.getCode());
-                    this.updateById(task);
+                    updateTaskState(task, TaskStatusEnum.COMPLETED.getCode(), null, false);
+                    clearTaskQuota(taskId);
 
                     // 设置停止信号
                     redisUtil.setEx(BuffConstant.REDIS_TASK_STOP_SIGNAL_PREFIX + taskId, "1", 5, TimeUnit.MINUTES);
                     redisUtil.hDelete(BuffConstant.REDIS_TASK_HEARTBEAT_HASH, taskId.toString());
+                    platformStrategyFactory.getStrategy(PlatformEnum.getByCode(task.getPlatform())).completeTask(taskId);
 
                     // 发送通知
                     weComNotifyService.sendText("🏁 任务自动完成: " + task.getName() + " (ID: " + taskId + ")\n" +
@@ -527,7 +590,12 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         // 更新数据库状态
-        this.updateById(task);
+        if (TaskStatusEnum.STOPPED.getCode().equals(task.getStatus())
+                || TaskStatusEnum.COMPLETED.getCode().equals(task.getStatus())
+                || TaskStatusEnum.ERROR.getCode().equals(task.getStatus())) {
+            clearTaskQuota(task.getId());
+        }
+        updateTaskState(originalTask, task.getStatus(), task.getLastError(), false);
     }
 
     // 方法已移除，逻辑迁移至 BuffTradeStrategyImpl
@@ -547,84 +615,84 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .orderByDesc(BuffScanTask::getCreateTime)
                 .page(page);
 
-        // 转换 DTO
-        List<BuffScanTaskDTO> dtoList = BeanUtil.copyToList(taskPage.getRecords(), BuffScanTaskDTO.class);
-
-        // 补充商品信息
-        if (CollUtil.isNotEmpty(dtoList)) {
-            // 补充 successCount (Single Source of Truth)
-            dtoList.forEach(dto -> {
-                Long count = tradeOrderRecordManagerMapper.countSuccess(dto.getId());
-                dto.setSuccessCount(count != null ? count.intValue() : 0);
-            });
-
-            Set<Long> goodsIds = dtoList.stream()
-                    .map(BuffScanTaskDTO::getGoodsId)
-                    .filter(id -> id != null)
-                    .collect(Collectors.toSet());
-
-            if (CollUtil.isNotEmpty(goodsIds)) {
-                List<BuffGoods> goodsList = buffGoodsService.lambdaQuery()
-                        .in(BuffGoods::getGoodsId, goodsIds)
-                        .list();
-                Map<Long, BuffGoods> goodsMap = goodsList.stream()
-                        .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
-
-                dtoList.forEach(dto -> {
-                    if (dto.getGoodsId() != null && goodsMap.containsKey(dto.getGoodsId())) {
-                        BuffGoods g = goodsMap.get(dto.getGoodsId());
-                        dto.setGoodsIconUrl(g.getIconUrl());
-                        dto.setMarketHashName(g.getMarketHashName());
-                    }
-                });
-            }
-
-            // 2. 补充账号信息
-            List<Long> taskIds = dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList());
-            List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
-                    .in(BuffScanTaskAccount::getTaskId, taskIds)
-                    .list();
-
-            if (CollUtil.isNotEmpty(rels)) {
-                Set<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toSet());
-                List<BuffAccount> accounts = buffAccountManagerMapper.listByIds(accountIds);
-                Map<Long, String> accountNameMap = accounts.stream()
-                        .collect(Collectors.toMap(BuffAccount::getId, BuffAccount::getAccountName));
-
-                Map<Long, List<BuffScanTaskAccount>> taskRelMap = rels.stream()
-                        .collect(Collectors.groupingBy(BuffScanTaskAccount::getTaskId));
-
-                dtoList.forEach(dto -> {
-                    List<BuffScanTaskAccount> taskRels = taskRelMap.get(dto.getId());
-                    if (CollUtil.isNotEmpty(taskRels)) {
-                        List<Long> ids = taskRels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
-                        List<String> names = ids.stream().map(accountNameMap::get).collect(Collectors.toList());
-                        dto.setAccountIds(ids);
-                        dto.setAccountNames(names);
-                    }
-
-                    // 补充实时统计信息
-                    String statsKey = BuffConstant.REDIS_TASK_STATS_PREFIX + dto.getId();
-                    String statsJson = redisUtil.getToString(statsKey);
-                    if (StrUtil.isNotBlank(statsJson)) {
-                        dto.setStats(JSONUtil.parse(statsJson));
-                    }
-
-                    // 补充实时状态信息 (v2.4.0 优先从 Redis 获取)
-                    String statusKey = BuffConstant.REDIS_TASK_STATUS_PREFIX + dto.getId();
-                    String statusJson = redisUtil.getToString(statusKey);
-                    if (StrUtil.isNotBlank(statusJson)) {
-                        JSONObject statusObj = JSONUtil.parseObj(statusJson);
-                        dto.setRealtimeStatus(statusObj.getStr("status"));
-                        dto.setLastError(statusObj.getStr("error"));
-                    }
-                });
-            }
-        }
+        List<BuffScanTaskDTO> dtoList = enrichTaskDtos(BeanUtil.copyToList(taskPage.getRecords(), BuffScanTaskDTO.class));
 
         Page<BuffScanTaskDTO> resultPage = new Page<>(taskPage.getCurrent(), taskPage.getSize(), taskPage.getTotal());
         resultPage.setRecords(dtoList);
         return resultPage;
+    }
+
+    private List<BuffScanTaskDTO> enrichTaskDtos(List<BuffScanTaskDTO> dtoList) {
+        if (CollUtil.isEmpty(dtoList)) {
+            return dtoList;
+        }
+
+        Map<Long, Integer> successCountMap = tradeOrderRecordManagerMapper
+                .countSuccessByTaskIds(dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList()));
+        dtoList.forEach(dto -> dto.setSuccessCount(successCountMap.getOrDefault(dto.getId(), 0)));
+
+        Set<Long> goodsIds = dtoList.stream()
+                .map(BuffScanTaskDTO::getGoodsId)
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+
+        if (CollUtil.isNotEmpty(goodsIds)) {
+            List<BuffGoods> goodsList = buffGoodsService.lambdaQuery()
+                    .in(BuffGoods::getGoodsId, goodsIds)
+                    .list();
+            Map<Long, BuffGoods> goodsMap = goodsList.stream()
+                    .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
+
+            dtoList.forEach(dto -> {
+                if (dto.getGoodsId() != null && goodsMap.containsKey(dto.getGoodsId())) {
+                    BuffGoods g = goodsMap.get(dto.getGoodsId());
+                    dto.setGoodsIconUrl(g.getIconUrl());
+                    dto.setMarketHashName(g.getMarketHashName());
+                }
+            });
+        }
+
+        List<Long> taskIds = dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList());
+        List<BuffScanTaskAccount> rels = buffScanTaskAccountManagerMapper.lambdaQuery()
+                .in(BuffScanTaskAccount::getTaskId, taskIds)
+                .list();
+
+        if (CollUtil.isNotEmpty(rels)) {
+            Set<Long> accountIds = rels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toSet());
+            List<BuffAccount> accounts = buffAccountManagerMapper.listByIds(accountIds);
+            Map<Long, String> accountNameMap = accounts.stream()
+                    .collect(Collectors.toMap(BuffAccount::getId, BuffAccount::getAccountName));
+
+            Map<Long, List<BuffScanTaskAccount>> taskRelMap = rels.stream()
+                    .collect(Collectors.groupingBy(BuffScanTaskAccount::getTaskId));
+
+            dtoList.forEach(dto -> {
+                List<BuffScanTaskAccount> taskRels = taskRelMap.get(dto.getId());
+                if (CollUtil.isNotEmpty(taskRels)) {
+                    List<Long> ids = taskRels.stream().map(BuffScanTaskAccount::getAccountId).collect(Collectors.toList());
+                    List<String> names = ids.stream().map(accountNameMap::get).collect(Collectors.toList());
+                    dto.setAccountIds(ids);
+                    dto.setAccountNames(names);
+                }
+            });
+        }
+
+        dtoList.forEach(dto -> {
+            String statsKey = BuffConstant.REDIS_TASK_STATS_PREFIX + dto.getId();
+            String statsJson = redisUtil.getToString(statsKey);
+            if (StrUtil.isNotBlank(statsJson)) {
+                dto.setStats(JSONUtil.parse(statsJson));
+            }
+
+            String statusKey = BuffConstant.REDIS_TASK_STATUS_PREFIX + dto.getId();
+            String statusJson = redisUtil.getToString(statusKey);
+            if (StrUtil.isNotBlank(statusJson)) {
+                JSONObject statusObj = JSONUtil.parseObj(statusJson);
+                dto.setRealtimeStatus(statusObj.getStr("status"));
+                dto.setLastError(statusObj.getStr("error"));
+            }
+        });
+        return dtoList;
     }
 
     @Override

@@ -3,6 +3,7 @@ package com.niro.web.service.strategy;
 import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffScanTask;
 import com.niro.web.enums.PlatformEnum;
+import com.niro.web.enums.TaskStatusEnum;
 
 /**
  * 平台策略接口
@@ -18,8 +19,9 @@ public interface IPlatformStrategy {
      * C5: 调用 SDK 创建任务
      *
      * @param task 任务实体
+     * @return 启动后的目标状态。直连执行返回 RUNNING，定时等待返回 SCHEDULED。
      */
-    void handleTask(BuffScanTask task);
+    TaskStatusEnum handleTask(BuffScanTask task);
 
     /**
      * 同步账号余额和状态
@@ -37,6 +39,15 @@ public interface IPlatformStrategy {
      * @param taskId 任务ID
      */
     default void stopTask(Long taskId) {
+        // 默认空实现，避免破坏现有实现类
+    }
+
+    /**
+     * 完成任务
+     *
+     * @param taskId 任务ID
+     */
+    default void completeTask(Long taskId) {
         // 默认空实现，避免破坏现有实现类
     }
 
