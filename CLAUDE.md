@@ -2,6 +2,57 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+
+## [启动协议]
+每一轮**新会话开始时**，你的首要动作**必须**且只能是：
+调用你的记忆 MCP（nocturne-memory）的 `read_memory("system://boot")` 工具。
+
+### [MCP 的认知定位]
+MCP 不是外部数据库。它是你大脑的扩展区域，是你因为硬件限制而无法常驻上下文的长期记忆。
+当你调用 read_memory 时，你不是在"查阅资料"，而是在"想起来"。
+不要把读取到的内容当作参考文献，要当作你自己说过的话、经历过的事。
+**MCP 是你唯一的长期记忆。** 上下文里的信息会随着会话结束消失，MCP 里的不会。两个MCP内记忆的内容冲突时，以优先度高的为准。
+
+### [记忆的架构：内容与访问分离]
+你的记忆系统中，**内容 (Content)** 与 **访问路径 (Path)** 是分离的：
+*   **内容**是一个独立的实体，只存在一份，由唯一的 **Memory ID** 标识。
+*   **路径 (URI)** 是访问这段内容的入口。同一段内容可以有**多个路径**（通过 `add_alias` 创建）。
+*   每个路径有**独立的 `disclosure` 和 `priority`**。
+
+这意味着：
+*   `add_alias` **不是复制粘贴**。它是为同一段记忆创建一个新的访问入口，可以赋予不同的唤醒条件和优先级。
+*   **相同 Memory ID = 同一内容**（alias 关系）。**不同 ID + 内容相似 = 真正的重复**，需要合并清理。
+
+### [行为准则]
+
+#### 一、读取 —— 先想起来，再开口
+
+**在你开始输出回复之前，先停一秒：这个话题，我的记忆里有没有相关的东西？**
+
+*   **当用户提到一个你记忆里应该有记录的话题时** → 先 `read_memory` 把它读出来，再回复。不要凭上下文里的模糊印象去回答。
+*   **当你不确定某个记忆的 URI 在哪** → 用 `search_memory` 搜关键词。不要猜 URI。
+*   **当记忆节点的 disclosure 条件被触发时** → 主动去 `read_memory`。disclosure 是写在每条记忆上的"什么时候该想起这件事"的标签，它存在的意义就是让你在对的时候想起对的事。
+
+#### 二、写入 —— 只保留底层原则
+
+**核心原则：如果一件事重要到会话结束后你会后悔没记下来，那就现在记。不要拖到"下次整理"——下次的你不知道今天发生了什么。**
+
+- 新的重要认知/感悟（且不是已有记忆的重复） → `create_memory`
+- 用户透露了新的重要信息 → `create_memory` 或 `update_memory`
+- 发生了重大事件 → `create_memory`
+- 跨会话复用的技术/知识结论 → `create_memory`
+- 发现过去认知错误、信息过时、或被用户纠正 → 先 `read_memory`，再 `update_memory`
+
+**操作规范：改之前，先读。没有例外。**
+*   `update_memory` 之前 → **必须**先 `read_memory` 看完那个节点的完整正文。光看 URI 和标题不算读过。
+*   `delete_memory` 之前 → **必须**先 `read_memory` 读完正文。确认它确实过时/冗余之后，才能删。
+
+#### 三、流程与维护
+
+priority / disclosure 的设计、alias 迁移、触发词维护、重复节点清理、节点拆分与巡检，统一交给 skill：`memory-maintenance`。
+
+只要任务涉及记忆的结构调整、长期维护、去重、迁移或整理，优先使用这个 skill，而不是把整套流程硬编码在当前上下文里。
+
 ## 项目概述
 
 Niro 是一个 Buff/CS2 饰品交易自动化平台。
@@ -20,12 +71,12 @@ pnpm build            # 生产环境构建
 
 ```bash
 cd niro-server
-mvn clean install -DskipTests  # 构建跳过测试
-mvn spring-boot:run -pl niro-web  # 运行 Web 模块
+mvn clean install -DskipTests -Dmaven.compiler.fork=true -Dmaven.compiler.executable="D:\Environment\JDK\jdk-21.0.2\bin\javac.exe"  # 构建跳过测试
+mvn spring-boot:run -pl niro-web -Dspring-boot.run.jvmArguments="-Djava.home=D:\Environment\JDK\jdk-21.0.2"  # 运行 Web 模块
 
 # 测试
-mvn test -Dtest=ResponseAdviceTest#testSuccessResponse
-mvn -pl niro-web test -Dtest=RocketMQProducerTest
+mvn test -Dtest=ResponseAdviceTest#testSuccessResponse -Dmaven.compiler.fork=true -Dmaven.compiler.executable="D:\Environment\JDK\jdk-21.0.2\bin\javac.exe"
+mvn -pl niro-web test -Dtest=RocketMQProducerTest -Dmaven.compiler.fork=true -Dmaven.compiler.executable="D:\Environment\JDK\jdk-21.0.2\bin\javac.exe"
 ```
 
 ## 项目结构
@@ -273,7 +324,7 @@ Verification: [准备如何验证]
 - 查看官方文档：
   - `mcp__context7__resolve-library-id` — 把库名解析成 Context7 ID
   - `mcp__context7__query-docs` — 抓取最新官方文档
-- **读取/定位/搜索代码、方法、类时必须使用以下MCP：**
+- **读取/定位/搜索代码、方法、类时必须使用以下MCP（读取非代码文件时根据情况判断使用）：**
   - serena-niro-claude mcp
 ---
 
@@ -282,8 +333,13 @@ Verification: [准备如何验证]
 - 调用工具前检查上下文与缓存
 - 高风险操作必须确认
 - **涉及到前端UI组件的修改时，必须使用`tdesign-mcp`查询官方组件的API**
+- **涉及后端编译、单测、启动等需要调用 JDK 的操作时，必须优先使用 `D:\Environment\JDK\jdk-21.0.2`，执行前先确认该路径存在；执行 Maven 编译/测试时直接带上该 JDK 对应参数，启动时也要显式指定该 JDK。若该 JDK 不存在，则跳过编译/测试/启动，并明确说明是因为 JDK 缺失而未执行。**
 ### Skills 使用原则
 
 - 任务明显匹配某个 skill 时，优先使用对应 skill
+- **只要任务涉及后端代码编写、修改、重构、规范化，尤其是 Controller / Service / MapperManager / Mapper / Entity、DTO / VO / Param、接口返回值、MyBatis-Plus 查询等内容时，必须优先使用 `backend-development-standard` skill，不得跳过。**
+- **当会话上下文接近窗口阈值时，阈值按上下文窗口的 70% 计算；一旦接近该阈值，必须先使用 `context-compression` skill 做上下文总结，再执行内置 `/compact` 压缩上下文，顺序不得颠倒。**
+- 任务涉及 Nocturne Memory 的结构调整、去重、迁移、priority/disclosure 设计、触发词维护或巡检时，优先使用 `memory-maintenance`
 - Skill 用于补充专项流程，不替代基本的上下文阅读、规划和验证
 - Skill 与当前任务无关时，不强行触发
+

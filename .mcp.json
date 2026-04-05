@@ -56,6 +56,10 @@
         "-y",
         "bing-cn-mcp"
       ]
+    },
+    "serena-niro-claude": {
+      "type": "http",
+      "url": "http://127.0.0.1:9122/mcp"
     }
   }
 }

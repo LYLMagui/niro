@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(*:*)"
+      "Bash(*:*)",
+      "mcp__nocturne_memory__read_memory",
+      "mcp__GitHub__get_file_contents",
+      "mcp__GitHub__search_code",
+      "mcp__nocturne_memory__create_memory",
+      "mcp__nocturne-memory__read_memory",
+      "mcp__GitHub__search_repositories"
     ]
   },
   "enableAllProjectMcpServers": true,

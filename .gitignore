@@ -81,3 +81,4 @@ logs/
 *.swp
 *.swo
 .DS_Store
+/docs/superpowers/
