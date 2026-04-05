@@ -42,6 +42,10 @@
                   :value="TaskStatusEnum.SYSTEM_RUNNING"
                 />
                 <t-option
+                  :label="TaskStatusMap[TaskStatusEnum.SCHEDULED].label"
+                  :value="TaskStatusEnum.SCHEDULED"
+                />
+                <t-option
                   :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
                   :value="TaskStatusEnum.COMPLETED"
                 />
@@ -162,7 +166,7 @@
                     class="mr-2 h-9 w-9 rounded"
                   />
                   <div
-                    v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
+                    v-else-if="isSystemTask(row.taskType)"
                     class="mr-2 flex h-9 w-9 items-center justify-center rounded bg-blue-100 text-blue-600"
                   >
                     <t-icon name="setting" />
@@ -179,16 +183,34 @@
               </template>
 
               <template #target="{ row }">
-                <div>
-                  <div class="text-xs text-gray-500">最高价格: ¥{{ row.maxPrice }}</div>
-                  <div class="text-xs text-gray-500">
-                    磨损: {{ row.minPaintwear }}-{{ row.maxPaintwear }}
+                <div class="task-target">
+                  <div class="task-target__primary">
+                    <div class="task-target__metric">
+                      <span class="task-target__label">最高价格：</span>
+                      <t-tag class="task-target__value task-target__value--price" size="small" variant="light">
+                        {{ formatPrice(row.maxPrice) }}
+                      </t-tag>
+                    </div>
+                    <div class="task-target__metric">
+                      <span class="task-target__label">扫描频率：</span>
+                      <t-tag class="task-target__value" size="small" variant="light">
+                        {{ formatScanFrequency(row) }}
+                      </t-tag>
+                    </div>
+                    <div class="task-target__metric">
+                      <span class="task-target__label">磨损范围：</span>
+                      <t-tag class="task-target__value" size="small" variant="light">
+                        {{ formatPaintwear(row) }}
+                      </t-tag>
+                    </div>
                   </div>
                 </div>
               </template>
 
               <template #progress="{ row }">
-                <span>{{ row.successCount }} / {{ row.buyCount }}</span>
+                <t-tag class="task-target__value task-target__value--progress" size="small" variant="light">
+                  {{ row.successCount }} / {{ row.buyCount }}
+                </t-tag>
               </template>
 
               <template #status="{ row }">
@@ -213,7 +235,7 @@
                   class="flex items-center gap-2"
                 >
                   <t-link
-                    v-if="![1, 4].includes(row.status)"
+                    v-if="!isActiveTaskStatus(row.status)"
                     theme="primary"
                     @click="handleEdit(row)"
                   >
@@ -222,7 +244,7 @@
                   <t-link v-else theme="primary" disabled>编辑</t-link>
 
                   <t-popconfirm
-                    v-if="[0, 3].includes(row.status)"
+                    v-if="isStartableTaskStatus(row.status)"
                     content="确认要启动任务吗？"
                     @confirm="handleStatus(row, 1)"
                   >
@@ -230,7 +252,7 @@
                   </t-popconfirm>
 
                   <t-popconfirm
-                    v-if="[1, 4].includes(row.status)"
+                    v-if="isActiveTaskStatus(row.status)"
                     content="确认要停止任务吗？"
                     @confirm="handleStatus(row, 0)"
                   >
@@ -238,7 +260,7 @@
                   </t-popconfirm>
 
                   <t-popconfirm
-                    v-if="![2, 3, 4].includes(row.taskType)"
+                    v-if="isDeletableTaskType(row.taskType)"
                     content="确认要删除任务吗？"
                     @confirm="handleDelete(row)"
                   >
@@ -268,7 +290,7 @@
                       class="task-mobile-card__thumb"
                     />
                     <div
-                      v-else-if="row.taskType >= TaskTypeEnum.SYNC_CATEGORY"
+                      v-else-if="isSystemTask(row.taskType)"
                       class="task-mobile-card__thumb task-mobile-card__thumb--fallback"
                     >
                       <t-icon name="setting" />
@@ -287,20 +309,34 @@
 
                 <div class="task-mobile-card__meta">
                   <div class="task-mobile-card__meta-item">
-                    <span class="task-mobile-card__meta-label">最高价格</span>
-                    <span>¥{{ row.maxPrice ?? "-" }}</span>
+                    <span class="task-mobile-card__meta-label">最高价格：</span>
+                    <t-tag class="task-mobile-card__meta-value task-mobile-card__meta-value--price" size="small" variant="light">
+                      {{ formatPrice(row.maxPrice) }}
+                    </t-tag>
                   </div>
                   <div class="task-mobile-card__meta-item">
-                    <span class="task-mobile-card__meta-label">进度</span>
-                    <span>{{ row.successCount }} / {{ row.buyCount }}</span>
+                    <span class="task-mobile-card__meta-label">扫描频率：</span>
+                    <t-tag class="task-mobile-card__meta-value" size="small" variant="light">
+                      {{ formatScanFrequency(row) }}
+                    </t-tag>
                   </div>
-                  <div class="task-mobile-card__meta-item task-mobile-card__meta-item--full">
-                    <span class="task-mobile-card__meta-label">磨损范围</span>
-                    <span>{{ row.minPaintwear ?? 0 }} - {{ row.maxPaintwear ?? 1 }}</span>
+                  <div class="task-mobile-card__meta-item">
+                    <span class="task-mobile-card__meta-label">进度：</span>
+                    <t-tag class="task-mobile-card__meta-value task-mobile-card__meta-value--progress" size="small" variant="light">
+                      {{ row.successCount }} / {{ row.buyCount }}
+                    </t-tag>
                   </div>
-                  <div class="task-mobile-card__meta-item task-mobile-card__meta-item--full">
-                    <span class="task-mobile-card__meta-label">创建时间</span>
-                    <span>{{ formatDateTime(row.createTime) }}</span>
+                  <div class="task-mobile-card__meta-item">
+                    <span class="task-mobile-card__meta-label">磨损范围：</span>
+                    <t-tag class="task-mobile-card__meta-value" size="small" variant="light">
+                      {{ formatPaintwear(row) }}
+                    </t-tag>
+                  </div>
+                  <div class="task-mobile-card__meta-item">
+                    <span class="task-mobile-card__meta-label">创建时间：</span>
+                    <t-tag class="task-mobile-card__meta-value" size="small" variant="light">
+                      {{ formatDateTime(row.createTime) }}
+                    </t-tag>
                   </div>
                 </div>
 
@@ -309,27 +345,27 @@
                     variant="outline"
                     theme="primary"
                     size="small"
-                    :disabled="[1, 4].includes(row.status)"
+                    :disabled="isActiveTaskStatus(row.status)"
                     @click="handleEdit(row)"
                   >
                     编辑
                   </t-button>
                   <t-popconfirm
-                    v-if="[0, 3].includes(row.status)"
+                    v-if="isStartableTaskStatus(row.status)"
                     content="确认要启动任务吗？"
                     @confirm="handleStatus(row, 1)"
                   >
                     <t-button variant="outline" theme="success" size="small">启动</t-button>
                   </t-popconfirm>
                   <t-popconfirm
-                    v-if="[1, 4].includes(row.status)"
+                    v-if="isActiveTaskStatus(row.status)"
                     content="确认要停止任务吗？"
                     @confirm="handleStatus(row, 0)"
                   >
                     <t-button variant="outline" theme="warning" size="small">停止</t-button>
                   </t-popconfirm>
                   <t-popconfirm
-                    v-if="![2, 3, 4].includes(row.taskType)"
+                    v-if="isDeletableTaskType(row.taskType)"
                     content="确认要删除任务吗？"
                     @confirm="handleDelete(row)"
                   >
@@ -374,15 +410,20 @@ import type { TaskItem, TaskQueryParam } from "@/types/task";
 import { MessagePlugin, type PrimaryTableCol, type TagProps } from "tdesign-vue-next";
 import TaskConfig from "./TaskConfig.vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
-import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
-import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
+import {
+  isActiveTaskStatus,
+  isStartableTaskStatus,
+  TaskStatusEnum,
+  TaskStatusMap,
+} from "@/enums/TaskStatusEnum";
+import { isSystemTask, TaskTypeEnum } from "@/enums/TaskTypeEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
 
 const { hasPermission } = usePermission();
 
 const canViewTaskList = computed(() => hasPermission(PermissionConstant.TASK_C5_LIST));
-const currentPlatform = computed(() => PlatformEnum.C5);
+const currentPlatform = PlatformEnum.C5;
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);
 
@@ -410,46 +451,58 @@ const pagination = reactive({
 
 const getStatusMeta = (
   status: number
-): { label: string; theme: NonNullable<TagProps["theme"]> } => {
-  if (status === TaskStatusEnum.STOPPED) return { label: "停止", theme: "default" };
-  if (status === TaskStatusEnum.RUNNING) return { label: "运行中", theme: "success" };
-  if (status === TaskStatusEnum.SYSTEM_RUNNING) return { label: "执行中", theme: "warning" };
-  if (status === TaskStatusEnum.COMPLETED) return { label: "已完成", theme: "primary" };
-  return { label: "异常", theme: "danger" };
-};
+): { label: string; theme: NonNullable<TagProps["theme"]> } => ({
+  label: TaskStatusMap[status as keyof typeof TaskStatusMap]?.label ?? "异常",
+  theme: (TaskStatusMap[status as keyof typeof TaskStatusMap]?.color ?? "danger") as NonNullable<
+    TagProps["theme"]
+  >,
+});
 
 const formatDateTime = (value?: string) =>
   value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "-";
 
-const patchTaskInList = (id: number, patch: Partial<TaskItem>) => {
-  const index = dataList.value.findIndex((item) => Number(item.id) === Number(id));
-  if (index === -1) {
-    return;
+const priceFormatter = new Intl.NumberFormat("zh-CN", {
+  style: "currency",
+  currency: "CNY",
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 2,
+});
+
+const formatPrice = (value?: number) =>
+  value === undefined || value === null ? "-" : priceFormatter.format(value);
+
+const formatPaintwear = ({ minPaintwear, maxPaintwear }: TaskItem) =>
+  `${minPaintwear ?? 0} - ${maxPaintwear ?? 1}`;
+
+const formatScanFrequency = ({ scanInterval, scanIntervalMin, scanIntervalMax }: TaskItem) => {
+  if (scanInterval !== undefined && scanInterval !== null) {
+    return `${scanInterval}s`;
   }
-  dataList.value[index] = {
-    ...dataList.value[index],
-    ...patch,
-  };
+
+  if (
+    scanIntervalMin !== undefined &&
+    scanIntervalMin !== null &&
+    scanIntervalMax !== undefined &&
+    scanIntervalMax !== null
+  ) {
+    return `${scanIntervalMin} - ${scanIntervalMax}s`;
+  }
+
+  return "-";
 };
 
-const patchTaskStatusInList = (id: number, status: number) => {
-  const current = dataList.value.find((item) => Number(item.id) === Number(id));
-  if (!current) {
-    return;
-  }
+const DELETABLE_TASK_TYPES = [
+  TaskTypeEnum.SNIPING,
+  TaskTypeEnum.FLIPPING,
+] as const;
 
-  patchTaskInList(id, {
-    status,
-    updateTime: dayjs().format("YYYY-MM-DD HH:mm:ss"),
-    finishTime: status === TaskStatusEnum.RUNNING ? undefined : current.finishTime,
-  });
-};
+const isDeletableTaskType = (taskType: number) => DELETABLE_TASK_TYPES.includes(taskType as any);
 
 const columns = computed<PrimaryTableCol[]>(() => [
   { colKey: "row-select", type: "multiple", width: 56, fixed: "left" as any },
   { colKey: "id", title: "ID", width: 80, align: "left" },
   { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" as any },
-  { colKey: "target", title: "目标配置", width: 150, cell: "target", align: "left" as any },
+  { colKey: "target", title: "目标配置", width: 190, cell: "target", align: "left" as any },
   { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
   {
     colKey: "createTime",
@@ -527,16 +580,30 @@ const handleAdd = () => {
 };
 
 const handleEdit = (row: TaskItem) => {
-  configRef.value?.handleEdit(row, currentPlatform.value);
+  configRef.value?.handleEdit(row, currentPlatform);
 };
 
 const handleStatus = async (row: TaskItem, status: number) => {
   try {
-    await taskApi.updateStatus(row.id, status, row.platform);
-    patchTaskStatusInList(row.id, status);
-    MessagePlugin.success(status === TaskStatusEnum.RUNNING ? "启动成功" : "停止成功");
+    await taskApi.updateStatus(row.id, status);
+    await fetchData();
+
+    const latestRow = dataList.value.find((item) => Number(item.id) === Number(row.id));
+    const statusChanged = latestRow
+      ? status === TaskStatusEnum.RUNNING
+        ? isActiveTaskStatus(latestRow.status)
+        : latestRow.status === TaskStatusEnum.STOPPED
+      : false;
+
+    if (!statusChanged) {
+      MessagePlugin.error(status === TaskStatusEnum.RUNNING ? "启动失败，请刷新后重试" : "停止失败，请刷新后重试");
+      return;
+    }
+
+    MessagePlugin.success(status === TaskStatusEnum.RUNNING ? "启动成功" : "任务已停止");
   } catch (error) {
     console.error("更新状态失败", error);
+    MessagePlugin.error(status === TaskStatusEnum.RUNNING ? "启动失败，请稍后重试" : "停止失败，请稍后重试");
   }
 };
 
@@ -572,15 +639,15 @@ const toggleAdvancedFilters = () => {
 };
 
 const handleBatchStart = async () => {
-  const pendingTasks = selectedTasks.value.filter((row) => [0, 3].includes(row.status));
+  const pendingTasks = selectedTasks.value.filter((row) => isStartableTaskStatus(row.status));
   if (pendingTasks.length === 0) {
     MessagePlugin.warning("未找到可启动的任务，请检查所选数据状态");
     return;
   }
 
   try {
-    await Promise.all(pendingTasks.map((row) => taskApi.updateStatus(row.id, 1, row.platform)));
-    pendingTasks.forEach((row) => patchTaskStatusInList(row.id, TaskStatusEnum.RUNNING));
+    await Promise.all(pendingTasks.map((row) => taskApi.updateStatus(row.id, 1)));
+    await fetchData();
     MessagePlugin.success(`已批量启动 ${pendingTasks.length} 个任务`);
     selectedRowKeys.value = [];
   } catch (error) {
@@ -589,15 +656,15 @@ const handleBatchStart = async () => {
 };
 
 const handleBatchStop = async () => {
-  const runningTasks = selectedTasks.value.filter((row) => [1, 4].includes(row.status));
+  const runningTasks = selectedTasks.value.filter((row) => isActiveTaskStatus(row.status));
   if (runningTasks.length === 0) {
     MessagePlugin.warning("未找到可停止的任务，请检查所选数据状态");
     return;
   }
 
   try {
-    await Promise.all(runningTasks.map((row) => taskApi.updateStatus(row.id, 0, row.platform)));
-    runningTasks.forEach((row) => patchTaskStatusInList(row.id, TaskStatusEnum.STOPPED));
+    await Promise.all(runningTasks.map((row) => taskApi.updateStatus(row.id, 0)));
+    await fetchData();
     MessagePlugin.success(`已批量停止 ${runningTasks.length} 个任务`);
     selectedRowKeys.value = [];
   } catch (error) {
@@ -606,7 +673,7 @@ const handleBatchStop = async () => {
 };
 
 const handleBatchDelete = async () => {
-  const deletableTasks = selectedTasks.value.filter((row) => ![2, 3, 4].includes(row.taskType));
+  const deletableTasks = selectedTasks.value.filter((row) => isDeletableTaskType(row.taskType));
   if (deletableTasks.length === 0) {
     MessagePlugin.warning("未找到可删除的任务，请检查所选任务类型");
     return;
@@ -678,6 +745,71 @@ watch(
   gap: 8px;
 }
 
+.task-target {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-target__primary {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.task-target__metric {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.task-target__metric .task-target__value {
+  max-width: calc(100% - 80px);
+}
+
+.task-target__label {
+  flex: 0 0 72px;
+  color: #6b7280;
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+.task-target__value {
+  display: inline-flex;
+  width: fit-content;
+  max-width: 100%;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 600;
+  vertical-align: top;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.task-target__value--price {
+  background-color: #fef2f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.task-target__value--progress {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+.task-target__value :deep(.t-tag) {
+  max-width: 100%;
+}
+
+.task-target__value :deep(.t-tag__inner),
+.task-target__value :deep(span) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+
 .jsh-ledger-empty {
   display: flex;
   align-items: center;
@@ -745,27 +877,57 @@ watch(
 }
 
 .task-mobile-card__meta {
-  display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 10px 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
   margin-top: 12px;
 }
 
 .task-mobile-card__meta-item {
   display: flex;
-  flex-direction: column;
-  gap: 4px;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
   min-width: 0;
   font-size: 12px;
   color: #303133;
 }
 
-.task-mobile-card__meta-item--full {
-  grid-column: 1 / -1;
+.task-mobile-card__meta-label {
+  flex: 0 0 72px;
+  color: #909399;
+  white-space: nowrap;
 }
 
-.task-mobile-card__meta-label {
-  color: #909399;
+.task-mobile-card__meta-value {
+  flex: 0 1 auto;
+  max-width: calc(100% - 80px);
+  font-weight: 600;
+  color: #475569;
+  background-color: #f8fafc;
+  border-color: #e2e8f0;
+}
+
+.task-mobile-card__meta-value--price {
+  background-color: #fef2f2;
+  border-color: #fecdd3;
+  color: #e11d48;
+}
+
+.task-mobile-card__meta-value--progress {
+  background-color: #f0fdf4;
+  border-color: #bbf7d0;
+  color: #16a34a;
+}
+
+.task-mobile-card__meta-value :deep(.t-tag) {
+  max-width: 100%;
+}
+
+.task-mobile-card__meta-value :deep(.t-tag__inner),
+.task-mobile-card__meta-value :deep(span) {
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .task-mobile-card__actions {
@@ -881,8 +1043,16 @@ watch(
     align-items: stretch;
   }
 
-  .task-mobile-card__meta {
-    grid-template-columns: 1fr;
+  .task-mobile-card__meta-item {
+    align-items: flex-start;
+  }
+
+  .task-mobile-card__meta-label {
+    flex-basis: 72px;
+  }
+
+  .task-mobile-card__meta-value {
+    max-width: calc(100% - 80px);
   }
 
   .task-mobile-card__actions {

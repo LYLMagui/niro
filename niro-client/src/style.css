@@ -144,7 +144,8 @@ body {
 }
 
 .t-table .t-table__row--hover td {
-  background: #f5f5f5 !important;
+  background: #fcfcfc !important;
+  box-shadow: none !important;
 }
 
 .t-table .t-table__empty {

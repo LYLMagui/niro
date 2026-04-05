@@ -57,14 +57,18 @@
             />
           </t-form-item>
 
-          <t-form-item v-if="isWearable" label="磨损范围：" name="wear">
-            <div class="task-config-range flex items-center gap-3">
+          <t-form-item label="磨损范围：" name="wear">
+            <div
+              class="task-config-range flex items-center gap-3"
+              :class="{ 'task-config-range--disabled': !isWearable }"
+            >
               <t-input-number
                 v-model="formData.minPaintwear"
                 :min="0"
                 :max="1"
                 :step="0.001"
                 :decimal-places="3"
+                :disabled="!isWearable"
                 placeholder="最小"
                 theme="column"
                 class="task-config-range__input"
@@ -76,6 +80,7 @@
                 :max="1"
                 :step="0.001"
                 :decimal-places="3"
+                :disabled="!isWearable"
                 placeholder="最大"
                 theme="column"
                 class="task-config-range__input"
@@ -373,6 +378,14 @@ defineExpose({ handleAdd, handleEdit, openWithGoods });
 
 .task-config-range__input {
   width: 110px;
+}
+
+.task-config-range--disabled {
+  opacity: 0.6;
+}
+
+.task-config-range--disabled :deep(.t-input-number) {
+  cursor: not-allowed;
 }
 
 :deep(.compact-form .t-form__item) {

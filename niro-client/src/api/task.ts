@@ -34,8 +34,8 @@ export const taskApi = {
   /**
    * 更新状态
    */
-  updateStatus(id: number, status: number, platform?: string) {
-    return request.post(`/task/status/${id}/${status}`, null, { params: { platform } });
+  updateStatus(id: number, status: number) {
+    return request.post(`/task/status/${id}/${status}`);
   },
 
   /**

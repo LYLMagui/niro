@@ -15,3 +15,17 @@ export const TaskStatusMap = {
   [TaskStatusEnum.SYSTEM_RUNNING]: { label: "系统运行中", color: "warning" },
   [TaskStatusEnum.SCHEDULED]: { label: "定时等待中", color: "warning" },
 };
+
+export const ACTIVE_TASK_STATUSES = [
+  TaskStatusEnum.RUNNING,
+  TaskStatusEnum.SYSTEM_RUNNING,
+  TaskStatusEnum.SCHEDULED,
+] as const;
+
+export const STARTABLE_TASK_STATUSES = [TaskStatusEnum.STOPPED, TaskStatusEnum.ERROR] as const;
+
+export const isActiveTaskStatus = (status?: number): status is (typeof ACTIVE_TASK_STATUSES)[number] =>
+  status !== undefined && ACTIVE_TASK_STATUSES.includes(status as (typeof ACTIVE_TASK_STATUSES)[number]);
+
+export const isStartableTaskStatus = (status?: number): status is (typeof STARTABLE_TASK_STATUSES)[number] =>
+  status !== undefined && STARTABLE_TASK_STATUSES.includes(status as (typeof STARTABLE_TASK_STATUSES)[number]);

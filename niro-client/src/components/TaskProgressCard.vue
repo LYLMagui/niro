@@ -166,7 +166,7 @@
 <script setup lang="ts">
 import { computed } from "vue";
 import type { TaskItem } from "@/types/task";
-import { TaskStatusEnum, TaskStatusMap } from "@/enums/TaskStatusEnum";
+import { TaskStatusEnum, TaskStatusMap, isActiveTaskStatus } from "@/enums/TaskStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 
 import { TaskTypeEnum, TaskTypeMap } from "@/enums/TaskTypeEnum";
@@ -195,6 +195,7 @@ const progressStatus = computed(() => {
   switch (props.task.status) {
     case TaskStatusEnum.RUNNING:
     case TaskStatusEnum.SYSTEM_RUNNING:
+    case TaskStatusEnum.SCHEDULED:
       return "active";
     case TaskStatusEnum.COMPLETED:
       return "success";
@@ -224,6 +225,8 @@ const statusDotClass = computed(() => {
       return "bg-green-500 animate-pulse";
     case TaskStatusEnum.SYSTEM_RUNNING:
       return "bg-orange-500 animate-pulse";
+    case TaskStatusEnum.SCHEDULED:
+      return "bg-amber-500 animate-pulse";
     case TaskStatusEnum.COMPLETED:
       return "bg-blue-500";
     case TaskStatusEnum.ERROR:
@@ -238,6 +241,7 @@ const currentStep = computed(() => {
   if (props.task.status === TaskStatusEnum.STOPPED) return -1;
   if (props.task.status === TaskStatusEnum.COMPLETED) return 4;
   if (props.task.status === TaskStatusEnum.SYSTEM_RUNNING) return 3;
+  if (props.task.status === TaskStatusEnum.SCHEDULED) return 0;
   // 运行中状态下，根据一些逻辑模拟步骤
   return 1; // 默认在扫描中
 });
@@ -264,13 +268,13 @@ const moreOptions = computed(() => [
   {
     content: "编辑任务",
     value: "edit",
-    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(props.task.status),
+    disabled: isActiveTaskStatus(props.task.status),
   },
   {
     content: "删除任务",
     value: "delete",
     theme: "danger" as any,
-    disabled: [TaskStatusEnum.RUNNING, TaskStatusEnum.SYSTEM_RUNNING].includes(props.task.status),
+    disabled: isActiveTaskStatus(props.task.status),
   },
 ]);
 
