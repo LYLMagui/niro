@@ -1,0 +1,1 @@
+Windows 环境下项目常用命令：前端进入 niro-client 后使用 `pnpm dev`、`pnpm lint`、`pnpm type-check`、`pnpm build`。后端进入 niro-server 后使用 `mvn clean install -DskipTests`、`mvn spring-boot:run -pl niro-web`、`mvn test -Dtest=ResponseAdviceTest#testSuccessResponse`、`mvn -pl niro-web test -Dtest=RocketMQProducerTest`。通用工具可使用 git、ls，与 bash 语法路径。
