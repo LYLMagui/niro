@@ -157,9 +157,9 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 1. 优先把 skill 定位成本仓库的前端页面开发总控，而不是单纯视觉设计 skill。
 2. description 只写触发条件，不把工作流和依赖 skill 塞进 frontmatter。
 3. 前置依赖必须先确认安装；缺失时用 `find-skills` 补齐后再继续。
-4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断。
+4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断，必须优先使用`tailwind-design-system`编写css，如果无法实现再使用传统的css。
 5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。
-6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `markdown-proxy` + `tdesign-mcp-server`。
+6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `markdown-proxy` + `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
 
 ## References
 

@@ -82,3 +82,4 @@ logs/
 *.swo
 .DS_Store
 /docs/superpowers/
+/.playwright-cli/

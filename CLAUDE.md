@@ -337,7 +337,7 @@ Verification: [准备如何验证]
 ### Skills 使用原则
 
 - 任务明显匹配某个 skill 时，优先使用对应 skill
-- **只要任务涉及后端代码编写、修改、重构、规范化，尤其是 Controller / Service / MapperManager / Mapper / Entity、DTO / VO / Param、接口返回值、MyBatis-Plus 查询等内容时，必须优先使用 `backend-development-standard` skill，不得跳过。**
+- **只要任务涉及后端代码编写、修改、重构、规范化，尤其是 Controller / Service / MapperManager / Mapper / Entity、DTO / VO / Param、接口返回值、MyBatis-Plus 查询等内容时，必须优先使用 `backend-development-standard` skill，不得跳过。在进行后端代码review时，也必须遵循这个原则**
 - **当会话上下文接近窗口阈值时，阈值按上下文窗口的 70% 计算；一旦接近该阈值，必须先使用 `context-compression` skill 做上下文总结，再执行内置 `/compact` 压缩上下文，顺序不得颠倒。**
 - 任务涉及 Nocturne Memory 的结构调整、去重、迁移、priority/disclosure 设计、触发词维护或巡检时，优先使用 `memory-maintenance`
 - Skill 用于补充专项流程，不替代基本的上下文阅读、规划和验证
