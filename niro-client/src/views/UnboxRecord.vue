@@ -1,963 +1,1556 @@
-<script setup lang="ts">
-import { ref, reactive, computed, onMounted, watch } from "vue";
-import { MessagePlugin } from "tdesign-vue-next";
-import {
-  AddIcon,
-  EditIcon,
-  DeleteIcon,
-  CheckCircleFilledIcon,
-  TimeFilledIcon,
-  CloseCircleFilledIcon,
-  ImageIcon,
-  GiftIcon,
-} from "tdesign-icons-vue-next";
-import type {
-  PrimaryTableCol,
-  TableRowData,
-  InputNumberValue,
-  ChangeContext,
-  UploadFile,
-  UploadChangeContext,
-} from "tdesign-vue-next";
-import type {
-  UnboxRecord,
-  UnboxRecordForm,
-  PurchaseStatus,
-  WeaponAttribute,
-  UnboxSummary,
-} from "@/types/unbox";
-import {
-  calculateActualPrice,
-  calculateEstimatedProfit,
-  calculateProfitRate,
-  calculateActualProfit,
-  formatDecimal,
-} from "@/types/unbox";
-
-const STORAGE_KEY = "niro-unbox-records";
-const DISCOUNT_KEY = "niro-unbox-global-discount";
-const DEFAULT_DISCOUNT = 0.72;
-
-const tableData = ref<UnboxRecord[]>([]);
-const dialogVisible = ref(false);
-const editingId = ref<string | null>(null);
-const globalDiscount = ref(DEFAULT_DISCOUNT);
-const loading = ref(false);
-const uploadFiles = ref<UploadFile[]>([]);
-
-const formData = reactive<UnboxRecordForm>({
-  boxName: "",
-  purchasePrice: 0,
-  screenshot: "",
-  weaponName: "",
-  wearValue: 0,
-  attribute: "普通",
-  steamPrice: 0,
-  platformPrice: 0,
-  discount: DEFAULT_DISCOUNT,
-  purchaseStatus: "pending",
-  actualSellPrice: 0,
-});
-
-const attributeOptions: { label: string; value: WeaponAttribute }[] = [
-  { label: "普通", value: "普通" },
-  { label: "ST", value: "ST" },
-  { label: "纪念", value: "纪念" },
-  { label: "其他", value: "其他" },
-];
-
-const purchaseStatusOptions: {
-  value: PurchaseStatus;
-  label: string;
-  theme: "success" | "warning" | "danger";
-  icon: typeof CheckCircleFilledIcon;
-}[] = [
-  { value: "purchased", label: "已购买", theme: "success", icon: CheckCircleFilledIcon },
-  { value: "pending", label: "未购买", theme: "warning", icon: TimeFilledIcon },
-  { value: "abandoned", label: "放弃购买", theme: "danger", icon: CloseCircleFilledIcon },
-];
-
-const columns: PrimaryTableCol<TableRowData>[] = [
-  { colKey: "index", title: "序号", width: 60, align: "center" },
-  { colKey: "boxName", title: "箱子", width: 140, minWidth: 120, ellipsis: true },
-  { colKey: "weaponName", title: "枪", width: 160, minWidth: 130, ellipsis: true },
-  { colKey: "wearValue", title: "磨损", width: 80, align: "center" },
-  { colKey: "attribute", title: "属性", width: 70, align: "center" },
-  { colKey: "steamPrice", title: "Steam价", width: 90, align: "right" },
-  { colKey: "actualPrice", title: "实际价", width: 90, align: "right" },
-  { colKey: "platformPrice", title: "平台价", width: 90, align: "right" },
-  { colKey: "discount", title: "折扣", width: 60, align: "center" },
-  { colKey: "estimatedProfit", title: "预估利润", width: 100, align: "right" },
-  { colKey: "purchaseStatus", title: "状态", width: 90, align: "center" },
-  { colKey: "profitRate", title: "利润率", width: 80, align: "center" },
-  { colKey: "actualSellPrice", title: "出售价", width: 90, align: "right" },
-  { colKey: "actualProfit", title: "实际利润", width: 90, align: "right" },
-  { colKey: "operation", title: "操作", width: 120, fixed: "right", align: "center" },
-];
-
-const summary = computed<UnboxSummary>(() => {
-  const totalSteamCost = tableData.value.reduce((sum, row) => sum + row.steamPrice, 0);
-  const totalEstimatedProfit = tableData.value.reduce((sum, row) => sum + row.estimatedProfit, 0);
-  return {
-    totalSteamCost: formatDecimal(totalSteamCost),
-    totalEstimatedProfit: formatDecimal(totalEstimatedProfit),
-  };
-});
-
-const previewActualPrice = computed(() =>
-  calculateActualPrice(formData.steamPrice, formData.discount)
-);
-const previewEstimatedProfit = computed(() =>
-  calculateEstimatedProfit(formData.steamPrice, formData.platformPrice)
-);
-const previewProfitRate = computed(() =>
-  calculateProfitRate(previewEstimatedProfit.value, previewActualPrice.value)
-);
-const previewActualProfit = computed(() =>
-  calculateActualProfit(formData.actualSellPrice, previewActualPrice.value)
-);
-
-const clampDiscount = (value: number): number => {
-  const safeValue = Number.isFinite(value) ? value : DEFAULT_DISCOUNT;
-  return formatDecimal(Math.min(Math.max(safeValue, 0), 1));
-};
-
-const persistRecords = (records: UnboxRecord[]) => {
-  if (typeof window === "undefined") return;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
-};
-
-const hydrateRecord = (record: UnboxRecord): UnboxRecord => {
-  const actualPrice = calculateActualPrice(record.steamPrice, record.discount);
-  const estimatedProfit = calculateEstimatedProfit(record.steamPrice, record.platformPrice);
-  const profitRate = calculateProfitRate(estimatedProfit, actualPrice);
-  const actualProfit = calculateActualProfit(record.actualSellPrice, actualPrice);
-  return {
-    ...record,
-    actualPrice,
-    estimatedProfit,
-    profitRate,
-    actualProfit,
-  };
-};
-
-const loadRecords = () => {
-  if (typeof window === "undefined") return;
-  const cache = localStorage.getItem(STORAGE_KEY);
-  if (cache) {
-    try {
-      const parsed = JSON.parse(cache) as UnboxRecord[];
-      tableData.value = parsed.map(hydrateRecord);
-    } catch (error) {
-      console.error("加载开箱记录失败", error);
-      tableData.value = [];
-    }
-  }
-  const discountCache = localStorage.getItem(DISCOUNT_KEY);
-  if (discountCache) {
-    globalDiscount.value = clampDiscount(Number(discountCache));
-  }
-};
-
-const resetForm = () => {
-  formData.boxName = "";
-  formData.purchasePrice = 0;
-  formData.screenshot = "";
-  formData.weaponName = "";
-  formData.wearValue = 0;
-  formData.attribute = "普通";
-  formData.steamPrice = 0;
-  formData.platformPrice = 0;
-  formData.discount = globalDiscount.value;
-  formData.purchaseStatus = "pending";
-  formData.actualSellPrice = 0;
-  uploadFiles.value = [];
-};
-
-const composeRecord = (payload: UnboxRecordForm, meta?: { id?: string; createdAt?: string }) => {
-  const now = new Date().toISOString();
-  const actualPrice = calculateActualPrice(payload.steamPrice, payload.discount);
-  const estimatedProfit = calculateEstimatedProfit(payload.steamPrice, payload.platformPrice);
-  const profitRate = calculateProfitRate(estimatedProfit, actualPrice);
-  const actualProfit = calculateActualProfit(payload.actualSellPrice, actualPrice);
-  const record: UnboxRecord = {
-    id: meta?.id ?? crypto.randomUUID(),
-    ...payload,
-    actualPrice,
-    estimatedProfit,
-    profitRate,
-    actualProfit,
-    createdAt: meta?.createdAt ?? now,
-    updatedAt: now,
-  };
-  return record;
-};
-
-const handleAdd = () => {
-  editingId.value = null;
-  resetForm();
-  dialogVisible.value = true;
-};
-
-const handleEdit = (row: UnboxRecord) => {
-  editingId.value = row.id;
-  formData.boxName = row.boxName;
-  formData.purchasePrice = row.purchasePrice;
-  formData.screenshot = row.screenshot;
-  formData.weaponName = row.weaponName;
-  formData.wearValue = row.wearValue;
-  formData.attribute = row.attribute;
-  formData.steamPrice = row.steamPrice;
-  formData.platformPrice = row.platformPrice;
-  formData.discount = row.discount;
-  formData.purchaseStatus = row.purchaseStatus;
-  formData.actualSellPrice = row.actualSellPrice;
-  uploadFiles.value = row.screenshot
-    ? [
-        {
-          name: "screenshot",
-          url: row.screenshot,
-          status: "success",
-        },
-      ]
-    : [];
-  dialogVisible.value = true;
-};
-
-const validateForm = (): boolean => {
-  if (!formData.boxName.trim()) {
-    MessagePlugin.warning("请填写箱子名称");
-    return false;
-  }
-  if (!formData.weaponName.trim()) {
-    MessagePlugin.warning("请填写枪械名称");
-    return false;
-  }
-  if (formData.steamPrice <= 0) {
-    MessagePlugin.warning("Steam 购入价需大于 0");
-    return false;
-  }
-  if (formData.platformPrice < 0) {
-    MessagePlugin.warning("平台价不能小于 0");
-    return false;
-  }
-  if (formData.discount <= 0 || formData.discount > 1.2) {
-    MessagePlugin.warning("请设置合理的折扣（0-1.2）");
-    return false;
-  }
-  return true;
-};
-
-const handleSubmit = () => {
-  if (!validateForm()) return;
-  const payload = { ...formData };
-  if (editingId.value) {
-    const index = tableData.value.findIndex((item) => item.id === editingId.value);
-    if (index === -1) {
-      MessagePlugin.error("记录不存在或已删除");
-      dialogVisible.value = false;
-      return;
-    }
-    const updated = composeRecord(payload, {
-      id: tableData.value[index].id,
-      createdAt: tableData.value[index].createdAt,
-    });
-    tableData.value.splice(index, 1, updated);
-    persistRecords(tableData.value);
-    MessagePlugin.success("记录已更新");
-  } else {
-    const record = composeRecord(payload);
-    tableData.value.unshift(record);
-    persistRecords(tableData.value);
-    MessagePlugin.success("记录已创建");
-  }
-  dialogVisible.value = false;
-};
-
-const handleDelete = (id: string) => {
-  tableData.value = tableData.value.filter((item) => item.id !== id);
-  persistRecords(tableData.value);
-  MessagePlugin.success("记录已删除");
-};
-
-const handleApplyGlobalDiscount = () => {
-  if (!tableData.value.length) {
-    MessagePlugin.info("暂无记录可更新");
-    return;
-  }
-  tableData.value = tableData.value.map((record) =>
-    composeRecord(
-      {
-        boxName: record.boxName,
-        purchasePrice: record.purchasePrice,
-        screenshot: record.screenshot,
-        weaponName: record.weaponName,
-        wearValue: record.wearValue,
-        attribute: record.attribute,
-        steamPrice: record.steamPrice,
-        platformPrice: record.platformPrice,
-        discount: globalDiscount.value,
-        purchaseStatus: record.purchaseStatus,
-        actualSellPrice: record.actualSellPrice,
-      },
-      { id: record.id, createdAt: record.createdAt }
-    )
-  );
-  persistRecords(tableData.value);
-  MessagePlugin.success("已批量更新折扣");
-};
-
-const handleDiscountInput = (value: InputNumberValue, _context: ChangeContext) => {
-  const numericValue = typeof value === "number" ? value : Number(value);
-  const safeValue = Number.isNaN(numericValue) ? 0 : numericValue;
-  formData.discount = clampDiscount(safeValue ?? 0);
-};
-
-
-const readFileAsDataUrl = (file: File): Promise<string> =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(String(reader.result ?? ""));
-    reader.onerror = () => reject(reader.error);
-    reader.readAsDataURL(file);
-  });
-
-const syncUploadPreview = async (files: UploadFile[]) => {
-  if (!files.length) {
-    formData.screenshot = "";
-    return;
-  }
-  const target = files[0];
-  if (target.url) {
-    formData.screenshot = target.url;
-    return;
-  }
-  if (target.raw) {
-    const dataUrl = await readFileAsDataUrl(target.raw);
-    target.url = dataUrl;
-    formData.screenshot = dataUrl;
-  }
-  // TODO: 后续可接入 OCR 自动识别。
-};
-
-const handleUploadChange = async (files: UploadFile[], _context: UploadChangeContext) => {
-  const normalized = files.slice(0, 1);
-  uploadFiles.value = normalized;
-  await syncUploadPreview(normalized);
-};
-
-const handleUploadRemove = () => {
-  uploadFiles.value = [];
-  formData.screenshot = "";
-};
-
-const handlePasteUpload = async (event: ClipboardEvent) => {
-  const items = event.clipboardData?.items ?? [];
-  const imageItem = Array.from(items).find((item) => item.type.startsWith("image/"));
-  if (!imageItem) return;
-  const file = imageItem.getAsFile();
-  if (!file) return;
-  event.preventDefault();
-  const uploadFile: UploadFile = {
-    name: file.name || "pasted-image",
-    type: file.type,
-    size: file.size,
-    raw: file,
-    status: "success",
-  };
-  uploadFiles.value = [uploadFile];
-  await syncUploadPreview(uploadFiles.value);
-};
-
-const formatCurrency = (value: number): string => `¥${value.toFixed(2)}`;
-const formatPercent = (value: number): string => `${value.toFixed(2)}%`;
-
-const getStatusConfig = (value: PurchaseStatus) =>
-  purchaseStatusOptions.find((item) => item.value === value) ?? purchaseStatusOptions[1];
-
-watch(
-  globalDiscount,
-  (value) => {
-    const normalized = clampDiscount(value);
-    if (normalized !== value) {
-      globalDiscount.value = normalized;
-      return;
-    }
-    if (typeof window !== "undefined") {
-      localStorage.setItem(DISCOUNT_KEY, normalized.toString());
-    }
-  },
-  { immediate: false }
-);
-
-onMounted(() => {
-  loadRecords();
-});
-</script>
-
 <template>
-  <div class="p-6">
-    <t-card :bordered="false" class="embedded-card shadow-sm">
-      <template #title>
-        <div class="flex items-center">
-          <GiftIcon class="mr-2 text-blue-600" />
-          <span class="text-lg font-bold text-gray-800">开箱记录</span>
-        </div>
-      </template>
-      <template #actions>
-        <div class="summary-actions">
-          <div class="summary-item">
-            <span class="summary-label">Steam 购入总价</span>
-            <span class="summary-value text-blue-600">
-              {{ formatCurrency(summary.totalSteamCost) }}
-            </span>
-          </div>
-          <div class="summary-item">
-            <span class="summary-label">预估总利润</span>
-            <span
-              class="summary-value"
-              :class="summary.totalEstimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'"
-            >
-              {{ formatCurrency(summary.totalEstimatedProfit) }}
-            </span>
-          </div>
-        </div>
-      </template>
-
-      <!-- 筛选栏 -->
-      <div class="border-b border-gray-100 p-6">
-        <t-row :gutter="16" align="middle" class="toolbar-row">
-          <t-col :span="3">
-            <t-button theme="primary" size="small" @click="handleAdd">
-              <template #icon><AddIcon /></template>
-              新增记录
-            </t-button>
-          </t-col>
-          <t-col :span="9">
-            <div class="toolbar-right">
-              <span class="text-sm text-gray-600">全局折扣</span>
-              <t-input-number
-                v-model="globalDiscount"
-                :min="0"
-                :max="1.2"
-                :step="0.01"
-                :decimal-places="2"
-                :show-controls="false"
-                size="small"
-                class="discount-input"
-              />
-              <t-button
-                variant="outline"
-                theme="default"
-                size="small"
-                :disabled="!tableData.length"
-                @click="handleApplyGlobalDiscount"
+  <PageFrame
+    :is-mobile="isMobile"
+    desktop-body-class="overflow-y-auto"
+    desktop-content-class="px-4 pt-3 pb-4"
+    mobile-content-class="px-3 pt-3 pb-3"
+  >
+    <div ref="editorHostRef" class="relative flex min-h-full flex-col gap-4 bg-slate-50">
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+          <div class="min-w-0 space-y-3">
+            <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+              <span
+                class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-medium text-sky-700"
               >
-                应用至全部
-              </t-button>
+                开箱记录原型
+              </span>
+              <span>主表看批次，弹窗编辑明细</span>
             </div>
-          </t-col>
-        </t-row>
-      </div>
-
-      <t-table
-        :data="tableData"
-        :columns="columns"
-        :loading="loading"
-        row-key="id"
-        hover
-        size="small"
-        class="embedded-table w-full"
-        :header-affixed-top="{ offsetTop: 0, container: '.t-layout__content' }"
-      >
-        <template #index="{ rowIndex }">
-          {{ rowIndex + 1 }}
-        </template>
-
-        <template #purchasePrice="{ row }">
-          {{ formatCurrency(row.purchasePrice) }}
-        </template>
-
-        <template #steamPrice="{ row }">
-          {{ formatCurrency(row.steamPrice) }}
-        </template>
-
-        <template #actualPrice="{ row }">
-          {{ formatCurrency(row.actualPrice) }}
-        </template>
-
-        <template #platformPrice="{ row }">
-          {{ formatCurrency(row.platformPrice) }}
-        </template>
-
-        <template #discount="{ row }">
-          {{ row.discount.toFixed(2) }}
-        </template>
-
-        <template #estimatedProfit="{ row }">
-          <span :class="row.estimatedProfit >= 0 ? 'text-positive' : 'text-negative'">
-            {{ formatCurrency(row.estimatedProfit) }}
-          </span>
-        </template>
-
-        <template #profitRate="{ row }">
-          <span :class="row.profitRate >= 0 ? 'text-positive' : 'text-negative'">
-            {{ formatPercent(row.profitRate) }}
-          </span>
-        </template>
-
-        <template #actualSellPrice="{ row }">
-          {{ row.actualSellPrice > 0 ? formatCurrency(row.actualSellPrice) : "-" }}
-        </template>
-
-        <template #actualProfit="{ row }">
-          <span :class="row.actualProfit >= 0 ? 'text-positive' : 'text-negative'">
-            {{ formatCurrency(row.actualProfit) }}
-          </span>
-        </template>
-
-        <template #wearValue="{ row }">
-          {{ row.wearValue.toFixed(4) }}
-        </template>
-
-        <template #screenshot="{ row }">
-          <div class="screenshot-cell">
-            <t-image
-              v-if="row.screenshot"
-              :src="row.screenshot"
-              :alt="`${row.boxName} 截图`"
-              fit="cover"
-              shape="round"
-              :style="{ width: '40px', height: '40px' }"
-            />
-            <div v-else class="screenshot-placeholder">
-              <ImageIcon />
+            <div class="space-y-1">
+              <h1 class="text-xl font-semibold tracking-tight text-slate-900">开箱记录</h1>
+              <p class="max-w-3xl text-sm leading-6 text-slate-500">
+                以批次列表作为主表。点击新增或编辑后，在弹窗里维护整批开箱明细、预估收益和实际收益。
+              </p>
             </div>
           </div>
-        </template>
 
-        <template #attribute="{ row }">
-          <t-tag theme="primary" variant="light-outline">{{ row.attribute }}</t-tag>
-        </template>
-
-        <template #purchaseStatus="{ row }">
-          <t-tag :theme="getStatusConfig(row.purchaseStatus).theme" variant="light">
-            {{ getStatusConfig(row.purchaseStatus).label }}
-          </t-tag>
-        </template>
-
-        <template #operation="{ row }">
-          <div class="operation-buttons">
-            <t-button size="small" variant="text" class="operation-btn" @click="handleEdit(row)">
-              <template #icon><EditIcon /></template>
-              编辑
+          <div class="flex flex-wrap items-center gap-2">
+            <t-button theme="primary" class="touch-manipulation" @click="openCreateEditor">
+              新增批次
             </t-button>
-            <t-popconfirm content="确认删除该记录？" @confirm="handleDelete(row.id)">
-              <t-button size="small" variant="text" theme="danger" class="operation-btn">
-                <template #icon><DeleteIcon /></template>
-                删除
-              </t-button>
-            </t-popconfirm>
           </div>
-        </template>
-      </t-table>
+        </div>
+      </section>
 
-      <div v-if="!tableData.length" class="empty-state">
-        <t-empty description="暂无开箱记录">
-          <template #action>
-            <t-button theme="primary" variant="dashed" class="action-button" @click="handleAdd">
-              新增记录
-            </t-button>
-          </template>
-        </t-empty>
-      </div>
-    </t-card>
+      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+        <article
+          v-for="card in pageSummaryCards"
+          :key="card.label"
+          class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4"
+        >
+          <div class="text-sm font-medium text-slate-500">{{ card.label }}</div>
+          <div class="mt-3 font-numeric text-2xl font-semibold" :class="card.valueClass">
+            {{ card.value }}
+          </div>
+          <div class="mt-2 text-xs leading-5 text-slate-400">{{ card.hint }}</div>
+        </article>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <h2 class="text-base font-semibold text-slate-900">历史批次</h2>
+            <p class="mt-1 text-sm text-slate-500">
+              主页面只看批次汇总。新增批次或编辑批次时，再进入弹窗维护明细。
+            </p>
+          </div>
+          <t-tag theme="primary" variant="light-outline">共 {{ batches.length }} 批</t-tag>
+        </div>
+
+        <div class="mt-4 overflow-x-auto rounded-2xl border border-slate-200">
+          <table class="min-w-full border-collapse text-sm">
+            <thead class="bg-slate-50 text-left text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-4 py-3 font-medium">日期</th>
+                <th class="px-4 py-3 font-medium">批次名称</th>
+                <th class="px-4 py-3 font-medium">开箱数</th>
+                <th class="px-4 py-3 font-medium">已购买</th>
+                <th class="px-4 py-3 font-medium">总预估利润</th>
+                <th class="px-4 py-3 font-medium">总实际利润</th>
+                <th class="px-4 py-3 font-medium">状态</th>
+                <th class="px-4 py-3 font-medium">操作</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="item in batchSummaryRows"
+                :key="item.batch.id"
+                class="border-t border-slate-100"
+              >
+                <td class="px-4 py-3 text-slate-600">{{ formatDateText(item.batch.date) }}</td>
+                <td class="px-4 py-3">
+                  <div class="font-medium text-slate-900">{{ item.batch.name }}</div>
+                  <div class="mt-1 text-xs text-slate-400">{{ item.batch.boxType || '未设置箱子类型' }}</div>
+                </td>
+                <td class="px-4 py-3 font-numeric text-slate-700">
+                  {{ item.summary.totalCount }}
+                </td>
+                <td class="px-4 py-3 font-numeric text-slate-700">
+                  {{ item.summary.purchasedCount }}
+                </td>
+                <td
+                  class="px-4 py-3 font-numeric"
+                  :class="profitClass(item.summary.totalEstimatedProfit)"
+                >
+                  {{ formatSignedCurrency(item.summary.totalEstimatedProfit) }}
+                </td>
+                <td
+                  class="px-4 py-3 font-numeric"
+                  :class="profitClass(item.summary.totalActualProfit)"
+                >
+                  {{ formatSignedCurrency(item.summary.totalActualProfit) }}
+                </td>
+                <td class="px-4 py-3">
+                  <t-tag
+                    :theme="historyStatusTheme(item.status)"
+                    variant="light-outline"
+                  >
+                    {{ item.status }}
+                  </t-tag>
+                </td>
+                <td class="px-4 py-3">
+                  <div class="flex flex-wrap gap-2">
+                    <t-button size="small" variant="outline" @click="openEditEditor(item.batch.id)">
+                      编辑
+                    </t-button>
+                    <t-popconfirm
+                      content="确认删除该批次吗？"
+                      theme="danger"
+                      :popup-props="{ attach: 'body' }"
+                      @confirm="removeBatch(item.batch.id)"
+                    >
+                      <t-button
+                        size="small"
+                        theme="danger"
+                        variant="outline"
+                      >
+                        删除
+                      </t-button>
+                    </t-popconfirm>
+                  </div>
+                </td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
 
     <t-dialog
-      v-model:visible="dialogVisible"
-      :header="editingId ? '编辑记录' : '新增记录'"
-      width="720px"
-      :footer="true"
-      :close-on-overlay-click="true"
-      :close-on-esc-keydown="false"
-      @confirm="handleSubmit"
+      v-model:visible="editorVisible"
+      :close-btn="true"
+      :close-on-overlay-click="false"
+      :confirm-btn="null"
+      :cancel-btn="null"
+      :destroy-on-close="true"
+      :attach="editorDialogAttach"
+      :show-in-attached-element="!isMobile && !isEditorFullscreen"
+      :footer="false"
+      :header="editingBatchId ? (draftBatch.name || '编辑开箱批次') : '新增开箱批次'"
+      :mode="isMobile || isEditorFullscreen ? 'full-screen' : 'modal'"
+      :show-overlay="isEditorFullscreen || isMobile"
+      :dialog-style="editorDialogStyle"
+      :dialog-class-name="editorDialogClassName"
+      placement="center"
     >
-      <t-form :data="formData" label-width="96px" layout="vertical" class="record-form">
-        <t-row :gutter="24">
-          <t-col :span="6">
-            <t-form-item label="箱子名称" name="boxName" required>
-              <t-input
-                v-model="formData.boxName"
-                placeholder="如：幻彩 2 号武器箱"
-                maxlength="50"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="箱子购入价" name="purchasePrice">
-              <t-input-number
-                v-model="formData.purchasePrice"
-                :min="0"
-                :decimal-places="2"
-                :step="0.01"
-                :show-controls="false"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="截图" name="screenshot">
-              <div class="upload-wrapper" @paste="handlePasteUpload">
-                <t-upload
-                  v-model="uploadFiles"
-                  theme="image"
-                  :max="1"
-                  accept="image/*"
-                  :auto-upload="false"
-                  :draggable="true"
-                  :show-image-file-name="false"
-                  :show-upload-progress="false"
-                  :show-thumbnail="true"
-                  :multiple="false"
-                  @change="handleUploadChange"
-                  @remove="handleUploadRemove"
-                >
-                  <template #trigger>
-                    <div class="upload-trigger">
-                      <div class="upload-trigger__icon">
-                        <ImageIcon />
-                      </div>
-                      <div class="upload-trigger__text">
-                        <div class="upload-title">点击/拖拽/粘贴上传</div>
-                        <div class="upload-subtitle">支持 JPG/PNG/GIF 不超过 1 张</div>
-                      </div>
-                    </div>
-                  </template>
-                </t-upload>
-                <div class="upload-tip">OCR 识别后将自动填入信息</div>
-              </div>
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="枪械名称" name="weaponName" required>
-              <t-input
-                v-model="formData.weaponName"
-                placeholder="请输入枪械名称"
-                maxlength="60"
-              />
-            </t-form-item>
-          </t-col>
-        </t-row>
-        <t-row :gutter="24">
-          <t-col :span="6">
-            <t-form-item label="磨损" name="wearValue">
-              <t-input-number
-                v-model="formData.wearValue"
-                :min="0"
-                :max="1"
-                :decimal-places="4"
-                :step="0.0001"
-                :show-controls="false"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="属性" name="attribute">
-              <t-select v-model="formData.attribute" :options="attributeOptions" />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="Steam购入价" name="steamPrice" required>
-              <t-input-number
-                v-model="formData.steamPrice"
-                :min="0"
-                :decimal-places="2"
-                :step="0.01"
-                :show-controls="false"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="平台售价" name="platformPrice">
-              <t-input-number
-                v-model="formData.platformPrice"
-                :min="0"
-                :decimal-places="2"
-                :step="0.01"
-                :show-controls="false"
-              />
-            </t-form-item>
-          </t-col>
-        </t-row>
-        <t-row :gutter="24">
-          <t-col :span="6">
-            <t-form-item label="折扣" name="discount" required>
-              <t-input-number
-                :value="formData.discount"
-                :min="0"
-                :max="1.2"
-                :step="0.01"
-                :decimal-places="2"
-                :show-controls="false"
-                @change="handleDiscountInput"
-              />
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="购买状态" name="purchaseStatus">
-              <t-select v-model="formData.purchaseStatus">
-                <t-option
-                  v-for="item in purchaseStatusOptions"
-                  :key="item.value"
-                  :value="item.value"
-                  :label="item.label"
-                >
-                  <template #label>
-                    <span class="status-option">
-                      <component :is="item.icon" />
-                      {{ item.label }}
-                    </span>
-                  </template>
-                </t-option>
-              </t-select>
-            </t-form-item>
-          </t-col>
-          <t-col :span="6">
-            <t-form-item label="实际出售价" name="actualSellPrice">
-              <t-input-number
-                v-model="formData.actualSellPrice"
-                :min="0"
-                :decimal-places="2"
-                :step="0.01"
-                :show-controls="false"
-              />
-            </t-form-item>
-          </t-col>
-        </t-row>
-
-        <div class="preview-panel">
-          <div class="preview-item">
-            <span class="preview-label">实际购入价</span>
-            <strong>{{ formatCurrency(previewActualPrice) }}</strong>
-          </div>
-          <div class="preview-item">
-            <span class="preview-label">预估利润</span>
-            <strong :class="previewEstimatedProfit >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatCurrency(previewEstimatedProfit) }}
-            </strong>
-          </div>
-          <div class="preview-item">
-            <span class="preview-label">利润率</span>
-            <strong :class="previewProfitRate >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatPercent(previewProfitRate) }}
-            </strong>
-          </div>
-          <div class="preview-item">
-            <span class="preview-label">实际利润</span>
-            <strong :class="previewActualProfit >= 0 ? 'text-green-600' : 'text-red-600'">
-              {{ formatCurrency(previewActualProfit) }}
-            </strong>
+      <div class="flex min-h-0 flex-col overflow-hidden bg-slate-50" :class="editorBodyClass">
+        <div class="border-b border-slate-200 bg-white px-2.5 py-2.5 sm:px-3 sm:py-2.5">
+          <div class="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
+              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-600">
+                {{ editingBatchId ? '编辑批次' : '新增批次' }}
+              </span>
+              <span class="rounded-full bg-slate-100 px-2.5 py-1 text-slate-500">
+                当前 {{ draftSummary.totalCount }} 条明细
+              </span>
+            </div>
+            <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5">
+              <t-button size="small" variant="outline" @click="toggleEditorFullscreen">
+                {{ isEditorFullscreen ? '缩小' : '全屏' }}
+              </t-button>
+              <t-button size="small" variant="outline" @click="editorVisible = false">取消</t-button>
+              <t-button size="small" theme="primary" @click="saveDraftBatch">保存批次</t-button>
+            </div>
           </div>
         </div>
-      </t-form>
+
+        <div class="min-h-0 flex-1 overflow-y-auto px-2.5 py-2.5 sm:px-3 sm:py-2.5">
+          <div class="flex min-h-0 flex-col space-y-2.5">
+            <section class="rounded-[4px] border border-slate-200 bg-white px-2.5 py-2.5 shadow-sm sm:px-3">
+              <div class="flex flex-col gap-2.5">
+                <div class="flex flex-col gap-2.5 lg:flex-row lg:items-end lg:justify-between">
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">批次信息</div>
+                    <h3 class="mt-0.5 text-[13px] font-semibold text-slate-900 sm:text-sm">先录单据头，再进入明细录入</h3>
+                    <p class="mt-0.5 text-[11px] leading-4.5 text-slate-500 sm:text-xs">
+                      头信息尽量压在同一行，录完即可继续处理明细。
+                    </p>
+                  </div>
+                  <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">头信息</span>
+                    <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">
+                      默认值会带入新明细
+                    </span>
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 gap-2.5 md:grid-cols-2 xl:grid-cols-10 xl:gap-2.5">
+                  <label class="space-y-1.5 xl:col-span-2">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">批次名称</span>
+                    <t-input
+                      v-model="draftBatch.name"
+                      class="prototype-input"
+                      clearable
+                      maxlength="40"
+                      placeholder="例如：2026-04-06 晚场开箱"
+                      size="small"
+                    />
+                  </label>
+
+                  <label class="space-y-1.5 sm:max-w-xs md:max-w-none xl:col-span-2">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">开箱日期</span>
+                    <t-date-picker
+                      v-model="draftBatch.date"
+                      allow-input
+                      clearable
+                      class="prototype-date"
+                      format="YYYY-MM-DD"
+                      value-type="YYYY-MM-DD"
+                      placeholder="选择日期"
+                      size="small"
+                    />
+                  </label>
+
+                  <label class="space-y-1.5 xl:col-span-2">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">箱子类型</span>
+                    <t-input
+                      v-model="draftBatch.boxType"
+                      class="prototype-input"
+                      clearable
+                      maxlength="30"
+                      placeholder="例如：创世终端机"
+                      size="small"
+                    />
+                  </label>
+
+                  <label class="space-y-1.5 sm:max-w-xs md:max-w-none xl:col-span-1">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">默认箱子成本</span>
+                    <t-input-number
+                      v-model="draftBatch.defaultBoxCost"
+                      :decimal-places="2"
+                      :min="0"
+                      :step="0.1"
+                      align="left"
+                      class="prototype-number"
+                      placeholder="0.00"
+                      size="small"
+                      suffix="¥"
+                      theme="normal"
+                    />
+                  </label>
+
+                  <label class="space-y-1.5 sm:max-w-xs md:max-w-none xl:col-span-1">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">默认折扣</span>
+                    <t-input-number
+                      v-model="draftBatch.defaultDiscount"
+                      :decimal-places="2"
+                      :max="1"
+                      :min="0"
+                      :step="0.01"
+                      align="left"
+                      class="prototype-number"
+                      placeholder="0.72"
+                      size="small"
+                      theme="normal"
+                    />
+                  </label>
+
+                  <label class="space-y-1.5 xl:col-span-2">
+                    <span class="text-[11px] font-medium text-slate-700 sm:text-xs">备注</span>
+                    <t-input
+                      v-model="draftBatch.note"
+                      class="prototype-input"
+                      maxlength="120"
+                      placeholder="记录这一批的来源、玩法、特别说明"
+                      size="small"
+                    />
+                  </label>
+                </div>
+              </div>
+            </section>
+
+            <section class="flex min-h-0 flex-1 flex-col rounded-[4px] border border-slate-200 bg-white p-2.5 shadow-sm">
+              <div class="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
+                <div class="min-w-0">
+                  <div class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">批次明细</div>
+                  <h3 class="mt-0.5 text-[13px] font-semibold text-slate-900 sm:text-sm">录入动作、辅助动作和结果判断放在同一工作带</h3>
+                  <p class="mt-0.5 text-[11px] leading-4.5 text-slate-500 sm:text-xs">
+                    未购买时直接记箱损；已购买时按游戏售价和折扣计算实际花费，再结合 C5 现价和卖出到账算利润。
+                  </p>
+                </div>
+                <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                  <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">桌面端表格</span>
+                  <span class="rounded-full border border-slate-200 bg-slate-50 px-3 py-1">移动端卡片</span>
+                </div>
+              </div>
+
+              <div class="mt-2.5 rounded-xl border border-slate-200 bg-slate-50/80 p-2 sm:p-2.5">
+                <div class="grid gap-2 xl:grid-cols-[minmax(0,1.55fr)_minmax(13rem,0.85fr)]">
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">录入动作</div>
+                    <div class="mt-1.5 flex flex-wrap items-center gap-1.5">
+                      <t-button size="small" variant="outline" class="touch-manipulation" @click="handleAddRow()">
+                        新增一行
+                      </t-button>
+                      <t-button size="small" variant="outline" class="touch-manipulation" @click="handleBulkAdd(10)">
+                        +10
+                      </t-button>
+                      <t-button size="small" variant="outline" class="touch-manipulation" @click="handleBulkAdd(50)">
+                        +50
+                      </t-button>
+                      <div class="flex flex-wrap items-center gap-1.5 rounded-lg border border-slate-200 bg-white px-2 py-1.5">
+                        <label class="flex items-center gap-2">
+                          <span class="text-[11px] text-slate-500 sm:text-sm">自定义新增</span>
+                          <t-input-number
+                            v-model="bulkAddCount"
+                            :decimal-places="0"
+                            :min="1"
+                            :step="1"
+                            align="center"
+                            class="prototype-number w-20"
+                            placeholder="数量"
+                            theme="normal"
+                          />
+                        </label>
+                        <t-button size="small" theme="primary" @click="handleBulkAdd()">添加</t-button>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="min-w-0">
+                    <div class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">辅助动作</div>
+                    <div class="mt-1.5 flex flex-wrap items-center gap-1.5 xl:justify-end">
+                      <t-button size="small" variant="outline" @click="applyDefaultsToEmptyRows">
+                        应用默认值
+                      </t-button>
+                      <t-button size="small" variant="outline" @click="mockQueryC5Price">查询 C5 价格</t-button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="mt-2 grid gap-1.5 sm:grid-cols-2 xl:grid-cols-4">
+                  <article
+                    v-for="card in draftSummaryCards"
+                    :key="card.label"
+                    class="rounded-lg bg-white/90 px-2.5 py-2 ring-1 ring-inset ring-slate-200/80"
+                  >
+                    <div class="text-[11px] font-medium text-slate-500">{{ card.label }}</div>
+                    <div class="mt-1 font-numeric text-[13px] font-semibold sm:text-[15px]" :class="card.valueClass">
+                      {{ card.value }}
+                    </div>
+                    <div class="mt-1 text-[11px] leading-5 text-slate-400">{{ card.hint }}</div>
+                  </article>
+                </div>
+              </div>
+
+              <div
+                v-if="!isMobile"
+                class="mt-3 min-h-0 flex-1 overflow-hidden rounded-xl border border-slate-200"
+              >
+                <div class="h-full overflow-auto scrollbar-stable">
+                  <table class="min-w-[1260px] table-fixed border-collapse bg-white text-xs">
+                    <colgroup>
+                      <col style="width: 3rem" />
+                      <col style="width: 6rem" />
+                      <col style="width: 6.5rem" />
+                      <col style="width: 12rem" />
+                      <col style="width: 6rem" />
+                      <col style="width: 5rem" />
+                      <col style="width: 6rem" />
+                      <col style="width: 7rem" />
+                      <col style="width: 6rem" />
+                      <col style="width: 7rem" />
+                      <col style="width: 10rem" />
+                      <col style="width: 5rem" />
+                    </colgroup>
+                    <thead class="bg-slate-50 text-[11px] uppercase tracking-[0.12em] text-slate-500">
+                      <tr>
+                        <th class="w-12 px-2 py-2 text-left font-medium whitespace-nowrap">#</th>
+                        <th class="w-24 px-2 py-2 text-left font-medium whitespace-nowrap">箱子成本</th>
+                        <th class="w-[6.5rem] px-2 py-2 text-left font-medium whitespace-nowrap">购买状态</th>
+                        <th class="w-48 px-2 py-2 text-left font-medium whitespace-nowrap">枪名称</th>
+                        <th class="w-24 px-2 py-2 text-left font-medium whitespace-nowrap">游戏售价</th>
+                        <th class="w-20 px-2 py-2 text-left font-medium whitespace-nowrap">折扣</th>
+                        <th class="w-24 px-2 py-2 text-left font-medium whitespace-nowrap">C5 现价</th>
+                        <th class="w-28 px-2 py-2 text-left font-medium whitespace-nowrap text-slate-400">预估结果</th>
+                        <th class="w-24 px-2 py-2 text-left font-medium whitespace-nowrap">卖出价</th>
+                        <th class="w-28 px-2 py-2 text-left font-medium whitespace-nowrap text-slate-400">实际结果</th>
+                        <th class="w-40 px-2 py-2 text-left font-medium whitespace-nowrap">备注</th>
+                        <th class="w-20 px-2 py-2 text-left font-medium whitespace-nowrap">操作</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr
+                        v-for="({ row, metrics }, index) in draftRowEntries"
+                        :key="row.id"
+                        class="border-t border-slate-100 align-top transition-colors hover:bg-slate-50/40"
+                      >
+                        <td class="px-2 py-2">
+                          <div class="font-numeric text-[11px] font-semibold leading-4 text-slate-600">{{ index + 1 }}</div>
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input-number
+                            v-model="row.boxCost"
+                            :decimal-places="2"
+                            :min="0"
+                            :step="0.1"
+                            align="right"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            size="small"
+                            theme="normal"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <div class="grid grid-cols-2 gap-1">
+                            <button
+                              type="button"
+                              class="inline-flex h-7 items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1"
+                              :class="row.purchased ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                              @click="setPurchaseState(row, true)"
+                            >
+                              买了
+                            </button>
+                            <button
+                              type="button"
+                              class="inline-flex h-7 items-center justify-center rounded-md border px-1.5 text-[11px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1"
+                              :class="!row.purchased ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300'"
+                              @click="setPurchaseState(row, false)"
+                            >
+                              没买
+                            </button>
+                          </div>
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input
+                            v-model="row.weaponName"
+                            :disabled="!row.purchased"
+                            class="prototype-input"
+                            clearable
+                            maxlength="40"
+                            placeholder="例如：AK-47 | 血腥运动"
+                            size="small"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input-number
+                            v-model="row.inGamePrice"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="right"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            size="small"
+                            theme="normal"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input-number
+                            v-model="row.discount"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :max="1"
+                            :min="0"
+                            :step="0.01"
+                            align="right"
+                            class="prototype-number"
+                            placeholder="0.72"
+                            size="small"
+                            theme="normal"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input-number
+                            v-model="row.c5Price"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="right"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            size="small"
+                            theme="normal"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <div class="space-y-0.5 leading-4">
+                            <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                              <span>花费</span>
+                              <span class="font-numeric text-[11px] text-slate-500">
+                                {{ formatCurrency(metrics.actualCost) }}
+                              </span>
+                            </div>
+                            <div
+                              class="font-numeric text-sm font-semibold leading-5"
+                              :class="profitClass(metrics.estimatedProfit)"
+                            >
+                              {{ formatSignedCurrency(metrics.estimatedProfit) }}
+                            </div>
+                            <div class="font-numeric text-[10px] text-slate-400">
+                              利润率 {{ formatPercent(metrics.estimatedProfitRate) }}
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input-number
+                            v-model="row.actualSellPrice"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="right"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            size="small"
+                            theme="normal"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <div class="space-y-0.5 leading-4">
+                            <div class="flex items-center justify-between gap-2 text-[10px] text-slate-400">
+                              <span>到账</span>
+                              <span class="font-numeric text-[11px] text-slate-500">
+                                {{ formatCurrency(row.actualNetIncome) }}
+                              </span>
+                            </div>
+                            <div
+                              class="font-numeric text-sm font-semibold leading-5"
+                              :class="profitClass(metrics.actualProfit ?? 0)"
+                            >
+                              {{ formatActualProfit(metrics.actualProfit) }}
+                            </div>
+                            <div class="font-numeric text-[10px] text-slate-400">
+                              利润率 {{ formatPercent(metrics.actualProfitRate, true) }}
+                            </div>
+                          </div>
+                        </td>
+                        <td class="px-2 py-2">
+                          <t-input
+                            v-model="row.note"
+                            class="prototype-input"
+                            clearable
+                            maxlength="50"
+                            placeholder="补充判断或出售说明"
+                            size="small"
+                          />
+                        </td>
+                        <td class="px-2 py-2">
+                          <div class="flex flex-col items-start gap-0.5">
+                            <t-button
+                              size="small"
+                              variant="text"
+                              class="!h-7 !px-1 text-slate-600"
+                              @click="handleAddRow(index + 1)"
+                            >
+                              插入
+                            </t-button>
+                            <t-popconfirm
+                              content="确认删除该条明细吗？"
+                              theme="danger"
+                              :popup-props="{ attach: 'body' }"
+                              @confirm="handleRemoveRow(row.id)"
+                            >
+                              <t-button
+                                size="small"
+                                theme="danger"
+                                variant="text"
+                                class="!h-7 !px-1"
+                                :disabled="draftBatch.rows.length === 1"
+                              >
+                                删除
+                              </t-button>
+                            </t-popconfirm>
+                          </div>
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div v-else class="mt-4 space-y-3">
+                <article
+                  v-for="({ row, metrics }, index) in draftRowEntries"
+                  :key="row.id"
+                  class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                >
+                  <div class="flex items-start justify-between gap-3 border-b border-slate-100 bg-slate-50/80 px-4 py-3">
+                    <div class="min-w-0">
+                      <div class="text-[11px] font-medium uppercase tracking-[0.14em] text-slate-400">明细 {{ index + 1 }}</div>
+                      <div class="mt-1 text-sm font-semibold text-slate-900">{{ row.weaponName || '未填写枪名称' }}</div>
+                      <div class="mt-1 text-[11px] text-slate-500">
+                        {{ row.purchased ? '已购买，跟踪预估与实际收益' : '未购买，直接按箱子成本亏损' }}
+                      </div>
+                    </div>
+                    <t-tag :theme="row.purchased ? 'success' : 'danger'" variant="light-outline">
+                      {{ row.purchased ? '已购买' : '未购买' }}
+                    </t-tag>
+                  </div>
+
+                  <div class="p-4">
+                    <div class="grid grid-cols-1 gap-3">
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">箱子成本</span>
+                          <t-input-number
+                            v-model="row.boxCost"
+                            :decimal-places="2"
+                            :min="0"
+                            :step="0.1"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            theme="normal"
+                          />
+                        </label>
+                        <div class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">购买状态</span>
+                          <div class="flex gap-2">
+                            <button
+                              type="button"
+                              class="inline-flex h-10 flex-1 touch-manipulation items-center justify-center rounded-[4px] border text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1"
+                              :class="row.purchased ? 'border-emerald-200 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500'"
+                              @click="setPurchaseState(row, true)"
+                            >
+                              买了
+                            </button>
+                            <button
+                              type="button"
+                              class="inline-flex h-10 flex-1 touch-manipulation items-center justify-center rounded-[4px] border text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1"
+                              :class="!row.purchased ? 'border-rose-200 bg-rose-50 text-rose-700' : 'border-slate-200 bg-white text-slate-500'"
+                              @click="setPurchaseState(row, false)"
+                            >
+                              没买
+                            </button>
+                          </div>
+                        </div>
+                      </div>
+
+                      <label class="space-y-1.5">
+                        <span class="text-[11px] font-medium text-slate-600">枪名称</span>
+                        <t-input
+                          v-model="row.weaponName"
+                          :disabled="!row.purchased"
+                          class="prototype-input"
+                          clearable
+                          maxlength="40"
+                          placeholder="例如：M4A1-S | 印花集"
+                        />
+                      </label>
+
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">游戏售价</span>
+                          <t-input-number
+                            v-model="row.inGamePrice"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            theme="normal"
+                          />
+                        </label>
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">折扣</span>
+                          <t-input-number
+                            v-model="row.discount"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :max="1"
+                            :min="0"
+                            :step="0.01"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.72"
+                            theme="normal"
+                          />
+                        </label>
+                      </div>
+
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">C5 现价</span>
+                          <t-input-number
+                            v-model="row.c5Price"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            theme="normal"
+                          />
+                        </label>
+                        <div class="rounded-[4px] border border-slate-200/80 bg-slate-50 p-3">
+                          <div class="text-[11px] text-slate-500">实际花费</div>
+                          <div class="font-numeric mt-2 text-base font-semibold text-slate-900">
+                            {{ formatCurrency(metrics.actualCost) }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">卖出价</span>
+                          <t-input-number
+                            v-model="row.actualSellPrice"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            theme="normal"
+                          />
+                        </label>
+                        <label class="space-y-1.5">
+                          <span class="text-[11px] font-medium text-slate-600">实际到账</span>
+                          <t-input-number
+                            v-model="row.actualNetIncome"
+                            :decimal-places="2"
+                            :disabled="!row.purchased"
+                            :min="0"
+                            :step="0.1"
+                            align="left"
+                            class="prototype-number"
+                            placeholder="0.00"
+                            theme="normal"
+                          />
+                        </label>
+                      </div>
+
+                      <div class="grid grid-cols-2 gap-3">
+                        <div class="rounded-[4px] border border-slate-200/80 bg-slate-50 p-3">
+                          <div class="text-[11px] text-slate-500">预估结果</div>
+                          <div
+                            class="font-numeric mt-2 text-base font-semibold"
+                            :class="profitClass(metrics.estimatedProfit)"
+                          >
+                            {{ formatSignedCurrency(metrics.estimatedProfit) }}
+                          </div>
+                          <div class="font-numeric mt-1 text-xs text-slate-400">
+                            利润率 {{ formatPercent(metrics.estimatedProfitRate) }}
+                          </div>
+                        </div>
+                        <div class="rounded-[4px] border border-slate-200/80 bg-slate-50 p-3">
+                          <div class="text-[11px] text-slate-500">实际结果</div>
+                          <div
+                            class="font-numeric mt-2 text-base font-semibold"
+                            :class="profitClass(metrics.actualProfit ?? 0)"
+                          >
+                            {{ formatActualProfit(metrics.actualProfit) }}
+                          </div>
+                          <div class="font-numeric mt-1 text-xs text-slate-400">
+                            利润率 {{ formatPercent(metrics.actualProfitRate, true) }}
+                          </div>
+                        </div>
+                      </div>
+
+                      <label class="space-y-1.5">
+                        <span class="text-[11px] font-medium text-slate-600">备注</span>
+                        <t-input
+                          v-model="row.note"
+                          class="prototype-input"
+                          clearable
+                          maxlength="50"
+                          placeholder="补充理由、出售节奏、挂单情况"
+                        />
+                      </label>
+                    </div>
+
+                    <div class="mt-4 flex gap-2">
+                      <t-button variant="outline" class="flex-1" @click="handleAddRow(index + 1)">
+                        下方新增
+                      </t-button>
+                      <t-popconfirm
+                        content="确认删除该条明细吗？"
+                        theme="danger"
+                        :popup-props="{ attach: 'body' }"
+                        @confirm="handleRemoveRow(row.id)"
+                      >
+                        <t-button
+                          theme="danger"
+                          variant="outline"
+                          class="flex-1"
+                          :disabled="draftBatch.rows.length === 1"
+                        >
+                          删除
+                        </t-button>
+                      </t-popconfirm>
+                    </div>
+                  </div>
+                </article>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
     </t-dialog>
-  </div>
+  </PageFrame>
 </template>
 
+<script setup lang="ts">
+import { computed, ref } from "vue";
+import type { ComponentPublicInstance } from "vue";
+import { useWindowSize } from "@vueuse/core";
+import { MessagePlugin } from "tdesign-vue-next";
+import type { AttachNode, Styles } from "tdesign-vue-next";
+import PageFrame from "@/components/PageFrame.vue";
+
+interface UnboxRow {
+  id: string;
+  boxCost: number;
+  purchased: boolean;
+  weaponName: string;
+  inGamePrice: number;
+  discount: number;
+  c5Price: number;
+  actualSellPrice: number;
+  actualNetIncome: number;
+  note: string;
+}
+
+interface UnboxBatch {
+  id: string;
+  name: string;
+  date: string;
+  boxType: string;
+  defaultBoxCost: number;
+  defaultDiscount: number;
+  note: string;
+  rows: UnboxRow[];
+}
+
+type BatchStatus = "未结算" | "部分结算" | "已结算";
+
+interface RowMetrics {
+  actualCost: number;
+  estimatedProfit: number;
+  estimatedProfitRate: number;
+  actualProfit: number | null;
+  actualProfitRate: number | null;
+}
+
+interface BatchSummary {
+  totalCount: number;
+  purchasedCount: number;
+  notPurchasedCount: number;
+  purchaseRate: number;
+  totalBoxCost: number;
+  totalInGamePrice: number;
+  totalActualCost: number;
+  totalC5Price: number;
+  totalEstimatedProfit: number;
+  estimatedProfitRate: number;
+  settledCount: number;
+  unsettledCount: number;
+  totalActualProfit: number;
+  actualProfitRate: number;
+}
+
+interface SummaryCard {
+  label: string;
+  value: string;
+  hint: string;
+  valueClass: string;
+}
+
+interface BatchSummaryRow {
+  batch: UnboxBatch;
+  summary: BatchSummary;
+  status: BatchStatus;
+}
+
+interface DraftRowEntry {
+  row: UnboxRow;
+  metrics: RowMetrics;
+}
+
+const currencyFormatter = new Intl.NumberFormat("zh-CN", {
+  style: "currency",
+  currency: "CNY",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const percentFormatter = new Intl.NumberFormat("zh-CN", {
+  style: "percent",
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
+
+const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
+const { width } = useWindowSize();
+const isMobile = computed(() => width.value <= 640);
+
+type EditorHostElement = HTMLElement | ComponentPublicInstance | null;
+
+const editorHostRef = ref<EditorHostElement>(null);
+const resolveEditorHost = (): HTMLElement => {
+  const rawHost = editorHostRef.value;
+  if (rawHost instanceof HTMLElement) return rawHost;
+  const componentRoot = rawHost?.$el;
+  return componentRoot instanceof HTMLElement ? componentRoot : document.body;
+};
+const editorDialogAttach = computed<AttachNode>(() => {
+  if (isMobile.value || isEditorFullscreen.value) return "body";
+  return resolveEditorHost;
+});
+
+const editorVisible = ref(false);
+const isEditorFullscreen = ref(false);
+const editingBatchId = ref<string | null>(null);
+const bulkAddCount = ref<number | string>(20);
+
+const editorDialogClassName = computed(() => {
+  const modeClass = isEditorFullscreen.value
+    ? "unbox-editor-dialog--fullscreen h-full w-full max-w-none"
+    : "unbox-editor-dialog--contained !absolute !inset-x-0 !top-0 !bottom-0 !m-0 w-full max-w-none";
+  return `unbox-editor-dialog ${modeClass}`;
+});
+
+const editorDialogStyle = computed((): Styles | undefined => {
+  if (isMobile.value) return undefined;
+  if (isEditorFullscreen.value) {
+    return {
+      top: 0,
+      width: "100%",
+      maxWidth: "none",
+      height: "100%",
+      minHeight: "100%",
+      padding: 0,
+    } as Styles;
+  }
+  return {
+    top: 0,
+    width: "100%",
+    maxWidth: "none",
+    height: "100%",
+    minHeight: "100%",
+    padding: 0,
+    boxShadow: "0 10px 30px rgba(15, 23, 42, 0.12)",
+  } as Styles;
+});
+
+const editorBodyClass = computed(() => {
+  if (isMobile.value || isEditorFullscreen.value) {
+    return "h-full min-h-0 overflow-hidden overscroll-contain [scrollbar-gutter:stable]";
+  }
+  return "min-h-full overflow-visible overscroll-contain [scrollbar-gutter:stable]";
+});
+
+const createId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  return `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`;
+};
+
+const round = (value: number, digits = 2) => {
+  const base = 10 ** digits;
+  return Math.round((Number.isFinite(value) ? value : 0) * base) / base;
+};
+
+const clampDiscount = (value: number) => {
+  const safeValue = Number.isFinite(value) ? value : 0;
+  return round(Math.min(Math.max(safeValue, 0), 1), 2);
+};
+
+const createRow = (defaults?: Partial<UnboxRow>, batch?: Pick<UnboxBatch, "defaultBoxCost" | "defaultDiscount">): UnboxRow => ({
+  id: createId(),
+  boxCost: defaults?.boxCost ?? batch?.defaultBoxCost ?? 13.5,
+  purchased: defaults?.purchased ?? true,
+  weaponName: defaults?.weaponName ?? "",
+  inGamePrice: defaults?.inGamePrice ?? 0,
+  discount: defaults?.discount ?? batch?.defaultDiscount ?? 0.72,
+  c5Price: defaults?.c5Price ?? 0,
+  actualSellPrice: defaults?.actualSellPrice ?? 0,
+  actualNetIncome: defaults?.actualNetIncome ?? 0,
+  note: defaults?.note ?? "",
+});
+
+const createBlankBatch = (): UnboxBatch => ({
+  id: createId(),
+  name: "新的开箱批次",
+  date: "2026-04-06",
+  boxType: "创世终端机",
+  defaultBoxCost: 13.5,
+  defaultDiscount: 0.72,
+  note: "",
+  rows: [createRow(), createRow({ purchased: false }), createRow()],
+});
+
+const cloneBatch = (batch: UnboxBatch): UnboxBatch => JSON.parse(JSON.stringify(batch)) as UnboxBatch;
+
+const draftBatch = ref<UnboxBatch>(createBlankBatch());
+
+const batches = ref<UnboxBatch[]>([
+  {
+    id: createId(),
+    name: "2026-04-06 晚场开箱",
+    date: "2026-04-06",
+    boxType: "创世终端机",
+    defaultBoxCost: 13.5,
+    defaultDiscount: 0.72,
+    note: "当前为纯前端原型，后续可接 C5 查询与批次保存。",
+    rows: [
+      createRow(
+        {
+          weaponName: "AK-47 | 血腥运动",
+          inGamePrice: 85,
+          discount: 0.72,
+          c5Price: 69.8,
+          actualSellPrice: 77,
+          actualNetIncome: 74.5,
+          note: "首批挂单已成交",
+        },
+        { defaultBoxCost: 13.5, defaultDiscount: 0.72 }
+      ),
+      createRow(
+        {
+          purchased: false,
+          note: "价差不够，直接放弃",
+        },
+        { defaultBoxCost: 13.5, defaultDiscount: 0.72 }
+      ),
+      createRow(
+        {
+          weaponName: "AWP | 二西莫夫",
+          inGamePrice: 132,
+          discount: 0.7,
+          c5Price: 105.6,
+          note: "待观察两天后再卖",
+        },
+        { defaultBoxCost: 13.5, defaultDiscount: 0.72 }
+      ),
+    ],
+  },
+  {
+    id: createId(),
+    name: "2026-04-03 下午开箱",
+    date: "2026-04-03",
+    boxType: "创世终端机",
+    defaultBoxCost: 12.8,
+    defaultDiscount: 0.71,
+    note: "历史样例批次。",
+    rows: [
+      createRow(
+        {
+          weaponName: "M4A1-S | 印花集",
+          inGamePrice: 58,
+          discount: 0.73,
+          c5Price: 47.5,
+          actualSellPrice: 50,
+          actualNetIncome: 48.2,
+          note: "已小幅止盈",
+        },
+        { defaultBoxCost: 12.8, defaultDiscount: 0.71 }
+      ),
+      createRow(
+        {
+          purchased: false,
+          note: "这一箱直接记损",
+        },
+        { defaultBoxCost: 12.8, defaultDiscount: 0.71 }
+      ),
+      createRow(
+        {
+          weaponName: "USP-S | 杀出重围",
+          inGamePrice: 44,
+          discount: 0.71,
+          c5Price: 31.2,
+          actualSellPrice: 0,
+          actualNetIncome: 0,
+          note: "还没卖",
+        },
+        { defaultBoxCost: 12.8, defaultDiscount: 0.71 }
+      ),
+    ],
+  },
+  {
+    id: createId(),
+    name: "2026-04-01 深夜冲刺",
+    date: "2026-04-01",
+    boxType: "创世终端机",
+    defaultBoxCost: 12.2,
+    defaultDiscount: 0.69,
+    note: "夜间集中开箱批次。",
+    rows: [
+      createRow(
+        {
+          weaponName: "AK-47 | 霓虹骑士",
+          inGamePrice: 102,
+          discount: 0.69,
+          c5Price: 83.8,
+          actualSellPrice: 90,
+          actualNetIncome: 86.4,
+          note: "当天卖出",
+        },
+        { defaultBoxCost: 12.2, defaultDiscount: 0.69 }
+      ),
+      createRow(
+        {
+          weaponName: "AWP | 渐变之色",
+          inGamePrice: 136,
+          discount: 0.68,
+          c5Price: 109.4,
+          note: "继续观察",
+        },
+        { defaultBoxCost: 12.2, defaultDiscount: 0.69 }
+      ),
+      createRow(
+        {
+          purchased: false,
+          note: "未达到收益线",
+        },
+        { defaultBoxCost: 12.2, defaultDiscount: 0.69 }
+      ),
+    ],
+  },
+]);
+
+const getRowMetrics = (row: UnboxRow): RowMetrics => {
+  const actualCost = row.purchased ? round(row.inGamePrice * clampDiscount(row.discount)) : round(row.boxCost);
+
+  if (!row.purchased) {
+    return {
+      actualCost,
+      estimatedProfit: round(-row.boxCost),
+      estimatedProfitRate: -1,
+      actualProfit: round(-row.boxCost),
+      actualProfitRate: -1,
+    };
+  }
+
+  const estimatedProfit = round(row.c5Price - actualCost);
+  const estimatedProfitRate = actualCost > 0 ? estimatedProfit / actualCost : 0;
+  const hasActualIncome = row.actualNetIncome > 0;
+  const actualProfit = hasActualIncome ? round(row.actualNetIncome - actualCost) : null;
+  const actualProfitRate = hasActualIncome && actualCost > 0 && actualProfit !== null ? actualProfit / actualCost : null;
+
+  return {
+    actualCost,
+    estimatedProfit,
+    estimatedProfitRate,
+    actualProfit,
+    actualProfitRate,
+  };
+};
+
+const getBatchSummary = (batch: UnboxBatch): BatchSummary => {
+  let purchasedCount = 0;
+  let totalBoxCost = 0;
+  let totalInGamePrice = 0;
+  let totalActualCost = 0;
+  let totalC5Price = 0;
+  let totalEstimatedProfit = 0;
+  let totalActualProfit = 0;
+  let settledCount = 0;
+
+  batch.rows.forEach((item) => {
+    const metrics = getRowMetrics(item);
+    totalBoxCost += item.boxCost;
+    totalActualCost += metrics.actualCost;
+    totalEstimatedProfit += metrics.estimatedProfit;
+    totalActualProfit += metrics.actualProfit ?? 0;
+
+    if (!item.purchased) return;
+    purchasedCount += 1;
+    totalInGamePrice += item.inGamePrice;
+    totalC5Price += item.c5Price;
+    if (item.actualNetIncome > 0) settledCount += 1;
+  });
+
+  const totalCount = batch.rows.length;
+  const notPurchasedCount = totalCount - purchasedCount;
+  const roundedTotalActualCost = round(totalActualCost);
+  const roundedTotalEstimatedProfit = round(totalEstimatedProfit);
+  const roundedTotalActualProfit = round(totalActualProfit);
+
+  return {
+    totalCount,
+    purchasedCount,
+    notPurchasedCount,
+    purchaseRate: totalCount > 0 ? purchasedCount / totalCount : 0,
+    totalBoxCost: round(totalBoxCost),
+    totalInGamePrice: round(totalInGamePrice),
+    totalActualCost: roundedTotalActualCost,
+    totalC5Price: round(totalC5Price),
+    totalEstimatedProfit: roundedTotalEstimatedProfit,
+    estimatedProfitRate: roundedTotalActualCost > 0 ? roundedTotalEstimatedProfit / roundedTotalActualCost : 0,
+    settledCount,
+    unsettledCount: purchasedCount - settledCount,
+    totalActualProfit: roundedTotalActualProfit,
+    actualProfitRate: roundedTotalActualCost > 0 ? roundedTotalActualProfit / roundedTotalActualCost : 0,
+  };
+};
+
+const getBatchStatus = (summary: BatchSummary): BatchStatus => {
+  if (summary.unsettledCount === 0) return "已结算";
+  if (summary.settledCount === 0) return "未结算";
+  return "部分结算";
+};
+
+const batchSummaryRows = computed<BatchSummaryRow[]>(() =>
+  batches.value.map((batch) => {
+    const summary = getBatchSummary(batch);
+    return {
+      batch,
+      summary,
+      status: getBatchStatus(summary),
+    };
+  })
+);
+
+const pageSummary = computed(() => {
+  return batchSummaryRows.value.reduce(
+    (result, item) => {
+      result.totalBatches += 1;
+      result.totalBoxes += item.summary.totalCount;
+      result.totalEstimatedProfit += item.summary.totalEstimatedProfit;
+      result.totalActualProfit += item.summary.totalActualProfit;
+      return result;
+    },
+    {
+      totalBatches: 0,
+      totalBoxes: 0,
+      totalEstimatedProfit: 0,
+      totalActualProfit: 0,
+    }
+  );
+});
+
+const pageSummaryCards = computed<SummaryCard[]>(() => [
+  {
+    label: "批次数量",
+    value: `${pageSummary.value.totalBatches}`,
+    hint: `累计开箱 ${pageSummary.value.totalBoxes} 个`,
+    valueClass: "text-slate-900",
+  },
+  {
+    label: "当前总预估利润",
+    value: formatSignedCurrency(pageSummary.value.totalEstimatedProfit),
+    hint: "主表所有批次按当前 C5 预估汇总",
+    valueClass: profitClass(pageSummary.value.totalEstimatedProfit),
+  },
+  {
+    label: "当前总实际利润",
+    value: formatSignedCurrency(pageSummary.value.totalActualProfit),
+    hint: "主表所有批次按实际到账汇总",
+    valueClass: profitClass(pageSummary.value.totalActualProfit),
+  },
+  {
+    label: "操作方式",
+    value: "主表 + 弹窗",
+    hint: "主页面看结果，弹窗内维护整批明细",
+    valueClass: "text-slate-900",
+  },
+]);
+
+const draftRowEntries = computed<DraftRowEntry[]>(() =>
+  draftBatch.value.rows.map((row) => ({
+    row,
+    metrics: getRowMetrics(row),
+  }))
+);
+
+const draftSummary = computed(() => getBatchSummary(draftBatch.value));
+
+const draftSummaryCards = computed<SummaryCard[]>(() => [
+  {
+    label: "开箱总数 / 已购买",
+    value: `${draftSummary.value.totalCount} / ${draftSummary.value.purchasedCount}`,
+    hint: `未购买 ${draftSummary.value.notPurchasedCount} 个 · 购买率 ${formatPercent(draftSummary.value.purchaseRate)}`,
+    valueClass: "text-slate-900",
+  },
+  {
+    label: "箱子总成本 / 实际花费",
+    value: `${formatCurrency(draftSummary.value.totalBoxCost)} / ${formatCurrency(draftSummary.value.totalActualCost)}`,
+    hint: `游戏内总价 ${formatCurrency(draftSummary.value.totalInGamePrice)}`,
+    valueClass: "text-slate-900",
+  },
+  {
+    label: "总预估利润",
+    value: formatSignedCurrency(draftSummary.value.totalEstimatedProfit),
+    hint: `C5 回收 ${formatCurrency(draftSummary.value.totalC5Price)} · 利润率 ${formatPercent(draftSummary.value.estimatedProfitRate)}`,
+    valueClass: profitClass(draftSummary.value.totalEstimatedProfit),
+  },
+  {
+    label: "总实际利润",
+    value: formatSignedCurrency(draftSummary.value.totalActualProfit),
+    hint: `已结算 ${draftSummary.value.settledCount} 条 · 未结算 ${draftSummary.value.unsettledCount} 条 · 利润率 ${formatPercent(draftSummary.value.actualProfitRate)}`,
+    valueClass: profitClass(draftSummary.value.totalActualProfit),
+  },
+]);
+
+function formatCurrency(value: number) {
+  return currencyFormatter.format(round(value));
+}
+
+function formatSignedCurrency(value: number) {
+  const normalized = round(value);
+  const prefix = normalized > 0 ? "+" : "";
+  return `${prefix}${currencyFormatter.format(normalized)}`;
+}
+
+function formatActualProfit(value: number | null) {
+  if (value === null) return "待补录";
+  return formatSignedCurrency(value);
+}
+
+function formatPercent(value: number | null, allowPending = false) {
+  if (value === null) return allowPending ? "待补录" : "0.00%";
+  return percentFormatter.format(value);
+}
+
+function formatDateText(value: string) {
+  if (!value) return "-";
+  const date = new Date(`${value}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return value;
+  return dateFormatter.format(date);
+}
+
+function profitClass(value: number) {
+  if (value > 0) return "text-emerald-600";
+  if (value < 0) return "text-rose-600";
+  return "text-slate-900";
+}
+
+function historyStatusTheme(status: BatchStatus) {
+  if (status === "已结算") return "success";
+  if (status === "部分结算") return "warning";
+  return "default";
+}
+
+function toggleEditorFullscreen() {
+  if (isMobile.value) return;
+  isEditorFullscreen.value = !isEditorFullscreen.value;
+}
+
+function openCreateEditor() {
+  editingBatchId.value = null;
+  draftBatch.value = createBlankBatch();
+  bulkAddCount.value = 20;
+  isEditorFullscreen.value = false;
+  editorVisible.value = true;
+}
+
+function openEditEditor(batchId: string) {
+  const target = batches.value.find((item) => item.id === batchId);
+  if (!target) {
+    MessagePlugin.error("批次不存在或已删除");
+    return;
+  }
+  editingBatchId.value = batchId;
+  draftBatch.value = cloneBatch(target);
+  bulkAddCount.value = 20;
+  isEditorFullscreen.value = false;
+  editorVisible.value = true;
+}
+
+function saveDraftBatch() {
+  if (!draftBatch.value.name.trim()) {
+    MessagePlugin.warning("请填写批次名称");
+    return;
+  }
+  if (!draftBatch.value.date) {
+    MessagePlugin.warning("请选择开箱日期");
+    return;
+  }
+  if (!draftBatch.value.rows.length) {
+    MessagePlugin.warning("请至少保留一条明细");
+    return;
+  }
+
+  const normalized = cloneBatch(draftBatch.value);
+  if (editingBatchId.value) {
+    const index = batches.value.findIndex((item) => item.id === editingBatchId.value);
+    if (index === -1) {
+      MessagePlugin.error("批次不存在或已删除");
+      return;
+    }
+    batches.value.splice(index, 1, normalized);
+    MessagePlugin.success("批次已更新");
+  } else {
+    batches.value.unshift(normalized);
+    MessagePlugin.success("批次已创建");
+  }
+  editorVisible.value = false;
+}
+
+function removeBatch(batchId: string) {
+  batches.value = batches.value.filter((item) => item.id !== batchId);
+  MessagePlugin.success("批次已删除");
+}
+
+function setPurchaseState(row: UnboxRow, purchased: boolean) {
+  row.purchased = purchased;
+  if (!purchased) {
+    row.weaponName = "";
+    row.inGamePrice = 0;
+    row.discount = draftBatch.value.defaultDiscount;
+    row.c5Price = 0;
+    row.actualSellPrice = 0;
+    row.actualNetIncome = 0;
+  }
+}
+
+function handleAddRow(index?: number) {
+  const nextRow = createRow(undefined, draftBatch.value);
+  if (typeof index === "number") {
+    draftBatch.value.rows.splice(index, 0, nextRow);
+    return;
+  }
+  draftBatch.value.rows.push(nextRow);
+}
+
+function handleRemoveRow(id: string) {
+  if (draftBatch.value.rows.length === 1) {
+    MessagePlugin.warning("至少保留一条明细，避免批次编辑区为空");
+    return;
+  }
+  draftBatch.value.rows = draftBatch.value.rows.filter((item) => item.id !== id);
+}
+
+function parseBulkCount() {
+  const numericValue = Number(bulkAddCount.value);
+  if (!Number.isFinite(numericValue) || numericValue <= 0) return 0;
+  return Math.min(Math.floor(numericValue), 300);
+}
+
+function handleBulkAdd(count?: number) {
+  const target = count ?? parseBulkCount();
+  if (!target) {
+    MessagePlugin.warning("请输入有效的批量新增数量");
+    return;
+  }
+  draftBatch.value.rows.push(...Array.from({ length: target }, () => createRow(undefined, draftBatch.value)));
+  MessagePlugin.success(`已新增 ${target} 条明细`);
+}
+
+function applyDefaultsToEmptyRows() {
+  let updated = 0;
+  draftBatch.value.rows.forEach((row) => {
+    if (!row.boxCost) {
+      row.boxCost = draftBatch.value.defaultBoxCost;
+      updated += 1;
+    }
+    if (row.purchased && !row.discount) {
+      row.discount = draftBatch.value.defaultDiscount;
+      updated += 1;
+    }
+  });
+  MessagePlugin.success(updated ? `已更新 ${updated} 处默认值` : "空行已是最新默认值");
+}
+
+function mockQueryC5Price() {
+  let updated = 0;
+  draftBatch.value.rows.forEach((row, index) => {
+    if (!row.purchased || !row.inGamePrice) return;
+    const ratio = 0.72 + ((index % 5) * 0.04);
+    row.c5Price = round(row.inGamePrice * ratio);
+    updated += 1;
+  });
+  MessagePlugin.success(updated ? `已为 ${updated} 条已购买记录填入模拟 C5 价格` : "暂无可查询的已购买记录");
+}
+</script>
+
 <style scoped>
-:deep(.embedded-table .t-table__row) {
-  height: 44px;
+:deep(.unbox-editor-dialog) {
+  overflow: visible;
 }
 
-:deep(.embedded-table .t-table__td) {
-  padding-top: 8px;
-  padding-bottom: 8px;
+:deep(.unbox-editor-dialog .t-dialog__body) {
+  height: auto;
+  min-height: 0;
+  padding: 0;
+  overflow: visible;
 }
 
-.summary-actions {
-  display: flex;
-  gap: 16px;
-  align-items: center;
+.scrollbar-stable {
+  scrollbar-gutter: stable both-edges;
 }
 
-.summary-item {
-  display: flex;
-  flex-direction: column;
-  min-width: 150px;
-  text-align: right;
+.scrollbar-stable::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
 }
 
-.summary-label {
-  font-size: 12px;
-  color: var(--td-text-color-secondary);
+.scrollbar-stable::-webkit-scrollbar-thumb {
+  background: rgb(203 213 225);
+  border: 2px solid transparent;
+  border-radius: 9999px;
+  background-clip: content-box;
 }
 
-.summary-value {
-  font-size: 14px;
-  font-weight: 600;
+.scrollbar-stable::-webkit-scrollbar-track {
+  background: rgb(248 250 252);
 }
 
-.toolbar-row {
-  margin: 0;
+:deep(.unbox-editor-dialog--fullscreen) {
+  height: 100%;
+  border-radius: 0;
 }
 
-.toolbar-right {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  align-items: center;
-  justify-content: flex-end;
+:deep(.unbox-editor-dialog--contained) {
+  height: 100%;
+  min-height: 100%;
+  border-radius: 1.25rem;
 }
 
-.discount-input {
-  width: 120px;
-}
-
-.screenshot-cell {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.screenshot-placeholder {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  font-size: 10px;
-  color: var(--td-text-color-secondary);
-  border: 1px dashed var(--td-border-level-2-color);
-  border-radius: 6px;
-}
-
-.operation-buttons {
-  display: flex;
-  gap: 8px;
-  justify-content: center;
-}
-
-.operation-btn {
-  min-width: 32px;
-  min-height: 32px;
-}
-
-.empty-state {
-  padding: 48px 0;
-}
-
-.record-form :deep(.t-form__item) {
-  margin-bottom: 20px;
-}
-
-.record-form :deep(.t-form__controls) {
-  margin-bottom: 0;
-}
-
-.record-form {
-  max-height: calc(100vh - 200px);
-  overflow-y: auto;
-  padding-right: 8px;
-}
-
-.preview-panel {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
-  gap: 8px;
-  padding: 12px;
-  margin-top: 12px;
-  background: var(--td-bg-color-container);
-  border: 1px solid var(--td-border-level-1-color);
-  border-radius: 10px;
-  box-shadow: var(--td-shadow-1, 0 1px 2px rgba(0, 0, 0, 0.04));
-}
-
-.preview-item {
-  display: flex;
-  flex-direction: column;
-}
-
-.preview-label {
-  font-size: 12px;
-  color: var(--td-text-color-secondary);
-}
-
-.upload-wrapper {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.upload-trigger {
-  display: flex;
-  gap: 12px;
-  align-items: center;
-  padding: 12px;
-  border: 1px dashed var(--td-border-level-2-color);
-  border-radius: 10px;
-  background: var(--td-bg-color-container);
-}
-
-.upload-trigger__icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: 8px;
-  color: var(--td-text-color-secondary);
-  background: var(--td-bg-color-secondarycontainer);
-}
-
-.upload-trigger__text {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.upload-title {
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--td-text-color-primary);
-}
-
-.upload-subtitle {
-  font-size: 12px;
-  color: var(--td-text-color-secondary);
-}
-
-.upload-tip {
-  font-size: 12px;
-  color: var(--td-text-color-secondary);
-}
-
-.record-form :deep(.t-upload) {
+:deep(.prototype-input),
+:deep(.prototype-date),
+:deep(.prototype-number),
+:deep(.prototype-textarea) {
   width: 100%;
 }
 
-.status-option {
-  display: inline-flex;
-  gap: 6px;
-  align-items: center;
+:deep(.prototype-input .t-input__wrap),
+:deep(.prototype-date .t-input__wrap),
+:deep(.prototype-number .t-input-number__wrap),
+:deep(.prototype-textarea .t-textarea__inner) {
+  border-radius: 0.9rem;
+  border-color: rgb(226 232 240);
+  box-shadow: none;
 }
 
-.text-positive {
-  color: #00a870;
+:deep(.prototype-input .t-input__wrap:hover),
+:deep(.prototype-date .t-input__wrap:hover),
+:deep(.prototype-number .t-input-number__wrap:hover),
+:deep(.prototype-textarea .t-textarea__inner:hover) {
+  border-color: rgb(148 163 184);
 }
 
-.text-negative {
-  color: #e34d59;
+:deep(.prototype-input .t-is-focused),
+:deep(.prototype-date .t-is-focused),
+:deep(.prototype-number .t-is-focused),
+:deep(.prototype-textarea .t-is-focused) {
+  border-color: rgb(14 165 233);
+  box-shadow: 0 0 0 3px rgb(14 165 233 / 0.12);
 }
 
-@media (max-width: 1024px) {
-  .summary-actions {
-    flex-direction: column;
-    align-items: flex-end;
-  }
-
-  .toolbar-right {
-    justify-content: flex-start;
-  }
-}
 </style>
