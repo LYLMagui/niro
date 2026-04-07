@@ -58,19 +58,19 @@
           </t-form-item>
           <t-form-item>
             <div v-permission="PermissionConstant.GOODS_LIST" class="flex gap-2">
-              <t-button theme="primary" type="submit" size="medium">
+              <t-button theme="primary" type="submit" size="small">
                 <template #icon><search-icon /></template>
                 查询
               </t-button>
-              <t-button theme="default" variant="base" type="reset" size="medium">
+              <t-button theme="default" variant="base" type="reset" size="small">
                 <template #icon><refresh-icon /></template>
                 重置
               </t-button>
               <t-button
+                v-permission="PermissionConstant.GOODS_LIST"
                 theme="warning"
                 variant="base"
-                size="medium"
-                v-permission="PermissionConstant.GOODS_LIST"
+                size="small"
                 @click="syncDialogVisible = true"
               >
                 <template #icon><cloud-download-icon /></template>
@@ -154,7 +154,10 @@
 
           <!-- 操作列 -->
           <template #operation="{ row }">
-            <div v-permission="PermissionConstant.GOODS_LIST" class="flex items-center justify-center space-x-2">
+            <div
+              v-permission="PermissionConstant.GOODS_LIST"
+              class="flex items-center justify-center space-x-2"
+            >
               <t-button
                 variant="text"
                 theme="primary"
@@ -166,11 +169,11 @@
                 详情
               </t-button>
               <t-button
+                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 variant="text"
                 theme="warning"
                 size="small"
                 class="transition-all hover:font-bold"
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
                 @click="openCreateTaskDialog(row)"
               >
                 <template #icon><shop-icon /></template>
@@ -331,6 +334,7 @@ const pagination = reactive({
   pageSize: 10,
   total: 0,
   showJumper: true,
+  size: "small" as const,
 });
 
 // 表格列定义

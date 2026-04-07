@@ -6,6 +6,7 @@
           <t-button
             variant="text"
             shape="square"
+            size="small"
             class="erp-top-btn"
             :aria-label="collapsed ? '展开侧边栏' : '收起侧边栏'"
             @click="toggleSidebar"
@@ -14,13 +15,21 @@
               <t-icon :name="collapsed ? 'chevron-right' : 'chevron-left'" />
             </template>
           </t-button>
-          <span class="erp-brand-title pl-1 text-[24px] leading-none font-semibold tracking-[0.5px] text-white">
+          <span
+            class="erp-brand-title pl-1 text-[24px] leading-none font-semibold tracking-[0.5px] text-white"
+          >
             Niro Control
           </span>
         </div>
 
         <div class="flex items-center gap-1">
-          <t-button variant="text" shape="square" class="erp-top-btn" @click="refreshCurrentPage">
+          <t-button
+            variant="text"
+            shape="square"
+            size="small"
+            class="erp-top-btn"
+            @click="refreshCurrentPage"
+          >
             <template #icon>
               <t-icon name="refresh" />
             </template>
@@ -106,7 +115,7 @@
                   <span class="erp-tab-label__text max-w-[150px] truncate">{{ tab.title }}</span>
                   <span class="erp-tab-label__action" aria-hidden="true">
                     <t-button
-                      v-if="tab.affix !== true"
+                      v-if="tab.affix !== true && tab.key === activeTabKey"
                       variant="text"
                       shape="square"
                       size="small"
@@ -127,7 +136,7 @@
 
         <t-content
           class="erp-main-content min-h-0 flex-1"
-          :class="[activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto']"
+          :class="activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto'"
         >
           <router-view v-slot="{ Component }">
             <keep-alive include="Logs">
@@ -162,9 +171,9 @@ const isMobile = computed(() => width.value <= 768);
 const collapsed = ref(isMobile.value);
 const sideWidth = computed(() => {
   if (isMobile.value) {
-    return collapsed.value ? '0px' : '156px';
+    return collapsed.value ? "0px" : "156px";
   }
-  return collapsed.value ? '56px' : '156px';
+  return collapsed.value ? "56px" : "156px";
 });
 
 const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefined => {
@@ -257,7 +266,6 @@ const handleLogout = async () => {
 </script>
 
 <style scoped>
-
 :deep(.erp-side-menu .t-default-menu__inner) {
   width: 100%;
   padding: 0;
@@ -378,7 +386,6 @@ const handleLogout = async () => {
   min-width: 0;
   flex: 1;
 }
-
 
 :deep(.erp-side-menu .t-menu__item:hover),
 :deep(.erp-side-menu .t-submenu__title:hover) {
@@ -537,19 +544,9 @@ const handleLogout = async () => {
   color: #909399;
   border-radius: 4px;
   flex-shrink: 0;
-  opacity: 0;
-  pointer-events: none;
   transition:
-    opacity 0.2s ease,
     background-color 0.2s ease,
     color 0.2s ease;
-}
-
-:deep(.erp-page-tabs .t-tabs__nav-item:hover) .erp-tab-close,
-:deep(.erp-page-tabs .t-tabs__nav-item.t-is-active) .erp-tab-close:focus-within,
-:deep(.erp-page-tabs .t-tabs__nav-item) .erp-tab-close:focus-visible {
-  opacity: 1;
-  pointer-events: auto;
 }
 
 :deep(.erp-page-tabs .t-tabs__nav-item) .erp-tab-close:hover {
@@ -584,6 +581,17 @@ const handleLogout = async () => {
   .erp-brand-title {
     font-size: 20px;
     letter-spacing: 0.2px;
+  }
+
+  .erp-tabbar {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
+    margin-bottom: -1px;
+  }
+
+  .erp-main-content {
+    padding-left: 0 !important;
+    padding-right: 0 !important;
   }
 
   .erp-shell {

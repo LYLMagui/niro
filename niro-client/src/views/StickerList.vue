@@ -25,14 +25,14 @@
               <t-button
                 theme="primary"
                 type="submit"
-                size="medium"
+                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 查询
               </t-button>
               <t-button
                 variant="outline"
-                size="medium"
+                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="handleReset"
               >
@@ -139,6 +139,7 @@ const pagination = reactive({
   pageSize: DEFAULT_PAGE_SIZE,
   total: 0,
   showJumper: true,
+  size: "small" as const,
 });
 
 const columns: PrimaryTableCol<any>[] = [

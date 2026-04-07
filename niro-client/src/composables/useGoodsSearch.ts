@@ -2,8 +2,7 @@ import { computed, ref, type Ref } from "vue";
 import { goodsApi } from "@/api/goods";
 import type { GoodsSimple } from "@/types/goods";
 
-/** 非磨损类饰品分类关键词 */
-const NON_WEARABLE_CATEGORIES = [
+export const NON_WEARABLE_CATEGORIES = [
   "印花",
   "Sticker",
   "容器",

@@ -8,7 +8,13 @@
     </template>
 
     <template #actions>
-      <t-button theme="primary" variant="outline" size="small" :loading="refreshing" @click="refreshAll">
+      <t-button
+        theme="primary"
+        variant="outline"
+        size="small"
+        :loading="refreshing"
+        @click="refreshAll"
+      >
         刷新数据
       </t-button>
     </template>
@@ -34,9 +40,13 @@
             <t-option :value="1" label="正常" />
             <t-option :value="0" label="停用" />
           </t-select>
-          <t-button theme="primary" :loading="rolesLoading" @click="queryRoles">查询</t-button>
-          <t-button variant="outline" @click="resetRoleFilter">重置</t-button>
-          <t-button theme="primary" class="ml-auto" @click="openCreateRoleDialog">新增角色</t-button>
+          <t-button theme="primary" size="small" :loading="rolesLoading" @click="queryRoles">
+            查询
+          </t-button>
+          <t-button variant="outline" size="small" @click="resetRoleFilter">重置</t-button>
+          <t-button theme="primary" size="small" class="ml-auto" @click="openCreateRoleDialog">
+            新增角色
+          </t-button>
         </div>
 
         <t-table
@@ -55,7 +65,12 @@
 
           <template #operation="{ row }">
             <div class="flex items-center justify-center gap-2">
-              <t-button size="small" theme="primary" variant="outline" @click="openEditRoleDialog(row)">
+              <t-button
+                size="small"
+                theme="primary"
+                variant="outline"
+                @click="openEditRoleDialog(row)"
+              >
                 编辑
               </t-button>
               <t-popconfirm content="确定删除该角色吗？" @confirm="deleteRole(row)">
@@ -83,9 +98,13 @@
             <t-option :value="1" label="正常" />
             <t-option :value="0" label="停用" />
           </t-select>
-          <t-button theme="primary" :loading="menusLoading" @click="queryMenus">查询</t-button>
-          <t-button variant="outline" @click="resetMenuFilter">重置</t-button>
-          <t-button theme="primary" class="ml-auto" @click="openCreateMenuDialog">新增菜单/按钮</t-button>
+          <t-button theme="primary" size="small" :loading="menusLoading" @click="queryMenus">
+            查询
+          </t-button>
+          <t-button variant="outline" size="small" @click="resetMenuFilter">重置</t-button>
+          <t-button theme="primary" size="small" class="ml-auto" @click="openCreateMenuDialog">
+            新增菜单/按钮
+          </t-button>
         </div>
 
         <t-table
@@ -116,7 +135,12 @@
 
           <template #operation="{ row }">
             <div class="flex items-center justify-center gap-2">
-              <t-button size="small" theme="primary" variant="outline" @click="openEditMenuDialog(row)">
+              <t-button
+                size="small"
+                theme="primary"
+                variant="outline"
+                @click="openEditMenuDialog(row)"
+              >
                 编辑
               </t-button>
               <t-popconfirm content="确定删除该菜单吗？" @confirm="deleteMenu(row)">
@@ -145,6 +169,7 @@
           </t-select>
           <t-button
             theme="primary"
+            size="small"
             :disabled="selectedRoleId === undefined"
             :loading="savingRoleMenus"
             @click="saveRoleMenus"
@@ -207,7 +232,12 @@
         </div>
 
         <div class="mt-4 flex justify-end">
-          <t-button theme="primary" :loading="batchAppending" @click="batchAppendRoles">
+          <t-button
+            theme="primary"
+            size="small"
+            :loading="batchAppending"
+            @click="batchAppendRoles"
+          >
             批量追加角色
           </t-button>
         </div>
@@ -286,8 +316,10 @@
       </t-form-item>
 
       <div class="mt-6 flex justify-end gap-3">
-        <t-button variant="outline" @click="roleDialogVisible = false">取消</t-button>
-        <t-button theme="primary" type="submit" :loading="roleSubmitting">保存</t-button>
+        <t-button variant="outline" size="small" @click="roleDialogVisible = false">取消</t-button>
+        <t-button theme="primary" size="small" type="submit" :loading="roleSubmitting">
+          保存
+        </t-button>
       </div>
     </t-form>
   </t-dialog>
@@ -383,8 +415,10 @@
       </div>
 
       <div class="mt-6 flex justify-end gap-3">
-        <t-button variant="outline" @click="menuDialogVisible = false">取消</t-button>
-        <t-button theme="primary" type="submit" :loading="menuSubmitting">保存</t-button>
+        <t-button variant="outline" size="small" @click="menuDialogVisible = false">取消</t-button>
+        <t-button theme="primary" size="small" type="submit" :loading="menuSubmitting">
+          保存
+        </t-button>
       </div>
     </t-form>
   </t-dialog>
@@ -528,7 +562,6 @@ const roleColumns: PrimaryTableCol<TableRowData>[] = [
 ];
 
 const menuColumns: PrimaryTableCol<TableRowData>[] = [
-  { colKey: "id", title: "ID", width: 70 },
   { colKey: "title", title: "标题", minWidth: 160 },
   { colKey: "type", title: "类型", width: 90, cell: "type" },
   { colKey: "parent", title: "上级菜单", minWidth: 140, cell: "parent" },
@@ -678,10 +711,11 @@ const resetMenuForm = () => {
 const loadRoles = async () => {
   rolesLoading.value = true;
   try {
-    roles.value = (await rbacApi.listRoles({
-      keyword: roleFilter.keyword || undefined,
-      status: roleFilter.status,
-    })) || [];
+    roles.value =
+      (await rbacApi.listRoles({
+        keyword: roleFilter.keyword || undefined,
+        status: roleFilter.status,
+      })) || [];
 
     if (selectedRoleId.value !== undefined) {
       const stillExists = roles.value.some((role) => role.roleId === selectedRoleId.value);
@@ -698,10 +732,11 @@ const loadRoles = async () => {
 const loadMenus = async () => {
   menusLoading.value = true;
   try {
-    menus.value = (await rbacApi.listMenus({
-      type: menuFilter.type,
-      status: menuFilter.status,
-    })) || [];
+    menus.value =
+      (await rbacApi.listMenus({
+        type: menuFilter.type,
+        status: menuFilter.status,
+      })) || [];
   } finally {
     menusLoading.value = false;
   }
@@ -780,9 +815,7 @@ const saveRoleMenus = async () => {
 
   savingRoleMenus.value = true;
   try {
-    const menuIds = checkedMenuIds.value
-      .map((id) => Number(id))
-      .filter((id) => !Number.isNaN(id));
+    const menuIds = checkedMenuIds.value.map((id) => Number(id)).filter((id) => !Number.isNaN(id));
     await rbacApi.assignRoleMenus(selectedRoleId.value, menuIds);
     notifyPermissionUpdated();
   } finally {

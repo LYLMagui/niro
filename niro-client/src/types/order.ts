@@ -14,7 +14,7 @@ export interface TradeOrderRecord {
   status: number; // 0-处理中, 1-成功, 2-失败, 3-取消
   errorMsg: string;
   errorCode: string;
-  extraInfo: Record<string, any>;
+  extraInfo: Record<string, never>;
   createTime: string;
   updateTime: string;
   accountName?: string;
@@ -24,9 +24,10 @@ export interface TradeOrderRecord {
 export interface OrderQueryParam {
   page: number;
   pageSize: number;
-  platform?: string;
   status?: number;
   keyword?: string;
+  startDate?: string;
+  endDate?: string;
   sortField?: string;
   sortOrder?: string;
 }
@@ -35,6 +36,44 @@ export interface OrderStats {
   todaySuccessCount: number;
   todayFailCount: number;
   todayTotalAmount: number;
+}
+
+export interface PurchaseStatsQueryParam {
+  keyword?: string;
+  startDate?: string;
+  endDate?: string;
+}
+
+export interface PurchaseStatsSummary {
+  totalAmount: number;
+  totalQuantity: number;
+  avgPrice: number;
+  goodsTypeCount: number;
+}
+
+export interface PurchaseStatsTrendItem {
+  date: string;
+  amount: number;
+  quantity: number;
+}
+
+export interface PurchaseStatsGoodsItem {
+  goodsName: string;
+  goodsImg: string;
+  totalQuantity: number;
+  totalAmount: number;
+  avgPrice: number;
+  amountRatio: number;
+  latestPurchaseDate: string;
+}
+
+export interface PurchaseStatsSplitItem {
+  goodsName: string;
+  goodsImg: string;
+  date: string;
+  totalQuantity: number;
+  totalAmount: number;
+  avgPrice: number;
 }
 
 /**

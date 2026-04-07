@@ -25,7 +25,7 @@
             </h3>
           </div>
           <div class="flex items-center gap-2 text-xs">
-            <t-tag size="small" variant="light" theme="primary" class="px-1.5 py-0.5">
+            <t-tag size="small" variant="light" theme="primary">
               {{ taskTypeName }}
             </t-tag>
             <span class="text-gray-400">ID: {{ task.id }}</span>
@@ -48,6 +48,7 @@
           <t-button
             v-if="task.status === 0 || task.status === 3"
             theme="primary"
+            size="small"
             shape="circle"
             variant="text"
             @click.stop="$emit('start', task.id)"
@@ -67,7 +68,7 @@
           </t-button>
 
           <t-dropdown :options="moreOptions" @click="handleMoreClick">
-            <t-button variant="text" shape="circle">
+            <t-button variant="text" size="small" shape="circle">
               <template #icon><t-icon name="more" /></template>
             </t-button>
           </t-dropdown>

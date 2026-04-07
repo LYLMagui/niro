@@ -1,6 +1,15 @@
 import request from "@/utils/request";
 import type { PageResult } from "@/types/goods";
-import type { TradeOrderRecord, OrderQueryParam, InventoryItem } from "@/types/order";
+import type {
+  TradeOrderRecord,
+  OrderQueryParam,
+  InventoryItem,
+  PurchaseStatsGoodsItem,
+  PurchaseStatsQueryParam,
+  PurchaseStatsSplitItem,
+  PurchaseStatsSummary,
+  PurchaseStatsTrendItem,
+} from "@/types/order";
 
 export const orderApi = {
   /**
@@ -11,17 +20,17 @@ export const orderApi = {
   },
 
   /**
-   * 获取 C5 订单详情
-   */
-  getC5Detail(orderId: string) {
-    return request.get<any>(`/order/record/c5/detail/${orderId}`);
-  },
-
-  /**
    * 删除订单记录
    */
   delete(id: number) {
     return request.delete(`/order/record/${id}`);
+  },
+
+  /**
+   * 批量删除订单记录
+   */
+  batchDelete(ids: number[]) {
+    return request.post("/order/record/batch-delete", { ids });
   },
 
   /**
@@ -36,6 +45,34 @@ export const orderApi = {
    */
   getInventory(params?: { keyword?: string; startDate?: string; endDate?: string }) {
     return request.get<InventoryItem[]>("/order/record/inventory", { params });
+  },
+
+  /**
+   * 获取购买统计汇总
+   */
+  getPurchaseStatsSummary(params?: PurchaseStatsQueryParam) {
+    return request.get<PurchaseStatsSummary>("/order/record/purchase-stats/summary", { params });
+  },
+
+  /**
+   * 获取购买统计趋势
+   */
+  getPurchaseStatsTrend(params?: PurchaseStatsQueryParam) {
+    return request.get<PurchaseStatsTrendItem[]>("/order/record/purchase-stats/trend", { params });
+  },
+
+  /**
+   * 获取购买统计商品明细
+   */
+  getPurchaseStatsItems(params?: PurchaseStatsQueryParam) {
+    return request.get<PurchaseStatsGoodsItem[]>("/order/record/purchase-stats/items", { params });
+  },
+
+  /**
+   * 获取购买统计按时间拆分明细
+   */
+  getPurchaseStatsSplitItems(params?: PurchaseStatsQueryParam) {
+    return request.get<PurchaseStatsSplitItem[]>("/order/record/purchase-stats/split-items", { params });
   },
 
   /**

@@ -43,7 +43,7 @@
         </div>
 
         <t-form-item class="pt-2">
-          <t-button theme="primary" type="submit" block size="large" :loading="loading">
+          <t-button theme="primary" type="submit" block size="small" :loading="loading">
             登录
           </t-button>
         </t-form-item>

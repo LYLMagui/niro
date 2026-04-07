@@ -33,7 +33,7 @@
             v-if="!isRunning"
             v-permission="PermissionConstant.TASK_BUFF_LIST"
             theme="primary"
-            size="medium"
+            size="small"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStart"
           >
@@ -43,7 +43,7 @@
             v-else
             v-permission="PermissionConstant.TASK_BUFF_LIST"
             theme="danger"
-            size="medium"
+            size="small"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStop"
           >
@@ -96,17 +96,13 @@
         :data="data"
         :columns="columns"
         row-key="id"
-        :pagination="{ total: 100, current: 1, pageSize: 10 }"
+        :pagination="{ total: 100, current: 1, pageSize: 10, size: 'small' }"
         hover
         :header-affixed-top="true"
         class="embedded-table w-full"
       >
         <template #empty>
           <t-empty icon="info-circle" description="暂无动态数据" />
-        </template>
-        <!-- 自定义 ID 列 -->
-        <template #id="{ row }">
-          <span class="font-semibold text-[#1d2129]">{{ row.id }}</span>
         </template>
         <!-- 自定义价格列 -->
         <template #price="{ row }">
@@ -194,7 +190,6 @@ watch(
 
 // 表格列配置
 const columns: PrimaryTableCol[] = [
-  { colKey: "id", title: "ID", width: 80, cell: "id", align: "left" },
   { colKey: "name", title: "商品名称", ellipsis: true, align: "left" },
   { colKey: "price", title: "价格 (CNY)", width: 120, cell: "price", align: "right" },
   { colKey: "float", title: "磨损", width: 100, cell: "float", align: "left" },

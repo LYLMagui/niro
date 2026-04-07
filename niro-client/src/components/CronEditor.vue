@@ -484,7 +484,6 @@
                 theme="success"
                 variant="light"
                 size="small"
-                class="h-4 px-1.5 text-[10px]"
               >
                 立即启动
               </t-tag>
@@ -549,8 +548,10 @@
       class="flex items-center justify-end gap-2 border-t border-gray-50 bg-gray-50/30 px-5 py-2"
     >
       <div class="flex-1"></div>
-      <t-button variant="outline" theme="default" @click="handleCancel">取消</t-button>
-      <t-button variant="base" theme="primary" @click="handleConfirm">保存配置</t-button>
+      <t-button variant="outline" theme="default" size="small" @click="handleCancel">取消</t-button>
+      <t-button variant="base" theme="primary" size="small" @click="handleConfirm">
+        保存配置
+      </t-button>
     </div>
   </div>
 </template>

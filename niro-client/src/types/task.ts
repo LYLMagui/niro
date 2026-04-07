@@ -5,6 +5,7 @@ export interface TaskItem {
   goodsName?: string;
   goodsIconUrl?: string;
   marketHashName?: string;
+  parentCategoryName?: string;
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;

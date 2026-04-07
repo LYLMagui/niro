@@ -3,7 +3,7 @@
     <div class="error-content">
       <div class="error-code">403</div>
       <div class="error-message">抱歉，您没有权限访问此页面</div>
-      <t-button theme="primary" @click="goHome">返回首页</t-button>
+      <t-button theme="primary" size="small" @click="goHome">返回首页</t-button>
     </div>
   </div>
 </template>

@@ -31,7 +31,7 @@
               :placeholder="goodsSelectPlaceholder"
               :loading="goodsLoading"
               :on-search="handleGoodsSearch"
-              :disabled="!!formData.id || !canViewGoods"
+              :disabled="goodsSelectionLocked || !!formData.id || !canViewGoods"
               class="task-config-select"
             >
               <t-option
@@ -57,7 +57,7 @@
             />
           </t-form-item>
 
-          <t-form-item label="磨损范围：" name="wear">
+          <t-form-item v-if="shouldShowWearRange" label="磨损范围：" name="wear">
             <div
               class="task-config-range flex items-center gap-3"
               :class="{ 'task-config-range--disabled': !isWearable }"
@@ -129,8 +129,14 @@
     </div>
 
     <template #footer>
-      <t-button variant="outline" theme="default" @click="closeDialog">取消</t-button>
-      <t-button v-if="canManageTask" theme="primary" :loading="submitLoading" @click="submitTaskForm()">
+      <t-button variant="outline" theme="default" size="small" @click="closeDialog">取消</t-button>
+      <t-button
+        v-if="canManageTask"
+        theme="primary"
+        size="small"
+        :loading="submitLoading"
+        @click="submitTaskForm()"
+      >
         提交
       </t-button>
     </template>
@@ -138,25 +144,36 @@
 </template>
 
 <script setup lang="ts">
-import { goodsApi } from "@/api/goods";
 import type { GoodsSimple } from "@/types/goods";
 import type { TaskItem } from "@/types/task";
 import { useWindowSize } from "@vueuse/core";
 import { computed, nextTick, ref, toRef, watch } from "vue";
 import { PlatformEnum } from "@/enums/PlatformEnum";
 import { TaskTypeEnum } from "@/enums/TaskTypeEnum";
-import { useUiState, convertToUi, DURATION_FACTORS, INTERVAL_FACTORS } from "@/composables/useUiState";
-import { useGoodsSearch } from "@/composables/useGoodsSearch";
+import {
+  useUiState,
+  convertToUi,
+  DURATION_FACTORS,
+  INTERVAL_FACTORS,
+} from "@/composables/useUiState";
+import { NON_WEARABLE_CATEGORIES, useGoodsSearch } from "@/composables/useGoodsSearch";
 import { useTaskForm } from "@/composables/useTaskForm";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
 
-const emit = defineEmits(["success", "open-change"]);
+const emit = defineEmits<{
+  (event: "success"): void;
+  (event: "open-change"): void;
+}>();
 
 // --- Composables & State ---
 const visible = ref(false);
 const dialogTitle = ref("新增任务");
-const formRef = ref();
+const formRef = ref<{
+  clearValidate: (fields?: string[]) => void;
+  submit: (options?: { showErrorMessage?: boolean }) => void;
+} | null>(null);
+const goodsSelectionLocked = ref(false);
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);
 const dialogAttach = computed(() => (isMobile.value ? "body" : undefined));
@@ -175,10 +192,21 @@ const dialogWidth = computed(() => "min(620px, calc(100vw - 32px))");
 const { uiState, c5Config, handleIntervalMinBlur, handleIntervalUnitChange, syncFromUiState } =
   useUiState(formData as any);
 
+const initialWearable = ref(true);
 const { goodsLoading, goodsOptions, remoteSearchGoods, isWearable } = useGoodsSearch(
   toRef(formData, "goodsId") as any,
   { canViewGoods }
 );
+const shouldShowWearRange = computed(() => {
+  if (!visible.value) {
+    return true;
+  }
+  const selected = goodsOptions.value.find((item) => item.goodsId === formData.goodsId);
+  if (selected?.parentCategoryName) {
+    return isWearable.value;
+  }
+  return initialWearable.value;
+});
 
 const handleGoodsSearch = (keyword: string) => remoteSearchGoods(keyword);
 
@@ -190,7 +218,44 @@ const clearFieldValidate = (fields: string[]) => {
   formRef.value?.clearValidate(fields);
 };
 
+const isNonWearableGoods = (goods?: Pick<GoodsSimple, "parentCategoryName"> | null) => {
+  if (!goods?.parentCategoryName) {
+    return false;
+  }
+  return NON_WEARABLE_CATEGORIES.some((keyword) => goods.parentCategoryName?.includes(keyword));
+};
+
+const applyWearableState = (wearable: boolean) => {
+  initialWearable.value = wearable;
+  if (!wearable) {
+    formData.minPaintwear = 0;
+    formData.maxPaintwear = 1;
+  }
+};
+
+const hydrateGoodsOption = (row: TaskItem) => {
+  if (!row.goodsId) {
+    goodsOptions.value = [];
+    initialWearable.value = true;
+    return;
+  }
+
+  const fallbackGoods: GoodsSimple = {
+    goodsId: row.goodsId,
+    name: row.goodsName || row.name,
+    parentCategoryName: row.parentCategoryName,
+  };
+  goodsOptions.value = [fallbackGoods];
+  applyWearableState(!isNonWearableGoods(fallbackGoods));
+};
+
+const resetFormState = () => {
+  goodsSelectionLocked.value = false;
+  initialWearable.value = true;
+};
+
 const closeDialog = () => {
+  resetFormState();
   visible.value = false;
 };
 
@@ -200,6 +265,10 @@ watch(
   (goodsId) => {
     if (goodsId) {
       clearFieldValidate(["goodsId"]);
+    }
+    const selected = goodsOptions.value.find((item) => item.goodsId === goodsId);
+    if (selected) {
+      applyWearableState(!isNonWearableGoods(selected));
     }
   }
 );
@@ -240,6 +309,7 @@ watch(
 // --- Methods (Exposed) ---
 const handleAdd = () => {
   resetForm();
+  resetFormState();
   formData.platform = PlatformEnum.C5;
   formData.taskType = TaskTypeEnum.SNIPING;
   formData.runMode = "BOTH";
@@ -255,11 +325,13 @@ const openWithGoods = (goods: GoodsSimple) => {
   handleAdd();
   formData.goodsId = goods.goodsId;
   goodsOptions.value = [goods];
+  applyWearableState(!isNonWearableGoods(goods));
   dialogTitle.value = `新增扫货任务 - ${goods.name}`;
 };
 
 const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
   resetForm();
+  resetFormState();
   Object.assign(formData, row);
   formData.platform = platform;
 
@@ -305,25 +377,19 @@ const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
   uiState.intervalMaxValue = (row.scanIntervalMax || 20) / factor;
   uiState.isCronImmediate = !row.cronExpression || row.cronExpression === "* * * * * ?";
 
-  if (row.goodsId) {
-    goodsOptions.value = [{ goodsId: row.goodsId, name: row.name } as GoodsSimple];
-    if (canViewGoods.value) {
-      goodsLoading.value = true;
-      goodsApi
-        .getSimpleList(row.name)
-        .then((res) => {
-          const match = res.find((g) => g.goodsId === row.goodsId);
-          if (match) goodsOptions.value = [match];
-        })
-        .catch((e) => console.error("Fetch goods info failed", e))
-        .finally(() => (goodsLoading.value = false));
-    }
-  }
+  hydrateGoodsOption(row);
 
   dialogTitle.value = "编辑任务";
   visible.value = true;
   nextTick(() => formRef.value?.clearValidate());
   syncFromUiState();
+};
+
+const handleCopy = (row: TaskItem, platform: string = PlatformEnum.C5) => {
+  handleEdit(row, platform);
+  formData.id = undefined;
+  goodsSelectionLocked.value = true;
+  dialogTitle.value = "复制任务";
 };
 
 const onFormSubmit = async (context: any) => {
@@ -337,7 +403,7 @@ const submitTaskForm = () => {
   formRef.value?.submit({ showErrorMessage: true });
 };
 
-defineExpose({ handleAdd, handleEdit, openWithGoods });
+defineExpose({ handleAdd, handleEdit, handleCopy, openWithGoods });
 </script>
 
 <style scoped>

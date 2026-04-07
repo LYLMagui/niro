@@ -60,6 +60,16 @@ body {
   background: #cccccc;
 }
 
+@media (max-width: 640px) {
+  .t-message {
+    max-width: calc(100vw - 32px) !important;
+  }
+
+  .t-message__content {
+    white-space: nowrap;
+  }
+}
+
 /* 数字列等宽字体工具类 */
 .font-numeric {
   font-family:

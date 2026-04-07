@@ -14,22 +14,22 @@
           <template #actions>
             <t-space size="8px">
               <t-button
+                v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK_ALL"
                 variant="outline"
                 theme="default"
                 size="small"
                 :loading="checkingAll"
                 class="rounded !border-gray-200 !text-gray-600 transition-all duration-300"
-                v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK_ALL"
                 @click="onCheckAll"
               >
                 <template #icon><t-icon name="refresh" /></template>
                 一键检测
               </t-button>
               <t-button
+                v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                 theme="primary"
                 size="small"
                 class="rounded transition-all duration-300"
-                v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                 @click="onAddAccount"
               >
                 <template #icon><t-icon name="add" /></template>
@@ -184,10 +184,10 @@
               <div class="flex items-center justify-center space-x-3">
                 <t-tooltip content="编辑">
                   <t-link
+                    v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                     theme="default"
                     :disabled="row.checking"
                     class="!text-gray-400 transition-colors hover:!text-blue-600"
-                    v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                     @click="onEditAccount(row)"
                   >
                     <t-icon name="edit" />
@@ -195,10 +195,10 @@
                 </t-tooltip>
                 <t-tooltip content="检测">
                   <t-link
+                    v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK"
                     theme="default"
                     :disabled="row.checking"
                     class="!text-gray-400 transition-colors hover:!text-blue-600"
-                    v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK"
                     @click="onCheckAccount(row)"
                   >
                     <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
@@ -219,10 +219,10 @@
                     "
                   >
                     <t-link
+                      v-permission="PermissionConstant.BUFF_ACCOUNT_DELETE"
                       theme="default"
                       :disabled="row.checking || !!row.boundTaskId"
                       class="!text-gray-400 transition-colors hover:!text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
-                      v-permission="PermissionConstant.BUFF_ACCOUNT_DELETE"
                     >
                       <t-icon name="delete" />
                     </t-link>
@@ -497,12 +497,11 @@
             <div class="absolute top-[-28px] right-4">
               <t-button
                 v-if="wecomEnabled || formData.emailEnabled"
+                v-permission="PermissionConstant.SETTINGS_TEST_NOTIFY"
                 variant="text"
                 theme="primary"
                 size="small"
                 :loading="testNotifyLoading"
-                class="!px-2"
-                v-permission="PermissionConstant.SETTINGS_TEST_NOTIFY"
                 @click="onTestNotify"
               >
                 <template #icon><t-icon name="chat" /></template>
@@ -588,6 +587,7 @@
         <div class="mt-8 flex justify-end gap-3">
           <t-button
             variant="outline"
+            size="small"
             class="rounded-md transition-all duration-300"
             @click="accountDialogVisible = false"
           >
@@ -596,6 +596,7 @@
           <t-button
             v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
             theme="primary"
+            size="small"
             type="submit"
             :loading="accountSubmitLoading"
             class="rounded-md px-8 transition-all duration-300"

@@ -24,8 +24,14 @@ export const ACTIVE_TASK_STATUSES = [
 
 export const STARTABLE_TASK_STATUSES = [TaskStatusEnum.STOPPED, TaskStatusEnum.ERROR] as const;
 
-export const isActiveTaskStatus = (status?: number): status is (typeof ACTIVE_TASK_STATUSES)[number] =>
-  status !== undefined && ACTIVE_TASK_STATUSES.includes(status as (typeof ACTIVE_TASK_STATUSES)[number]);
+export const isActiveTaskStatus = (
+  status?: number
+): status is (typeof ACTIVE_TASK_STATUSES)[number] =>
+  status !== undefined &&
+  ACTIVE_TASK_STATUSES.includes(status as (typeof ACTIVE_TASK_STATUSES)[number]);
 
-export const isStartableTaskStatus = (status?: number): status is (typeof STARTABLE_TASK_STATUSES)[number] =>
-  status !== undefined && STARTABLE_TASK_STATUSES.includes(status as (typeof STARTABLE_TASK_STATUSES)[number]);
+export const isStartableTaskStatus = (
+  status?: number
+): status is (typeof STARTABLE_TASK_STATUSES)[number] =>
+  status !== undefined &&
+  STARTABLE_TASK_STATUSES.includes(status as (typeof STARTABLE_TASK_STATUSES)[number]);
