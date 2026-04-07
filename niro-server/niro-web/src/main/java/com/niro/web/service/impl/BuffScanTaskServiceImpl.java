@@ -643,11 +643,18 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             Map<Long, BuffGoods> goodsMap = goodsList.stream()
                     .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
 
+            Set<Long> categoryIds = goodsList.stream()
+                    .map(BuffGoods::getCategoryId)
+                    .filter(Objects::nonNull)
+                    .collect(Collectors.toSet());
+            Map<Long, String> parentCategoryMap = buildParentCategoryMap(categoryIds);
+
             dtoList.forEach(dto -> {
                 if (dto.getGoodsId() != null && goodsMap.containsKey(dto.getGoodsId())) {
                     BuffGoods g = goodsMap.get(dto.getGoodsId());
                     dto.setGoodsIconUrl(g.getIconUrl());
                     dto.setMarketHashName(g.getMarketHashName());
+                    dto.setParentCategoryName(parentCategoryMap.get(g.getCategoryId()));
                 }
             });
         }
@@ -693,6 +700,33 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             }
         });
         return dtoList;
+    }
+
+    private Map<Long, String> buildParentCategoryMap(Set<Long> categoryIds) {
+        if (CollUtil.isEmpty(categoryIds)) {
+            return Map.of();
+        }
+
+        List<BuffGoodsCategory> categories = buffGoodsCategoryService.listByIds(categoryIds);
+        if (CollUtil.isEmpty(categories)) {
+            return Map.of();
+        }
+
+        Set<Long> parentIds = categories.stream()
+                .map(BuffGoodsCategory::getParentId)
+                .filter(id -> id != null && id > 0)
+                .collect(Collectors.toSet());
+        if (CollUtil.isEmpty(parentIds)) {
+            return Map.of();
+        }
+
+        Map<Long, String> parentNameMap = buffGoodsCategoryService.listByIds(parentIds).stream()
+                .collect(Collectors.toMap(BuffGoodsCategory::getId, BuffGoodsCategory::getName));
+
+        return categories.stream()
+                .filter(category -> category.getParentId() != null && category.getParentId() > 0)
+                .filter(category -> parentNameMap.containsKey(category.getParentId()))
+                .collect(Collectors.toMap(BuffGoodsCategory::getId, category -> parentNameMap.get(category.getParentId())));
     }
 
     @Override

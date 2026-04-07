@@ -1,5 +1,6 @@
 package com.niro.web.mq;
 
+import cn.hutool.core.util.StrUtil;
 import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
@@ -176,11 +177,14 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
 
         // 更新商品信息（如果有）
         if (detail.getOpenItemInfo() != null) {
-            String goodsName = detail.getOpenItemInfo().getName();
-            if (goodsName == null || goodsName.isEmpty()) {
-                goodsName = detail.getOpenItemInfo().getMarketHashName();
+            // 仅当本地 goodsName 为空时，才用 C5 返回值兜底
+            if (StrUtil.isBlank(record.getGoodsName())) {
+                String goodsName = detail.getOpenItemInfo().getName();
+                if (goodsName == null || goodsName.isEmpty()) {
+                    goodsName = detail.getOpenItemInfo().getMarketHashName();
+                }
+                record.setGoodsName(goodsName);
             }
-            record.setGoodsName(goodsName);
             if (detail.getOpenItemInfo().getImageUrl() != null) {
                 record.setGoodsImg(detail.getOpenItemInfo().getImageUrl());
             }

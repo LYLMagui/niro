@@ -4,9 +4,13 @@ import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.InventoryItemDTO;
+import com.niro.web.dto.PurchaseStatsItemDTO;
+import com.niro.web.dto.PurchaseStatsSplitItemDTO;
+import com.niro.web.dto.PurchaseStatsSummaryDTO;
+import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
+import com.niro.web.dto.param.TradeOrderBatchDeleteParam;
 import com.niro.web.service.TradeOrderRecordService;
-import com.niro.web.vo.C5OrderDetailVO;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -36,22 +40,15 @@ public class TradeOrderController {
     public Page<TradeOrderRecordDTO> getOrderRecordPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer pageSize,
-            @RequestParam(required = false) String platform,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String sortField,
             @RequestParam(required = false) String sortOrder) {
 
         Long userId = StpUtil.getLoginIdAsLong();
-        return tradeOrderRecordService.getOrderRecordPage(page, pageSize, platform, status, userId, keyword, sortField, sortOrder);
-    }
-
-    @Operation(summary = "获取 C5 订单详情")
-    @GetMapping("/c5/detail/{orderId}")
-    @SaCheckPermission(PermissionConstants.TASK_RECORD_LIST)
-    public C5OrderDetailVO getC5OrderDetail(@PathVariable String orderId) {
-        Long userId = StpUtil.getLoginIdAsLong();
-        return tradeOrderRecordService.getC5OrderDetail(userId, orderId);
+        return tradeOrderRecordService.getOrderRecordPage(page, pageSize, status, userId, keyword, startDate, endDate, sortField, sortOrder);
     }
 
     @Operation(summary = "删除订单记录")
@@ -60,6 +57,14 @@ public class TradeOrderController {
     public void deleteOrderRecord(@PathVariable Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
         tradeOrderRecordService.deleteOrderRecord(userId, id);
+    }
+
+    @Operation(summary = "批量删除订单记录")
+    @PostMapping("/batch-delete")
+    @SaCheckPermission(PermissionConstants.ORDER_RECORD_DELETE)
+    public void batchDeleteOrderRecord(@RequestBody TradeOrderBatchDeleteParam param) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        tradeOrderRecordService.batchDeleteOrderRecord(userId, param.getIds());
     }
 
     @Operation(summary = "更新订单记录")
@@ -78,5 +83,49 @@ public class TradeOrderController {
             @RequestParam(required = false) String endDate) {
         Long userId = StpUtil.getLoginIdAsLong();
         return tradeOrderRecordService.getInventoryItems(userId, keyword, startDate, endDate);
+    }
+
+    @Operation(summary = "获取购买统计汇总")
+    @GetMapping("/purchase-stats/summary")
+    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    public PurchaseStatsSummaryDTO getPurchaseStatsSummary(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return tradeOrderRecordService.getPurchaseStatsSummary(userId, keyword, startDate, endDate);
+    }
+
+    @Operation(summary = "获取购买统计趋势")
+    @GetMapping("/purchase-stats/trend")
+    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    public List<PurchaseStatsTrendDTO> getPurchaseStatsTrend(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return tradeOrderRecordService.getPurchaseStatsTrend(userId, keyword, startDate, endDate);
+    }
+
+    @Operation(summary = "获取购买统计商品明细")
+    @GetMapping("/purchase-stats/items")
+    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    public List<PurchaseStatsItemDTO> getPurchaseStatsItems(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return tradeOrderRecordService.getPurchaseStatsItems(userId, keyword, startDate, endDate);
+    }
+
+    @Operation(summary = "获取购买统计按时间拆分明细")
+    @GetMapping("/purchase-stats/split-items")
+    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    public List<PurchaseStatsSplitItemDTO> getPurchaseStatsSplitItems(
+            @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) String startDate,
+            @RequestParam(required = false) String endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return tradeOrderRecordService.getPurchaseStatsSplitItems(userId, keyword, startDate, endDate);
     }
 }

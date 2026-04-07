@@ -1,8 +1,10 @@
 package com.niro.web.controller;
 
+import com.niro.core.exception.BusinessException;
 import com.niro.web.service.C5OrderSyncService;
 import com.niro.web.constant.PermissionConstants;
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.stp.StpUtil;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -42,10 +44,14 @@ public class C5OrderSyncController {
     public String triggerSync(
             @Parameter(description = "查询几天前的订单，0=今天，1=昨天，-1=全部历史，默认1")
             @RequestParam(defaultValue = "1") Integer daysBefore) {
-        log.info("手动触发 C5 订单同步, daysBefore={}", daysBefore);
+        Long userId = StpUtil.getLoginIdAsLong();
+        log.info("手动触发 C5 订单同步, userId={}, daysBefore={}", userId, daysBefore);
         try {
-            c5OrderSyncService.syncOrders(daysBefore);
-            return "C5 订单同步任务已启动";
+            int syncedCount = c5OrderSyncService.syncOrders(userId, daysBefore);
+            return "C5 订单同步完成，本次新增 " + syncedCount + " 条";
+        } catch (BusinessException e) {
+            log.warn("手动触发 C5 订单同步被拒绝, userId={}, daysBefore={}, message={}", userId, daysBefore, e.getMessage());
+            return e.getMessage();
         } catch (Exception e) {
             log.error("手动触发 C5 订单同步失败", e);
             return "同步失败: " + e.getMessage();

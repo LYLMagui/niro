@@ -6,6 +6,7 @@ import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.mapper.TradeOrderRecordMapper;
+import cn.hutool.core.util.StrUtil;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
@@ -72,5 +73,17 @@ public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordM
 
     public TradeOrderRecord getByOrderId(String orderId) {
         return this.lambdaQuery().eq(TradeOrderRecord::getOrderId,orderId).one();
+    }
+
+    public List<TradeOrderRecord> listSuccessfulPurchaseRecords(Long userId, String keyword,
+                                                                LocalDateTime startDateTime, LocalDateTime endDateTime) {
+        return this.lambdaQuery()
+                .eq(TradeOrderRecord::getUserId, userId)
+                .eq(TradeOrderRecord::getStatus, OrderStatusEnum.SUCCESS.getCode())
+                .like(StrUtil.isNotBlank(keyword), TradeOrderRecord::getGoodsName, keyword)
+                .ge(startDateTime != null, TradeOrderRecord::getCreateTime, startDateTime)
+                .le(endDateTime != null, TradeOrderRecord::getCreateTime, endDateTime)
+                .orderByAsc(TradeOrderRecord::getCreateTime)
+                .list();
     }
 }

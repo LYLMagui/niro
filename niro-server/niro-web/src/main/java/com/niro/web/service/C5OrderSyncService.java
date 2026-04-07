@@ -16,6 +16,15 @@ public interface C5OrderSyncService {
      * 拉取指定天数范围内的订单并同步到本地数据库
      *
      * @param daysBefore 查询几天前的订单，0 表示今天，-1 表示全部历史
+     * @return 本次新增订单数量
      */
-    void syncOrders(Integer daysBefore);
+    int syncOrders(Long userId, Integer daysBefore);
+
+    /**
+     * 同步所有已配置 C5 AppKey 的用户订单
+     *
+     * @param daysBefore 查询几天前的订单，0 表示今天，-1 表示全部历史
+     * @return 本次新增订单数量
+     */
+    int syncOrders(Integer daysBefore);
 }

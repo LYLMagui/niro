@@ -8,14 +8,15 @@ import cn.hutool.http.HtmlUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
-import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
-import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.InventoryItemDTO;
+import com.niro.web.dto.PurchaseStatsItemDTO;
+import com.niro.web.dto.PurchaseStatsSplitItemDTO;
+import com.niro.web.dto.PurchaseStatsSummaryDTO;
+import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffAccount;
@@ -24,7 +25,6 @@ import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
-
 import com.niro.web.manager.BuffAccountMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
@@ -32,7 +32,6 @@ import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.BuffScanTaskService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
-import com.niro.web.vo.C5OrderDetailVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,10 +39,18 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
@@ -57,6 +64,9 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
+
+    private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
+    private static final String DEFAULT_STATS_IMAGE = "/images/goods-placeholder.svg";
 
     private final BuffScanTaskService buffScanTaskService;
     private final BuffAccountMapperManager buffAccountMapperManager;
@@ -78,9 +88,46 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             // ignore
         }
         name = HtmlUtil.unescape(name);
-        // 将非标准空格和连续空格替换为单空格
         name = name.replaceAll("[\\u00A0\\s]+", " ");
         return StrUtil.trim(name);
+    }
+
+    private LocalDateTime parseStartDate(String startDate) {
+        if (StrUtil.isBlank(startDate)) {
+            return null;
+        }
+        return DateUtil.parseDate(startDate).toLocalDateTime();
+    }
+
+    private LocalDateTime parseEndDate(String endDate) {
+        if (StrUtil.isBlank(endDate)) {
+            return null;
+        }
+        return DateUtil.endOfDay(DateUtil.parseDate(endDate)).toLocalDateTime();
+    }
+
+    private BigDecimal safeAmount(BigDecimal value) {
+        return value == null ? ZERO_AMOUNT : value.setScale(2, RoundingMode.HALF_UP);
+    }
+
+    private BigDecimal divideAmount(BigDecimal amount, int quantity) {
+        if (quantity <= 0) {
+            return ZERO_AMOUNT;
+        }
+        return safeAmount(amount).divide(BigDecimal.valueOf(quantity), 2, RoundingMode.HALF_UP);
+    }
+
+    private String resolveStatsImage(TradeOrderRecord record) {
+        if (record == null || StrUtil.isBlank(record.getGoodsImg())) {
+            return DEFAULT_STATS_IMAGE;
+        }
+        return record.getGoodsImg();
+    }
+
+    private List<TradeOrderRecord> listSuccessfulPurchaseRecords(Long userId, String keyword, String startDate, String endDate) {
+        LocalDateTime startDateTime = parseStartDate(startDate);
+        LocalDateTime endDateTime = parseEndDate(endDate);
+        return tradeOrderRecordMapperManager.listSuccessfulPurchaseRecords(userId, keyword, startDateTime, endDateTime);
     }
 
     private BuffGoods findBuffGoods(String marketHashName, String c5GoodsName) {
@@ -89,7 +136,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             return null;
         }
 
-        // 尝试 1：精确匹配
         BuffGoods goods = buffGoodsService.lambdaQuery()
                 .eq(BuffGoods::getMarketHashName, normalizedName)
                 .last("limit 1")
@@ -98,7 +144,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             return goods;
         }
 
-        // 尝试 2：忽略大小写匹配
         goods = buffGoodsService.lambdaQuery()
                 .apply("lower(market_hash_name) = {0}", normalizedName.toLowerCase())
                 .last("limit 1")
@@ -107,11 +152,9 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             return goods;
         }
 
-        // 尝试 3：交叉匹配 (如果 c5GoodsName 看起来像英文)
         if (StrUtil.isNotBlank(c5GoodsName) && c5GoodsName.matches("^[\\x00-\\x7F]+$")) {
             String normalizedC5Name = normalizeName(c5GoodsName);
             if (StrUtil.isNotBlank(normalizedC5Name)) {
-                // 重复尝试 1
                 goods = buffGoodsService.lambdaQuery()
                         .eq(BuffGoods::getMarketHashName, normalizedC5Name)
                         .last("limit 1")
@@ -120,7 +163,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                     return goods;
                 }
 
-                // 重复尝试 2
                 goods = buffGoodsService.lambdaQuery()
                         .apply("lower(market_hash_name) = {0}", normalizedC5Name.toLowerCase())
                         .last("limit 1")
@@ -133,14 +175,15 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         return null;
     }
 
-    // 客户端缓存 (UserId -> Client)
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     private C5ApiClient getC5Client(Long userId) {
         return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
     }
 
-    public static C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache, UserPlatformSettingsService userPlatformSettingsService, String c5BaseUrl) {
+    public static C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache,
+                                              UserPlatformSettingsService userPlatformSettingsService,
+                                              String c5BaseUrl) {
         return clientCache.computeIfAbsent(userId, uid -> {
             UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
             if (settings == null) {
@@ -166,9 +209,9 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             JSONObject json = JSONUtil.parseObj(message);
 
             String orderId = json.getStr("orderId");
-            // 幂等性检查：如果订单号存在且不为空，则检查是否已存在
             if (StrUtil.isNotBlank(orderId)) {
-                boolean exists = tradeOrderRecordMapperManager.lambdaQuery().eq(TradeOrderRecord::getOrderId, orderId)
+                boolean exists = tradeOrderRecordMapperManager.lambdaQuery()
+                        .eq(TradeOrderRecord::getOrderId, orderId)
                         .exists();
                 if (exists) {
                     log.info("订单已存在，忽略上报: {}", orderId);
@@ -188,7 +231,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             }
             record.setMarketHashName(marketHashName);
 
-            // 尝试补全中文商品名和图片
             String goodsName = json.getStr("goodsName", "");
             String goodsImg = json.getStr("goodsImg", "");
 
@@ -209,22 +251,18 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
             record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
 
-            // 兼容 failedDesc 和 errorMsg
             String errorMsg = json.getStr("errorMsg", "");
             if (StrUtil.isBlank(errorMsg)) {
                 errorMsg = json.getStr("failedDesc", "");
             }
             record.setErrorMsg(errorMsg);
 
-            // 额外信息
             if (json.containsKey("extraInfo")) {
                 record.setExtraInfo(json.getJSONObject("extraInfo"));
             }
 
-            // 时间戳处理
             Long timestamp = json.getLong("timestamp");
             if (timestamp != null) {
-                // 兼容秒级时间戳 (小于 10000000000L 即为秒级)
                 if (timestamp < 10000000000L) {
                     timestamp = timestamp * 1000;
                 }
@@ -237,7 +275,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             tradeOrderRecordMapperManager.save(record);
             log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
 
-            // 同步任务进度 (仅成功订单触发)
             if (OrderStatusEnum.SUCCESS.getCode().equals(record.getStatus()) && record.getTaskId() != null
                     && record.getTaskId() > 0) {
                 try {
@@ -253,16 +290,17 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
     }
 
     @Override
-    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform,
-                                                        Integer status, Long userId, String keyword, String sortField, String sortOrder) {
+    public Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, Integer status,
+                                                        Long userId, String keyword, String startDate, String endDate,
+                                                        String sortField, String sortOrder) {
         Page<TradeOrderRecord> page = new Page<>(pageNum, pageSize);
+        LocalDateTime startDateTime = parseStartDate(startDate);
+        LocalDateTime endDateTime = parseEndDate(endDate);
 
         Page<TradeOrderRecord> result = tradeOrderRecordMapperManager.lambdaQuery()
                 .eq(userId != null, TradeOrderRecord::getUserId, userId)
-                .eq(StrUtil.isNotBlank(platform), TradeOrderRecord::getPlatform, platform)
                 .func(status != null, q -> {
                     if (status == 2) {
-                        // 查询失败状态 (2: 本地失败, 11: C5失败)
                         q.in(TradeOrderRecord::getStatus, 2, 11);
                     } else {
                         q.eq(TradeOrderRecord::getStatus, status);
@@ -271,6 +309,8 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 .func(StrUtil.isNotBlank(keyword), q -> q.and(w -> w.like(TradeOrderRecord::getGoodsName, keyword)
                         .or().like(TradeOrderRecord::getMarketHashName, keyword)
                         .or().like(TradeOrderRecord::getOrderId, keyword)))
+                .ge(startDateTime != null, TradeOrderRecord::getCreateTime, startDateTime)
+                .le(endDateTime != null, TradeOrderRecord::getCreateTime, endDateTime)
                 .func(q -> {
                     if (StrUtil.isNotBlank(sortField)) {
                         boolean isAsc = "ascend".equalsIgnoreCase(sortOrder) || "asc".equalsIgnoreCase(sortOrder);
@@ -289,12 +329,10 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 })
                 .page(page);
 
-        // 转换 DTO 并填充关联信息
         Page<TradeOrderRecordDTO> dtoPage = new Page<>(pageNum, pageSize, result.getTotal());
         List<TradeOrderRecordDTO> dtoList = result.getRecords().stream().map(item -> {
             TradeOrderRecordDTO dto = BeanUtil.copyProperties(item, TradeOrderRecordDTO.class);
 
-            // 填充任务名
             if (item.getTaskId() != null && item.getTaskId() > 0) {
                 BuffScanTask task = buffScanTaskMapper.selectById(item.getTaskId());
                 if (task != null) {
@@ -302,7 +340,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                 }
             }
 
-            // 填充账号名
             if (item.getAccountId() != null && item.getAccountId() > 0) {
                 BuffAccount account = buffAccountMapperManager.getById(item.getAccountId());
                 if (account != null) {
@@ -318,48 +355,35 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
     }
 
     @Override
-    public C5OrderDetailVO getC5OrderDetail(Long userId, String orderId) {
-        Assert.notBlank(orderId, "订单号不能为空");
-
-        // 查询本地订单记录，获取 outTradeNo
-        TradeOrderRecord record = tradeOrderRecordMapperManager.lambdaQuery()
-                .eq(TradeOrderRecord::getUserId, userId)
-                .eq(TradeOrderRecord::getOrderId, orderId)
-                .one();
-
-        C5ApiClient client = getC5Client(userId);
-        C5OrderDetailRequest request = new C5OrderDetailRequest().setOrderId(orderId);
-
-        if (record != null && StrUtil.isNotBlank(record.getOutTradeNo())) {
-            request.setOutTradeNo(record.getOutTradeNo());
-        }
-
-        C5OrderDetailResponse detail = client.getTrade().getOrderDetail(request);
-        Assert.notNull(detail, "查询 C5 详情返回为空");
-
-        C5OrderDetailVO vo = BeanUtil.copyProperties(detail, C5OrderDetailVO.class);
-        if (detail.getCreateTime() != null) {
-            long ts = detail.getCreateTime();
-            if (ts < 10000000000L) {
-                ts = ts * 1000;
-            }
-            vo.setCreateTimeStr(DateUtil.date(ts).toString());
-        }
-
-        return vo;
+    @Transactional(rollbackFor = Exception.class)
+    public void deleteOrderRecord(Long userId, Long id) {
+        batchDeleteOrderRecord(userId, List.of(id));
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void deleteOrderRecord(Long userId, Long id) {
-        TradeOrderRecord record = tradeOrderRecordMapperManager.lambdaQuery()
-                .eq(TradeOrderRecord::getUserId, userId)
-                .eq(TradeOrderRecord::getId, id)
-                .one();
-        Assert.notNull(record, "订单记录不存在");
+    public void batchDeleteOrderRecord(Long userId, List<Long> ids) {
+        List<Long> normalizedIds = normalizeIds(ids);
+        Assert.notEmpty(normalizedIds, "订单ID列表不能为空");
 
-        boolean removed = tradeOrderRecordMapperManager.removeById(id);
+        Long recordCount = tradeOrderRecordMapperManager.lambdaQuery()
+                .eq(TradeOrderRecord::getUserId, userId)
+                .in(TradeOrderRecord::getId, normalizedIds)
+                .count();
+        Assert.isTrue(recordCount == normalizedIds.size(), "存在无权删除或不存在的订单记录");
+
+        boolean removed = tradeOrderRecordMapperManager.removeByIds(normalizedIds);
         Assert.isTrue(removed, "删除失败");
+    }
+
+    private List<Long> normalizeIds(List<Long> ids) {
+        if (CollUtil.isEmpty(ids)) {
+            return List.of();
+        }
+        return ids.stream()
+                .filter(Objects::nonNull)
+                .distinct()
+                .collect(Collectors.toList());
     }
 
     @Override
@@ -369,7 +393,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         TradeOrderRecord record = tradeOrderRecordMapperManager.getById(dto.getId());
         Assert.notNull(record, "订单记录不存在");
 
-        // 更新基本字段
         if (dto.getStatus() != null) {
             record.setStatus(dto.getStatus());
         }
@@ -382,7 +405,7 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
 
     @Override
     public Long countSuccess(Long taskId) {
-        return 0L;
+        return tradeOrderRecordMapperManager.countSuccess(taskId);
     }
 
     @Override
@@ -401,40 +424,17 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
 
     @Override
     public List<InventoryItemDTO> getInventoryItems(Long userId, String keyword, String startDate, String endDate) {
-        // 查询条件：用户ID + 状态成功
-        var query = tradeOrderRecordMapperManager.lambdaQuery()
-                .eq(TradeOrderRecord::getUserId, userId)
-                .eq(TradeOrderRecord::getStatus, OrderStatusEnum.SUCCESS.getCode());
-
-        // 按日期范围筛选 - 使用LocalDateTime避免类型不匹配
-        if (StrUtil.isNotBlank(startDate)) {
-            LocalDateTime startDateTime = LocalDateTime.parse(startDate + "T00:00:00");
-            query.ge(TradeOrderRecord::getCreateTime, startDateTime);
-        }
-        if (StrUtil.isNotBlank(endDate)) {
-            LocalDateTime endDateTime = LocalDateTime.parse(endDate + "T23:59:59");
-            query.le(TradeOrderRecord::getCreateTime, endDateTime);
-        }
-
-        // 按关键词筛选商品名称
-        if (StrUtil.isNotBlank(keyword)) {
-            query.like(TradeOrderRecord::getGoodsName, keyword);
-        }
-
-        // 查询所有符合条件的记录
-        List<TradeOrderRecord> records = query.list();
+        List<TradeOrderRecord> records = listSuccessfulPurchaseRecords(userId, keyword, startDate, endDate);
         if (CollUtil.isEmpty(records)) {
             return List.of();
         }
 
-        // 按商品名称+价格+日期分组聚合
         Map<String, List<TradeOrderRecord>> grouped = records.stream()
                 .collect(Collectors.groupingBy(record -> {
                     String dateStr = DateUtil.format(record.getCreateTime(), "yyyy-MM-dd");
                     return record.getGoodsName() + "#" + record.getPrice() + "#" + dateStr;
                 }));
 
-        // 转换为DTO列表
         return grouped.entrySet().stream()
                 .map(entry -> {
                     List<TradeOrderRecord> groupRecords = entry.getValue();
@@ -450,7 +450,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                     dto.setPurchaseDate(DateUtil.format(firstRecord.getCreateTime(), "yyyy-MM-dd"));
                     dto.setPlatform(firstRecord.getPlatform());
 
-                    // 从extraInfo中获取备注
                     String remark = "";
                     if (firstRecord.getExtraInfo() != null) {
                         Object remarkObj = firstRecord.getExtraInfo().get("remark");
@@ -459,10 +458,164 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                         }
                     }
                     dto.setRemark(remark);
-
                     return dto;
                 })
                 .sorted((a, b) -> b.getPurchaseDate().compareTo(a.getPurchaseDate()))
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public PurchaseStatsSummaryDTO getPurchaseStatsSummary(Long userId, String keyword, String startDate, String endDate) {
+        List<TradeOrderRecord> records = listSuccessfulPurchaseRecords(userId, keyword, startDate, endDate);
+        PurchaseStatsSummaryDTO dto = new PurchaseStatsSummaryDTO();
+        if (CollUtil.isEmpty(records)) {
+            dto.setTotalAmount(ZERO_AMOUNT);
+            dto.setTotalQuantity(0);
+            dto.setAvgPrice(ZERO_AMOUNT);
+            dto.setGoodsTypeCount(0);
+            return dto;
+        }
+
+        BigDecimal totalAmount = records.stream()
+                .map(TradeOrderRecord::getPrice)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        int totalQuantity = records.size();
+        long goodsTypeCount = records.stream()
+                .map(TradeOrderRecord::getGoodsName)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .count();
+
+        dto.setTotalAmount(safeAmount(totalAmount));
+        dto.setTotalQuantity(totalQuantity);
+        dto.setAvgPrice(divideAmount(totalAmount, totalQuantity));
+        dto.setGoodsTypeCount((int) goodsTypeCount);
+        return dto;
+    }
+
+    @Override
+    public List<PurchaseStatsTrendDTO> getPurchaseStatsTrend(Long userId, String keyword, String startDate, String endDate) {
+        List<TradeOrderRecord> records = listSuccessfulPurchaseRecords(userId, keyword, startDate, endDate);
+        if (CollUtil.isEmpty(records)) {
+            return List.of();
+        }
+
+        Map<LocalDate, List<TradeOrderRecord>> grouped = records.stream()
+                .filter(record -> record.getCreateTime() != null)
+                .collect(Collectors.groupingBy(record -> record.getCreateTime().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
+
+        LocalDate firstDate = grouped.keySet().stream().min(Comparator.naturalOrder()).orElse(null);
+        LocalDate lastDate = grouped.keySet().stream().max(Comparator.naturalOrder()).orElse(null);
+        if (firstDate == null || lastDate == null) {
+            return List.of();
+        }
+
+        List<PurchaseStatsTrendDTO> result = new ArrayList<>();
+        long days = ChronoUnit.DAYS.between(firstDate, lastDate);
+        for (long index = 0; index <= days; index++) {
+            LocalDate currentDate = firstDate.plusDays(index);
+            List<TradeOrderRecord> dayRecords = grouped.getOrDefault(currentDate, List.of());
+            BigDecimal amount = dayRecords.stream()
+                    .map(TradeOrderRecord::getPrice)
+                    .filter(Objects::nonNull)
+                    .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+            PurchaseStatsTrendDTO dto = new PurchaseStatsTrendDTO();
+            dto.setDate(currentDate.toString());
+            dto.setAmount(safeAmount(amount));
+            dto.setQuantity(dayRecords.size());
+            result.add(dto);
+        }
+        return result;
+    }
+
+    @Override
+    public List<PurchaseStatsItemDTO> getPurchaseStatsItems(Long userId, String keyword, String startDate, String endDate) {
+        List<TradeOrderRecord> records = listSuccessfulPurchaseRecords(userId, keyword, startDate, endDate);
+        if (CollUtil.isEmpty(records)) {
+            return List.of();
+        }
+
+        BigDecimal totalAmount = records.stream()
+                .map(TradeOrderRecord::getPrice)
+                .filter(Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        Map<String, List<TradeOrderRecord>> grouped = records.stream()
+                .collect(Collectors.groupingBy(record -> StrUtil.blankToDefault(record.getGoodsName(), "未知商品")));
+
+        return grouped.entrySet().stream()
+                .map(entry -> {
+                    List<TradeOrderRecord> groupRecords = entry.getValue();
+                    TradeOrderRecord latestRecord = groupRecords.stream()
+                            .filter(record -> record.getCreateTime() != null)
+                            .max(Comparator.comparing(TradeOrderRecord::getCreateTime))
+                            .orElse(groupRecords.get(0));
+
+                    BigDecimal itemAmount = groupRecords.stream()
+                            .map(TradeOrderRecord::getPrice)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    int quantity = groupRecords.size();
+
+                    PurchaseStatsItemDTO dto = new PurchaseStatsItemDTO();
+                    dto.setGoodsName(entry.getKey());
+                    dto.setGoodsImg(resolveStatsImage(latestRecord));
+                    dto.setTotalQuantity(quantity);
+                    dto.setTotalAmount(safeAmount(itemAmount));
+                    dto.setAvgPrice(divideAmount(itemAmount, quantity));
+                    dto.setAmountRatio(totalAmount.compareTo(BigDecimal.ZERO) > 0
+                            ? safeAmount(itemAmount.divide(totalAmount, 4, RoundingMode.HALF_UP))
+                            : BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP));
+                    dto.setLatestPurchaseDate(latestRecord.getCreateTime() == null
+                            ? "-"
+                            : latestRecord.getCreateTime().toLocalDate().toString());
+                    return dto;
+                })
+                .sorted(
+                        Comparator.comparing(PurchaseStatsItemDTO::getTotalAmount, Comparator.nullsLast(BigDecimal::compareTo)).reversed()
+                                .thenComparing(
+                                        Comparator.comparing(PurchaseStatsItemDTO::getTotalQuantity, Comparator.nullsLast(Integer::compareTo)).reversed()
+                                )
+                )
+                .collect(Collectors.toList());
+    }
+
+    @Override
+    public List<PurchaseStatsSplitItemDTO> getPurchaseStatsSplitItems(Long userId, String keyword, String startDate, String endDate) {
+        List<TradeOrderRecord> records = listSuccessfulPurchaseRecords(userId, keyword, startDate, endDate);
+        if (CollUtil.isEmpty(records)) {
+            return List.of();
+        }
+
+        Map<String, List<TradeOrderRecord>> grouped = records.stream()
+                .filter(record -> record.getCreateTime() != null)
+                .collect(Collectors.groupingBy(record -> StrUtil.blankToDefault(record.getGoodsName(), "未知商品")
+                        + "#" + record.getCreateTime().toLocalDate(), LinkedHashMap::new, Collectors.toList()));
+
+        return grouped.values().stream()
+                .map(groupRecords -> {
+                    TradeOrderRecord latestRecord = groupRecords.stream()
+                            .max(Comparator.comparing(TradeOrderRecord::getCreateTime))
+                            .orElse(groupRecords.get(0));
+                    BigDecimal itemAmount = groupRecords.stream()
+                            .map(TradeOrderRecord::getPrice)
+                            .filter(Objects::nonNull)
+                            .reduce(BigDecimal.ZERO, BigDecimal::add);
+                    int quantity = groupRecords.size();
+
+                    PurchaseStatsSplitItemDTO dto = new PurchaseStatsSplitItemDTO();
+                    dto.setGoodsName(StrUtil.blankToDefault(latestRecord.getGoodsName(), "未知商品"));
+                    dto.setGoodsImg(resolveStatsImage(latestRecord));
+                    dto.setDate(latestRecord.getCreateTime().toLocalDate().toString());
+                    dto.setTotalQuantity(quantity);
+                    dto.setTotalAmount(safeAmount(itemAmount));
+                    dto.setAvgPrice(divideAmount(itemAmount, quantity));
+                    return dto;
+                })
+                .sorted(Comparator.comparing(PurchaseStatsSplitItemDTO::getDate, Comparator.nullsLast(String::compareTo)).reversed()
+                        .thenComparing(PurchaseStatsSplitItemDTO::getGoodsName, Comparator.nullsLast(String::compareTo)))
                 .collect(Collectors.toList());
     }
 }

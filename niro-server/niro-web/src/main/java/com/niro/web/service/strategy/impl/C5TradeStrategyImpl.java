@@ -35,6 +35,7 @@ import org.springframework.stereotype.Component;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 /**
@@ -59,6 +60,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final RedisUtil redisUtil;
 
     private static final BigDecimal GLOBAL_MAX_PRICE = new BigDecimal("999999");
+    private static final long PRODUCT_PENDING_TTL_SECONDS = 15L;
+    private static final String C5_PRODUCT_PENDING_KEY_PREFIX = "c5:buy:pending:";
     private static final DefaultRedisScript<Long> RESERVE_QUOTA_SCRIPT = new DefaultRedisScript<>();
     private static final DefaultRedisScript<Long> RESTORE_QUOTA_SCRIPT = new DefaultRedisScript<>();
 
@@ -242,9 +245,19 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
 
-        List<C5ProductListResponse.ProductDTO> toBuyList = qualifiedItems.subList(0,
-                Math.min(qualifiedItems.size(), approved));
-        doBatchBuy(client, task, toBuyList, goods, approved);
+        List<C5ProductListResponse.ProductDTO> reservedItems = reservePendingProducts(task, qualifiedItems, approved);
+        if (CollUtil.isEmpty(reservedItems)) {
+            log.info("任务 [{}] 命中商品占位防重，跳过本轮下单", task.getId());
+            restoreQuota(task, approved);
+            return;
+        }
+
+        int lockedCount = reservedItems.size();
+        if (lockedCount < approved) {
+            restoreQuota(task, approved - lockedCount);
+        }
+
+        doBatchBuy(client, task, reservedItems, goods, lockedCount);
     }
 
     private boolean checkWear(C5ProductListResponse.ProductDTO item, BuffScanTask task, boolean isNonWearable) {
@@ -356,6 +369,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
+            releasePendingProducts(task, items);
             restoreQuota(task, reservedQuota);
             return;
         }
@@ -372,6 +386,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         String tradeUrl = (settings != null) ? settings.getSteamTradeUrl() : null;
         if (StrUtil.isBlank(tradeUrl)) {
             markTaskError(task, "未配置 Steam Trade URL");
+            releasePendingProducts(task, items);
             restoreQuota(task, reservedQuota);
             return;
         }
@@ -380,6 +395,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             // 中断检查 (循环内)
             if (Thread.currentThread().isInterrupted()) {
                 log.warn("任务 [{}] 在构造订单记录时被中断", task.getId());
+                releasePendingProducts(task, items);
                 restoreQuota(task, reservedQuota);
                 return;
             }
@@ -397,7 +413,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setUserId(task.getUserId());
             record.setTaskId(task.getId());
             record.setPlatform(PlatformEnum.C5.name());
-            record.setGoodsName(goods.getMarketHashName()); // 或 item.getMarketHashName()
+            record.setGoodsName(goods.getName());
             record.setMarketHashName(goods.getMarketHashName());
             record.setPrice(item.getPrice());
             record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
@@ -434,6 +450,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (Thread.currentThread().isInterrupted()) {
                 log.warn("任务 [{}] 在调用 C5 购买 API 前被中断", task.getId());
                 markPendingAsFailed(records, "任务已中断");
+                releasePendingProducts(task, items);
                 restoreQuota(task, reservedQuota);
                 return;
             }
@@ -446,6 +463,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             if (resp == null) {
                 updateLastError(task, "C5 批量下单响应为空");
                 markPendingAsFailed(records, "API返回为空");
+                releasePendingProducts(task, items);
                 restoreQuota(task, reservedQuota);
                 return;
             }
@@ -510,6 +528,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             restoreQuota(task, failedQuota);
 
             // 7. 更新任务进度
+            releasePendingProducts(task, items);
+
             if (successCount > 0) {
                 // 清空错误信息
                 updateLastError(task, null);
@@ -546,6 +566,8 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 restoreQuota(task, reservedQuota);
             } catch (Exception dbEx) {
                 log.error("任务 [{}] 状态回写失败 (严重): {}", task.getId(), dbEx.getMessage());
+            } finally {
+                releasePendingProducts(task, items);
             }
 
             // 4. 现场还原 (恢复中断状态，让上层感知)
@@ -616,6 +638,59 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         String quotaKey = BuffConstant.REDIS_TASK_QUOTA_PREFIX + task.getId();
         Long approved = redisUtil.getStringRedisTemplate().execute(RESERVE_QUOTA_SCRIPT, List.of(quotaKey), String.valueOf(requested));
         return approved == null ? 0 : approved.intValue();
+    }
+
+    private List<C5ProductListResponse.ProductDTO> reservePendingProducts(BuffScanTask task,
+                                                                           List<C5ProductListResponse.ProductDTO> items,
+                                                                           int limit) {
+        if (limit <= 0 || CollUtil.isEmpty(items)) {
+            return Collections.emptyList();
+        }
+
+        List<C5ProductListResponse.ProductDTO> reservedItems = new ArrayList<>();
+        Set<String> seenProductIds = new HashSet<>();
+        for (C5ProductListResponse.ProductDTO item : items) {
+            if (reservedItems.size() >= limit) {
+                break;
+            }
+            String productId = StrUtil.trim(item.getProductId());
+            if (StrUtil.isBlank(productId) || !seenProductIds.add(productId)) {
+                continue;
+            }
+            if (tryReservePendingProduct(task, productId)) {
+                reservedItems.add(item);
+            }
+        }
+        return reservedItems;
+    }
+
+    private boolean tryReservePendingProduct(BuffScanTask task, String productId) {
+        Boolean success = redisUtil.getStringRedisTemplate().opsForValue().setIfAbsent(
+                buildPendingProductKey(task.getUserId(), productId),
+                String.valueOf(task.getId()),
+                PRODUCT_PENDING_TTL_SECONDS,
+                TimeUnit.SECONDS
+        );
+        return Boolean.TRUE.equals(success);
+    }
+
+    private void releasePendingProducts(BuffScanTask task, List<C5ProductListResponse.ProductDTO> items) {
+        if (CollUtil.isEmpty(items)) {
+            return;
+        }
+        Set<String> keys = items.stream()
+                .map(C5ProductListResponse.ProductDTO::getProductId)
+                .map(StrUtil::trim)
+                .filter(StrUtil::isNotBlank)
+                .map(productId -> buildPendingProductKey(task.getUserId(), productId))
+                .collect(Collectors.toSet());
+        if (CollUtil.isNotEmpty(keys)) {
+            redisUtil.getStringRedisTemplate().delete(keys);
+        }
+    }
+
+    private String buildPendingProductKey(Long userId, String productId) {
+        return C5_PRODUCT_PENDING_KEY_PREFIX + userId + ":" + productId;
     }
 
     private void restoreQuota(BuffScanTask task, int amount) {

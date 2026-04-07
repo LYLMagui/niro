@@ -3,9 +3,12 @@ package com.niro.web.service;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.IService;
 import com.niro.web.dto.InventoryItemDTO;
+import com.niro.web.dto.PurchaseStatsItemDTO;
+import com.niro.web.dto.PurchaseStatsSplitItemDTO;
+import com.niro.web.dto.PurchaseStatsSummaryDTO;
+import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.entity.TradeOrderRecord;
-import com.niro.web.vo.C5OrderDetailVO;
 
 import java.util.List;
 
@@ -29,24 +32,16 @@ public interface TradeOrderRecordService{
      *
      * @param pageNum   页码
      * @param pageSize  每页大小
-     * @param platform  平台
      * @param status    状态
      * @param userId    用户ID
      * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
      * @param sortField 排序字段
      * @param sortOrder 排序方式
      * @return 分页结果
      */
-    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, String platform, Integer status, Long userId, String keyword, String sortField, String sortOrder);
-
-    /**
-     * 获取 C5 订单详情
-     *
-     * @param userId  用户ID
-     * @param orderId C5 订单号
-     * @return 订单详情
-     */
-    C5OrderDetailVO getC5OrderDetail(Long userId, String orderId);
+    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, Integer status, Long userId, String keyword, String startDate, String endDate, String sortField, String sortOrder);
 
     /**
      * 删除订单记录
@@ -55,6 +50,14 @@ public interface TradeOrderRecordService{
      * @param id     记录ID
      */
     void deleteOrderRecord(Long userId, Long id);
+
+    /**
+     * 批量删除订单记录
+     *
+     * @param userId 用户ID
+     * @param ids    记录ID列表
+     */
+    void batchDeleteOrderRecord(Long userId, List<Long> ids);
 
     /**
      * 更新订单记录
@@ -91,4 +94,48 @@ public interface TradeOrderRecordService{
      * @return 库存看板项目列表
      */
     List<InventoryItemDTO> getInventoryItems(Long userId, String keyword, String startDate, String endDate);
+
+    /**
+     * 获取购买统计汇总
+     *
+     * @param userId    用户ID
+     * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @return 汇总数据
+     */
+    PurchaseStatsSummaryDTO getPurchaseStatsSummary(Long userId, String keyword, String startDate, String endDate);
+
+    /**
+     * 获取购买统计趋势
+     *
+     * @param userId    用户ID
+     * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @return 趋势数据
+     */
+    List<PurchaseStatsTrendDTO> getPurchaseStatsTrend(Long userId, String keyword, String startDate, String endDate);
+
+    /**
+     * 获取购买统计商品明细
+     *
+     * @param userId    用户ID
+     * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @return 商品明细
+     */
+    List<PurchaseStatsItemDTO> getPurchaseStatsItems(Long userId, String keyword, String startDate, String endDate);
+
+    /**
+     * 获取购买统计按时间拆分明细
+     *
+     * @param userId    用户ID
+     * @param keyword   搜索关键词
+     * @param startDate 开始日期
+     * @param endDate   结束日期
+     * @return 按商品和日期拆分明细
+     */
+    List<PurchaseStatsSplitItemDTO> getPurchaseStatsSplitItems(Long userId, String keyword, String startDate, String endDate);
 }

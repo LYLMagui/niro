@@ -9,10 +9,13 @@ import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.request.order.C5BuyerStatusRequest;
+import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse.OrderBuyDTO;
+import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.dto.UserPlatformSettingsDTO;
+import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
@@ -25,7 +28,7 @@ import com.niro.web.service.UserPlatformSettingsService;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.spring.core.RocketMQTemplate;
+import org.redisson.api.RLock;
 import org.redisson.api.RRateLimiter;
 import org.redisson.api.RateIntervalUnit;
 import org.redisson.api.RateType;
@@ -42,7 +45,6 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
@@ -60,6 +62,10 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private static final String PLATFORM_C5 = "C5";
     private static final int PAGE_SIZE = 100;
     private static final String LIMITER_KEY = "niro:limiter:c5:api";
+    private static final String USER_SYNC_LOCK_KEY_PREFIX = "niro:lock:c5:order-sync:user:";
+    private static final String ALL_SYNC_LOCK_KEY_PREFIX = "niro:lock:c5:order-sync:all:";
+    private static final long SYNC_LOCK_WAIT_SECONDS = 0L;
+    private static final long SYNC_LOCK_LEASE_SECONDS = 300L;
 
     private final TradeOrderRecordService tradeOrderRecordService;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
@@ -100,6 +106,41 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         }
     }
 
+    private String buildUserSyncLockKey(Long userId, Integer daysBefore) {
+        return USER_SYNC_LOCK_KEY_PREFIX + userId + ":" + normalizeDaysBefore(daysBefore);
+    }
+
+    private String buildAllSyncLockKey(Integer daysBefore) {
+        return ALL_SYNC_LOCK_KEY_PREFIX + normalizeDaysBefore(daysBefore);
+    }
+
+    private int normalizeDaysBefore(Integer daysBefore) {
+        return daysBefore == null ? 1 : daysBefore;
+    }
+
+    private RLock acquireSyncLock(String lockKey) {
+        try {
+            RLock lock = redissonClient.getLock(lockKey);
+            boolean locked = lock.tryLock(SYNC_LOCK_WAIT_SECONDS, SYNC_LOCK_LEASE_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+            Assert.isTrue(locked, "同步任务正在执行，请勿重复触发");
+            return lock;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new BusinessException("获取同步锁被中断");
+        }
+    }
+
+    private void unlockSyncLock(RLock lock, String lockKey) {
+        if (lock == null || !lock.isHeldByCurrentThread()) {
+            return;
+        }
+        try {
+            lock.unlock();
+        } catch (Exception e) {
+            log.warn("释放 C5 订单同步锁失败, lockKey={}", lockKey, e);
+        }
+    }
+
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     private C5ApiClient getC5Client(Long userId) {
@@ -117,44 +158,76 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public void syncOrders(Integer daysBefore) {
-        log.info("开始同步 C5 订单, daysBefore={}", daysBefore);
+    public int syncOrders(Long userId, Integer daysBefore) {
+        log.info("开始同步 C5 订单, userId={}, daysBefore={}", userId, daysBefore);
+        Assert.notNull(userId, "用户ID不能为空");
 
-        // 计算时间阈值
-        LocalDateTime startTime = null;
-        if (daysBefore != null && daysBefore >= 0) {
-            startTime = LocalDateTime.now().minusDays(daysBefore).withHour(0).withMinute(0).withSecond(0);
+        String lockKey = buildUserSyncLockKey(userId, daysBefore);
+        RLock lock = acquireSyncLock(lockKey);
+        try {
+            LocalDateTime startTime = buildStartTime(daysBefore);
+            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(userId);
+            Assert.notNull(settings, "用户配置不存在");
+            Assert.notBlank(settings.getC5AppKey(), "C5 App Key 未配置");
+
+            int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
+            log.info("用户 [{}] C5 订单同步完成，新增订单: {}", userId, synced);
+            return synced;
+        } finally {
+            unlockSyncLock(lock, lockKey);
         }
+    }
 
-        // 获取所有配置了 C5 AppKey 的用户
-        List<UserPlatformSettings> settingsList = userPlatformSettingsService.lambdaQuery()
-                .isNotNull(UserPlatformSettings::getC5AppKey)
-                .ne(UserPlatformSettings::getC5AppKey, "")
-                .list();
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public int syncOrders(Integer daysBefore) {
+        log.info("开始同步全部 C5 订单, daysBefore={}", daysBefore);
 
-        if (settingsList.isEmpty()) {
-            log.info("没有用户配置 C5 App Key，跳过同步");
-            return;
-        }
+        String lockKey = buildAllSyncLockKey(daysBefore);
+        RLock lock = acquireSyncLock(lockKey);
+        try {
+            LocalDateTime startTime = buildStartTime(daysBefore);
 
-        int totalSynced = 0;
-        for (UserPlatformSettings settings : settingsList) {
-            Long userId = settings.getUserId();
-            try {
-                int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
-                totalSynced += synced;
-                log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
-            } catch (C5ApiException e) {
-                // API 调用失败（如 IP 白名单、认证失败等），属于系统级错误，立即终止任务
-                log.error("用户 [{}] C5 API 调用失败，终止同步任务: {}", userId, e.getMessage(), e);
-                throw new BusinessException("C5 API 调用失败: " + e.getMessage());
-            } catch (Exception e) {
-                // 其他异常（如数据处理异常），记录后继续下一个用户
-                log.error("同步用户 [{}] 订单失败，继续处理下一个用户", userId, e);
+            // 获取所有配置了 C5 AppKey 的用户
+            List<UserPlatformSettings> settingsList = userPlatformSettingsService.lambdaQuery()
+                    .isNotNull(UserPlatformSettings::getC5AppKey)
+                    .ne(UserPlatformSettings::getC5AppKey, "")
+                    .list();
+
+            if (settingsList.isEmpty()) {
+                log.info("没有用户配置 C5 App Key，跳过同步");
+                return 0;
             }
-        }
 
-        log.info("C5 订单同步完成，总计新增: {}", totalSynced);
+            int totalSynced = 0;
+            for (UserPlatformSettings settings : settingsList) {
+                Long userId = settings.getUserId();
+                try {
+                    int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
+                    totalSynced += synced;
+                    log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
+                } catch (C5ApiException e) {
+                    // API 调用失败（如 IP 白名单、认证失败等），属于系统级错误，立即终止任务
+                    log.error("用户 [{}] C5 API 调用失败，终止同步任务: {}", userId, e.getMessage(), e);
+                    throw new BusinessException("C5 API 调用失败: " + e.getMessage());
+                } catch (Exception e) {
+                    // 其他异常（如数据处理异常），记录后继续下一个用户
+                    log.error("同步用户 [{}] 订单失败，继续处理下一个用户", userId, e);
+                }
+            }
+
+            log.info("C5 订单同步完成，总计新增: {}", totalSynced);
+            return totalSynced;
+        } finally {
+            unlockSyncLock(lock, lockKey);
+        }
+    }
+
+    private LocalDateTime buildStartTime(Integer daysBefore) {
+        if (daysBefore == null || daysBefore < 0) {
+            return null;
+        }
+        return LocalDateTime.now().minusDays(daysBefore).withHour(0).withMinute(0).withSecond(0);
     }
 
     private int syncUserOrders(Long userId, String appKey, LocalDateTime startTime) {
@@ -263,8 +336,61 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         record.setUpdateTime(timestampToLocalDateTime(order.getUpdateTime()));
         // 使用枚举映射状态
         record.setStatus(C5OrderStatusEnum.mapToInternalStatus(order.getStatus()).getCode());
-        
+
+        fillGoodsInfo(record, order);
         return record;
+    }
+
+    private void fillGoodsInfo(TradeOrderRecord record, OrderBuyDTO order) {
+        if (StrUtil.isBlank(order.getOrderId())) {
+            return;
+        }
+
+        C5OrderDetailRequest request = new C5OrderDetailRequest()
+                .setOrderId(order.getOrderId());
+
+        try {
+            C5OrderDetailResponse detail = getC5Client(record.getUserId()).getTrade().getOrderDetail(request);
+            if (detail == null || detail.getOpenItemInfo() == null) {
+                return;
+            }
+
+            String marketHashName = StrUtil.trimToEmpty(detail.getOpenItemInfo().getMarketHashName());
+            String goodsName = StrUtil.trimToEmpty(detail.getOpenItemInfo().getName());
+            String goodsImg = StrUtil.trimToEmpty(detail.getOpenItemInfo().getImageUrl());
+
+            BuffGoods goods = findBuffGoods(marketHashName, goodsName);
+            if (goods != null) {
+                record.setMarketHashName(StrUtil.blankToDefault(goods.getMarketHashName(), marketHashName));
+                record.setGoodsName(StrUtil.blankToDefault(goods.getName(), goodsName));
+                record.setGoodsImg(StrUtil.blankToDefault(goods.getIconUrl(), goodsImg));
+                return;
+            }
+
+            record.setMarketHashName(marketHashName);
+            record.setGoodsName(StrUtil.blankToDefault(goodsName, marketHashName));
+            record.setGoodsImg(goodsImg);
+        } catch (Exception e) {
+            log.warn("同步 C5 订单时预取详情失败, orderId={}", order.getOrderId(), e);
+        }
+    }
+
+    private BuffGoods findBuffGoods(String marketHashName, String goodsName) {
+        if (StrUtil.isNotBlank(marketHashName)) {
+            BuffGoods goods = buffGoodsService.lambdaQuery()
+                    .eq(BuffGoods::getMarketHashName, marketHashName)
+                    .one();
+            if (goods != null) {
+                return goods;
+            }
+        }
+
+        if (StrUtil.isNotBlank(goodsName)) {
+            return buffGoodsService.lambdaQuery()
+                    .eq(BuffGoods::getName, goodsName)
+                    .one();
+        }
+        return null;
     }
 
     /**
