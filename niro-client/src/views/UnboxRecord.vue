@@ -1,12 +1,14 @@
 <template>
   <PageFrame
     :is-mobile="isMobile"
-    :on-body-ref-change="handleUnboxRecordBodyRefChange"
-    desktop-body-class="overflow-y-auto"
     desktop-content-class="px-4 pt-3 pb-4"
     mobile-content-class="px-3 pt-3 pb-3"
   >
-    <div class="unbox-record-page relative flex min-h-full flex-col gap-4 bg-slate-50">
+    <div
+      ref="pageHostRef"
+      class="unbox-record-page relative flex min-h-0 flex-1 flex-col gap-4 bg-slate-50"
+      :class="editorVisible ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'"
+    >
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
         <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div class="min-w-0 space-y-3">
@@ -1047,13 +1049,10 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 640);
 
-const unboxRecordBodyRef = ref<HTMLElement | null>(null);
-const handleUnboxRecordBodyRefChange = (element: HTMLElement | null) => {
-  unboxRecordBodyRef.value = element;
-};
+const pageHostRef = ref<HTMLElement | null>(null);
 const editorDialogAttach = computed<AttachNode>(() => {
   if (isMobile.value) return "body";
-  return () => unboxRecordBodyRef.value ?? document.body;
+  return () => pageHostRef.value ?? document.body;
 });
 const draftTableViewportRef = ref<HTMLElement | null>(null);
 const { height: draftTableViewportHeight } = useElementSize(draftTableViewportRef);
@@ -1065,41 +1064,34 @@ const isBatchInfoCollapsed = ref(true);
 const bulkAddCount = ref(20);
 
 const editorDialogClassName = computed(() => {
-  const modeClass = isEditorFullscreen.value
-    ? "h-full w-full max-w-none rounded-none overflow-visible"
-    : "!absolute !inset-0 !m-0 flex h-full min-h-full w-full max-w-none overflow-visible rounded-[1.25rem]";
-  return modeClass;
+  if (isMobile.value || isEditorFullscreen.value) {
+    return "!absolute !inset-0 !m-0 flex h-full min-h-full w-full max-w-none overflow-visible rounded-none";
+  }
+  return "!absolute !inset-0 !m-0 flex h-full min-h-full w-full max-w-none overflow-visible rounded-[1.25rem]";
 });
 
 const editorDialogStyle = computed((): Styles | undefined => {
   if (isMobile.value) return undefined;
-  if (isEditorFullscreen.value) {
-    return {
-      top: 0,
-      width: "100%",
-      maxWidth: "none",
-      height: "100%",
-      minHeight: "100%",
-      padding: 0,
-    } as Styles;
-  }
   return {
     top: 0,
     left: 0,
+    right: 0,
+    bottom: 0,
     width: "100%",
     maxWidth: "none",
     height: "100%",
     minHeight: "100%",
     padding: 0,
+    margin: 0,
     boxShadow: "none",
   } as Styles;
 });
 
 const editorBodyClass = computed(() => {
-  if (isMobile.value || isEditorFullscreen.value) {
-    return "h-full min-h-0 overflow-hidden w-dvw overscroll-contain [scrollbar-gutter:stable]";
+  if (isMobile.value) {
+    return "h-full min-h-0 overflow-hidden w-dvw overscroll-contain";
   }
-  return "h-full min-h-0 overflow-hidden overscroll-contain [scrollbar-gutter:stable]";
+  return "h-full min-h-0 overflow-hidden overscroll-contain";
 });
 
 const createId = () => {
@@ -1860,8 +1852,13 @@ function handleRemoveRow(id: string) {
 </script>
 
 <style scoped>
+:deep(.t-dialog) {
+  overflow: hidden;
+}
+
 :deep(.t-dialog__body) {
   display: flex;
+  width: 100%;
   height: 100%;
   min-height: 0;
   padding: 0;
