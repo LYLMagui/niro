@@ -30,7 +30,7 @@
   --td-brand-color-active: rgb(9, 109, 217);
   --td-brand-color-disabled: rgba(24, 144, 255, 0.35);
   --td-brand-color-light: rgb(230, 247, 255);
-  --td-mask-active: rgb(0, 0, 0,0.1);
+  --td-mask-active: rgb(0, 0, 0, 0.1);
   --td-comp-paddingTB-l: 10px;
 }
 
@@ -101,8 +101,6 @@ body {
     box-shadow: 0 0 4px rgba(43, 164, 113, 0.2);
   }
 }
-
-
 
 .text-role-blue {
   color: rgb(24, 144, 255);
@@ -196,6 +194,7 @@ body {
   background-color: #e5e5e5;
 }
 
-.t-input__extra, .t-input__help{
+.t-input__extra,
+.t-input__help {
   margin: 2px 0;
 }

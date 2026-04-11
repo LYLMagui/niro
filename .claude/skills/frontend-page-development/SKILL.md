@@ -27,7 +27,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 `tdesign-mcp-server` 不是强制前提，而是一个可插拔能力：
 
 - 如果当前项目**没有使用 TDesign UI 组件**，忽略这条，不要强行查文档或配置 MCP。
-- 如果当前项目**使用了 TDesign**，必须先通过 `markdown-proxy` 获取官方文档：
+- 如果当前项目**使用了 TDesign**，且`tdesign-mcp-server`中获取不到组件的API和使用方式时，必须先通过 `markdown-proxy` 获取官方文档：
   `https://tdesign.tencent.com/vue-next/getting-started`
 - 同时检查 `tdesign-mcp-server` 是否已配置；如果没有配置，再按当前客户端把它补到项目的 MCP 配置里。
 - 使用 TDesign 相关组件时，优先参考官方文档和 MCP 输出，不凭印象猜 API。
@@ -52,7 +52,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 - 优先复用现有设计模式、组件模式和样式约定，不凭喜好另起炉灶。
 - 视觉、交互、代码实现一起考虑，不做只好看但难维护的页面。
 - 涉及 UI 组件时，先查组件文档和属性，再写代码。
-- 涉及 TDesign 组件时，优先查询官方文档和 `tdesign-mcp-server`，不凭印象猜组件 API。
+- 涉及 TDesign 组件时，优先使用 `tdesign-mcp-server` 查询官方组件API和使用方式，不凭印象猜组件 API。
 
 ## Instructions
 
@@ -104,8 +104,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 - 查询组件列表，确认是否已有合适组件
 - 查询目标组件文档，确认 props / events / slots
 - 查询 DOM 结构，确认样式覆盖方式
-- 必要时查询 changelog，避免使用过期写法
-- 先用 `markdown-proxy` 读取官方入门文档和相关说明
+- 先用 `tdesign-mcp-server` 获取官方组件的API和使用方式
 
 适用组件包括但不限于：
 - 表单：Input / Select / Form / DatePicker / Upload
@@ -159,7 +158,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 3. 前置依赖必须先确认安装；缺失时用 `find-skills` 补齐后再继续。
 4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断，必须优先使用`tailwind-design-system`编写css，如果无法实现再使用传统的css。
 5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。
-6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `markdown-proxy` + `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
+6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
 
 ## References
 

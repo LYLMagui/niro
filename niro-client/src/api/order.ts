@@ -72,7 +72,9 @@ export const orderApi = {
    * 获取购买统计按时间拆分明细
    */
   getPurchaseStatsSplitItems(params?: PurchaseStatsQueryParam) {
-    return request.get<PurchaseStatsSplitItem[]>("/order/record/purchase-stats/split-items", { params });
+    return request.get<PurchaseStatsSplitItem[]>("/order/record/purchase-stats/split-items", {
+      params,
+    });
   },
 
   /**

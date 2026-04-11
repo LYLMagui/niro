@@ -124,8 +124,8 @@
       </section>
 
       <div
-        ref="floatingAnchorRef"
         v-show="selectedGoods !== 'all'"
+        ref="floatingAnchorRef"
         :class="isMobile ? 'pointer-events-none fixed top-[156px] right-3 z-30' : 'absolute z-30'"
         :style="isMobile ? undefined : floatingAnchorStyle"
       >
@@ -419,20 +419,28 @@
               class="rounded-[12px] border border-[#e5e7eb] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
             >
               <div class="flex items-start gap-3">
-                <div class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[#e5e7eb] bg-[#f5f7fa]">
+                <div
+                  class="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-[10px] border border-[#e5e7eb] bg-[#f5f7fa]"
+                >
                   <img
                     v-if="row.imageUrl"
                     :src="row.imageUrl"
                     :alt="row.goodsName"
                     class="h-full w-full object-contain"
                   />
-                  <div v-else class="h-9 w-9 rounded-[8px] border border-[#d5dbe5] bg-[#eef2f7]"></div>
+                  <div
+                    v-else
+                    class="h-9 w-9 rounded-[8px] border border-[#d5dbe5] bg-[#eef2f7]"
+                  ></div>
                 </div>
 
                 <div class="min-w-0 flex-1">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
-                      <div class="truncate text-[14px] font-medium leading-6 text-[#303133]" :title="row.goodsName">
+                      <div
+                        class="truncate text-[14px] leading-6 font-medium text-[#303133]"
+                        :title="row.goodsName"
+                      >
                         {{ row.goodsName }}
                       </div>
                     </div>
@@ -450,19 +458,25 @@
                   <div class="mt-3 grid grid-cols-2 gap-x-4 gap-y-3">
                     <div>
                       <div class="text-[11px] text-[#909399]">购买数量</div>
-                      <div class="font-numeric mt-1 text-[17px] font-semibold leading-none text-[#111827]">
+                      <div
+                        class="font-numeric mt-1 text-[17px] leading-none font-semibold text-[#111827]"
+                      >
                         {{ formatInteger(row.quantity) }}
                       </div>
                     </div>
                     <div>
                       <div class="text-[11px] text-[#909399]">总金额</div>
-                      <div class="font-numeric mt-1 text-[17px] font-semibold leading-none text-[#111827]">
+                      <div
+                        class="font-numeric mt-1 text-[17px] leading-none font-semibold text-[#111827]"
+                      >
                         {{ formatCurrency(row.amount) }}
                       </div>
                     </div>
                     <div class="col-span-2">
                       <div class="text-[11px] text-[#909399]">平均买入价</div>
-                      <div class="font-numeric mt-1 text-[15px] font-semibold leading-none text-[#111827]">
+                      <div
+                        class="font-numeric mt-1 text-[15px] leading-none font-semibold text-[#111827]"
+                      >
                         {{ formatCurrency(row.avgPrice) }}
                       </div>
                     </div>

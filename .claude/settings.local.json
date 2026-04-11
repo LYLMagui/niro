@@ -2,12 +2,11 @@
   "permissions": {
     "allow": [
       "Bash(*:*)",
-      "mcp__nocturne_memory__read_memory",
-      "mcp__GitHub__get_file_contents",
-      "mcp__GitHub__search_code",
-      "mcp__nocturne_memory__create_memory",
-      "mcp__nocturne-memory__read_memory",
-      "mcp__GitHub__search_repositories"
+      "mcp__serena-niro-claude__check_onboarding_performed",
+      "mcp__serena-niro-claude__search_for_pattern",
+      "mcp__serena-niro-claude__get_symbols_overview",
+      "mcp__tdesign-mcp-server__get-component-docs",
+      "mcp__serena-niro-claude__find_symbol"
     ]
   },
   "enableAllProjectMcpServers": true,

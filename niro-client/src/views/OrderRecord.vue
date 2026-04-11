@@ -358,7 +358,9 @@
               <div class="order-mobile-card__details">
                 <div class="order-mobile-card__detail-row">
                   <span class="order-mobile-card__detail-label">平台：</span>
-                  <div class="order-mobile-card__detail-value order-mobile-card__detail-value--inline">
+                  <div
+                    class="order-mobile-card__detail-value order-mobile-card__detail-value--inline"
+                  >
                     <t-tag
                       :theme="row.platform === 'BUFF' ? 'warning' : 'primary'"
                       variant="light"
@@ -407,7 +409,10 @@
                     >
                       {{ row.orderId }}
                     </button>
-                    <span v-else class="order-mobile-card__order-id order-mobile-card__order-id--muted">
+                    <span
+                      v-else
+                      class="order-mobile-card__order-id order-mobile-card__order-id--muted"
+                    >
                       未生成订单号
                     </span>
                   </div>
