@@ -6,7 +6,7 @@
   >
     <div
       ref="pageHostRef"
-      class="unbox-record-page relative flex min-h-0 flex-1 flex-col gap-4 bg-slate-50"
+      class="unbox-record-page relative flex min-h-0 flex-1 flex-col gap-4"
       :class="editorVisible ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'"
     >
       <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
@@ -18,13 +18,9 @@
               >
                 开箱记录
               </span>
-              <span>主表看批次，弹窗编辑明细</span>
             </div>
             <div class="space-y-1">
               <h1 class="text-xl font-semibold tracking-tight text-[#303133]">开箱记录</h1>
-              <p class="max-w-3xl text-sm leading-6 text-slate-500">
-                以批次列表作为主表。点击新增或编辑后，在弹窗里维护整批开箱明细、预估收益和实际收益。
-              </p>
             </div>
           </div>
 
@@ -54,9 +50,6 @@
         <div class="flex items-center justify-between gap-3">
           <div>
             <h2 class="text-base font-semibold text-[#303133]">历史批次</h2>
-            <p class="mt-1 text-sm text-slate-500">
-              主页面只看批次汇总。新增批次或编辑批次时，再进入弹窗维护明细。
-            </p>
           </div>
           <t-tag theme="primary" variant="light-outline">共 {{ batches.length }} 批</t-tag>
         </div>
@@ -66,6 +59,7 @@
             row-key="key"
             :data="batchSummaryRows"
             :columns="batchColumns"
+            v-model:sort="batchSummarySort"
             size="small"
             table-layout="fixed"
             hover
@@ -103,15 +97,15 @@
               </span>
             </template>
 
-            <template #marketNetProfit="{ row }">
-              <span class="font-numeric" :class="profitClass(row.summary.totalMarketNetProfit)">
-                {{ formatSignedCurrency(row.summary.totalMarketNetProfit) }}
-              </span>
-            </template>
-
             <template #actualNetProfit="{ row }">
               <span class="font-numeric" :class="profitClass(row.summary.totalActualNetProfit)">
                 {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
+              </span>
+            </template>
+
+            <template #actualProfitRate="{ row }">
+              <span class="font-numeric" :class="profitClass(row.summary.totalActualProfitRate ?? 0)">
+                {{ formatPercent(row.summary.totalActualProfitRate) }}
               </span>
             </template>
 
@@ -265,21 +259,7 @@
                 "
               >
                 <div class="min-h-0 overflow-hidden">
-                  <div class="grid grid-cols-1 gap-3 xl:grid-cols-12">
-                    <label class="space-y-1.5 xl:col-span-3">
-                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
-                        批次名称
-                      </span>
-                      <t-input
-                        v-model="draftBatch.name"
-                        :class="fieldBaseClass"
-                        clearable
-                        maxlength="40"
-                        placeholder="例如：2026-04-06 晚场开箱"
-                        size="small"
-                      />
-                    </label>
-
+                  <div class="grid grid-cols-1 gap-3 xl:grid-cols-12 xl:items-end">
                     <label class="space-y-1.5 xl:col-span-3">
                       <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
                         开箱日期
@@ -310,27 +290,26 @@
                       />
                     </label>
 
-                    <div class="xl:col-span-3">
-                      <label class="space-y-1.5">
-                        <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
-                          默认折扣
-                        </span>
-                        <t-input-number
-                          v-model="draftBatch.defaultDiscount"
-                          :decimal-places="2"
-                          :max="1"
-                          :min="0"
-                          :step="0.01"
-                          align="left"
-                          :class="numberFieldBaseClass"
-                          placeholder="0.72"
-                          size="small"
-                          theme="normal"
-                        />
-                      </label>
-                    </div>
+                    <label class="flex flex-col gap-1.5 xl:col-span-3">
+                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
+                        默认折扣
+                      </span>
+                      <t-input-number
+                        v-model="draftBatch.defaultDiscount"
+                        :decimal-places="2"
+                        :max="1"
+                        :min="0"
+                        :step="0.01"
+                        align="left"
+                        :class="batchDiscountFieldClass"
+                        :input-props="{ inputClass: 'w-full text-left' }"
+                        placeholder="0.72"
+                        size="small"
+                        theme="normal"
+                      />
+                    </label>
 
-                    <label class="space-y-1.5 xl:col-span-12">
+                    <label class="space-y-1.5 xl:col-span-3">
                       <span class="text-[11px] font-medium text-slate-700 sm:text-xs">备注</span>
                       <t-input
                         v-model="draftBatch.note"
@@ -399,109 +378,36 @@
                             添加
                           </t-button>
                         </div>
+                        <div
+                          class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1"
+                        >
+                          <span class="px-1 text-[11px] text-slate-500">箱子购入价</span>
+                          <t-input-number
+                            v-model="toolbarBoxPurchasePrice"
+                            :decimal-places="2"
+                            :min="0"
+                            :step="0.01"
+                            align="right"
+                            :class="`${numberFieldBaseClass} w-24`"
+                            placeholder="0.00"
+                            size="small"
+                            theme="normal"
+                          />
+                        </div>
+                        <t-button
+                          size="small"
+                          variant="outline"
+                          @click="applyToolbarBoxPurchasePriceToAllRows"
+                        >
+                          应用箱子购入价到全部
+                        </t-button>
                         <t-button size="small" variant="outline" @click="applyDefaultsToEmptyRows">
                           应用到未填写行
                         </t-button>
-                        <t-button size="small" variant="outline" @click="mockQueryC5Price">
-                          拉取市场参考卖价
-                        </t-button>
                       </div>
                     </div>
                   </div>
 
-                  <div class="top-0 z-4 -mx-0.5 overflow-x-auto px-0.5">
-                    <div
-                      class="inline-flex min-w-max items-stretch gap-2 rounded-xl border border-slate-200 bg-slate-50/80 p-1.5 shadow-sm xl:flex xl:w-full xl:min-w-0"
-                    >
-                      <article
-                        class="flex min-w-[280px] items-center justify-between gap-3 rounded-[10px] border border-sky-100 bg-white px-3 py-2.5 shadow-sm xl:min-w-0 xl:flex-1"
-                      >
-                        <div class="min-w-0 flex-1">
-                          <div
-                            class="text-[10px] font-medium tracking-[0.12em] text-slate-500 uppercase"
-                          >
-                            当前净利润
-                          </div>
-                          <div class="mt-1 flex items-baseline gap-2">
-                            <span
-                              class="font-numeric text-xl font-semibold"
-                              :class="profitClass(draftSummary.totalActualNetProfit)"
-                            >
-                              {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
-                            </span>
-                            <span class="text-[11px] text-slate-400">实时汇总</span>
-                          </div>
-                          <div
-                            class="mt-1 text-[11px] font-medium"
-                            :class="
-                              draftSummary.unsoldCount > 0 ? 'text-amber-700' : 'text-emerald-600'
-                            "
-                          >
-                            {{
-                              draftSummary.unsoldCount > 0
-                                ? `还有 ${draftSummary.unsoldCount} 条待录平台卖出价`
-                                : "平台卖出价已录齐，可直接复核净利润"
-                            }}
-                          </div>
-                        </div>
-                        <div class="shrink-0 text-right">
-                          <div class="text-[10px] text-slate-400">成本 / 手续费</div>
-                          <div class="font-numeric mt-1 text-xs text-slate-600">
-                            {{ formatCurrency(draftSummary.totalPurchaseCost) }} /
-                            {{ formatCurrency(draftSummary.totalActualFee) }}
-                          </div>
-                        </div>
-                      </article>
-
-                      <div
-                        class="flex shrink-0 items-center gap-0.5 rounded-[10px] bg-white px-2 py-1.5 shadow-sm xl:ml-auto"
-                      >
-                        <div class="min-w-[100px] px-2 py-1">
-                          <div class="text-[10px] tracking-[0.08em] text-slate-400 uppercase">
-                            待录卖出价
-                          </div>
-                          <div
-                            class="font-numeric mt-1 text-sm font-semibold"
-                            :class="
-                              draftSummary.unsoldCount > 0 ? 'text-amber-700' : 'text-emerald-600'
-                            "
-                          >
-                            {{ draftSummary.unsoldCount }} 条
-                          </div>
-                        </div>
-                        <div class="h-8 w-px bg-slate-200"></div>
-                        <div class="min-w-[100px] px-2 py-1">
-                          <div class="text-[10px] tracking-[0.08em] text-slate-400 uppercase">
-                            已结算
-                          </div>
-                          <div class="font-numeric mt-1 text-sm font-semibold text-[#303133]">
-                            {{ draftSummary.soldCount }} / {{ draftSummary.purchasedCount }}
-                          </div>
-                        </div>
-                        <div class="h-8 w-px bg-slate-200"></div>
-                        <div class="min-w-[100px] px-2 py-1">
-                          <div class="text-[10px] tracking-[0.08em] text-slate-400 uppercase">
-                            总手续费
-                          </div>
-                          <div class="font-numeric mt-1 text-sm font-semibold text-amber-600">
-                            {{ formatCurrency(draftSummary.totalActualFee) }}
-                          </div>
-                        </div>
-                        <div class="h-8 w-px bg-slate-200"></div>
-                        <div class="min-w-[112px] px-2 py-1">
-                          <div class="text-[10px] tracking-[0.08em] text-slate-400 uppercase">
-                            参考净利润
-                          </div>
-                          <div
-                            class="font-numeric mt-1 text-sm font-semibold"
-                            :class="profitClass(draftSummary.totalMarketNetProfit)"
-                          >
-                            {{ formatSignedCurrency(draftSummary.totalMarketNetProfit) }}
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
                 </div>
               </div>
 
@@ -511,8 +417,10 @@
                     row-key="row.id"
                     :data="draftRowEntries"
                     :columns="draftTableColumns"
+                    :foot-data="draftFooterRows"
                     :height="draftTableHeight"
                     :header-affixed-top="{ offsetTop: 0, container: draftTableScrollContainer }"
+                    v-model:sort="draftTableSort"
                     size="small"
                     table-layout="auto"
                     vertical-align="middle"
@@ -525,32 +433,55 @@
                       </div>
                     </template>
 
+                    <template #boxPurchasePrice="{ row: entry }">
+                      <t-input-number
+                        v-model="entry.row.boxPurchasePrice"
+                        :decimal-places="2"
+                        :disabled="!isRowEditable(entry.row)"
+                        :min="0"
+                        :step="0.1"
+                        align="right"
+                        :class="numberFieldBaseClass"
+                        placeholder="0.00"
+                        size="small"
+                        theme="normal"
+                      />
+                    </template>
+
                     <template #purchaseState="{ row: entry }">
-                      <div class="space-y-1">
+                      <div class="space-y-1.5">
                         <div class="flex">
                           <t-tag :theme="entry.stageTheme" size="small" variant="light-outline">
                             {{ entry.stage }}
                           </t-tag>
                         </div>
-                        <button
-                          type="button"
-                          class="inline-flex h-6 items-center rounded px-1 text-[10px] font-medium text-slate-500 transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
-                          :class="
-                            entry.row.purchased
-                              ? 'hover:bg-rose-50 hover:text-rose-600'
-                              : 'hover:bg-emerald-50 hover:text-emerald-600'
-                          "
-                          @click="setPurchaseState(entry.row, !entry.row.purchased)"
-                        >
-                          {{ entry.row.purchased ? "改未购" : "标已购" }}
-                        </button>
+                        <div class="flex flex-wrap gap-1">
+                          <button
+                            v-for="option in draftHandlingStatusOptions"
+                            :key="option.value"
+                            type="button"
+                            class="inline-flex h-6 items-center rounded-md border px-1.5 text-[10px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
+                            :class="
+                              entry.row.handlingStatus === option.value
+                                ? {
+                                    'border-rose-200 bg-rose-50 text-rose-600': option.value === 'discarded',
+                                    'border-amber-200 bg-amber-50 text-amber-600': option.value === 'stored',
+                                    'border-emerald-200 bg-emerald-50 text-emerald-600': option.value === 'purchased',
+                                  }
+                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                            "
+                            @click="setHandlingStatus(entry.row, option.value)"
+                          >
+                            {{ option.label }}
+                          </button>
+                        </div>
                       </div>
                     </template>
 
                     <template #weaponName="{ row: entry }">
                       <t-input
                         v-model="entry.row.weaponName"
-                        :disabled="!entry.row.purchased"
+                        :disabled="!isRowEditable(entry.row)"
                         :class="fieldBaseClass"
                         clearable
                         maxlength="40"
@@ -563,7 +494,7 @@
                       <t-input-number
                         v-model="entry.row.inGamePrice"
                         :decimal-places="2"
-                        :disabled="!entry.row.purchased"
+                        :disabled="!isRowEditable(entry.row)"
                         :min="0"
                         :step="0.1"
                         align="right"
@@ -578,7 +509,7 @@
                       <t-input-number
                         v-model="entry.row.discount"
                         :decimal-places="2"
-                        :disabled="!entry.row.purchased"
+                        :disabled="!isRowEditable(entry.row)"
                         :max="1"
                         :min="0"
                         :step="0.01"
@@ -591,45 +522,9 @@
                     </template>
 
                     <template #purchaseCost="{ row: entry }">
-                      <div class="rounded-lg bg-slate-50/90 px-2 py-1.5 text-right leading-4">
+                      <div class="text-right leading-4">
                         <div class="font-numeric text-sm font-semibold text-[#303133]">
                           {{ formatPendingCurrency(entry.metrics.purchaseCost) }}
-                        </div>
-                        <div class="mt-1 text-[10px] text-slate-400">买入价 × 折扣</div>
-                      </div>
-                    </template>
-
-                    <template #c5Price="{ row: entry }">
-                      <div class="space-y-1">
-                        <t-input-number
-                          v-model="entry.row.c5Price"
-                          :decimal-places="2"
-                          :disabled="!entry.row.purchased"
-                          :min="0"
-                          :step="0.1"
-                          align="right"
-                          :class="numberFieldMutedClass"
-                          placeholder="参考价"
-                          size="small"
-                          theme="normal"
-                        />
-                      </div>
-                    </template>
-
-                    <template #marketNetProfit="{ row: entry }">
-                      <div class="rounded-lg bg-slate-50/70 px-2 py-1.5 leading-4">
-                        <div
-                          class="font-numeric text-sm font-semibold"
-                          :class="profitClass(entry.metrics.marketNetProfit ?? 0)"
-                        >
-                          {{ formatActualProfit(entry.metrics.marketNetProfit) }}
-                        </div>
-                        <div class="mt-1 text-[10px] text-slate-400">
-                          {{
-                            entry.metrics.marketFee === null
-                              ? "待参考价"
-                              : `参考费 ${formatCurrency(entry.metrics.marketFee)}`
-                          }}
                         </div>
                       </div>
                     </template>
@@ -639,7 +534,7 @@
                         <t-input-number
                           v-model="entry.row.actualSellPrice"
                           :decimal-places="2"
-                          :disabled="!entry.row.purchased"
+                          :disabled="!isRowEditable(entry.row)"
                           :min="0"
                           :step="0.1"
                           align="right"
@@ -652,34 +547,40 @@
                     </template>
 
                     <template #actualNetProfit="{ row: entry }">
-                      <div
-                        class="rounded-lg border border-slate-200 bg-white px-2 py-1.5 leading-4 shadow-sm"
-                      >
+                      <div class="px-1 leading-4">
                         <div
                           class="font-numeric text-sm font-semibold"
                           :class="profitClass(entry.metrics.actualNetProfit ?? 0)"
                         >
                           {{ formatActualProfit(entry.metrics.actualNetProfit) }}
                         </div>
-                        <div class="mt-1 text-[10px] text-slate-500">
+                        <div class="mt-1 text-[14px] font-medium text-slate-500">
                           {{
                             entry.metrics.actualNetIncome === null
-                              ? "待卖价"
+                              ? ""
                               : `到账 ${formatCurrency(entry.metrics.actualNetIncome)}`
                           }}
                         </div>
                       </div>
                     </template>
 
-                    <template #note="{ row: entry }">
-                      <t-input
-                        v-model="entry.row.note"
-                        :class="fieldBaseClass"
-                        clearable
-                        maxlength="50"
-                        placeholder="补充判断或出售说明"
-                        size="small"
-                      />
+                    <template #actualProfitRate="{ row: entry }">
+                      <div class="px-1 leading-4">
+                        <div
+                          class="font-numeric text-sm font-semibold"
+                          :class="profitClass(entry.metrics.actualProfitRate ?? 0)"
+                        >
+                          {{ formatPercent(entry.metrics.actualProfitRate) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #actualFee="{ row: entry }">
+                      <div class="px-1 leading-4">
+                        <div class="font-numeric text-sm font-semibold text-amber-600">
+                          {{ formatPendingCurrency(entry.metrics.actualFee) }}
+                        </div>
+                      </div>
                     </template>
 
                     <template #operation="{ row: entry, rowIndex }">
@@ -708,6 +609,108 @@
                             删除
                           </t-button>
                         </t-popconfirm>
+                      </div>
+                    </template>
+
+                    <template #footerIndex>
+                      <div :class="draftTableFooterClass">
+                        <div class="font-semibold text-slate-600">汇总</div>
+                      </div>
+                    </template>
+
+                    <template #footerBoxPurchasePrice>
+                      <div :class="draftTableFooterClass">
+                        <div>明细数</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                          {{ draftSummary.totalCount }} 条
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerPurchaseState>
+                      <div :class="draftTableFooterClass">
+                        <div>已购买数量</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-emerald-600">
+                          {{ draftSummary.boughtCount }} 条
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerWeaponName>
+                      <div :class="draftTableFooterClass">
+                        <div class="text-slate-400">—</div>
+                      </div>
+                    </template>
+
+                    <template #footerInGamePrice>
+                      <div :class="draftTableFooterClass">
+                        <div>购买总价</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                          {{ formatCurrency(draftSummary.totalInGamePrice) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerDiscount>
+                      <div :class="draftTableFooterClass">
+                        <div class="text-slate-400">—</div>
+                      </div>
+                    </template>
+
+                    <template #footerPurchaseCost>
+                      <div :class="draftTableFooterClass">
+                        <div>实际购入价</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                          {{ formatCurrency(draftSummary.totalPurchaseCost) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerActualSellPrice>
+                      <div :class="draftTableFooterClass">
+                        <div>总手续费</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-amber-600">
+                          {{ formatCurrency(draftSummary.totalActualFee) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerActualFee>
+                      <div :class="draftTableFooterClass">
+                        <div>到账汇总</div>
+                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                          {{ formatCurrency(draftSummary.totalActualNetIncome) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerActualNetProfit>
+                      <div :class="draftTableFooterFixedClass">
+                        <div>净利润</div>
+                        <div
+                          class="mt-1 font-numeric text-sm font-semibold"
+                          :class="profitClass(draftSummary.totalActualNetProfit)"
+                        >
+                          {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerActualProfitRate>
+                      <div :class="draftTableFooterFixedClass">
+                        <div>总利润率</div>
+                        <div
+                          class="mt-1 font-numeric text-sm font-semibold"
+                          :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
+                        >
+                          {{ formatPercent(draftSummary.totalActualProfitRate) }}
+                        </div>
+                      </div>
+                    </template>
+
+                    <template #footerOperation>
+                      <div :class="draftTableFooterFixedClass">
+                        <div class="text-slate-400">—</div>
                       </div>
                     </template>
                   </t-table>
@@ -747,33 +750,25 @@
                     <div class="grid grid-cols-1 gap-3">
                       <div class="grid grid-cols-2 gap-3">
                         <div class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-600">购买状态</span>
-                          <div
-                            class="inline-flex w-full rounded-lg border border-slate-200 bg-slate-50/80 p-1"
-                          >
+                          <span class="text-[11px] font-medium text-slate-600">处理状态</span>
+                          <div class="flex flex-wrap gap-2">
                             <button
+                              v-for="option in draftHandlingStatusOptions"
+                              :key="option.value"
                               type="button"
-                              class="inline-flex h-9 flex-1 touch-manipulation items-center justify-center rounded-md text-sm font-medium focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
+                              class="inline-flex h-9 min-w-0 flex-1 touch-manipulation items-center justify-center rounded-lg border text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
                               :class="
-                                row.purchased
-                                  ? 'bg-emerald-50 text-emerald-700 shadow-sm'
-                                  : 'text-slate-500'
+                                row.handlingStatus === option.value
+                                  ? {
+                                      'border-rose-200 bg-rose-50 text-rose-600': option.value === 'discarded',
+                                      'border-amber-200 bg-amber-50 text-amber-600': option.value === 'stored',
+                                      'border-emerald-200 bg-emerald-50 text-emerald-600': option.value === 'purchased',
+                                    }
+                                  : 'border-slate-200 bg-white text-slate-500'
                               "
-                              @click="setPurchaseState(row, true)"
+                              @click="setHandlingStatus(row, option.value)"
                             >
-                              已购
-                            </button>
-                            <button
-                              type="button"
-                              class="inline-flex h-9 flex-1 touch-manipulation items-center justify-center rounded-md text-sm font-medium focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
-                              :class="
-                                !row.purchased
-                                  ? 'bg-rose-50 text-rose-700 shadow-sm'
-                                  : 'text-slate-500'
-                              "
-                              @click="setPurchaseState(row, false)"
-                            >
-                              未购
+                              {{ option.label }}
                             </button>
                           </div>
                         </div>
@@ -781,7 +776,7 @@
                           <span class="text-[11px] font-medium text-slate-600">饰品名称</span>
                           <t-input
                             v-model="row.weaponName"
-                            :disabled="!row.purchased"
+                            :disabled="!isRowEditable(row)"
                             :class="fieldBaseClass"
                             clearable
                             maxlength="40"
@@ -796,7 +791,7 @@
                           <t-input-number
                             v-model="row.inGamePrice"
                             :decimal-places="2"
-                            :disabled="!row.purchased"
+                            :disabled="!isRowEditable(row)"
                             :min="0"
                             :step="0.1"
                             align="left"
@@ -810,7 +805,7 @@
                           <t-input-number
                             v-model="row.discount"
                             :decimal-places="2"
-                            :disabled="!row.purchased"
+                            :disabled="!isRowEditable(row)"
                             :max="1"
                             :min="0"
                             :step="0.01"
@@ -822,28 +817,13 @@
                         </label>
                       </div>
 
-                      <div class="grid grid-cols-2 gap-3">
+                      <div class="grid grid-cols-1 gap-3">
                         <div class="rounded-[4px] border border-slate-200/80 bg-white p-3">
                           <div class="text-[11px] text-slate-500">实际价格</div>
                           <div class="font-numeric mt-2 text-base font-semibold text-[#303133]">
                             {{ formatPendingCurrency(metrics.purchaseCost) }}
                           </div>
                         </div>
-                        <label class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-500">平台参考卖价</span>
-                          <t-input-number
-                            v-model="row.c5Price"
-                            :decimal-places="2"
-                            :disabled="!row.purchased"
-                            :min="0"
-                            :step="0.1"
-                            align="left"
-                            :class="numberFieldMutedClass"
-                            placeholder="仅用于预估"
-                            theme="normal"
-                          />
-                          <div class="text-[11px] leading-4 text-slate-400">不影响最终净利润</div>
-                        </label>
                       </div>
 
                       <div class="grid grid-cols-2 gap-3">
@@ -852,7 +832,7 @@
                           <t-input-number
                             v-model="row.actualSellPrice"
                             :decimal-places="2"
-                            :disabled="!row.purchased"
+                            :disabled="!isRowEditable(row)"
                             :min="0"
                             :step="0.1"
                             align="left"
@@ -860,9 +840,6 @@
                             placeholder="优先录这里"
                             theme="normal"
                           />
-                          <div class="text-[11px] leading-4 text-sky-600">
-                            成交价会直接决定手续费和净利润
-                          </div>
                         </label>
                         <div class="rounded-[4px] border border-slate-200/80 bg-white p-3">
                           <div class="text-[11px] text-slate-500">手续费</div>
@@ -870,31 +847,13 @@
                             {{ formatPendingCurrency(metrics.actualFee) }}
                           </div>
                           <div class="mt-1 text-xs text-slate-500">
-                            {{ metrics.actualFee === null ? "等平台卖出价" : "上架 1% + 提现 1%" }}
+                            {{ metrics.actualFee === null ? "等平台卖出价" : "平台卖出价 × 1%" }}
                           </div>
                         </div>
                       </div>
 
-                      <div class="grid grid-cols-2 gap-3">
-                        <div class="rounded-[4px] border border-slate-200/80 bg-slate-50/70 p-3">
-                          <div class="text-[11px] text-slate-500">预估净利润</div>
-                          <div
-                            class="font-numeric mt-2 text-base font-semibold"
-                            :class="profitClass(metrics.marketNetProfit ?? 0)"
-                          >
-                            {{ formatActualProfit(metrics.marketNetProfit) }}
-                          </div>
-                          <div class="mt-1 text-xs text-slate-400">
-                            {{
-                              metrics.marketFee === null
-                                ? "待参考价"
-                                : `参考手续费 ${formatCurrency(metrics.marketFee)}`
-                            }}
-                          </div>
-                        </div>
-                        <div
-                          class="rounded-[4px] border border-slate-900/90 bg-white p-3 shadow-sm"
-                        >
+                      <div class="grid grid-cols-1 gap-3">
+                        <div class="p-1">
                           <div class="text-[11px] font-medium text-slate-700">净利润</div>
                           <div
                             class="font-numeric mt-2 text-base font-semibold"
@@ -908,6 +867,12 @@
                                 ? "等平台卖出价"
                                 : `到账 ${formatCurrency(metrics.actualNetIncome)}`
                             }}
+                          </div>
+                          <div
+                            class="font-numeric mt-1 text-xs font-medium"
+                            :class="profitClass(metrics.actualProfitRate ?? 0)"
+                          >
+                            {{ formatPercent(metrics.actualProfitRate) }}
                           </div>
                         </div>
                       </div>
@@ -956,19 +921,20 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from "vue";
+import { computed, h, ref, resolveComponent } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import { MessagePlugin } from "tdesign-vue-next";
-import type { AttachNode, PrimaryTableCol, Styles } from "tdesign-vue-next";
+import { HelpCircleIcon } from "tdesign-icons-vue-next";
+import type { AttachNode, PrimaryTableCol, Styles, TableSort } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
 
 interface UnboxRow {
   id: string;
-  purchased: boolean;
+  handlingStatus: DraftHandlingStatus;
+  boxPurchasePrice: number;
   weaponName: string;
   inGamePrice: number;
   discount: number;
-  c5Price: number;
   actualSellPrice: number;
   note: string;
 }
@@ -984,28 +950,37 @@ interface UnboxBatch {
 }
 
 type BatchStatus = "未结算" | "部分结算" | "已结算";
+type DraftHandlingStatus = "pending" | "discarded" | "stored" | "purchased";
+
+type DraftRowStage = "待处理" | "丢弃" | "暂存" | "已买";
+type DraftRowStageTheme = "default" | "danger" | "warning" | "success";
+
+interface DraftHandlingStatusOption {
+  value: DraftHandlingStatus;
+  label: DraftRowStage;
+  theme: DraftRowStageTheme;
+}
 
 interface RowMetrics {
   purchaseCost: number | null;
-  marketFee: number | null;
-  marketNetProfit: number | null;
   actualFee: number | null;
   actualNetIncome: number | null;
   actualNetProfit: number | null;
+  actualProfitRate: number | null;
 }
 
 interface BatchSummary {
   totalCount: number;
-  purchasedCount: number;
+  countedRowCount: number;
+  boughtCount: number;
   totalInGamePrice: number;
   totalPurchaseCost: number;
-  totalMarketFee: number;
-  totalMarketNetProfit: number;
   soldCount: number;
   unsoldCount: number;
   totalActualNetIncome: number;
   totalActualFee: number;
   totalActualNetProfit: number;
+  totalActualProfitRate: number | null;
 }
 
 interface SummaryCard {
@@ -1022,15 +997,16 @@ interface BatchSummaryRow {
   status: BatchStatus;
 }
 
-type DraftRowStage = "未购" | "待卖出" | "已结算";
-type DraftRowStageTheme = "danger" | "warning" | "success";
-
 interface DraftRowEntry {
   row: UnboxRow;
   metrics: RowMetrics;
   stage: DraftRowStage;
   stageTheme: DraftRowStageTheme;
   stageDescription: string;
+}
+
+interface DraftFooterRow {
+  type: "summary";
 }
 
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
@@ -1062,6 +1038,9 @@ const isEditorFullscreen = ref(false);
 const editingBatchId = ref<string | null>(null);
 const isBatchInfoCollapsed = ref(true);
 const bulkAddCount = ref(20);
+const toolbarBoxPurchasePrice = ref(0);
+const batchSummarySort = ref<TableSort>();
+const draftTableSort = ref<TableSort>();
 
 const editorDialogClassName = computed(() => {
   if (isMobile.value || isEditorFullscreen.value) {
@@ -1107,8 +1086,7 @@ const round = (value: number, digits = 2) => {
 };
 
 const LISTING_FEE_RATE = 0.01;
-const WITHDRAW_FEE_RATE = 0.01;
-const TOTAL_FEE_RATE = LISTING_FEE_RATE + WITHDRAW_FEE_RATE;
+const TOTAL_FEE_RATE = LISTING_FEE_RATE;
 
 const clampDiscount = (value: number) => {
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -1122,11 +1100,11 @@ const createRow = (
   batch?: Pick<UnboxBatch, "defaultDiscount">
 ): UnboxRow => ({
   id: createId(),
-  purchased: defaults?.purchased ?? true,
+  handlingStatus: defaults?.handlingStatus ?? "pending",
+  boxPurchasePrice: defaults?.boxPurchasePrice ?? 0,
   weaponName: defaults?.weaponName ?? "",
   inGamePrice: defaults?.inGamePrice ?? 0,
   discount: defaults?.discount ?? batch?.defaultDiscount ?? 0.72,
-  c5Price: defaults?.c5Price ?? 0,
   actualSellPrice: defaults?.actualSellPrice ?? 0,
   note: defaults?.note ?? "",
 });
@@ -1138,7 +1116,7 @@ const createBlankBatch = (): UnboxBatch => ({
   boxType: "创世终端机",
   defaultDiscount: 0.72,
   note: "",
-  rows: [createRow(), createRow({ purchased: false }), createRow()],
+  rows: [createRow(), createRow(), createRow()],
 });
 
 const cloneBatch = (batch: UnboxBatch): UnboxBatch =>
@@ -1153,14 +1131,14 @@ const batches = ref<UnboxBatch[]>([
     date: "2026-04-06",
     boxType: "创世终端机",
     defaultDiscount: 0.72,
-    note: "待补充 C5 查询结果和批次备注。",
+    note: "待补充批次备注。",
     rows: [
       createRow(
         {
+          handlingStatus: "purchased",
           weaponName: "AK-47 | 血腥运动",
           inGamePrice: 85,
           discount: 0.72,
-          c5Price: 69.8,
           actualSellPrice: 77,
           note: "首批挂单已成交",
         },
@@ -1168,17 +1146,17 @@ const batches = ref<UnboxBatch[]>([
       ),
       createRow(
         {
-          purchased: false,
+          handlingStatus: "discarded",
           note: "价差不够，直接放弃",
         },
         { defaultDiscount: 0.72 }
       ),
       createRow(
         {
+          handlingStatus: "stored",
           weaponName: "AWP | 二西莫夫",
           inGamePrice: 132,
           discount: 0.7,
-          c5Price: 105.6,
           note: "待观察两天后再卖",
         },
         { defaultDiscount: 0.72 }
@@ -1195,10 +1173,10 @@ const batches = ref<UnboxBatch[]>([
     rows: [
       createRow(
         {
+          handlingStatus: "purchased",
           weaponName: "M4A1-S | 印花集",
           inGamePrice: 58,
           discount: 0.73,
-          c5Price: 47.5,
           actualSellPrice: 50,
           note: "已小幅止盈",
         },
@@ -1206,17 +1184,17 @@ const batches = ref<UnboxBatch[]>([
       ),
       createRow(
         {
-          purchased: false,
+          handlingStatus: "discarded",
           note: "这一箱直接记损",
         },
         { defaultDiscount: 0.71 }
       ),
       createRow(
         {
+          handlingStatus: "stored",
           weaponName: "USP-S | 杀出重围",
           inGamePrice: 44,
           discount: 0.71,
-          c5Price: 31.2,
           actualSellPrice: 0,
           note: "还没卖",
         },
@@ -1234,10 +1212,10 @@ const batches = ref<UnboxBatch[]>([
     rows: [
       createRow(
         {
+          handlingStatus: "purchased",
           weaponName: "AK-47 | 霓虹骑士",
           inGamePrice: 102,
           discount: 0.69,
-          c5Price: 83.8,
           actualSellPrice: 90,
           note: "当天卖出",
         },
@@ -1245,17 +1223,17 @@ const batches = ref<UnboxBatch[]>([
       ),
       createRow(
         {
+          handlingStatus: "stored",
           weaponName: "AWP | 渐变之色",
           inGamePrice: 136,
           discount: 0.68,
-          c5Price: 109.4,
           note: "继续观察",
         },
         { defaultDiscount: 0.69 }
       ),
       createRow(
         {
-          purchased: false,
+          handlingStatus: "discarded",
           note: "未达到收益线",
         },
         { defaultDiscount: 0.69 }
@@ -1264,92 +1242,110 @@ const batches = ref<UnboxBatch[]>([
   },
 ]);
 
+function isRowEditable(row: UnboxRow) {
+  return row.handlingStatus !== "discarded";
+}
+
+function shouldCountRow(row: UnboxRow) {
+  return row.handlingStatus !== "stored";
+}
+
 const getRowMetrics = (row: UnboxRow): RowMetrics => {
-  if (!row.purchased) {
+  if (!shouldCountRow(row)) {
     return {
       purchaseCost: null,
-      marketFee: null,
-      marketNetProfit: null,
       actualFee: null,
       actualNetIncome: null,
       actualNetProfit: null,
+      actualProfitRate: null,
     };
   }
 
   const purchaseCost = round(row.inGamePrice * clampDiscount(row.discount));
-  const hasMarketPrice = row.c5Price > 0;
-  const marketFee = hasMarketPrice ? getFee(row.c5Price) : null;
-  const marketNetProfit =
-    hasMarketPrice && marketFee !== null ? round(row.c5Price - purchaseCost - marketFee) : null;
 
-  const hasActualSellPrice = row.actualSellPrice > 0;
-  const actualFee = hasActualSellPrice ? getFee(row.actualSellPrice) : null;
+  const shouldCalculateActualMetrics =
+    row.actualSellPrice > 0 || row.boxPurchasePrice > 0 || purchaseCost > 0;
+  const actualFee = shouldCalculateActualMetrics ? getFee(row.actualSellPrice) : null;
   const actualNetIncome =
-    hasActualSellPrice && actualFee !== null ? round(row.actualSellPrice - actualFee) : null;
+    shouldCalculateActualMetrics && actualFee !== null ? round(row.actualSellPrice - actualFee) : null;
   const actualNetProfit =
-    hasActualSellPrice && actualFee !== null
-      ? round(row.actualSellPrice - purchaseCost - actualFee)
+    shouldCalculateActualMetrics && actualFee !== null
+      ? round(row.actualSellPrice - row.boxPurchasePrice - purchaseCost - actualFee)
       : null;
+  const actualProfitRate =
+    actualNetProfit !== null && purchaseCost > 0 ? round((actualNetProfit / purchaseCost) * 100) : null;
 
   return {
     purchaseCost,
-    marketFee,
-    marketNetProfit,
     actualFee,
     actualNetIncome,
     actualNetProfit,
+    actualProfitRate,
   };
 };
 
-const getBatchSummary = (batch: UnboxBatch): BatchSummary => {
-  let purchasedCount = 0;
+function buildBatchSummary(
+  totalCount: number,
+  entries: Array<Pick<DraftRowEntry, "row" | "metrics">>
+): BatchSummary {
+  let countedRowCount = 0;
+  let boughtCount = 0;
   let totalInGamePrice = 0;
   let totalPurchaseCost = 0;
-  let totalMarketFee = 0;
-  let totalMarketNetProfit = 0;
   let soldCount = 0;
   let totalActualNetIncome = 0;
   let totalActualFee = 0;
   let totalActualNetProfit = 0;
 
-  batch.rows.forEach((item) => {
-    const metrics = getRowMetrics(item);
+  entries.forEach(({ row, metrics }) => {
+    if (!shouldCountRow(row)) return;
 
-    if (!item.purchased) return;
-
-    purchasedCount += 1;
-    totalInGamePrice += item.inGamePrice;
+    countedRowCount += 1;
+    if (row.handlingStatus === "purchased") {
+      boughtCount += 1;
+    }
+    totalInGamePrice += row.inGamePrice;
     totalPurchaseCost += metrics.purchaseCost ?? 0;
-    totalMarketFee += metrics.marketFee ?? 0;
-    totalMarketNetProfit += metrics.marketNetProfit ?? 0;
 
-    if (item.actualSellPrice > 0) {
+    if (row.actualSellPrice > 0) {
       soldCount += 1;
+    }
+    if (metrics.actualNetProfit !== null) {
       totalActualNetIncome += metrics.actualNetIncome ?? 0;
       totalActualFee += metrics.actualFee ?? 0;
       totalActualNetProfit += metrics.actualNetProfit ?? 0;
     }
   });
 
-  const totalCount = batch.rows.length;
+  const totalActualProfitRate =
+    totalPurchaseCost > 0 ? round((totalActualNetProfit / totalPurchaseCost) * 100) : null;
 
   return {
     totalCount,
-    purchasedCount,
+    countedRowCount,
+    boughtCount,
     totalInGamePrice: round(totalInGamePrice),
     totalPurchaseCost: round(totalPurchaseCost),
-    totalMarketFee: round(totalMarketFee),
-    totalMarketNetProfit: round(totalMarketNetProfit),
     soldCount,
-    unsoldCount: purchasedCount - soldCount,
+    unsoldCount: countedRowCount - soldCount,
     totalActualNetIncome: round(totalActualNetIncome),
     totalActualFee: round(totalActualFee),
     totalActualNetProfit: round(totalActualNetProfit),
+    totalActualProfitRate,
   };
-};
+}
+
+const getBatchSummary = (batch: UnboxBatch): BatchSummary =>
+  buildBatchSummary(
+    batch.rows.length,
+    batch.rows.map((row) => ({
+      row,
+      metrics: getRowMetrics(row),
+    }))
+  );
 
 const getBatchStatus = (summary: BatchSummary): BatchStatus => {
-  if (summary.purchasedCount === 0 || summary.soldCount === 0) return "未结算";
+  if (summary.countedRowCount === 0 || summary.soldCount === 0) return "未结算";
   if (summary.unsoldCount === 0) return "已结算";
   return "部分结算";
 };
@@ -1366,15 +1362,19 @@ const batchSummaryRows = computed<BatchSummaryRow[]>(() =>
   })
 );
 
+function sortableNumber(value: number | null | undefined) {
+  return Number.isFinite(value) ? Number(value) : 0;
+}
+
 const summaryTableHeaderClass =
   "!bg-slate-50 !text-slate-500 !text-xs !font-medium !tracking-[0.08em] uppercase whitespace-nowrap";
 const summaryTableBodyClass = "!py-3 text-slate-700 align-middle";
 const fieldBaseClass =
-  "w-full [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input__wrap]:min-h-8 [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const numberFieldBaseClass =
-  "w-full [&_.t-input-number__wrap]:rounded-[0.9rem] [&_.t-input-number__wrap]:border-slate-200 [&_.t-input-number__wrap]:shadow-none [&_.t-input-number__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
-const numberFieldMutedClass = `${numberFieldBaseClass} [&_.t-input-number__wrap]:bg-slate-50 [&_.t-input-number__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-slate-400 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(148_163_184_/_0.1)]`;
-const numberFieldPrimaryClass = `${numberFieldBaseClass} [&_.t-input-number__wrap]:border-sky-300 [&_.t-input-number__wrap]:bg-sky-50 [&_.t-input-number__wrap:hover]:border-sky-400`;
+  "w-full [&_.t-input-number]:w-full [&_.t-input-number]:min-w-0 [&_.t-input__wrap]:min-h-8 [&_.t-input__wrap]:w-full [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+const batchDiscountFieldClass = `!w-full min-w-0 ${numberFieldBaseClass} [&_.t-input__wrap]:px-0 [&_.t-input]:w-full [&_.t-input]:px-3 [&_.t-input__inner]:w-full [&_.t-input__inner]:text-left`;
+const numberFieldPrimaryClass = `${numberFieldBaseClass} [&_.t-input__wrap]:border-sky-300 [&_.t-input__wrap]:bg-sky-50 [&_.t-input__wrap:hover]:border-sky-400`;
 
 const batchColumns = computed<PrimaryTableCol[]>(() => [
   {
@@ -1388,7 +1388,7 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   },
   {
     colKey: "batchName",
-    title: "批次名称",
+    title: "批次",
     minWidth: 220,
     cell: "batchName",
     align: "left",
@@ -1423,20 +1423,24 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
     thClassName: summaryTableHeaderClass,
   },
   {
-    colKey: "marketNetProfit",
-    title: "总预估净利润",
-    width: 150,
-    cell: "marketNetProfit",
-    align: "left",
-    className: summaryTableBodyClass,
-    thClassName: summaryTableHeaderClass,
-  },
-  {
     colKey: "actualNetProfit",
     title: "总实际净利润",
     width: 150,
     cell: "actualNetProfit",
     align: "left",
+    sorter: (a, b) => sortableNumber(a.summary.totalActualNetProfit) - sortableNumber(b.summary.totalActualNetProfit),
+    sortType: "all",
+    className: summaryTableBodyClass,
+    thClassName: summaryTableHeaderClass,
+  },
+  {
+    colKey: "actualProfitRate",
+    title: "总利润率",
+    width: 120,
+    cell: "actualProfitRate",
+    align: "left",
+    sorter: (a, b) => sortableNumber(a.summary.totalActualProfitRate) - sortableNumber(b.summary.totalActualProfitRate),
+    sortType: "all",
     className: summaryTableBodyClass,
     thClassName: summaryTableHeaderClass,
   },
@@ -1468,7 +1472,6 @@ const pageSummary = computed(() => {
       result.totalBoxes += item.summary.totalCount;
       result.totalPurchaseCost += item.summary.totalPurchaseCost;
       result.totalFee += item.summary.totalActualFee;
-      result.totalMarketNetProfit += item.summary.totalMarketNetProfit;
       result.totalActualNetProfit += item.summary.totalActualNetProfit;
       return result;
     },
@@ -1477,7 +1480,6 @@ const pageSummary = computed(() => {
       totalBoxes: 0,
       totalPurchaseCost: 0,
       totalFee: 0,
-      totalMarketNetProfit: 0,
       totalActualNetProfit: 0,
     }
   );
@@ -1499,33 +1501,43 @@ const pageSummaryCards = computed<SummaryCard[]>(() => [
   {
     label: "总手续费",
     value: formatCurrency(pageSummary.value.totalFee),
-    hint: "按平台卖出价扣除上架 1% + 提现 1%",
+    hint: "按平台卖出价 × 1% 计算",
     valueClass: "text-amber-600",
   },
   {
     label: "总实际净利润",
     value: formatSignedCurrency(pageSummary.value.totalActualNetProfit),
-    hint: `预估净利润 ${formatSignedCurrency(pageSummary.value.totalMarketNetProfit)}`,
+    hint: "仅按当前平台卖出价口径统计",
     valueClass: profitClass(pageSummary.value.totalActualNetProfit),
   },
 ]);
 
+const draftHandlingStatusOptions: DraftHandlingStatusOption[] = [
+  { value: "pending", label: "待处理", theme: "default" },
+  { value: "discarded", label: "丢弃", theme: "danger" },
+  { value: "stored", label: "暂存", theme: "warning" },
+  { value: "purchased", label: "已买", theme: "success" },
+];
+
 function getDraftRowStage(row: UnboxRow): DraftRowStage {
-  if (!row.purchased) return "未购";
-  if (row.actualSellPrice > 0) return "已结算";
-  return "待卖出";
+  if (row.handlingStatus === "discarded") return "丢弃";
+  if (row.handlingStatus === "stored") return "暂存";
+  if (row.handlingStatus === "purchased") return "已买";
+  return "待处理";
 }
 
 function getDraftRowStageTheme(stage: DraftRowStage): DraftRowStageTheme {
-  if (stage === "已结算") return "success";
-  if (stage === "待卖出") return "warning";
-  return "danger";
+  if (stage === "丢弃") return "danger";
+  if (stage === "暂存") return "warning";
+  if (stage === "已买") return "success";
+  return "default";
 }
 
 function getDraftRowStageDescription(stage: DraftRowStage) {
-  if (stage === "已结算") return "已录入平台卖出价，可直接看净利润";
-  if (stage === "待卖出") return "已购，待录入平台卖出价";
-  return "未购，不参与净利润统计";
+  if (stage === "丢弃") return "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计";
+  if (stage === "暂存") return "先放在这里，等全部开完后还有闲钱再买，不参与任何计算";
+  if (stage === "已买") return "确认接手，参与成本、卖价和净利润统计";
+  return "默认参与成本、卖价和净利润统计";
 }
 
 const draftRowEntries = computed<DraftRowEntry[]>(() =>
@@ -1543,16 +1555,77 @@ const draftRowEntries = computed<DraftRowEntry[]>(() =>
 
 const draftTableHeaderClass =
   "!bg-slate-100 !text-slate-600 !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
-const draftTableHeaderMutedClass =
-  "!bg-slate-100 !text-slate-500 !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
-const draftTableHeaderSubtleClass =
-  "!bg-slate-100 !text-slate-400 !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
-const draftTableHeaderPrimaryClass =
-  "!bg-sky-50 !text-sky-700 !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
-const draftTableHeaderStrongClass =
-  "!bg-slate-900 !text-white !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
 const draftTableBodyClass = "!py-2 text-slate-700 align-middle";
 const draftTableFixedBodyClass = `${draftTableBodyClass} !bg-white`;
+const draftTableFooterClass =
+  "!bg-slate-100/70 !py-2 align-top text-[14px] leading-4.5 font-semibold text-slate-500";
+const draftTableFooterFixedClass = draftTableFooterClass;
+const Tooltip = resolveComponent("t-tooltip");
+const tooltipTriggerClass =
+  "inline-flex items-center rounded-sm text-slate-400 transition-colors hover:text-slate-600 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none";
+
+function createTooltipTitle(label: string, content: string, ariaLabel: string) {
+  return () =>
+    h("div", { class: "inline-flex items-center gap-1" }, [
+      h("span", label),
+      h(
+        Tooltip,
+        { content, placement: "top", theme: "light" },
+        {
+          default: () =>
+            h(
+              "button",
+              {
+                type: "button",
+                class: tooltipTriggerClass,
+                "aria-label": ariaLabel,
+              },
+              [h(HelpCircleIcon, { class: "h-3.5 w-3.5" })]
+            ),
+        }
+      ),
+    ]);
+}
+
+const purchaseCostTitle = createTooltipTitle("实际购入价", "游戏买入价 × 折扣", "实际购入价说明");
+const actualNetProfitTitle = createTooltipTitle(
+  "净利润",
+  "平台卖出价 - 箱子购入价 - 实际购入价 - 手续费",
+  "净利润说明"
+);
+const actualProfitRateTitle = createTooltipTitle("利润率", "利润 / 实际买入价", "利润率说明");
+const actualFeeTitle = createTooltipTitle("手续费", "平台卖出价 × 1%", "手续费说明");
+
+const purchaseStateTitle = () =>
+  h("div", { class: "inline-flex items-center gap-1" }, [
+    h("span", "处理状态"),
+    h(
+      Tooltip,
+      {
+        placement: "top",
+        theme: "light",
+        content: () =>
+          h("div", { class: "space-y-1 text-slate-600" }, [
+            h("div", [h("span", { class: "font-semibold text-slate-700" }, "待处理："), "默认参与成本、卖价和净利润统计"]),
+            h("div", [h("span", { class: "font-semibold text-slate-700" }, "丢弃："), "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计"]),
+            h("div", [h("span", { class: "font-semibold text-slate-700" }, "暂存："), "先放在这里，等全部开完后还有闲钱再买，不参与任何计算"]),
+            h("div", [h("span", { class: "font-semibold text-slate-700" }, "已买："), "确认接手，参与成本、卖价和净利润统计"]),
+          ]),
+      },
+      {
+        default: () =>
+          h(
+            "button",
+            {
+              type: "button",
+              class: tooltipTriggerClass,
+              "aria-label": "处理状态说明",
+            },
+            [h(HelpCircleIcon, { class: "h-3.5 w-3.5" })]
+          ),
+      }
+    ),
+  ]);
 
 const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
@@ -1561,15 +1634,27 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     width: 54,
     minWidth: 54,
     cell: "index",
+    foot: "footerIndex",
     align: "left",
     className: `${draftTableBodyClass} whitespace-nowrap`,
     thClassName: draftTableHeaderClass,
   },
   {
+    colKey: "boxPurchasePrice",
+    title: "箱子购入价",
+    width: 118,
+    cell: "boxPurchasePrice",
+    foot: "footerBoxPurchasePrice",
+    align: "left",
+    className: draftTableBodyClass,
+    thClassName: draftTableHeaderClass,
+  },
+  {
     colKey: "purchaseState",
-    title: "阶段",
-    width: 88,
+    title: purchaseStateTitle,
+    width: 138,
     cell: "purchaseState",
+    foot: "footerPurchaseState",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
@@ -1579,6 +1664,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     title: "饰品名称",
     minWidth: 192,
     cell: "weaponName",
+    foot: "footerWeaponName",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
@@ -1588,6 +1674,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     title: "游戏买入价",
     width: 112,
     cell: "inGamePrice",
+    foot: "footerInGamePrice",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
@@ -1597,67 +1684,68 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     title: "折扣",
     width: 88,
     cell: "discount",
+    foot: "footerDiscount",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
   },
   {
     colKey: "purchaseCost",
-    title: "实际购入价",
+    title: purchaseCostTitle,
     minWidth: 118,
     cell: "purchaseCost",
+    foot: "footerPurchaseCost",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
-  },
-  {
-    colKey: "c5Price",
-    title: "平台参考售价",
-    minWidth: 122,
-    cell: "c5Price",
-    align: "left",
-    className: draftTableBodyClass,
-    thClassName: draftTableHeaderMutedClass,
   },
   {
     colKey: "actualSellPrice",
     title: "平台卖出价",
     minWidth: 130,
     cell: "actualSellPrice",
-    align: "left",
-    className: draftTableBodyClass,
-    thClassName: draftTableHeaderPrimaryClass,
-  },
-  {
-    colKey: "note",
-    title: "备注",
-    minWidth: 132,
-    cell: "note",
+    foot: "footerActualSellPrice",
     align: "left",
     className: draftTableBodyClass,
     thClassName: draftTableHeaderClass,
   },
   {
-    colKey: "marketNetProfit",
-    title: "参考净利润",
-    width: 112,
-    minWidth: 112,
-    cell: "marketNetProfit",
+    colKey: "actualFee",
+    title: actualFeeTitle,
+    minWidth: 132,
+    cell: "actualFee",
+    foot: "footerActualFee",
     align: "left",
-    fixed: "right",
-    className: draftTableFixedBodyClass,
-    thClassName: draftTableHeaderSubtleClass,
+    className: draftTableBodyClass,
+    thClassName: draftTableHeaderClass,
   },
   {
     colKey: "actualNetProfit",
-    title: "净利润",
+    title: actualNetProfitTitle,
     width: 116,
     minWidth: 116,
     cell: "actualNetProfit",
+    foot: "footerActualNetProfit",
     align: "left",
+    sorter: (a, b) => sortableNumber(a.metrics.actualNetProfit) - sortableNumber(b.metrics.actualNetProfit),
+    sortType: "all",
     fixed: "right",
     className: draftTableFixedBodyClass,
-    thClassName: draftTableHeaderStrongClass,
+    thClassName: draftTableHeaderClass,
+  },
+  {
+    colKey: "actualProfitRate",
+    title: actualProfitRateTitle,
+    width: 108,
+    minWidth: 108,
+    cell: "actualProfitRate",
+    foot: "footerActualProfitRate",
+    align: "left",
+    sorter: (a, b) => sortableNumber(a.metrics.actualProfitRate) - sortableNumber(b.metrics.actualProfitRate),
+    sortType: "all",
+    fixed: "right",
+    className: draftTableFixedBodyClass,
+    thClassName: draftTableHeaderClass,
   },
   {
     colKey: "operation",
@@ -1665,6 +1753,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     width: 72,
     minWidth: 72,
     cell: "operation",
+    foot: "footerOperation",
     align: "left",
     fixed: "right",
     className: draftTableFixedBodyClass,
@@ -1676,7 +1765,8 @@ const draftTableHeight = computed(() => Math.max(Math.floor(draftTableViewportHe
 
 const draftTableScrollContainer = () => draftTableViewportRef.value ?? document.body;
 
-const draftSummary = computed(() => getBatchSummary(draftBatch.value));
+const draftSummary = computed(() => buildBatchSummary(draftBatch.value.rows.length, draftRowEntries.value));
+const draftFooterRows = computed<DraftFooterRow[]>(() => [{ type: "summary" }]);
 
 function formatCurrency(value: number) {
   return currencyFormatter.format(round(value));
@@ -1696,6 +1786,13 @@ function formatPendingCurrency(value: number | null) {
 function formatActualProfit(value: number | null) {
   if (value === null) return "—";
   return formatSignedCurrency(value);
+}
+
+function formatPercent(value: number | null) {
+  if (value === null) return "—";
+  const normalized = round(value);
+  const prefix = normalized > 0 ? "+" : "";
+  return `${prefix}${normalized.toFixed(2)}%`;
 }
 
 function formatDateText(value: string) {
@@ -1748,10 +1845,6 @@ function openEditEditor(batchId: string) {
 }
 
 function saveDraftBatch() {
-  if (!draftBatch.value.name.trim()) {
-    MessagePlugin.warning("请填写批次名称");
-    return;
-  }
   if (!draftBatch.value.date) {
     MessagePlugin.warning("请选择开箱日期");
     return;
@@ -1782,15 +1875,16 @@ function removeBatch(batchId: string) {
   MessagePlugin.success("批次已删除");
 }
 
-function setPurchaseState(row: UnboxRow, purchased: boolean) {
-  row.purchased = purchased;
-  if (!purchased) {
-    row.actualSellPrice = 0;
-  }
+function setHandlingStatus(row: UnboxRow, handlingStatus: DraftHandlingStatus) {
+  row.handlingStatus = handlingStatus;
+}
+
+function createToolbarDefaultRow(boxPurchasePrice = round(toolbarBoxPurchasePrice.value)) {
+  return createRow({ boxPurchasePrice }, draftBatch.value);
 }
 
 function handleAddRow(index?: number) {
-  const nextRow = createRow(undefined, draftBatch.value);
+  const nextRow = createToolbarDefaultRow();
   if (typeof index === "number") {
     draftBatch.value.rows.splice(index, 0, nextRow);
     return;
@@ -1800,11 +1894,29 @@ function handleAddRow(index?: number) {
 
 function handleBulkAdd(count: number) {
   const normalizedCount = Math.max(1, Math.min(200, Math.floor(Number(count) || 0)));
-  const newRows = Array.from({ length: normalizedCount }, () =>
-    createRow(undefined, draftBatch.value)
-  );
+  const nextBoxPurchasePrice = round(toolbarBoxPurchasePrice.value);
+  const newRows = Array.from({ length: normalizedCount }, () => createToolbarDefaultRow(nextBoxPurchasePrice));
   draftBatch.value.rows.push(...newRows);
   MessagePlugin.success(`已新增 ${normalizedCount} 条明细`);
+}
+
+function applyToolbarBoxPurchasePriceToAllRows() {
+  if (!draftBatch.value.rows.length) {
+    MessagePlugin.info("当前没有可应用的明细");
+    return;
+  }
+  const nextBoxPurchasePrice = round(toolbarBoxPurchasePrice.value);
+  let updatedCount = 0;
+  draftBatch.value.rows.forEach((row) => {
+    if (row.boxPurchasePrice === nextBoxPurchasePrice) return;
+    row.boxPurchasePrice = nextBoxPurchasePrice;
+    updatedCount += 1;
+  });
+  if (!updatedCount) {
+    MessagePlugin.info("当前明细的箱子购入价已一致");
+    return;
+  }
+  MessagePlugin.success(`已将箱子购入价应用到 ${updatedCount} 条明细`);
 }
 
 function applyDefaultsToEmptyRows() {
@@ -1823,23 +1935,6 @@ function applyDefaultsToEmptyRows() {
     return;
   }
   MessagePlugin.success(`已为 ${updatedCount} 条明细补齐默认值`);
-}
-
-function mockQueryC5Price() {
-  let updatedCount = 0;
-  draftBatch.value.rows.forEach((row) => {
-    if (!row.purchased || row.inGamePrice <= 0) return;
-    const estimatedCost =
-      row.inGamePrice * clampDiscount(row.discount || draftBatch.value.defaultDiscount);
-    row.c5Price = round(Math.max(estimatedCost * 1.03, estimatedCost));
-    updatedCount += 1;
-  });
-
-  if (!updatedCount) {
-    MessagePlugin.info("没有可查询 C5 价格的已购明细");
-    return;
-  }
-  MessagePlugin.success(`已更新 ${updatedCount} 条 C5 价格`);
 }
 
 function handleRemoveRow(id: string) {
@@ -1886,6 +1981,17 @@ function handleRemoveRow(id: string) {
 :deep(.draft-detail-table .t-table__fixed-right-column),
 :deep(.draft-detail-table .t-table__fixed-left-column) {
   background: rgb(255 255 255);
+}
+
+
+:deep(.draft-detail-table tfoot td) {
+  background: rgb(241 245 249 / 0.7);
+  border-top: none;
+}
+
+:deep(.draft-detail-table tfoot .t-table__fixed-right-column),
+:deep(.draft-detail-table tfoot .t-table__fixed-left-column) {
+  background: rgb(241 245 249 / 0.7);
 }
 
 .scrollbar-stable {
