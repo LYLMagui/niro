@@ -1,1 +1,0 @@
-Niro 是一个 Buff/CS2 饰品交易自动化平台，包含前端 niro-client（Vue/TypeScript）与后端 niro-server（Java/Spring Boot，多模块：niro-core、niro-web、niro-sdk）。常见业务包含任务管理、平台策略、调度、Redis 状态与第三方平台集成。开发强调先理解再修改、保持实现简洁、避免破坏兼容性。

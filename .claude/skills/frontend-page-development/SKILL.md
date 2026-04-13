@@ -18,7 +18,8 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 - `frontend-design`
 - `ui-ux-pro-max`
 - `tailwind-design-system`
-- `web-design-guidelines`
+
+[//]: # (- `web-design-guidelines`)
 
 如果本地没有安装，先用 `find-skills` 搜索并安装到项目内，再继续。
 
@@ -135,7 +136,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 - 是否有只靠颜色传达状态的问题
 - 是否有 loading / empty / error 状态缺失
 
-必需调用 `web-design-guidelines` 做 review。
+[//]: # (必需调用 `web-design-guidelines` 做 review。)
 
 ## Examples
 
@@ -157,7 +158,8 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 2. description 只写触发条件，不把工作流和依赖 skill 塞进 frontmatter。
 3. 前置依赖必须先确认安装；缺失时用 `find-skills` 补齐后再继续。
 4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断，必须优先使用`tailwind-design-system`编写css，如果无法实现再使用传统的css。
-5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。
+
+[//]: # (5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。)
 6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
 
 ## References
@@ -165,6 +167,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 - `frontend-design`
 - `tailwind-design-system`
 - `ui-ux-pro-max`
-- `web-design-guidelines`
+
+[//]: # (- `web-design-guidelines`)
 - `tdesign-mcp-server`
 - `markdown-proxy`

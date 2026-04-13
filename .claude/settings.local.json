@@ -6,7 +6,9 @@
       "mcp__serena-niro-claude__search_for_pattern",
       "mcp__serena-niro-claude__get_symbols_overview",
       "mcp__tdesign-mcp-server__get-component-docs",
-      "mcp__serena-niro-claude__find_symbol"
+      "mcp__serena-niro-claude__find_symbol",
+      "Bash(python:*)",
+      "mcp__nocturne-memory__read_memory"
     ]
   },
   "enableAllProjectMcpServers": true,
