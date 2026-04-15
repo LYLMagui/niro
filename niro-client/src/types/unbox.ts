@@ -43,3 +43,10 @@ export interface UnboxRecordSaveParam {
   note: string;
   items: UnboxRecordItemParam[];
 }
+
+export interface UnboxRecordOcrResult {
+  weaponName?: string;
+  inGamePrice?: number | string | null;
+  errorMessage?: string;
+  message?: string;
+}

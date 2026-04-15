@@ -1,6 +1,7 @@
 import request from "@/utils/request";
 import type {
   UnboxRecordDTO,
+  UnboxRecordOcrResult,
   UnboxRecordSaveParam,
 } from "@/types/unbox";
 
@@ -19,6 +20,12 @@ export const unboxApi = {
 
   update(id: number, data: UnboxRecordSaveParam) {
     return request.put<void>(`/unbox/record/${id}`, data);
+  },
+
+  ocrImage(file: File) {
+    const formData = new FormData();
+    formData.append("file", file);
+    return request.post<UnboxRecordOcrResult>("/unbox/record/ocr", formData);
   },
 
   delete(id: number) {

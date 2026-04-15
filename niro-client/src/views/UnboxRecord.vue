@@ -188,6 +188,13 @@
       :dialog-class-name="editorDialogClassName"
       placement="center"
     >
+      <input
+        ref="ocrInputRef"
+        type="file"
+        accept="image/*"
+        class="hidden"
+        @change="handleRowOcrFileChange"
+      />
       <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-white" :class="editorBodyClass">
         <div class="border-b border-slate-200 bg-white px-2.5 py-3 sm:px-3 sm:py-3">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -493,11 +500,29 @@
                         <t-input
                           v-model="entry.row.weaponName"
                           :disabled="!isRowEditable(entry.row)"
-                          :class="draftFieldClass"
+                          :class="draftFieldWithOcrClass"
                           clearable
                           maxlength="40"
                           placeholder="例如：AK-47 | 血腥运动"
-                        />
+                        >
+                          <template #suffixIcon>
+                            <t-tooltip :content="getRowOcrTooltip(entry.row.id)" placement="top">
+                              <button
+                                type="button"
+                                class="group inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="!isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'"
+                                :aria-label="getRowOcrTooltip(entry.row.id)"
+                                @click.stop="triggerRowOcrUpload(entry.row)"
+                              >
+                                <component
+                                  :is="getRowOcrIcon(entry.row.id)"
+                                  class="h-4 w-4 transition-colors"
+                                  :class="getRowOcrIconClass(entry.row.id)"
+                                />
+                              </button>
+                            </t-tooltip>
+                          </template>
+                        </t-input>
                       </div>
                     </template>
 
@@ -914,7 +939,13 @@ import dayjs, { type Dayjs } from "dayjs";
 import { computed, h, onMounted, ref, resolveComponent, watch } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import { MessagePlugin } from "tdesign-vue-next";
-import { HelpCircleIcon } from "tdesign-icons-vue-next";
+import {
+  CheckCircleIcon,
+  CloseCircleIcon,
+  HelpCircleIcon,
+  ImageIcon,
+  LoadingIcon,
+} from "tdesign-icons-vue-next";
 import type {
   AttachNode,
   DateRangeValue as TDateRangeValue,
@@ -927,7 +958,12 @@ import PageFrame from "@/components/PageFrame.vue";
 import { goodsApi } from "@/api/goods";
 import { unboxApi } from "@/api/unbox";
 import type { GoodsSimple } from "@/types/goods";
-import type { DraftHandlingStatus, UnboxRecordDTO, UnboxRecordSaveParam } from "@/types/unbox";
+import type {
+  DraftHandlingStatus,
+  UnboxRecordDTO,
+  UnboxRecordOcrResult,
+  UnboxRecordSaveParam,
+} from "@/types/unbox";
 
 type DiscountValue = number | "";
 
@@ -1016,6 +1052,16 @@ interface DraftFooterRow {
   type: "summary";
 }
 
+type OcrStatus = "idle" | "uploading" | "success" | "error";
+
+interface RowOcrState {
+  status: OcrStatus;
+  errorMessage: string;
+}
+
+const OCR_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
+const OCR_FIELD_MISSING_MESSAGE = "识别结果不完整，请重新上传";
+
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
   currency: "CNY",
@@ -1059,6 +1105,9 @@ const listLoading = ref(false);
 const savingBatch = ref(false);
 const goodsLoading = ref(false);
 const goodsCatalog = ref<GoodsSimple[]>([]);
+const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
+const ocrInputRef = ref<HTMLInputElement | null>(null);
+const activeOcrRowId = ref<string | null>(null);
 
 const editorDialogClassName = computed(() => {
   if (isMobile.value || isEditorFullscreen.value) {
@@ -1302,6 +1351,166 @@ function getBatchDisplayName(batch: Pick<UnboxBatch, "date" | "boxName">) {
   return "未命名批次";
 }
 
+function createDefaultRowOcrState(): RowOcrState {
+  return {
+    status: "idle",
+    errorMessage: "",
+  };
+}
+
+function resetRowOcrState(rows: UnboxRow[]) {
+  rowOcrStateMap.value = Object.fromEntries(
+    rows.map((row) => [row.id, createDefaultRowOcrState()])
+  );
+  activeOcrRowId.value = null;
+}
+
+function ensureRowOcrState(rowId: string) {
+  if (!rowOcrStateMap.value[rowId]) {
+    rowOcrStateMap.value[rowId] = createDefaultRowOcrState();
+  }
+  return rowOcrStateMap.value[rowId];
+}
+
+function getRowOcrState(rowId: string) {
+  return ensureRowOcrState(rowId);
+}
+
+function getRowOcrTooltip(rowId: string) {
+  const state = getRowOcrState(rowId);
+  if (state.status === "success") {
+    return "识别成功，点击重新上传";
+  }
+  if (state.status === "error") {
+    return state.errorMessage || "识别失败，点击重新上传";
+  }
+  if (state.status === "uploading") {
+    return "识别中...";
+  }
+  return "上传图片识别";
+}
+
+function getOcrErrorMessage(error: unknown, fallback = "图片识别失败") {
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+  return fallback;
+}
+
+function normalizeOcrResultPrice(result: UnboxRecordOcrResult) {
+  const rawValue = result.inGamePrice;
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return null;
+  }
+  const numericValue = Number(rawValue);
+  return Number.isFinite(numericValue) ? round(numericValue) : null;
+}
+
+function handleOcrValidationFailure(rowId: string, message: string) {
+  const state = ensureRowOcrState(rowId);
+  state.status = "error";
+  state.errorMessage = message;
+}
+
+function validateOcrImage(file: File, rowId: string) {
+  if (!file.type.startsWith("image/")) {
+    handleOcrValidationFailure(rowId, "仅支持上传图片文件");
+    return false;
+  }
+  if (file.size > OCR_FILE_SIZE_LIMIT) {
+    handleOcrValidationFailure(rowId, "图片大小不能超过 5MB");
+    return false;
+  }
+  return true;
+}
+
+function triggerRowOcrUpload(row: UnboxRow) {
+  if (!isRowEditable(row)) return;
+  const state = getRowOcrState(row.id);
+  if (state.status === "uploading") return;
+  activeOcrRowId.value = row.id;
+  ocrInputRef.value?.click();
+}
+
+function normalizeOcrResult(result: UnboxRecordOcrResult) {
+  const weaponName = result.weaponName?.trim();
+  const normalizedPrice = normalizeOcrResultPrice(result);
+  const hasName = Boolean(weaponName);
+  const hasPrice = result.inGamePrice !== null && result.inGamePrice !== undefined && result.inGamePrice !== "";
+  return {
+    weaponName,
+    inGamePrice: normalizedPrice,
+    valid: hasName && hasPrice && normalizedPrice !== null,
+  };
+}
+
+async function handleRowOcrFileChange(event: Event) {
+  const input = event.target as HTMLInputElement | null;
+  const rowId = activeOcrRowId.value;
+  const file = input?.files?.[0];
+  if (!input) return;
+  input.value = "";
+  if (!rowId) return;
+  if (!file) {
+    activeOcrRowId.value = null;
+    return;
+  }
+  if (!validateOcrImage(file, rowId)) {
+    activeOcrRowId.value = null;
+    return;
+  }
+
+  const state = getRowOcrState(rowId);
+  state.status = "uploading";
+  state.errorMessage = "";
+
+  try {
+    const result = await unboxApi.ocrImage(file);
+    const targetRow = draftBatch.value.rows.find((item) => item.id === rowId);
+    const latestState = rowOcrStateMap.value[rowId];
+    if (!targetRow || !latestState) return;
+    const responseError = result.errorMessage?.trim() || result.message?.trim();
+    if (responseError) {
+      latestState.status = "error";
+      latestState.errorMessage = responseError;
+      return;
+    }
+    const normalized = normalizeOcrResult(result);
+    if (!normalized.valid || !normalized.weaponName || normalized.inGamePrice === null) {
+      latestState.status = "error";
+      latestState.errorMessage = OCR_FIELD_MISSING_MESSAGE;
+      return;
+    }
+    targetRow.weaponName = normalized.weaponName;
+    targetRow.inGamePrice = normalized.inGamePrice;
+    latestState.status = "success";
+    latestState.errorMessage = "";
+  } catch (error) {
+    const latestState = rowOcrStateMap.value[rowId];
+    if (!latestState) return;
+    latestState.status = "error";
+    latestState.errorMessage = getOcrErrorMessage(error);
+  } finally {
+    activeOcrRowId.value = null;
+  }
+}
+
+function getRowOcrIcon(rowId: string) {
+  const state = getRowOcrState(rowId);
+  if (state.status === "uploading") return LoadingIcon;
+  if (state.status === "success") return CheckCircleIcon;
+  if (state.status === "error") return CloseCircleIcon;
+  return ImageIcon;
+}
+
+function getRowOcrIconClass(rowId: string) {
+  const state = getRowOcrState(rowId);
+  if (state.status === "uploading") return "text-sky-500 animate-spin";
+  if (state.status === "success") return "text-emerald-500";
+  if (state.status === "error") return "text-rose-500";
+  return "text-slate-400 group-hover:text-slate-500";
+}
+
 function mapRecordItemToRow(
   item: UnboxRecordDTO["items"][number],
   defaultDiscount: number
@@ -1538,6 +1747,7 @@ const numberFieldBaseClass =
 const batchDiscountFieldClass = `!w-full min-w-0 ${numberFieldBaseClass} [&_.t-input__wrap]:px-0 [&_.t-input]:w-full [&_.t-input]:px-3 [&_.t-input__inner]:w-full [&_.t-input__inner]:text-left`;
 const numberFieldPrimaryClass = `${numberFieldBaseClass} [&_.t-input__wrap]:border-sky-300 [&_.t-input__wrap]:bg-sky-50 [&_.t-input__wrap:hover]:border-sky-400`;
 const draftFieldClass = `min-w-0 max-w-full ${fieldBaseClass}`;
+const draftFieldWithOcrClass = `${draftFieldClass} [&_.t-input__suffix]:flex [&_.t-input__suffix]:items-center`;
 const draftNumberFieldClass = `min-w-0 max-w-full ${numberFieldBaseClass}`;
 const draftNumberFieldPrimaryClass = `min-w-0 max-w-full ${numberFieldPrimaryClass}`;
 const draftCellControlClass = "min-w-0 max-w-full";
@@ -1751,6 +1961,21 @@ watch(
       draftBatch.value.boxName = selected.name;
     }
   }
+);
+
+watch(
+  () => draftBatch.value.rows.map((row) => row.id),
+  (rowIds) => {
+    const nextIds = new Set(rowIds);
+    const nextStateMap = Object.fromEntries(
+      rowIds.map((rowId) => [rowId, rowOcrStateMap.value[rowId] ?? createDefaultRowOcrState()])
+    );
+    rowOcrStateMap.value = nextStateMap;
+    if (activeOcrRowId.value && !nextIds.has(activeOcrRowId.value)) {
+      activeOcrRowId.value = null;
+    }
+  },
+  { immediate: true }
 );
 
 function handleBatchPageChange(pageInfo: PageInfo) {
@@ -2098,6 +2323,7 @@ function toggleBatchInfoCollapsed() {
 function openCreateEditor() {
   editingBatchId.value = null;
   draftBatch.value = createBlankBatch();
+  resetRowOcrState(draftBatch.value.rows);
   ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = false;
@@ -2112,6 +2338,7 @@ function openEditEditor(batchId: number) {
   }
   editingBatchId.value = batchId;
   draftBatch.value = cloneBatch(target);
+  resetRowOcrState(draftBatch.value.rows);
   ensureGoodsInCatalog(target.goodsId, target.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = true;
