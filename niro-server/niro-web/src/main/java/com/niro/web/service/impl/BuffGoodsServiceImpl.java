@@ -67,7 +67,7 @@ public class BuffGoodsServiceImpl extends ServiceImpl<BuffGoodsMapper, BuffGoods
     @Override
     public List<BuffGoodsSimpleDTO> getSimpleList(String keyword) {
         List<BuffGoods> goodsList = this.lambdaQuery()
-                .select(BuffGoods::getGoodsId, BuffGoods::getName, BuffGoods::getCategoryId)
+                .select(BuffGoods::getId, BuffGoods::getGoodsId, BuffGoods::getName, BuffGoods::getCategoryId)
                 .like(StrUtil.isNotBlank(keyword), BuffGoods::getName, keyword)
                 .last("LIMIT 50") // 限制返回条数，防止全量拉取
                 .list();

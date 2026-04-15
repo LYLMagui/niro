@@ -15,6 +15,9 @@ import lombok.Data;
 @Schema(description = "商品简单信息传输对象")
 public class BuffGoodsSimpleDTO {
 
+    @Schema(description = "商品主键ID")
+    private Long id;
+
     @Schema(description = "Buff商品ID")
     private Long goodsId;
 
