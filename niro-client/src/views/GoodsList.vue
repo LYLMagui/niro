@@ -58,11 +58,11 @@
           </t-form-item>
           <t-form-item>
             <div v-permission="PermissionConstant.GOODS_LIST" class="flex gap-2">
-              <t-button theme="primary" type="submit" size="small">
+              <t-button theme="primary" type="submit">
                 <template #icon><search-icon /></template>
                 查询
               </t-button>
-              <t-button theme="default" variant="base" type="reset" size="small">
+              <t-button theme="default" variant="base" type="reset">
                 <template #icon><refresh-icon /></template>
                 重置
               </t-button>
@@ -70,7 +70,6 @@
                 v-permission="PermissionConstant.GOODS_LIST"
                 theme="warning"
                 variant="base"
-                size="small"
                 @click="syncDialogVisible = true"
               >
                 <template #icon><cloud-download-icon /></template>
@@ -91,7 +90,7 @@
           :pagination="pagination"
           hover
           :header-affixed-top="{ offsetTop: 0, container: '.t-layout__content' }"
-          class="embedded-table w-full"
+          class="niro-unified-table w-full bg-white"
           @page-change="onPageChange"
         >
           <template #empty>
@@ -156,13 +155,13 @@
           <template #operation="{ row }">
             <div
               v-permission="PermissionConstant.GOODS_LIST"
-              class="flex items-center justify-center space-x-2"
+              class="niro-table-actions niro-table-actions--center"
             >
               <t-button
-                variant="text"
-                theme="primary"
+                variant="outline"
                 size="small"
-                class="transition-all hover:font-bold"
+                theme="primary"
+                class="niro-table-action-btn"
                 @click="openBuffGoods(row.goodsId)"
               >
                 <template #icon><link-icon /></template>
@@ -170,10 +169,10 @@
               </t-button>
               <t-button
                 v-permission="PermissionConstant.TASK_BUFF_LIST"
-                variant="text"
-                theme="warning"
+                variant="outline"
                 size="small"
-                class="transition-all hover:font-bold"
+                theme="warning"
+                class="niro-table-action-btn"
                 @click="openCreateTaskDialog(row)"
               >
                 <template #icon><shop-icon /></template>

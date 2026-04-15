@@ -6,160 +6,181 @@
     desktop-content-class="px-4 pt-3 pb-4"
     mobile-content-class="px-3 pt-3 pb-0"
   >
-    <div>
-      <div class="jsh-filter-layout flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div class="jsh-filter-item flex items-center">
-          <span class="jsh-label">任务关键词：</span>
-          <t-input
-            v-model="queryParams.keyword"
-            placeholder="请输入任务/商品关键词"
-            clearable
-            size="small"
-            class="jsh-filter-input"
-            @enter="fetchData"
-          />
-        </div>
-        <div v-if="showAdvancedFilters" class="jsh-filter-item flex items-center">
-          <span class="jsh-label">任务状态：</span>
-          <t-select
-            v-model="queryParams.status"
-            placeholder="请选择任务状态"
-            clearable
-            size="small"
-            class="jsh-filter-select"
-            @change="fetchData"
-          >
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.STOPPED].label"
-              :value="TaskStatusEnum.STOPPED"
-            />
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.RUNNING].label"
-              :value="TaskStatusEnum.RUNNING"
-            />
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
-              :value="TaskStatusEnum.SYSTEM_RUNNING"
-            />
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.SCHEDULED].label"
-              :value="TaskStatusEnum.SCHEDULED"
-            />
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
-              :value="TaskStatusEnum.COMPLETED"
-            />
-            <t-option
-              :label="TaskStatusMap[TaskStatusEnum.ERROR].label"
-              :value="TaskStatusEnum.ERROR"
-            />
-          </t-select>
-        </div>
-        <div v-if="canViewTaskList" class="jsh-filter-actions flex items-center gap-2">
-          <t-button theme="primary" size="small" @click="fetchData">查询</t-button>
-          <t-button variant="outline" theme="default" size="small" @click="resetQuery">
-            重置
-          </t-button>
-          <a class="jsh-expand-link" @click="toggleAdvancedFilters">
-            {{ showAdvancedFilters ? "收起" : "展开" }}
-          </a>
-        </div>
-      </div>
-    </div>
-
-    <div class="mt-3 pt-2">
-      <div class="jsh-toolbar flex flex-wrap items-start justify-between gap-y-3">
+    <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <div class="flex flex-col gap-3 bg-slate-50/70 px-4 py-3">
         <div
-          class="table-operator flex flex-wrap items-center"
-          :class="{ 'table-operator--mobile': isMobile }"
+          :class="[
+            'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
+            showAdvancedFilters
+              ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,220px)_auto]'
+              : 'xl:grid-cols-[minmax(0,280px)_auto]',
+          ]"
         >
-          <template v-if="canViewTaskList">
+          <label class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+            <span class="jsh-label text-sm font-medium text-slate-700">任务关键词</span>
+            <t-input
+              v-model="queryParams.keyword"
+              placeholder="请输入任务/商品关键词"
+              clearable
+              class="jsh-filter-input"
+              :class="taskToolbarFieldClass"
+              @enter="fetchData"
+            />
+          </label>
+          <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+            <span class="jsh-label text-sm font-medium text-slate-700">任务状态</span>
+            <t-select
+              v-model="queryParams.status"
+              placeholder="请选择任务状态"
+              clearable
+              class="jsh-filter-select"
+              :class="taskToolbarFieldClass"
+              @change="fetchData"
+            >
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.STOPPED].label"
+                :value="TaskStatusEnum.STOPPED"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.RUNNING].label"
+                :value="TaskStatusEnum.RUNNING"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.SYSTEM_RUNNING].label"
+                :value="TaskStatusEnum.SYSTEM_RUNNING"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.SCHEDULED].label"
+                :value="TaskStatusEnum.SCHEDULED"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.COMPLETED].label"
+                :value="TaskStatusEnum.COMPLETED"
+              />
+              <t-option
+                :label="TaskStatusMap[TaskStatusEnum.ERROR].label"
+                :value="TaskStatusEnum.ERROR"
+              />
+            </t-select>
+          </label>
+          <div
+            v-if="canViewTaskList"
+            :class="[
+              'jsh-filter-actions flex flex-wrap items-center gap-2',
+              showAdvancedFilters ? 'xl:justify-end' : 'xl:justify-start',
+            ]"
+          >
             <t-button
               theme="primary"
-              size="small"
-              class="jsh-action-btn jsh-action-btn--primary"
-              @click="handleAdd"
+              class="jsh-action-btn"
+              @click="fetchData"
             >
-              新增任务
+              查询
             </t-button>
-
-            <t-popconfirm content="确认批量启动选中任务吗？" @confirm="handleBatchStart">
-              <t-button
-                variant="outline"
-                theme="default"
-                size="small"
-                class="jsh-action-btn"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量启动
-              </t-button>
-            </t-popconfirm>
-
-            <t-popconfirm content="确认批量停止选中任务吗？" @confirm="handleBatchStop">
-              <t-button
-                variant="outline"
-                theme="default"
-                size="small"
-                class="jsh-action-btn"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量停止
-              </t-button>
-            </t-popconfirm>
-
-            <t-popconfirm content="确认批量删除选中任务吗？" @confirm="handleBatchDelete">
-              <t-button
-                variant="outline"
-                theme="default"
-                size="small"
-                class="jsh-action-btn"
-                :disabled="selectedRowKeys.length === 0"
-              >
-                批量删除
-              </t-button>
-            </t-popconfirm>
-          </template>
+            <t-button
+              variant="outline"
+              theme="default"
+              class="jsh-action-btn"
+              @click="resetQuery"
+            >
+              重置
+            </t-button>
+            <button type="button" class="jsh-expand-link" @click="toggleAdvancedFilters">
+              {{ showAdvancedFilters ? "收起" : "展开" }}
+            </button>
+          </div>
         </div>
 
         <div
-          class="text-xs text-[#909399]"
-          :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2'"
+          class="jsh-toolbar flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between"
         >
-          <t-tag theme="primary" variant="light" class="rounded-[2px]">
-            已选择 {{ selectedRowKeys.length }} 项
-          </t-tag>
-          <t-button
-            variant="outline"
-            theme="default"
-            size="small"
-            class="jsh-action-btn"
-            :disabled="selectedRowKeys.length === 0"
-            @click="clearSelection"
+          <div
+            class="table-operator flex flex-wrap items-center gap-2"
+            :class="{ 'table-operator--mobile': isMobile }"
           >
-            清空勾选
-          </t-button>
+            <template v-if="canViewTaskList">
+              <t-button
+                theme="primary"
+                class="jsh-action-btn jsh-action-btn--primary"
+                @click="handleAdd"
+              >
+                新增任务
+              </t-button>
+
+              <t-popconfirm content="确认批量启动选中任务吗？" @confirm="handleBatchStart">
+                <t-button
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn"
+                  :disabled="selectedRowKeys.length === 0"
+                >
+                  批量启动
+                </t-button>
+              </t-popconfirm>
+
+              <t-popconfirm content="确认批量停止选中任务吗？" @confirm="handleBatchStop">
+                <t-button
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn"
+                  :disabled="selectedRowKeys.length === 0"
+                >
+                  批量停止
+                </t-button>
+              </t-popconfirm>
+
+              <t-popconfirm content="确认批量删除选中任务吗？" @confirm="handleBatchDelete">
+                <t-button
+                  variant="outline"
+                  theme="default"
+                  class="jsh-action-btn"
+                  :disabled="selectedRowKeys.length === 0"
+                >
+                  批量删除
+                </t-button>
+              </t-popconfirm>
+            </template>
+          </div>
+
+          <div
+            class="text-xs text-slate-500"
+            :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'"
+          >
+            <t-tag theme="primary" variant="light" class="rounded-[2px]">
+              已选择 {{ selectedRowKeys.length }} 项
+            </t-tag>
+            <t-button
+              variant="outline"
+              theme="default"
+              class="jsh-action-btn"
+              :disabled="selectedRowKeys.length === 0"
+              @click="clearSelection"
+            >
+              清空勾选
+            </t-button>
+          </div>
         </div>
       </div>
-    </div>
+    </section>
 
     <div :class="['task-list-main relative min-h-0 flex-1 pt-3', isMobile ? 'pb-0' : 'pb-4']">
-      <div v-if="!isMobile" class="relative h-full min-h-0 overflow-hidden">
-        <t-table
-          row-key="id"
-          :data="dataList"
-          :columns="columns"
-          :loading="loading"
-          :pagination="pagination"
-          :selected-row-keys="selectedRowKeys"
-          select-on-row-click
-          hover
-          :class="[
-            'jsh-ledger-table',
-            { 'jsh-ledger-table--empty': !loading && dataList.length === 0 },
-          ]"
-          @page-change="onPageChange"
-          @select-change="handleSelectChange"
-        >
+      <div
+        v-if="!isMobile"
+        class="relative flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+      >
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <t-table
+            row-key="id"
+            :data="dataList"
+            :columns="columns"
+            :loading="loading"
+            :pagination="undefined"
+            :selected-row-keys="selectedRowKeys"
+            select-on-row-click
+            hover
+            class="task-c5-table w-full bg-white"
+            @select-change="handleSelectChange"
+          >
           <template #empty>
             <div class="jsh-ledger-empty">
               <t-empty description="暂无任务数据" />
@@ -202,13 +223,13 @@
                 </div>
                 <div class="task-target__metric">
                   <span class="task-target__label">扫描频率：</span>
-                  <t-tag class="task-target__value" size="small" variant="light">
+                  <t-tag class="task-target__value task-target__value--scan" size="small" variant="light">
                     {{ formatScanFrequency(row) }}
                   </t-tag>
                 </div>
                 <div class="task-target__metric">
                   <span class="task-target__label">磨损范围：</span>
-                  <t-tag class="task-target__value" size="small" variant="light">
+                  <t-tag class="task-target__value task-target__value--wear" size="small" variant="light">
                     {{ formatPaintwear(row) }}
                   </t-tag>
                 </div>
@@ -245,24 +266,47 @@
           </template>
 
           <template #op="{ row }">
-            <div v-permission="PermissionConstant.TASK_C5_LIST" class="flex items-center gap-2">
-              <t-link
+            <div
+              v-permission="PermissionConstant.TASK_C5_LIST"
+              class="task-c5-table__actions flex flex-wrap gap-1.5"
+            >
+              <t-button
                 v-if="!isActiveTaskStatus(row.status)"
-                theme="primary"
+                variant="outline"
+                class="task-c5-table__action-btn"
                 @click="handleEdit(row)"
               >
                 编辑
-              </t-link>
-              <t-link v-else theme="primary" disabled>编辑</t-link>
+              </t-button>
+              <t-button
+                v-else
+                variant="outline"
+                disabled
+                class="task-c5-table__action-btn"
+              >
+                编辑
+              </t-button>
 
-              <t-link theme="default" @click="handleCopy(row)">复制</t-link>
+              <t-button
+                variant="outline"
+                class="task-c5-table__action-btn"
+                @click="handleCopy(row)"
+              >
+                复制
+              </t-button>
 
               <t-popconfirm
                 v-if="isStartableTaskStatus(row.status)"
                 content="确认要启动任务吗？"
                 @confirm="handleStatus(row, 1)"
               >
-                <t-link theme="success">启动</t-link>
+                <t-button
+                  variant="outline"
+                  theme="success"
+                  class="task-c5-table__action-btn"
+                >
+                  启动
+                </t-button>
               </t-popconfirm>
 
               <t-popconfirm
@@ -270,7 +314,13 @@
                 content="确认要停止任务吗？"
                 @confirm="handleStatus(row, 0)"
               >
-                <t-link theme="warning">停止</t-link>
+                <t-button
+                  variant="outline"
+                  theme="warning"
+                  class="task-c5-table__action-btn"
+                >
+                  停止
+                </t-button>
               </t-popconfirm>
 
               <t-popconfirm
@@ -278,11 +328,30 @@
                 content="确认要删除任务吗？"
                 @confirm="handleDelete(row)"
               >
-                <t-link theme="danger">删除</t-link>
+                <t-button
+                  variant="outline"
+                  theme="danger"
+                  class="task-c5-table__action-btn"
+                >
+                  删除
+                </t-button>
               </t-popconfirm>
             </div>
           </template>
         </t-table>
+        </div>
+
+        <div
+          v-if="pagination.total > 0"
+          class="border-t border-slate-200 bg-white px-4 py-3"
+        >
+          <t-pagination
+            :current="pagination.current"
+            :page-size="pagination.pageSize"
+            :total="pagination.total"
+            @change="onPageChange"
+          />
+        </div>
       </div>
 
       <div v-else class="task-mobile min-h-0">
@@ -368,35 +437,32 @@
               <t-button
                 variant="outline"
                 theme="primary"
-                size="small"
                 :disabled="isActiveTaskStatus(row.status)"
                 @click="handleEdit(row)"
               >
                 编辑
               </t-button>
-              <t-button variant="outline" theme="default" size="small" @click="handleCopy(row)">
-                复制
-              </t-button>
+              <t-button variant="outline" theme="default" @click="handleCopy(row)">复制</t-button>
               <t-popconfirm
                 v-if="isStartableTaskStatus(row.status)"
                 content="确认要启动任务吗？"
                 @confirm="handleStatus(row, 1)"
               >
-                <t-button variant="outline" theme="success" size="small">启动</t-button>
+                <t-button variant="outline" theme="success">启动</t-button>
               </t-popconfirm>
               <t-popconfirm
                 v-if="isActiveTaskStatus(row.status)"
                 content="确认要停止任务吗？"
                 @confirm="handleStatus(row, 0)"
               >
-                <t-button variant="outline" theme="warning" size="small">停止</t-button>
+                <t-button variant="outline" theme="warning">停止</t-button>
               </t-popconfirm>
               <t-popconfirm
                 v-if="isDeletableTaskType(row.taskType)"
                 content="确认要删除任务吗？"
                 @confirm="handleDelete(row)"
               >
-                <t-button variant="outline" theme="danger" size="small">删除</t-button>
+                <t-button variant="outline" theme="danger">删除</t-button>
               </t-popconfirm>
             </div>
           </div>
@@ -529,17 +595,56 @@ const DELETABLE_TASK_TYPES = [TaskTypeEnum.SNIPING, TaskTypeEnum.FLIPPING] as co
 
 const isDeletableTaskType = (taskType: number) => DELETABLE_TASK_TYPES.includes(taskType as any);
 
+const taskTableHeaderClass =
+  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+const taskTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
+const taskToolbarFieldClass =
+  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+
 const columns = computed<PrimaryTableCol[]>(() => [
-  { colKey: "row-select", type: "multiple", width: 56, fixed: "left" as any },
-  { colKey: "goods", title: "商品信息", width: 220, cell: "goods", align: "left" as any },
-  { colKey: "target", title: "目标配置", width: 190, cell: "target", align: "left" as any },
-  { colKey: "progress", title: "进度", width: 100, cell: "progress", align: "left" as any },
+  {
+    colKey: "row-select",
+    type: "multiple",
+    width: 56,
+    fixed: "left" as any,
+    className: `${taskTableBodyClass} !bg-white`,
+    thClassName: taskTableHeaderClass,
+  },
+  {
+    colKey: "goods",
+    title: "商品信息",
+    width: 220,
+    cell: "goods",
+    align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
+  },
+  {
+    colKey: "target",
+    title: "目标配置",
+    width: 190,
+    cell: "target",
+    align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
+  },
+  {
+    colKey: "progress",
+    title: "进度",
+    width: 100,
+    cell: "progress",
+    align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
+  },
   {
     colKey: "createTime",
     title: "创建时间",
     width: 170,
     cell: "createTime",
     align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
   },
   {
     colKey: "finishTime",
@@ -547,9 +652,28 @@ const columns = computed<PrimaryTableCol[]>(() => [
     width: 170,
     cell: "finishTime",
     align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
   },
-  { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" as any },
-  { colKey: "op", title: "操作", width: 220, cell: "op", fixed: "right", align: "left" as any },
+  {
+    colKey: "status",
+    title: "状态",
+    width: 120,
+    cell: "status",
+    align: "left" as any,
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
+  },
+  {
+    colKey: "op",
+    title: "操作",
+    width: 220,
+    cell: "op",
+    fixed: "right",
+    align: "left" as any,
+    className: `${taskTableBodyClass} !bg-white`,
+    thClassName: taskTableHeaderClass,
+  },
 ]);
 
 const selectedTasks = computed(() => {
@@ -747,247 +871,95 @@ watch(
 </script>
 
 <style scoped>
-.jsh-filter-layout {
-  row-gap: 12px;
-}
-
-.jsh-filter-item {
-  flex-shrink: 0;
-}
-
-.jsh-label {
-  width: 96px;
-  padding-right: 10px;
-  color: #303133;
-  font-size: 13px;
-  line-height: 32px;
-  text-align: right;
-  white-space: nowrap;
-}
-
 .jsh-expand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   padding: 0 4px;
-  color: rgb(24, 144, 255);
-  line-height: 32px;
-  user-select: none;
+  border: 0;
+  background: transparent;
+  color: rgb(71 85 105);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
 }
 
-.table-operator :deep(.t-button) {
-  margin: 0 8px 8px 0;
+.jsh-expand-link:hover {
+  color: rgb(15 23 42);
 }
 
-.task-selection-summary {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+.table-operator :deep(.t-popup__reference) {
+  display: inline-flex;
 }
 
-.task-target {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.task-target__primary {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.task-target__metric {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-}
-
-.task-target__metric .task-target__value {
-  max-width: calc(100% - 80px);
+:deep(.jsh-action-btn.t-button) {
+  min-width: 88px;
+  border-radius: 4px;
+  box-shadow: none;
 }
 
 .task-target__label {
-  flex: 0 0 52px;
-  color: #6b7280;
-  font-size: 12px;
-  white-space: nowrap;
+  color: rgb(71 85 105);
 }
 
 .task-target__value {
-  display: inline-flex;
-  width: fit-content;
-  max-width: 100%;
-  color: #475569;
-  font-size: 12px;
-  font-weight: 600;
-  vertical-align: top;
-  background-color: #f8fafc;
-  border-color: #e2e8f0;
+  color: rgb(51 65 85);
 }
 
 .task-target__value--price {
-  background-color: #fef2f2;
-  border-color: #fecdd3;
-  color: #e11d48;
+  color: rgb(220 38 38);
+}
+
+.task-target__value--scan {
+  color: rgb(37 99 235);
+}
+
+.task-target__value--wear {
+  color: rgb(249 115 22);
 }
 
 .task-target__value--progress {
-  background-color: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #16a34a;
+  color: rgb(30 64 175);
 }
 
-.task-target__value :deep(.t-tag) {
-  max-width: 100%;
+:deep(.task-c5-table .t-table__header th) {
+  padding-top: 10px;
+  padding-bottom: 10px;
 }
 
-.task-target__value :deep(.t-tag__inner),
-.task-target__value :deep(span) {
-  overflow-wrap: anywhere;
-  word-break: break-word;
+:deep(.task-c5-table .t-table__body td) {
+  padding-top: 8px;
+  padding-bottom: 8px;
 }
 
-.jsh-ledger-empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 100%;
+:deep(.task-c5-table .t-table) {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
 }
 
-.task-mobile {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding-bottom: 12px;
+:deep(.task-c5-table .t-table__content) {
+  border: none;
+  border-radius: 0;
 }
 
-.task-mobile__list {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
+:deep(.task-c5-table .t-table__header) {
+  overflow: visible;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
 }
 
-.task-mobile__list > .task-mobile-card {
-  margin-right: 0;
-  margin-left: 0;
+:deep(.task-c5-table__actions .t-popup__reference) {
+  display: inline-flex;
 }
 
-.task-mobile__empty {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  min-height: 240px;
-  color: #909399;
-}
-
-.task-mobile-card {
-  border: 1px solid #ebeef5;
-  border-radius: 8px;
-  background: #fff;
-  padding: 12px;
-}
-
-.task-mobile-card__header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.task-mobile-card__goods {
-  display: flex;
-  min-width: 0;
-  flex: 1;
-  align-items: flex-start;
-  gap: 10px;
-}
-
-.task-mobile-card__thumb {
-  width: 36px;
-  height: 36px;
-  flex-shrink: 0;
-  border-radius: 6px;
-}
-
-.task-mobile-card__thumb--fallback {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid #dbeafe;
-  background: #eff6ff;
-  color: #2563eb;
-}
-
-.task-mobile-card__meta {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.task-mobile-card__meta-item {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  font-size: 12px;
-  color: #303133;
-}
-
-.task-mobile-card__meta-label {
-  flex: 0 0 52px;
-  color: #909399;
-  white-space: nowrap;
-}
-
-.task-mobile-card__meta-value {
-  flex: 0 1 auto;
-  max-width: calc(100% - 80px);
-  font-weight: 600;
-  color: #475569;
-  background-color: #f8fafc;
-  border-color: #e2e8f0;
-}
-
-.task-mobile-card__meta-value--price {
-  background-color: #fef2f2;
-  border-color: #fecdd3;
-  color: #e11d48;
-}
-
-.task-mobile-card__meta-value--progress {
-  background-color: #f0fdf4;
-  border-color: #bbf7d0;
-  color: #16a34a;
-}
-
-.task-mobile-card__meta-value :deep(.t-tag) {
-  max-width: 100%;
-}
-
-.task-mobile-card__meta-value :deep(.t-tag__inner),
-.task-mobile-card__meta-value :deep(span) {
-  overflow-wrap: anywhere;
-  word-break: break-word;
-}
-
-.task-mobile-card__actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.task-mobile__pagination {
-  display: flex;
-  justify-content: center;
-  padding: 4px 0 8px;
-}
-
-:deep(.jsh-ledger-table--empty .t-table__empty) {
-  height: 100%;
+:deep(.task-c5-table__action-btn.t-button) {
+  min-width: 64px;
+  padding-right: 12px;
+  padding-left: 12px;
+  border-radius: 4px;
+  box-shadow: none;
 }
 
 @media (max-width: 768px) {

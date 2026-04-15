@@ -35,7 +35,6 @@
                     <t-date-picker
                       multiple
                       clearable
-                      size="small"
                       format="YYYY-MM-DD"
                       value-type="YYYY-MM-DD"
                       placeholder="自定义日期"
@@ -200,7 +199,6 @@
               </div>
               <t-input
                 v-model="steamMarketPrice"
-                size="small"
                 clearable
                 name="steamMarketPrice"
                 aria-label="Steam 市场卖出单价"
@@ -369,7 +367,7 @@
             :data="tableData"
             :columns="tableColumns"
             cell-empty-content="-"
-            class="order-stats-table"
+            class="niro-unified-table bg-white"
           >
             <template #empty>
               <div class="flex min-h-[180px] items-center justify-center">

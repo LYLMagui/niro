@@ -43,7 +43,7 @@
         </div>
 
         <t-form-item class="pt-2">
-          <t-button theme="primary" type="submit" block size="small" :loading="loading">
+          <t-button theme="primary" type="submit" block :loading="loading">
             登录
           </t-button>
         </t-form-item>
@@ -143,8 +143,8 @@ const { loading, run: handleAccountLogin } = useRequest(async (context: SubmitCo
       // 获取用户信息
       await userStore.getInfo();
 
-      // 跳转到首页（路由守卫会自动处理动态路由的生成和添加）
-      router.push("/dashboard");
+      // 跳转到首页入口（路由守卫会在动态路由加载后处理实际落点）
+      router.push("/");
     } catch (error: any) {
       // 异常已由拦截器处理
     } finally {

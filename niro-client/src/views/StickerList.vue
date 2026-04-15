@@ -25,14 +25,12 @@
               <t-button
                 theme="primary"
                 type="submit"
-                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
               >
                 查询
               </t-button>
               <t-button
                 variant="outline"
-                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="handleReset"
               >
@@ -52,7 +50,7 @@
         :pagination="pagination"
         hover
         :header-affixed-top="true"
-        class="embedded-table w-full"
+        class="niro-unified-table w-full bg-white"
         @page-change="onPageChange"
       >
         <template #empty>

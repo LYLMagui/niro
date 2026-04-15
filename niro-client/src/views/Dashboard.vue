@@ -33,7 +33,6 @@
             v-if="!isRunning"
             v-permission="PermissionConstant.TASK_BUFF_LIST"
             theme="primary"
-            size="small"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStart"
           >
@@ -43,7 +42,6 @@
             v-else
             v-permission="PermissionConstant.TASK_BUFF_LIST"
             theme="danger"
-            size="small"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStop"
           >
@@ -69,7 +67,7 @@
         <t-link
           v-permission="PermissionConstant.TASK_BUFF_LIST"
           theme="primary"
-          @click="$router.push('/tasks')"
+          @click="$router.push('/task/manager/buff')"
         >
           查看全部
         </t-link>
@@ -99,7 +97,7 @@
         :pagination="{ total: 100, current: 1, pageSize: 10, size: 'small' }"
         hover
         :header-affixed-top="true"
-        class="embedded-table w-full"
+        class="niro-unified-table w-full bg-white"
       >
         <template #empty>
           <t-empty icon="info-circle" description="暂无动态数据" />

@@ -129,11 +129,10 @@
     </div>
 
     <template #footer>
-      <t-button variant="outline" theme="default" size="small" @click="closeDialog">取消</t-button>
+      <t-button variant="outline" theme="default" @click="closeDialog">取消</t-button>
       <t-button
         v-if="canManageTask"
         theme="primary"
-        size="small"
         :loading="submitLoading"
         @click="submitTaskForm()"
       >

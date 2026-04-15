@@ -17,7 +17,6 @@
                 v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK_ALL"
                 variant="outline"
                 theme="default"
-                size="small"
                 :loading="checkingAll"
                 class="rounded !border-gray-200 !text-gray-600 transition-all duration-300"
                 @click="onCheckAll"
@@ -28,7 +27,6 @@
               <t-button
                 v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
                 theme="primary"
-                size="small"
                 class="rounded transition-all duration-300"
                 @click="onAddAccount"
               >
@@ -45,7 +43,7 @@
             :loading="accountsLoading"
             hover
             :header-affixed-top="true"
-            class="embedded-table w-full"
+            class="niro-unified-table w-full bg-white"
             :bordered="false"
           >
             <!-- 空状态 (保持原样) -->
@@ -181,28 +179,30 @@
 
             <!-- 操作列 (保持原样) -->
             <template #operation="{ row }">
-              <div class="flex items-center justify-center space-x-3">
+              <div class="niro-table-actions niro-table-actions--center">
                 <t-tooltip content="编辑">
-                  <t-link
+                  <t-button
                     v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
-                    theme="default"
+                    variant="outline"
+                    size="small"
                     :disabled="row.checking"
-                    class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    class="niro-table-action-btn niro-table-action-btn--compact"
                     @click="onEditAccount(row)"
                   >
                     <t-icon name="edit" />
-                  </t-link>
+                  </t-button>
                 </t-tooltip>
                 <t-tooltip content="检测">
-                  <t-link
+                  <t-button
                     v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK"
-                    theme="default"
+                    variant="outline"
+                    size="small"
                     :disabled="row.checking"
-                    class="!text-gray-400 transition-colors hover:!text-blue-600"
+                    class="niro-table-action-btn niro-table-action-btn--compact"
                     @click="onCheckAccount(row)"
                   >
                     <t-icon name="refresh" :class="{ 'checking-rotate': row.checking }" />
-                  </t-link>
+                  </t-button>
                 </t-tooltip>
                 <t-popconfirm
                   :content="
@@ -218,14 +218,16 @@
                       row.boundTaskId ? `账号已绑定任务【${row.boundTaskName}】，无法删除` : '删除'
                     "
                   >
-                    <t-link
+                    <t-button
                       v-permission="PermissionConstant.BUFF_ACCOUNT_DELETE"
-                      theme="default"
+                      variant="outline"
+                      size="small"
+                      theme="danger"
                       :disabled="row.checking || !!row.boundTaskId"
-                      class="!text-gray-400 transition-colors hover:!text-red-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      class="niro-table-action-btn niro-table-action-btn--compact disabled:!opacity-50"
                     >
                       <t-icon name="delete" />
-                    </t-link>
+                    </t-button>
                   </t-tooltip>
                 </t-popconfirm>
               </div>
@@ -303,7 +305,6 @@
                 :data="formData"
                 :rules="formRules"
                 label-align="top"
-                size="small"
                 @submit="onSubmit"
               >
                 <t-form-item label="C5 AppKey" name="c5AppKey">
@@ -337,7 +338,6 @@
                 :data="formData"
                 :rules="formRules"
                 label-align="top"
-                size="small"
                 @submit="onSubmit"
               >
                 <t-form-item label="默认支付方式" name="paymentMethod">
@@ -347,7 +347,6 @@
                   <t-radio-group
                     v-model="formData.paymentMethod"
                     variant="default-filled"
-                    size="small"
                     class="w-full"
                   >
                     <t-radio-button value="BALANCE">网易支付</t-radio-button>
@@ -380,7 +379,6 @@
                 :data="formData"
                 :rules="formRules"
                 label-align="top"
-                size="small"
                 @submit="onSubmit"
               >
                 <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
@@ -500,7 +498,6 @@
                 v-permission="PermissionConstant.SETTINGS_TEST_NOTIFY"
                 variant="text"
                 theme="primary"
-                size="small"
                 :loading="testNotifyLoading"
                 @click="onTestNotify"
               >
@@ -514,7 +511,6 @@
               type="submit"
               block
               :loading="loading"
-              size="small"
               class="h-9 rounded shadow-sm"
               @click="onSubmit({ validateResult: true } as any)"
             >
@@ -587,7 +583,6 @@
         <div class="mt-8 flex justify-end gap-3">
           <t-button
             variant="outline"
-            size="small"
             class="rounded-md transition-all duration-300"
             @click="accountDialogVisible = false"
           >
@@ -596,7 +591,6 @@
           <t-button
             v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
             theme="primary"
-            size="small"
             type="submit"
             :loading="accountSubmitLoading"
             class="rounded-md px-8 transition-all duration-300"

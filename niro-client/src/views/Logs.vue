@@ -39,7 +39,6 @@
               <t-button
                 v-permission="PermissionConstant.LOG_LIST"
                 :theme="isConnected ? 'danger' : 'primary'"
-                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="toggleConnection"
               >
@@ -52,7 +51,6 @@
                 v-permission="PermissionConstant.LOG_LIST"
                 theme="default"
                 variant="base"
-                size="small"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
                 @click="clearLogs"
               >
@@ -78,7 +76,6 @@
 
               <t-button
                 v-permission="PermissionConstant.LOG_LIST"
-                size="small"
                 variant="outline"
                 :theme="onlyErrors ? 'danger' : 'default'"
                 class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
@@ -93,7 +90,6 @@
 
               <t-button
                 v-permission="PermissionConstant.LOG_LIST"
-                size="small"
                 variant="base"
                 class="hidden rounded-lg transition-all duration-300 hover:shadow active:shadow-none xl:inline-flex"
                 :theme="showErrorWindow ? 'primary' : 'default'"
