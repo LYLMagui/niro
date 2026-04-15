@@ -1,10 +1,24 @@
 {
+  "permissions": {
+    "allow": [
+      "mcp__nocturne-memory__read_memory",
+      "Bash(docker info *)",
+      "Bash(mkdir -p \"D:/MySpace/CPA/auths\" \"D:/MySpace/CPA/logs\")",
+      "Bash(cp \"D:/MySpace/niro/docker/CliProxyAPI/config.yaml\" \"D:/MySpace/CPA/config.yaml\")",
+      "Bash(docker compose *)",
+      "Bash(docker network inspect *)",
+      "Bash(docker exec cli-proxy-api *)",
+      "Bash(docker run *)"
+    ]
+  },
   "enabledMcpjsonServers": [
     "GitHub",
     "gitee",
     "tdesign-mcp-server",
     "PostgreSQL",
     "redis",
-    "bing-search"
+    "bing-search",
+    "serena-niro-claude",
+    "idea-server-mcp"
   ]
 }

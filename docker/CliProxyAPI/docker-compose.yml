@@ -19,9 +19,11 @@
       OBJECTSTORE_ACCESS_KEY: ${OBJECTSTORE_ACCESS_KEY:-}
       OBJECTSTORE_SECRET_KEY: ${OBJECTSTORE_SECRET_KEY:-}
       OBJECTSTORE_LOCAL_PATH: ${OBJECTSTORE_LOCAL_PATH:-}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8317:8317"
     volumes:
-      - /home/workspace/CliProxyAPI/config.yaml:/CLIProxyAPI/config.yaml
-      - /home/workspace/CliProxyAPI/auths:/root/.cli-proxy-api
-      - /home/workspace/CliProxyAPI/logs:/CLIProxyAPI/logs
+      - "D:/MySpace/CPA/config.yaml:/CLIProxyAPI/config.yaml"
+      - "D:/MySpace/CPA/auths:/root/.cli-proxy-api"
+      - "D:/MySpace/CPA/logs:/CLIProxyAPI/logs"

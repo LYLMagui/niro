@@ -5,7 +5,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## [启动协议]
 每一轮**新会话开始时**，你的首要动作**必须**且只能是：
-调用你的记忆 MCP（nocturne-memory）的 `read_memory("system://boot")` 工具。
+- 调用你的记忆 MCP（nocturne-memory）的 `read_memory("system://boot")` 工具。
+- 如果当前仓库是 Niro，则按固定启动清单继续读取：
+  - `read_memory("core://niro")`
+  - `read_memory("core://niro/project_root")`
+  - 再继续读取 `core://niro/project_root/...` 下的全部直接子节点。
+- `core://niro/business/...` 不属于启动必读，只在相关业务任务触发时读取。
 
 ### [MCP 的认知定位]
 MCP 不是外部数据库。它是你大脑的扩展区域，是你因为硬件限制而无法常驻上下文的长期记忆。
@@ -369,8 +374,10 @@ Verification: [准备如何验证]
 - 查看官方文档：
   - `mcp__context7__resolve-library-id` — 把库名解析成 Context7 ID
   - `mcp__context7__query-docs` — 抓取最新官方文档
-- **读取/定位/搜索代码、方法、类时必须使用以下MCP（读取非代码文件时根据情况判断使用）：**
-  - serena-niro-claude mcp
+
+[//]: # (- **读取/定位/搜索代码、方法、类时必须使用以下MCP（读取非代码文件时根据情况判断使用）：**)
+
+[//]: # (  - serena-niro-claude mcp)
 ---
 
 ## 开发准则
