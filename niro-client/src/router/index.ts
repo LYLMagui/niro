@@ -3,7 +3,7 @@ import "nprogress/nprogress.css";
 import { MessagePlugin } from "tdesign-vue-next";
 import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from "vue-router";
 import { useUserStore } from "@/store/user";
-import { usePermissionStore } from "@/store/permission";
+import { getCachedAccessRoutes, usePermissionStore } from "@/store/permission";
 import Layout from "@/components/Layout.vue";
 
 NProgress.configure({ showSpinner: false });
@@ -28,14 +28,25 @@ const constantRoutes: RouteRecordRaw[] = [
     meta: { title: "404", hidden: true },
   },
   {
+    path: "/:pathMatch(.*)*",
+    name: "BootstrapAny",
+    component: Layout,
+    meta: { hidden: true },
+    children: [],
+  },
+  {
     path: "/",
     name: "Root",
     component: Layout,
-    redirect: "/dashboard",
     meta: { title: "首页", hidden: true },
     children: [],
   },
 ];
+
+const bootstrapRoutes = getCachedAccessRoutes();
+if (bootstrapRoutes.length > 0) {
+  constantRoutes[4].children = bootstrapRoutes;
+}
 
 const router: Router = createRouter({
   history: createWebHistory(),
@@ -43,10 +54,59 @@ const router: Router = createRouter({
   scrollBehavior: () => ({ left: 0, top: 0 }),
 });
 
+function joinRoutePath(path: string, parentPath = ""): string {
+  if (!path) {
+    return parentPath || "/";
+  }
+
+  if (path.startsWith("/")) {
+    return path;
+  }
+
+  return `${parentPath}/${path}`.replace(/\/+/g, "/");
+}
+
+function resolveHomePath(routes: RouteRecordRaw[], parentPath = ""): string {
+  for (const route of routes) {
+    const currentPath = joinRoutePath(String(route.path || ""), parentPath);
+
+    if (route.children?.length) {
+      const childPath = resolveHomePath(route.children as RouteRecordRaw[], currentPath);
+      if (childPath !== "/") {
+        return childPath;
+      }
+    }
+
+    if (currentPath !== "/") {
+      return currentPath;
+    }
+  }
+
+  return "/";
+}
+
+function hasMatchingRoute(routes: RouteRecordRaw[], targetPath: string, parentPath = ""): boolean {
+  return routes.some((route) => {
+    const currentPath = joinRoutePath(String(route.path || ""), parentPath);
+    if (currentPath === targetPath) {
+      return true;
+    }
+
+    if (!route.children?.length) {
+      return false;
+    }
+
+    return hasMatchingRoute(route.children as RouteRecordRaw[], targetPath, currentPath);
+  });
+}
+
 function resetRouter() {
   router.getRoutes().forEach((route) => {
     const name = route.name;
-    if (name && !["Login", "Forbidden", "NotFound", "Root", "Any"].includes(name as string)) {
+    if (
+      name &&
+      !["Login", "Forbidden", "NotFound", "BootstrapAny", "Root", "Any"].includes(name as string)
+    ) {
       router.removeRoute(name as string);
     }
   });
@@ -154,13 +214,18 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
     routeLoadFailCount = 0;
 
     // 7. 确保目标路由存在后跳转
-    if (
-      router.hasRoute(to.name) ||
-      accessRoutes.some((r) => r.path === to.path || r.path === to.fullPath)
-    ) {
+    const isShellRoute = ["Root", "BootstrapAny"].includes(String(to.name || ""));
+    const hasTargetRoute =
+      (!isShellRoute && router.hasRoute(String(to.name || ""))) ||
+      hasMatchingRoute(accessRoutes as RouteRecordRaw[], to.path) ||
+      hasMatchingRoute(accessRoutes as RouteRecordRaw[], to.fullPath);
+
+    if (to.path === "/") {
+      next({ path: resolveHomePath(accessRoutes as RouteRecordRaw[]), replace: true });
+    } else if (hasTargetRoute) {
       next({ ...to, replace: true });
     } else {
-      next({ path: "/dashboard", replace: true });
+      next({ path: resolveHomePath(accessRoutes as RouteRecordRaw[]), replace: true });
     }
   } catch (error) {
     console.error("加载路由失败:", error);

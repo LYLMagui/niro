@@ -26,7 +26,6 @@
             v-model="queryParams.keyword"
             placeholder="请输入商品名/C5订单号"
             clearable
-            size="small"
             class="jsh-filter-input"
             @enter="handleSearch"
             @clear="handleKeywordClear"
@@ -38,7 +37,6 @@
           <t-date-range-picker
             v-model="dateRange"
             clearable
-            size="small"
             value-type="YYYY-MM-DD"
             format="YYYY-MM-DD"
             class="jsh-filter-select"
@@ -51,7 +49,6 @@
           <t-button
             v-permission="PermissionConstant.TASK_RECORD_LIST"
             theme="primary"
-            size="small"
             @click="handleSearch"
           >
             查询
@@ -60,7 +57,6 @@
             v-permission="PermissionConstant.TASK_RECORD_LIST"
             variant="outline"
             theme="default"
-            size="small"
             @click="handleReset"
           >
             重置
@@ -103,7 +99,6 @@
               <span class="order-sync-control__label">同步范围</span>
               <t-select
                 v-model="selectedSyncRange"
-                size="small"
                 class="order-sync-control__select"
                 :disabled="c5SyncLoading"
                 :options="syncRangeOptions"
@@ -122,7 +117,6 @@
                 <t-button
                   variant="outline"
                   theme="default"
-                  size="small"
                   class="jsh-action-btn"
                   :loading="c5SyncLoading"
                   @click="handleC5Sync"
@@ -140,7 +134,6 @@
               <t-button
                 variant="outline"
                 theme="default"
-                size="small"
                 class="jsh-action-btn"
                 :disabled="selectedRowKeys.length === 0"
               >
@@ -175,7 +168,6 @@
           <t-button
             variant="outline"
             theme="default"
-            size="small"
             class="jsh-action-btn"
             :disabled="selectedRowKeys.length === 0"
             @click="clearSelection"
@@ -204,8 +196,8 @@
           select-on-row-click
           hover
           :class="[
-            'jsh-ledger-table',
-            { 'jsh-ledger-table--empty': !loading && dataList.length === 0 },
+            'niro-unified-table bg-white',
+            { 'niro-unified-table--empty': !loading && dataList.length === 0 },
           ]"
           @sort-change="onSortChange"
           @select-change="handleSelectChange"
@@ -300,11 +292,17 @@
           </template>
 
           <template #operation="{ row }">
-            <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="flex items-center gap-2">
+            <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="niro-table-actions">
               <t-popconfirm content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
-                <t-link v-permission="PermissionConstant.ORDER_RECORD_DELETE" theme="danger">
+                <t-button
+                  v-permission="PermissionConstant.ORDER_RECORD_DELETE"
+                  variant="outline"
+                  size="small"
+                  theme="danger"
+                  class="niro-table-action-btn"
+                >
                   删除
-                </t-link>
+                </t-button>
               </t-popconfirm>
             </div>
           </template>
@@ -312,7 +310,7 @@
 
         <div
           v-if="pagination.total > 0"
-          class="order-table-pagination border-t border-[#ebeef5] bg-white px-4 py-3"
+          class="border-t border-[#e8e8e8] bg-white px-4 py-3"
         >
           <t-pagination
             size="small"
@@ -442,7 +440,6 @@
                   v-permission="PermissionConstant.ORDER_RECORD_DELETE"
                   variant="outline"
                   theme="danger"
-                  size="small"
                   class="order-mobile-card__delete-btn"
                   @click.stop
                 >
@@ -1088,7 +1085,7 @@ watch(
   min-height: 100%;
 }
 
-:deep(.jsh-ledger-table) {
+:deep(.niro-unified-table) {
   height: 100%;
 }
 
@@ -1133,9 +1130,6 @@ watch(
   min-height: 0;
 }
 
-.order-table-pagination {
-  flex-shrink: 0;
-}
 
 .order-mobile {
   display: flex;
@@ -1345,7 +1339,7 @@ watch(
   background-color: #1890ff !important;
 }
 
-:deep(.jsh-ledger-table--empty .t-table__empty) {
+:deep(.niro-unified-table--empty .t-table__empty) {
   height: 100%;
 }
 

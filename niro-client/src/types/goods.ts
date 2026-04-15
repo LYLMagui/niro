@@ -15,6 +15,7 @@ export interface Goods {
 }
 
 export interface GoodsSimple {
+  id?: number;
   goodsId: number;
   name: string;
   parentCategoryName?: string;

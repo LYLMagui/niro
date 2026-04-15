@@ -4,6 +4,68 @@ import type { RouterVo, AppRouteRecordRaw } from "@/types/router";
 import { menuApi } from "@/api/menu";
 import { getComponent } from "@/router/componentMap";
 
+function readStoredRoutes(): RouterVo[] {
+  if (typeof window === "undefined") {
+    return [];
+  }
+
+  const storedRoutes = sessionStorage.getItem("niro-dynamic-routes-raw");
+  if (!storedRoutes) {
+    return [];
+  }
+
+  try {
+    const parsedRoutes = JSON.parse(storedRoutes);
+    return Array.isArray(parsedRoutes) ? parsedRoutes : [];
+  } catch {
+    return [];
+  }
+}
+
+function mapAsyncRoutes(routes: RouterVo[], depth = 0): AppRouteRecordRaw[] {
+  if (depth > 10) {
+    console.warn("路由嵌套深度超过限制，可能存在循环引用");
+    return [];
+  }
+
+  const res: AppRouteRecordRaw[] = [];
+
+  routes.forEach((route) => {
+    const componentKey = route.component;
+
+    const tmp: AppRouteRecordRaw = {
+      path: route.path || "",
+      name: route.name || "",
+      meta: {
+        title: route.meta.title || "",
+        icon: route.meta.icon,
+        noCache: !(route.meta.keepAlive ?? true),
+        hidden: route.meta.hidden ?? false,
+        breadcrumb: true,
+      },
+      redirect: route.redirect,
+      component: getComponent(componentKey),
+      children: [],
+    };
+
+    if (depth === 0 && tmp.path.startsWith("/")) {
+      tmp.path = tmp.path.slice(1);
+    }
+
+    if (route.children && route.children.length > 0) {
+      tmp.children = mapAsyncRoutes(route.children, depth + 1);
+    }
+
+    res.push(tmp);
+  });
+
+  return res;
+}
+
+export function getCachedAccessRoutes(): AppRouteRecordRaw[] {
+  return mapAsyncRoutes(readStoredRoutes());
+}
+
 /**
  * 定义权限状态 Store
  */
@@ -15,43 +77,7 @@ export const usePermissionStore = defineStore("permission", () => {
   const isRoutesLoaded = ref(false);
 
   function filterAsyncRoutes(routes: RouterVo[], depth = 0): AppRouteRecordRaw[] {
-    if (depth > 10) {
-      console.warn("路由嵌套深度超过限制，可能存在循环引用");
-      return [];
-    }
-    const res: AppRouteRecordRaw[] = [];
-
-    routes.forEach((route) => {
-      const componentKey = route.component;
-
-      const tmp: AppRouteRecordRaw = {
-        path: route.path || "",
-        name: route.name || "",
-        meta: {
-          title: route.meta.title || "",
-          icon: route.meta.icon,
-          noCache: !(route.meta.keepAlive ?? true),
-          hidden: route.meta.hidden ?? false,
-          breadcrumb: true,
-        },
-        redirect: route.redirect,
-        component: getComponent(componentKey),
-        children: [],
-      };
-
-      // 顶级路由去除开头的 /（因为是 Root 的子路由）
-      if (depth === 0 && tmp.path.startsWith("/")) {
-        tmp.path = tmp.path.slice(1);
-      }
-
-      if (route.children && route.children.length > 0) {
-        tmp.children = filterAsyncRoutes(route.children, depth + 1);
-      }
-
-      res.push(tmp);
-    });
-
-    return res;
+    return mapAsyncRoutes(routes, depth);
   }
 
   /**
@@ -59,9 +85,8 @@ export const usePermissionStore = defineStore("permission", () => {
    * @param roles 角色列表
    */
   async function generateRoutes(roles: string[]): Promise<AppRouteRecordRaw[]> {
-    const storedRoutes = sessionStorage.getItem("niro-dynamic-routes-raw");
-    if (storedRoutes) {
-      const parsedRoutes = JSON.parse(storedRoutes);
+    const parsedRoutes = readStoredRoutes();
+    if (parsedRoutes.length > 0) {
       const accessedRoutes = roles.includes("admin")
         ? filterAsyncRoutes(parsedRoutes)
         : filterAsyncRoutes(parsedRoutes);

@@ -171,7 +171,7 @@ export function getBreadcrumbs(currentPath: string, routes: RouterVo[]): Breadcr
     // 添加首页面包屑
     breadcrumbs.push({
       title: "首页",
-      path: "/dashboard",
+      path: "/",
       clickable: true,
       icon: undefined,
     });

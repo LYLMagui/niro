@@ -3,7 +3,7 @@ import { ref } from "vue";
 import type { RouteLocationNormalizedLoaded } from "vue-router";
 
 const STORAGE_KEY = "niro-page-tabs";
-const HOME_TAB_KEY = "/dashboard";
+const HOME_TAB_KEY = "/";
 
 export interface PageTab {
   key: string;
@@ -17,8 +17,8 @@ export interface PageTab {
 export const HOME_TAB: PageTab = {
   key: HOME_TAB_KEY,
   title: "首页",
-  path: "/dashboard",
-  fullPath: "/dashboard",
+  path: "/",
+  fullPath: "/",
   keepAlive: true,
   affix: true,
 };
@@ -46,6 +46,16 @@ export function resolveTabFromRoute(route: RouteLocationNormalizedLoaded): PageT
   };
 }
 
+function normalizeLegacyTabPath(path: string) {
+  if (path === "/dashboard") {
+    return "/";
+  }
+  if (path === "/tasks") {
+    return "/task/manager/buff";
+  }
+  return path;
+}
+
 function readTabsFromStorage(): PageTab[] {
   if (typeof window === "undefined") {
     return [];
@@ -62,16 +72,29 @@ function readTabsFromStorage(): PageTab[] {
       return [];
     }
 
-    return parsed.filter((item): item is PageTab => {
-      return (
-        item &&
-        typeof item.key === "string" &&
-        typeof item.title === "string" &&
-        typeof item.path === "string" &&
-        typeof item.fullPath === "string" &&
-        typeof item.keepAlive === "boolean"
-      );
-    });
+    return parsed
+      .filter((item): item is PageTab => {
+        return (
+          item &&
+          typeof item.key === "string" &&
+          typeof item.title === "string" &&
+          typeof item.path === "string" &&
+          typeof item.fullPath === "string" &&
+          typeof item.keepAlive === "boolean"
+        );
+      })
+      .map((item) => {
+        const path = normalizeLegacyTabPath(item.path);
+        const fullPath = normalizeLegacyTabPath(item.fullPath);
+        const key = item.key === "/dashboard" ? "/" : item.key === "/tasks" ? "/task/manager/buff" : item.key;
+
+        return {
+          ...item,
+          key,
+          path,
+          fullPath,
+        };
+      });
   } catch {
     return [];
   }

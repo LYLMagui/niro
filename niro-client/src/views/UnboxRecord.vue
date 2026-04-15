@@ -9,76 +9,99 @@
       class="unbox-record-page relative flex min-h-0 flex-1 flex-col gap-4"
       :class="editorVisible ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'"
     >
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-          <div class="min-w-0 space-y-3">
-            <div class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
-              <span
-                class="rounded-full border border-sky-200 bg-sky-50 px-3 py-1 font-medium text-sky-700"
-              >
-                开箱记录
-              </span>
-            </div>
-            <div class="space-y-1">
-              <h1 class="text-xl font-semibold tracking-tight text-[#303133]">开箱记录</h1>
-            </div>
-          </div>
-
-          <div class="flex flex-wrap items-center gap-2">
-            <t-button theme="primary" class="touch-manipulation" @click="openCreateEditor">
-              新增批次
-            </t-button>
-          </div>
-        </div>
-      </section>
-
-      <section class="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <section class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
         <article
           v-for="card in pageSummaryCards"
           :key="card.label"
-          class="rounded-2xl border border-slate-200 bg-white p-3.5 shadow-sm sm:p-4"
+          class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
         >
-          <div class="text-sm font-medium text-slate-500">{{ card.label }}</div>
-          <div class="font-numeric mt-3 text-2xl font-semibold" :class="card.valueClass">
+          <div class="truncate text-sm font-medium tracking-[0.03em] text-slate-500">
+            {{ card.label }}
+          </div>
+          <div
+            class="font-numeric mt-1 text-[22px] leading-none font-semibold"
+            :class="card.valueClass"
+          >
             {{ card.value }}
           </div>
-          <div class="mt-2 text-xs leading-5 text-slate-400">{{ card.hint }}</div>
+          <div class="mt-1 truncate text-sm leading-5 text-slate-400">{{ card.hint }}</div>
         </article>
       </section>
 
-      <section class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-        <div class="flex items-center justify-between gap-3">
-          <div>
-            <h2 class="text-base font-semibold text-[#303133]">历史批次</h2>
+      <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+        <div
+          class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div class="flex min-w-0 flex-1 flex-col gap-3">
+            <div class="flex flex-wrap items-center gap-2" aria-label="快捷日期筛选">
+              <t-button
+                v-for="preset in dateRangePresets"
+                :key="preset.key"
+                variant="outline"
+                :theme="activePresetKey === preset.key ? 'primary' : 'default'"
+                class="touch-manipulation"
+                @click="applyDatePreset(preset.key)"
+              >
+                {{ preset.label }}
+              </t-button>
+            </div>
+
+            <div class="flex flex-col gap-2 xl:flex-row xl:items-center xl:gap-3">
+              <t-date-range-picker
+                :value="dateRangeValue"
+                clearable
+                allow-input
+                :first-day-of-week="1"
+                value-type="YYYY-MM-DD"
+                format="YYYY-MM-DD"
+                :placeholder="['开始日期', '结束日期']"
+                class="w-full min-w-0 xl:max-w-[340px]"
+                :class="summaryToolbarFieldClass"
+                @change="handleDateRangeChange"
+              />
+
+              <div class="flex flex-wrap items-center gap-2" aria-label="周期筛选">
+                <t-button
+                  v-for="period in periodOptions"
+                  :key="period.value"
+                  variant="outline"
+                  :theme="activePeriod === period.value ? 'primary' : 'default'"
+                  class="touch-manipulation"
+                  @click="setActivePeriod(period.value)"
+                >
+                  {{ period.label }}
+                </t-button>
+
+                <span class="text-sm text-slate-400">当前周期内与日期范围交集生效</span>
+
+                <t-button variant="text" theme="default" @click="resetFilters">重置</t-button>
+              </div>
+            </div>
           </div>
-          <t-tag theme="primary" variant="light-outline">共 {{ batches.length }} 批</t-tag>
+
+          <div class="flex shrink-0 items-center justify-end gap-2">
+            <t-button theme="primary" class="touch-manipulation" @click="openCreateEditor">
+              新增开箱记录
+            </t-button>
+          </div>
         </div>
 
-        <div class="mt-4 overflow-x-auto">
+        <div class="overflow-x-auto">
           <t-table
             row-key="key"
-            :data="batchSummaryRows"
+            :data="pagedBatchSummaryRows"
             :columns="batchColumns"
             v-model:sort="batchSummarySort"
-            size="small"
             table-layout="fixed"
             hover
-            bordered
-            class="w-full overflow-hidden rounded-2xl bg-white shadow-sm"
+            class="unbox-summary-table w-full bg-white"
           >
             <template #empty>
-              <t-empty description="暂无批次记录" />
+              <t-empty :description="listLoading ? '加载中...' : '当前筛选条件下暂无批次记录'" />
             </template>
 
             <template #date="{ row }">
               <span class="text-slate-600">{{ formatDateText(row.batch.date) }}</span>
-            </template>
-
-            <template #batchName="{ row }">
-              <div class="font-medium text-[#303133]">{{ row.batch.name }}</div>
-              <div class="mt-1 text-xs text-slate-400">
-                {{ row.batch.boxType || "未设置箱子类型" }}
-              </div>
             </template>
 
             <template #totalCount="{ row }">
@@ -104,7 +127,10 @@
             </template>
 
             <template #actualProfitRate="{ row }">
-              <span class="font-numeric" :class="profitClass(row.summary.totalActualProfitRate ?? 0)">
+              <span
+                class="font-numeric"
+                :class="profitClass(row.summary.totalActualProfitRate ?? 0)"
+              >
                 {{ formatPercent(row.summary.totalActualProfitRate) }}
               </span>
             </template>
@@ -116,21 +142,31 @@
             </template>
 
             <template #operation="{ row }">
-              <div class="flex flex-wrap gap-2">
-                <t-button size="small" variant="outline" @click="openEditEditor(row.batch.id)">
-                  编辑
-                </t-button>
+              <div class="flex flex-wrap gap-1.5">
+                <t-button variant="outline" @click="openEditEditor(row.batch.id)">编辑</t-button>
                 <t-popconfirm
                   content="确认删除该批次吗？"
                   theme="danger"
                   :popup-props="{ attach: 'body' }"
                   @confirm="removeBatch(row.batch.id)"
                 >
-                  <t-button size="small" theme="danger" variant="outline">删除</t-button>
+                  <t-button theme="danger" variant="outline">删除</t-button>
                 </t-popconfirm>
               </div>
             </template>
           </t-table>
+        </div>
+
+        <div
+          v-if="filteredBatchSummaryRows.length > 0"
+          class="border-t border-slate-200 bg-white px-4 py-3"
+        >
+          <t-pagination
+            :current="batchPagination.current"
+            :page-size="batchPagination.pageSize"
+            :total="filteredBatchSummaryRows.length"
+            @change="handleBatchPageChange"
+          />
         </div>
       </section>
     </div>
@@ -156,29 +192,21 @@
         <div class="border-b border-slate-200 bg-white px-2.5 py-3 sm:px-3 sm:py-3">
           <div class="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
             <div class="min-w-0 space-y-2">
-              <div class="flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
-                <span class="rounded-full bg-slate-100 px-2.5 py-1 font-medium text-slate-600">
-                  {{ editingBatchId ? "编辑批次" : "新增批次" }}
-                </span>
-                <span class="rounded-full bg-sky-50 px-2.5 py-1 text-sky-700">
-                  当前 {{ draftSummary.totalCount }} 条明细
-                </span>
-              </div>
               <div class="space-y-1">
                 <h2 class="truncate text-base font-semibold text-[#303133] sm:text-lg">
-                  {{ editingBatchId ? draftBatch.name || "编辑开箱批次" : "新增开箱批次" }}
+                  {{ editingBatchId ? getBatchDisplayName(draftBatch) : "新增开箱记录" }}
                 </h2>
               </div>
             </div>
 
             <div class="flex shrink-0 flex-wrap items-center justify-end gap-1.5 sm:gap-2">
-              <t-button size="small" variant="outline" @click="toggleEditorFullscreen">
+              <t-button variant="outline" @click="toggleEditorFullscreen">
                 {{ isEditorFullscreen ? "缩小" : "全屏" }}
               </t-button>
-              <t-button size="small" variant="outline" @click="editorVisible = false">
-                取消
+              <t-button variant="outline" @click="editorVisible = false">取消</t-button>
+              <t-button theme="primary" @click="saveDraftBatch">
+                {{ savingBatch ? "保存中..." : "保存批次" }}
               </t-button>
-              <t-button size="small" theme="primary" @click="saveDraftBatch">保存批次</t-button>
               <button
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
@@ -211,21 +239,28 @@
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
-                  <div class="text-[11px] font-medium tracking-[0.14em] text-slate-400 uppercase">
-                    批次基础信息
+                  <div class="text-sm font-medium tracking-[0.14em] text-slate-400 uppercase">
+                    记录信息
                   </div>
-                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-600">
+                  <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
                     <span class="font-medium text-slate-800">
-                      {{ draftBatch.name || "未命名批次" }}
+                      {{ getBatchDisplayName(draftBatch) }}
                     </span>
-                    <span>{{ draftBatch.boxType || "未填箱型" }}</span>
+                    <span>{{ draftBatch.boxName || "未选箱子" }}</span>
                     <span>{{ draftBatch.date || "未选日期" }}</span>
-                    <span>默认折扣 {{ clampDiscount(draftBatch.defaultDiscount).toFixed(2) }}</span>
+                    <span>
+                      默认折扣
+                      {{
+                        hasDiscountValue(draftBatch.defaultDiscount)
+                          ? clampDiscount(draftBatch.defaultDiscount).toFixed(2)
+                          : "未填写"
+                      }}
+                    </span>
                   </div>
                 </div>
                 <button
                   type="button"
-                  class="flex h-8 min-w-16 items-center justify-center rounded-lg border border-slate-200 px-2 text-xs font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
+                  class="flex h-8 min-w-16 items-center justify-center rounded-lg border border-slate-200 px-2 text-sm font-medium text-slate-600 transition-colors hover:border-slate-300 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
                   :aria-expanded="!isBatchInfoCollapsed"
                   :aria-label="isBatchInfoCollapsed ? '展开批次信息' : '收起批次信息'"
                   @click="toggleBatchInfoCollapsed"
@@ -261,9 +296,7 @@
                 <div class="min-h-0 overflow-hidden">
                   <div class="grid grid-cols-1 gap-3 xl:grid-cols-12 xl:items-end">
                     <label class="space-y-1.5 xl:col-span-3">
-                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
-                        开箱日期
-                      </span>
+                      <span class="text-sm font-medium text-slate-700">开箱日期</span>
                       <t-date-picker
                         v-model="draftBatch.date"
                         allow-input
@@ -272,27 +305,28 @@
                         format="YYYY-MM-DD"
                         value-type="YYYY-MM-DD"
                         placeholder="选择日期"
-                        size="small"
                       />
                     </label>
 
                     <label class="space-y-1.5 xl:col-span-3">
-                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
-                        箱子类型
-                      </span>
-                      <t-input
-                        v-model="draftBatch.boxType"
+                      <span class="text-sm font-medium text-slate-700">箱子商品</span>
+                      <t-select
+                        v-model="draftBatch.goodsId"
                         :class="fieldBaseClass"
                         clearable
-                        maxlength="30"
-                        placeholder="例如：创世终端机"
-                        size="small"
+                        filterable
+                        :loading="goodsLoading"
+                        :options="goodsOptions"
+                        placeholder="搜索并选择箱子商品"
+                        @popup-visible-change="handleGoodsPopupVisibleChange"
+                        @search="handleGoodsSearch"
                       />
                     </label>
 
                     <label class="flex flex-col gap-1.5 xl:col-span-3">
-                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">
+                      <span class="text-sm font-medium text-slate-700">
                         默认折扣
+                        <span class="text-rose-500">*</span>
                       </span>
                       <t-input-number
                         v-model="draftBatch.defaultDiscount"
@@ -303,20 +337,20 @@
                         align="left"
                         :class="batchDiscountFieldClass"
                         :input-props="{ inputClass: 'w-full text-left' }"
-                        placeholder="0.72"
-                        size="small"
+                        :status="hasDiscountValue(draftBatch.defaultDiscount) ? 'default' : 'error'"
+                        :tips="hasDiscountValue(draftBatch.defaultDiscount) ? '' : '请填写默认折扣'"
+                        placeholder="请输入默认折扣"
                         theme="normal"
                       />
                     </label>
 
                     <label class="space-y-1.5 xl:col-span-3">
-                      <span class="text-[11px] font-medium text-slate-700 sm:text-xs">备注</span>
+                      <span class="text-sm font-medium text-slate-700">备注</span>
                       <t-input
                         v-model="draftBatch.note"
                         :class="fieldBaseClass"
                         maxlength="120"
                         placeholder="记录这一批的来源、玩法、特别说明"
-                        size="small"
                       />
                     </label>
                   </div>
@@ -332,7 +366,7 @@
                   <div class="flex flex-col gap-2 xl:flex-row xl:items-center xl:justify-between">
                     <div class="flex min-w-0 items-center gap-2">
                       <div
-                        class="shrink-0 text-[11px] font-medium tracking-[0.14em] text-slate-400 uppercase"
+                        class="shrink-0 text-sm font-medium tracking-[0.14em] text-slate-400 uppercase"
                       >
                         批次明细
                       </div>
@@ -340,24 +374,15 @@
 
                     <div class="overflow-x-auto">
                       <div class="inline-flex min-w-max items-center gap-1.5 pb-0.5">
-                        <t-button
-                          size="small"
-                          theme="primary"
-                          variant="outline"
-                          @click="handleAddRow()"
-                        >
+                        <t-button theme="primary" variant="outline" @click="handleAddRow()">
                           +1
                         </t-button>
-                        <t-button size="small" variant="outline" @click="handleBulkAdd(10)">
-                          +10
-                        </t-button>
-                        <t-button size="small" variant="outline" @click="handleBulkAdd(50)">
-                          +50
-                        </t-button>
+                        <t-button variant="outline" @click="handleBulkAdd(10)">+10</t-button>
+                        <t-button variant="outline" @click="handleBulkAdd(50)">+50</t-button>
                         <div
                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1"
                         >
-                          <span class="px-1 text-[11px] text-slate-500">自定义</span>
+                          <span class="px-1 text-sm text-slate-500">自定义</span>
                           <t-input-number
                             v-model="bulkAddCount"
                             :decimal-places="0"
@@ -366,11 +391,9 @@
                             align="left"
                             :class="`${numberFieldBaseClass} w-20`"
                             placeholder="20"
-                            size="small"
                             theme="normal"
                           />
                           <t-button
-                            size="small"
                             variant="text"
                             class="!px-2"
                             @click="handleBulkAdd(bulkAddCount)"
@@ -381,7 +404,7 @@
                         <div
                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1"
                         >
-                          <span class="px-1 text-[11px] text-slate-500">箱子购入价</span>
+                          <span class="px-1 text-sm text-slate-500">箱子购入价</span>
                           <t-input-number
                             v-model="toolbarBoxPurchasePrice"
                             :decimal-places="2"
@@ -390,85 +413,72 @@
                             align="right"
                             :class="`${numberFieldBaseClass} w-24`"
                             placeholder="0.00"
-                            size="small"
                             theme="normal"
                           />
                         </div>
-                        <t-button
-                          size="small"
-                          variant="outline"
-                          @click="applyToolbarBoxPurchasePriceToAllRows"
-                        >
+                        <t-button variant="outline" @click="applyToolbarBoxPurchasePriceToAllRows">
                           应用箱子购入价到全部
                         </t-button>
-                        <t-button size="small" variant="outline" @click="applyDefaultsToEmptyRows">
+                        <t-button variant="outline" @click="applyDefaultsToEmptyRows">
                           应用到未填写行
                         </t-button>
                       </div>
                     </div>
                   </div>
-
                 </div>
               </div>
 
               <div v-if="!isMobile" class="min-h-0 flex-1 overflow-hidden bg-white">
-                <div ref="draftTableViewportRef" class="h-full min-h-0 overflow-hidden overscroll-contain">
+                <div
+                  ref="draftTableViewportRef"
+                  class="h-full min-h-0 overflow-hidden overscroll-contain"
+                >
                   <t-table
                     row-key="row.id"
                     :data="draftRowEntries"
                     :columns="draftTableColumns"
                     :foot-data="draftFooterRows"
                     :height="draftTableHeight"
-                    :header-affixed-top="{ offsetTop: 0, container: draftTableScrollContainer }"
                     v-model:sort="draftTableSort"
-                    size="small"
-                    table-layout="auto"
+                    table-layout="fixed"
                     vertical-align="middle"
                     hover
-                    class="draft-detail-table h-full w-full [&_.t-table]:h-full [&_.t-table]:w-full [&_.t-table__content]:relative [&_.t-table__content]:h-full [&_.t-table__content]:w-full [&_.t-table__content-inner]:min-w-full [&_.t-table__header]:bg-white [&_.t-table__table]:min-w-full [&_table]:h-full [&_table]:w-full"
+                    class="draft-detail-table h-full w-full [&_.t-table]:h-full [&_.t-table]:w-full [&_.t-table__content]:relative [&_.t-table__content]:h-full [&_.t-table__content]:w-full [&_.t-table__content-inner]:min-w-full [&_.t-table__header]:bg-white [&_table]:h-full"
                   >
                     <template #index="{ rowIndex }">
-                      <div class="font-numeric text-[11px] leading-4 font-semibold text-slate-600">
+                      <div class="font-numeric text-sm leading-4 font-semibold text-slate-600">
                         {{ rowIndex + 1 }}
                       </div>
                     </template>
 
                     <template #boxPurchasePrice="{ row: entry }">
-                      <t-input-number
-                        v-model="entry.row.boxPurchasePrice"
-                        :decimal-places="2"
-                        :disabled="!isRowEditable(entry.row)"
-                        :min="0"
-                        :step="0.1"
-                        align="right"
-                        :class="numberFieldBaseClass"
-                        placeholder="0.00"
-                        size="small"
-                        theme="normal"
-                      />
+                      <div :class="draftCellControlClass">
+                        <t-input-number
+                          v-model="entry.row.boxPurchasePrice"
+                          :decimal-places="2"
+                          :disabled="!isRowEditable(entry.row)"
+                          :min="0"
+                          :step="0.1"
+                          align="right"
+                          :class="draftNumberFieldClass"
+                          placeholder="0.00"
+                          theme="normal"
+                        />
+                      </div>
                     </template>
 
                     <template #purchaseState="{ row: entry }">
-                      <div class="space-y-1.5">
-                        <div class="flex">
-                          <t-tag :theme="entry.stageTheme" size="small" variant="light-outline">
-                            {{ entry.stage }}
-                          </t-tag>
-                        </div>
-                        <div class="flex flex-wrap gap-1">
+                      <div class="draft-status-cell">
+                        <div class="draft-status-cell__group">
                           <button
-                            v-for="option in draftHandlingStatusOptions"
+                            v-for="option in selectableDraftHandlingStatusOptions"
                             :key="option.value"
                             type="button"
-                            class="inline-flex h-6 items-center rounded-md border px-1.5 text-[10px] font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
+                            class="draft-status-cell__button h-6 rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
                             :class="
                               entry.row.handlingStatus === option.value
-                                ? {
-                                    'border-rose-200 bg-rose-50 text-rose-600': option.value === 'discarded',
-                                    'border-amber-200 bg-amber-50 text-amber-600': option.value === 'stored',
-                                    'border-emerald-200 bg-emerald-50 text-emerald-600': option.value === 'purchased',
-                                  }
-                                : 'border-slate-200 bg-white text-slate-500 hover:border-slate-300 hover:text-slate-700'
+                                ? getDraftStatusButtonActiveClass(option.value)
+                                : 'text-slate-500'
                             "
                             @click="setHandlingStatus(entry.row, option.value)"
                           >
@@ -479,46 +489,49 @@
                     </template>
 
                     <template #weaponName="{ row: entry }">
-                      <t-input
-                        v-model="entry.row.weaponName"
-                        :disabled="!isRowEditable(entry.row)"
-                        :class="fieldBaseClass"
-                        clearable
-                        maxlength="40"
-                        placeholder="例如：AK-47 | 血腥运动"
-                        size="small"
-                      />
+                      <div :class="draftCellControlClass">
+                        <t-input
+                          v-model="entry.row.weaponName"
+                          :disabled="!isRowEditable(entry.row)"
+                          :class="draftFieldClass"
+                          clearable
+                          maxlength="40"
+                          placeholder="例如：AK-47 | 血腥运动"
+                        />
+                      </div>
                     </template>
 
                     <template #inGamePrice="{ row: entry }">
-                      <t-input-number
-                        v-model="entry.row.inGamePrice"
-                        :decimal-places="2"
-                        :disabled="!isRowEditable(entry.row)"
-                        :min="0"
-                        :step="0.1"
-                        align="right"
-                        :class="numberFieldBaseClass"
-                        placeholder="0.00"
-                        size="small"
-                        theme="normal"
-                      />
+                      <div :class="draftCellControlClass">
+                        <t-input-number
+                          v-model="entry.row.inGamePrice"
+                          :decimal-places="2"
+                          :disabled="!isRowEditable(entry.row)"
+                          :min="0"
+                          :step="0.1"
+                          align="right"
+                          :class="draftNumberFieldClass"
+                          placeholder="0.00"
+                          theme="normal"
+                        />
+                      </div>
                     </template>
 
                     <template #discount="{ row: entry }">
-                      <t-input-number
-                        v-model="entry.row.discount"
-                        :decimal-places="2"
-                        :disabled="!isRowEditable(entry.row)"
-                        :max="1"
-                        :min="0"
-                        :step="0.01"
-                        align="right"
-                        :class="numberFieldBaseClass"
-                        placeholder="0.72"
-                        size="small"
-                        theme="normal"
-                      />
+                      <div :class="draftCellControlClass">
+                        <t-input-number
+                          v-model="entry.row.discount"
+                          :decimal-places="2"
+                          :disabled="!isRowEditable(entry.row)"
+                          :max="1"
+                          :min="0"
+                          :step="0.01"
+                          align="right"
+                          :class="draftNumberFieldClass"
+                          placeholder="0.72"
+                          theme="normal"
+                        />
+                      </div>
                     </template>
 
                     <template #purchaseCost="{ row: entry }">
@@ -530,7 +543,7 @@
                     </template>
 
                     <template #actualSellPrice="{ row: entry }">
-                      <div class="space-y-1">
+                      <div class="space-y-1" :class="draftCellControlClass">
                         <t-input-number
                           v-model="entry.row.actualSellPrice"
                           :decimal-places="2"
@@ -538,9 +551,8 @@
                           :min="0"
                           :step="0.1"
                           align="right"
-                          :class="numberFieldPrimaryClass"
+                          :class="draftNumberFieldPrimaryClass"
                           placeholder="优先录这里"
-                          size="small"
                           theme="normal"
                         />
                       </div>
@@ -586,29 +598,19 @@
                     <template #operation="{ row: entry, rowIndex }">
                       <div class="flex flex-col items-start gap-0.5">
                         <t-button
-                          size="small"
                           variant="text"
-                          class="!h-7 !px-1 text-slate-600"
+                          class="text-slate-600"
                           @click="handleAddRow(rowIndex + 1)"
                         >
                           插入
                         </t-button>
-                        <t-popconfirm
-                          content="确认删除该条明细吗？"
+                        <t-button
                           theme="danger"
-                          :popup-props="{ attach: 'body' }"
-                          @confirm="handleRemoveRow(entry.row.id)"
+                          variant="text"
+                          @click="handleRemoveRow(entry.row.id)"
                         >
-                          <t-button
-                            size="small"
-                            theme="danger"
-                            variant="text"
-                            class="!h-7 !px-1"
-                            :disabled="draftBatch.rows.length === 1"
-                          >
-                            删除
-                          </t-button>
-                        </t-popconfirm>
+                          删除
+                        </t-button>
                       </div>
                     </template>
 
@@ -621,7 +623,7 @@
                     <template #footerBoxPurchasePrice>
                       <div :class="draftTableFooterClass">
                         <div>明细数</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
                           {{ draftSummary.totalCount }} 条
                         </div>
                       </div>
@@ -630,7 +632,7 @@
                     <template #footerPurchaseState>
                       <div :class="draftTableFooterClass">
                         <div>已购买数量</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-emerald-600">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-emerald-600">
                           {{ draftSummary.boughtCount }} 条
                         </div>
                       </div>
@@ -645,7 +647,7 @@
                     <template #footerInGamePrice>
                       <div :class="draftTableFooterClass">
                         <div>购买总价</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
                           {{ formatCurrency(draftSummary.totalInGamePrice) }}
                         </div>
                       </div>
@@ -660,7 +662,7 @@
                     <template #footerPurchaseCost>
                       <div :class="draftTableFooterClass">
                         <div>实际购入价</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
                           {{ formatCurrency(draftSummary.totalPurchaseCost) }}
                         </div>
                       </div>
@@ -669,7 +671,7 @@
                     <template #footerActualSellPrice>
                       <div :class="draftTableFooterClass">
                         <div>总手续费</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-amber-600">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-amber-600">
                           {{ formatCurrency(draftSummary.totalActualFee) }}
                         </div>
                       </div>
@@ -678,7 +680,7 @@
                     <template #footerActualFee>
                       <div :class="draftTableFooterClass">
                         <div>到账汇总</div>
-                        <div class="mt-1 font-numeric text-sm font-semibold text-slate-700">
+                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
                           {{ formatCurrency(draftSummary.totalActualNetIncome) }}
                         </div>
                       </div>
@@ -688,7 +690,7 @@
                       <div :class="draftTableFooterFixedClass">
                         <div>净利润</div>
                         <div
-                          class="mt-1 font-numeric text-sm font-semibold"
+                          class="font-numeric mt-1 text-sm font-semibold"
                           :class="profitClass(draftSummary.totalActualNetProfit)"
                         >
                           {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
@@ -700,7 +702,7 @@
                       <div :class="draftTableFooterFixedClass">
                         <div>总利润率</div>
                         <div
-                          class="mt-1 font-numeric text-sm font-semibold"
+                          class="font-numeric mt-1 text-sm font-semibold"
                           :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
                         >
                           {{ formatPercent(draftSummary.totalActualProfitRate) }}
@@ -729,15 +731,13 @@
                     class="flex items-start justify-between gap-3 border-b border-slate-100 bg-white px-4 py-3"
                   >
                     <div class="min-w-0">
-                      <div
-                        class="text-[11px] font-medium tracking-[0.14em] text-slate-400 uppercase"
-                      >
+                      <div class="text-sm font-medium tracking-[0.14em] text-slate-400 uppercase">
                         明细 {{ index + 1 }}
                       </div>
                       <div class="mt-1 text-sm font-semibold text-[#303133]">
                         {{ row.weaponName || "未填写饰品名称" }}
                       </div>
-                      <div class="mt-1 text-[11px] text-slate-500">
+                      <div class="mt-1 text-sm text-slate-500">
                         {{ stageDescription }}
                       </div>
                     </div>
@@ -750,21 +750,17 @@
                     <div class="grid grid-cols-1 gap-3">
                       <div class="grid grid-cols-2 gap-3">
                         <div class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-600">处理状态</span>
-                          <div class="flex flex-wrap gap-2">
+                          <span class="text-sm font-medium text-slate-600">处理状态</span>
+                          <div class="flex flex-nowrap gap-2 overflow-x-auto pb-0.5">
                             <button
-                              v-for="option in draftHandlingStatusOptions"
+                              v-for="option in selectableDraftHandlingStatusOptions"
                               :key="option.value"
                               type="button"
-                              class="inline-flex h-9 min-w-0 flex-1 touch-manipulation items-center justify-center rounded-lg border text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
+                              class="inline-flex h-8 min-w-0 shrink-0 touch-manipulation items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
                               :class="
                                 row.handlingStatus === option.value
-                                  ? {
-                                      'border-rose-200 bg-rose-50 text-rose-600': option.value === 'discarded',
-                                      'border-amber-200 bg-amber-50 text-amber-600': option.value === 'stored',
-                                      'border-emerald-200 bg-emerald-50 text-emerald-600': option.value === 'purchased',
-                                    }
-                                  : 'border-slate-200 bg-white text-slate-500'
+                                  ? getDraftStatusButtonActiveClass(option.value)
+                                  : 'text-slate-500'
                               "
                               @click="setHandlingStatus(row, option.value)"
                             >
@@ -773,7 +769,7 @@
                           </div>
                         </div>
                         <label class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-600">饰品名称</span>
+                          <span class="text-sm font-medium text-slate-600">饰品名称</span>
                           <t-input
                             v-model="row.weaponName"
                             :disabled="!isRowEditable(row)"
@@ -787,7 +783,7 @@
 
                       <div class="grid grid-cols-2 gap-3">
                         <label class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-600">游戏内价格</span>
+                          <span class="text-sm font-medium text-slate-600">游戏内价格</span>
                           <t-input-number
                             v-model="row.inGamePrice"
                             :decimal-places="2"
@@ -795,13 +791,13 @@
                             :min="0"
                             :step="0.1"
                             align="left"
-                            :class="numberFieldBaseClass"
+                            :class="draftNumberFieldClass"
                             placeholder="0.00"
                             theme="normal"
                           />
                         </label>
                         <label class="space-y-1.5">
-                          <span class="text-[11px] font-medium text-slate-600">折扣</span>
+                          <span class="text-sm font-medium text-slate-600">折扣</span>
                           <t-input-number
                             v-model="row.discount"
                             :decimal-places="2"
@@ -810,7 +806,7 @@
                             :min="0"
                             :step="0.01"
                             align="left"
-                            :class="numberFieldBaseClass"
+                            :class="draftNumberFieldClass"
                             placeholder="0.72"
                             theme="normal"
                           />
@@ -819,7 +815,7 @@
 
                       <div class="grid grid-cols-1 gap-3">
                         <div class="rounded-[4px] border border-slate-200/80 bg-white p-3">
-                          <div class="text-[11px] text-slate-500">实际价格</div>
+                          <div class="text-sm text-slate-500">实际价格</div>
                           <div class="font-numeric mt-2 text-base font-semibold text-[#303133]">
                             {{ formatPendingCurrency(metrics.purchaseCost) }}
                           </div>
@@ -828,7 +824,7 @@
 
                       <div class="grid grid-cols-2 gap-3">
                         <label class="space-y-1.5">
-                          <span class="text-[11px] font-semibold text-sky-700">平台卖出价</span>
+                          <span class="text-sm font-semibold text-sky-700">平台卖出价</span>
                           <t-input-number
                             v-model="row.actualSellPrice"
                             :decimal-places="2"
@@ -842,11 +838,11 @@
                           />
                         </label>
                         <div class="rounded-[4px] border border-slate-200/80 bg-white p-3">
-                          <div class="text-[11px] text-slate-500">手续费</div>
+                          <div class="text-sm text-slate-500">手续费</div>
                           <div class="font-numeric mt-2 text-base font-semibold text-amber-600">
                             {{ formatPendingCurrency(metrics.actualFee) }}
                           </div>
-                          <div class="mt-1 text-xs text-slate-500">
+                          <div class="mt-1 text-sm text-slate-500">
                             {{ metrics.actualFee === null ? "等平台卖出价" : "平台卖出价 × 1%" }}
                           </div>
                         </div>
@@ -854,14 +850,14 @@
 
                       <div class="grid grid-cols-1 gap-3">
                         <div class="p-1">
-                          <div class="text-[11px] font-medium text-slate-700">净利润</div>
+                          <div class="text-sm font-medium text-slate-700">净利润</div>
                           <div
                             class="font-numeric mt-2 text-base font-semibold"
                             :class="profitClass(metrics.actualNetProfit ?? 0)"
                           >
                             {{ formatActualProfit(metrics.actualNetProfit) }}
                           </div>
-                          <div class="font-numeric mt-1 text-xs text-slate-500">
+                          <div class="font-numeric mt-1 text-sm text-slate-500">
                             {{
                               metrics.actualNetIncome === null
                                 ? "等平台卖出价"
@@ -869,7 +865,7 @@
                             }}
                           </div>
                           <div
-                            class="font-numeric mt-1 text-xs font-medium"
+                            class="font-numeric mt-1 text-sm font-medium"
                             :class="profitClass(metrics.actualProfitRate ?? 0)"
                           >
                             {{ formatPercent(metrics.actualProfitRate) }}
@@ -878,7 +874,7 @@
                       </div>
 
                       <label class="space-y-1.5">
-                        <span class="text-[11px] font-medium text-slate-600">备注</span>
+                        <span class="text-sm font-medium text-slate-600">备注</span>
                         <t-input
                           v-model="row.note"
                           :class="fieldBaseClass"
@@ -893,21 +889,14 @@
                       <t-button variant="outline" class="flex-1" @click="handleAddRow(index + 1)">
                         下方新增
                       </t-button>
-                      <t-popconfirm
-                        content="确认删除该条明细吗？"
+                      <t-button
                         theme="danger"
-                        :popup-props="{ attach: 'body' }"
-                        @confirm="handleRemoveRow(row.id)"
+                        variant="outline"
+                        class="flex-1"
+                        @click="handleRemoveRow(row.id)"
                       >
-                        <t-button
-                          theme="danger"
-                          variant="outline"
-                          class="flex-1"
-                          :disabled="draftBatch.rows.length === 1"
-                        >
-                          删除
-                        </t-button>
-                      </t-popconfirm>
+                        删除
+                      </t-button>
                     </div>
                   </div>
                 </article>
@@ -921,12 +910,26 @@
 </template>
 
 <script setup lang="ts">
-import { computed, h, ref, resolveComponent } from "vue";
+import dayjs, { type Dayjs } from "dayjs";
+import { computed, h, onMounted, ref, resolveComponent, watch } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import { MessagePlugin } from "tdesign-vue-next";
 import { HelpCircleIcon } from "tdesign-icons-vue-next";
-import type { AttachNode, PrimaryTableCol, Styles, TableSort } from "tdesign-vue-next";
+import type {
+  AttachNode,
+  DateRangeValue as TDateRangeValue,
+  PageInfo,
+  PrimaryTableCol,
+  Styles,
+  TableSort,
+} from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import { goodsApi } from "@/api/goods";
+import { unboxApi } from "@/api/unbox";
+import type { GoodsSimple } from "@/types/goods";
+import type { DraftHandlingStatus, UnboxRecordDTO, UnboxRecordSaveParam } from "@/types/unbox";
+
+type DiscountValue = number | "";
 
 interface UnboxRow {
   id: string;
@@ -934,31 +937,31 @@ interface UnboxRow {
   boxPurchasePrice: number;
   weaponName: string;
   inGamePrice: number;
-  discount: number;
+  discount: DiscountValue;
   actualSellPrice: number;
   note: string;
 }
 
 interface UnboxBatch {
-  id: string;
-  name: string;
+  id: number;
+  goodsId?: number;
+  boxName: string;
   date: string;
-  boxType: string;
-  defaultDiscount: number;
+  defaultDiscount: DiscountValue;
   note: string;
   rows: UnboxRow[];
 }
 
 type BatchStatus = "未结算" | "部分结算" | "已结算";
-type DraftHandlingStatus = "pending" | "discarded" | "stored" | "purchased";
 
 type DraftRowStage = "待处理" | "丢弃" | "暂存" | "已买";
 type DraftRowStageTheme = "default" | "danger" | "warning" | "success";
+type SelectableDraftHandlingStatus = Exclude<DraftHandlingStatus, "pending">;
 
-interface DraftHandlingStatusOption {
-  value: DraftHandlingStatus;
-  label: DraftRowStage;
-  theme: DraftRowStageTheme;
+interface SelectableDraftHandlingStatusOption {
+  value: SelectableDraftHandlingStatus;
+  label: Exclude<DraftRowStage, "待处理">;
+  theme: Exclude<DraftRowStageTheme, "default">;
 }
 
 interface RowMetrics {
@@ -990,8 +993,12 @@ interface SummaryCard {
   valueClass: string;
 }
 
+type PeriodFilter = "week" | "month" | "year";
+type DatePresetKey = "today" | "last7" | "last30";
+type DateRangeValue = TDateRangeValue;
+
 interface BatchSummaryRow {
-  key: string;
+  key: number;
   batch: UnboxBatch;
   summary: BatchSummary;
   status: BatchStatus;
@@ -1035,12 +1042,23 @@ const { height: draftTableViewportHeight } = useElementSize(draftTableViewportRe
 
 const editorVisible = ref(false);
 const isEditorFullscreen = ref(false);
-const editingBatchId = ref<string | null>(null);
+const editingBatchId = ref<number | null>(null);
 const isBatchInfoCollapsed = ref(true);
 const bulkAddCount = ref(20);
 const toolbarBoxPurchasePrice = ref(0);
 const batchSummarySort = ref<TableSort>();
+const batchPagination = ref({
+  current: 1,
+  pageSize: 10,
+});
 const draftTableSort = ref<TableSort>();
+const activePeriod = ref<PeriodFilter>("month");
+const activePresetKey = ref<DatePresetKey | null>(null);
+const customDateRange = ref<DateRangeValue>([]);
+const listLoading = ref(false);
+const savingBatch = ref(false);
+const goodsLoading = ref(false);
+const goodsCatalog = ref<GoodsSimple[]>([]);
 
 const editorDialogClassName = computed(() => {
   if (isMobile.value || isEditorFullscreen.value) {
@@ -1088,12 +1106,130 @@ const round = (value: number, digits = 2) => {
 const LISTING_FEE_RATE = 0.01;
 const TOTAL_FEE_RATE = LISTING_FEE_RATE;
 
-const clampDiscount = (value: number) => {
+const clampDiscount = (value: DiscountValue | null | undefined) => {
+  if (value === "" || value === null || value === undefined) return 0;
   const safeValue = Number.isFinite(value) ? value : 0;
   return round(Math.min(Math.max(safeValue, 0), 1), 2);
 };
 
+function hasDiscountValue(value: DiscountValue | null | undefined): value is number {
+  return value !== "" && value !== null && value !== undefined && Number.isFinite(value);
+}
+
 const getFee = (sellPrice: number) => round(Math.max(sellPrice, 0) * TOTAL_FEE_RATE);
+
+const periodOptions: Array<{ label: string; value: PeriodFilter }> = [
+  { label: "本周", value: "week" },
+  { label: "本月", value: "month" },
+  { label: "本年", value: "year" },
+];
+
+const dateRangePresets: Array<{ key: DatePresetKey; label: string }> = [
+  { key: "today", label: "今天" },
+  { key: "last7", label: "近7天" },
+  { key: "last30", label: "近30天" },
+];
+
+const formatDayKey = (value: Dayjs) => value.format("YYYY-MM-DD");
+
+function getCurrentWeekRange(baseDate = dayjs()): [string, string] {
+  const currentDay = baseDate.day();
+  const offsetToMonday = currentDay === 0 ? 6 : currentDay - 1;
+  const start = baseDate.subtract(offsetToMonday, "day");
+  const end = start.add(6, "day");
+  return [formatDayKey(start), formatDayKey(end)];
+}
+
+function getPresetRange(key: DatePresetKey): [string, string] {
+  const today = dayjs();
+
+  if (key === "today") {
+    const value = formatDayKey(today);
+    return [value, value];
+  }
+
+  if (key === "last7") {
+    return [formatDayKey(today.subtract(6, "day")), formatDayKey(today)];
+  }
+
+  return [formatDayKey(today.subtract(29, "day")), formatDayKey(today)];
+}
+
+const currentPeriodRange = computed<[string, string]>(() => {
+  const today = dayjs();
+
+  if (activePeriod.value === "week") {
+    return getCurrentWeekRange(today);
+  }
+
+  if (activePeriod.value === "year") {
+    return [formatDayKey(today.startOf("year")), formatDayKey(today.endOf("year"))];
+  }
+
+  return [formatDayKey(today.startOf("month")), formatDayKey(today.endOf("month"))];
+});
+
+const dateRangeValue = computed<DateRangeValue>(() => customDateRange.value);
+
+function normalizeDateRange(value: DateRangeValue): [string, string] | [] {
+  if (!Array.isArray(value) || value.length !== 2 || !value[0] || !value[1]) {
+    return [];
+  }
+
+  const start = dayjs(value[0]);
+  const end = dayjs(value[1]);
+
+  if (!start.isValid() || !end.isValid()) {
+    return [];
+  }
+
+  return start.isAfter(end)
+    ? [formatDayKey(end), formatDayKey(start)]
+    : [formatDayKey(start), formatDayKey(end)];
+}
+
+function isSameRange(left: DateRangeValue, right: DateRangeValue) {
+  if (left.length !== right.length) return false;
+  if (left.length === 0 && right.length === 0) return true;
+  return left[0] === right[0] && left[1] === right[1];
+}
+
+function applyDatePreset(key: DatePresetKey) {
+  const range = getPresetRange(key);
+  customDateRange.value = range;
+  activePresetKey.value = key;
+  batchPagination.value.current = 1;
+}
+
+function handleDateRangeChange(value: DateRangeValue) {
+  const normalizedRange = normalizeDateRange(value);
+  customDateRange.value = normalizedRange;
+
+  if (normalizedRange.length === 0) {
+    activePresetKey.value = null;
+    batchPagination.value.current = 1;
+    return;
+  }
+
+  const matchedPreset = dateRangePresets.find((preset) =>
+    isSameRange(normalizedRange, getPresetRange(preset.key))
+  );
+  activePresetKey.value = matchedPreset?.key ?? null;
+  batchPagination.value.current = 1;
+}
+
+function setActivePeriod(period: PeriodFilter) {
+  if (activePeriod.value === period) return;
+  activePeriod.value = period;
+  batchPagination.value.current = 1;
+}
+
+function resetFilters() {
+  activePeriod.value = "month";
+  activePresetKey.value = null;
+  customDateRange.value = [];
+  batchPagination.value.current = 1;
+}
 
 const createRow = (
   defaults?: Partial<UnboxRow>,
@@ -1104,176 +1240,181 @@ const createRow = (
   boxPurchasePrice: defaults?.boxPurchasePrice ?? 0,
   weaponName: defaults?.weaponName ?? "",
   inGamePrice: defaults?.inGamePrice ?? 0,
-  discount: defaults?.discount ?? batch?.defaultDiscount ?? 0.72,
+  discount:
+    defaults?.discount ?? (hasDiscountValue(batch?.defaultDiscount) ? batch.defaultDiscount : ""),
   actualSellPrice: defaults?.actualSellPrice ?? 0,
   note: defaults?.note ?? "",
 });
 
 const createBlankBatch = (): UnboxBatch => ({
-  id: createId(),
-  name: "新的开箱批次",
-  date: "2026-04-06",
-  boxType: "创世终端机",
-  defaultDiscount: 0.72,
+  id: 0,
+  goodsId: undefined,
+  boxName: "",
+  date: dayjs().format("YYYY-MM-DD"),
+  defaultDiscount: "",
   note: "",
-  rows: [createRow(), createRow(), createRow()],
+  rows: [],
 });
 
-const cloneBatch = (batch: UnboxBatch): UnboxBatch =>
-  JSON.parse(JSON.stringify(batch)) as UnboxBatch;
+const cloneBatch = (batch: UnboxBatch): UnboxBatch => ({
+  id: batch.id,
+  goodsId: batch.goodsId,
+  boxName: batch.boxName,
+  date: batch.date,
+  defaultDiscount: batch.defaultDiscount,
+  note: batch.note,
+  rows: batch.rows.map((row) => ({ ...row })),
+});
 
 const draftBatch = ref<UnboxBatch>(createBlankBatch());
+const batches = ref<UnboxBatch[]>([]);
 
-const batches = ref<UnboxBatch[]>([
-  {
-    id: createId(),
-    name: "2026-04-06 晚场开箱",
-    date: "2026-04-06",
-    boxType: "创世终端机",
-    defaultDiscount: 0.72,
-    note: "待补充批次备注。",
-    rows: [
-      createRow(
-        {
-          handlingStatus: "purchased",
-          weaponName: "AK-47 | 血腥运动",
-          inGamePrice: 85,
-          discount: 0.72,
-          actualSellPrice: 77,
-          note: "首批挂单已成交",
-        },
-        { defaultDiscount: 0.72 }
-      ),
-      createRow(
-        {
-          handlingStatus: "discarded",
-          note: "价差不够，直接放弃",
-        },
-        { defaultDiscount: 0.72 }
-      ),
-      createRow(
-        {
-          handlingStatus: "stored",
-          weaponName: "AWP | 二西莫夫",
-          inGamePrice: 132,
-          discount: 0.7,
-          note: "待观察两天后再卖",
-        },
-        { defaultDiscount: 0.72 }
-      ),
-    ],
-  },
-  {
-    id: createId(),
-    name: "2026-04-03 下午开箱",
-    date: "2026-04-03",
-    boxType: "创世终端机",
-    defaultDiscount: 0.71,
-    note: "历史样例批次。",
-    rows: [
-      createRow(
-        {
-          handlingStatus: "purchased",
-          weaponName: "M4A1-S | 印花集",
-          inGamePrice: 58,
-          discount: 0.73,
-          actualSellPrice: 50,
-          note: "已小幅止盈",
-        },
-        { defaultDiscount: 0.71 }
-      ),
-      createRow(
-        {
-          handlingStatus: "discarded",
-          note: "这一箱直接记损",
-        },
-        { defaultDiscount: 0.71 }
-      ),
-      createRow(
-        {
-          handlingStatus: "stored",
-          weaponName: "USP-S | 杀出重围",
-          inGamePrice: 44,
-          discount: 0.71,
-          actualSellPrice: 0,
-          note: "还没卖",
-        },
-        { defaultDiscount: 0.71 }
-      ),
-    ],
-  },
-  {
-    id: createId(),
-    name: "2026-04-01 深夜冲刺",
-    date: "2026-04-01",
-    boxType: "创世终端机",
-    defaultDiscount: 0.69,
-    note: "夜间集中开箱批次。",
-    rows: [
-      createRow(
-        {
-          handlingStatus: "purchased",
-          weaponName: "AK-47 | 霓虹骑士",
-          inGamePrice: 102,
-          discount: 0.69,
-          actualSellPrice: 90,
-          note: "当天卖出",
-        },
-        { defaultDiscount: 0.69 }
-      ),
-      createRow(
-        {
-          handlingStatus: "stored",
-          weaponName: "AWP | 渐变之色",
-          inGamePrice: 136,
-          discount: 0.68,
-          note: "继续观察",
-        },
-        { defaultDiscount: 0.69 }
-      ),
-      createRow(
-        {
-          handlingStatus: "discarded",
-          note: "未达到收益线",
-        },
-        { defaultDiscount: 0.69 }
-      ),
-    ],
-  },
-]);
+function normalizeGoodsKeyword(keyword: string) {
+  return keyword.trim();
+}
+
+function getGoodsOptionLabel(goods: Pick<GoodsSimple, "name" | "parentCategoryName">) {
+  return goods.parentCategoryName ? `${goods.name}（${goods.parentCategoryName}）` : goods.name;
+}
+
+function getGoodsOptionValue(goods: GoodsSimple) {
+  return goods.id ?? goods.goodsId;
+}
+
+function ensureGoodsInCatalog(goodsId: number | undefined, boxName: string) {
+  if (!goodsId || !boxName) return;
+  const exists = goodsCatalog.value.some((item) => getGoodsOptionValue(item) === goodsId);
+  if (exists) return;
+  goodsCatalog.value = [{ id: goodsId, goodsId, name: boxName }, ...goodsCatalog.value];
+}
+
+const goodsOptions = computed(() =>
+  goodsCatalog.value.map((item) => ({
+    label: getGoodsOptionLabel(item),
+    value: getGoodsOptionValue(item),
+  }))
+);
+
+function getBatchDisplayName(batch: Pick<UnboxBatch, "date" | "boxName">) {
+  if (batch.date && batch.boxName) return `${batch.date} ${batch.boxName}`;
+  if (batch.boxName) return batch.boxName;
+  if (batch.date) return `${batch.date} 开箱批次`;
+  return "未命名批次";
+}
+
+function mapRecordItemToRow(
+  item: UnboxRecordDTO["items"][number],
+  defaultDiscount: number
+): UnboxRow {
+  return {
+    id: String(item.id ?? createId()),
+    handlingStatus: item.handlingStatus,
+    boxPurchasePrice: Number(item.boxPurchasePrice ?? 0),
+    weaponName: item.weaponName ?? "",
+    inGamePrice: Number(item.inGamePrice ?? 0),
+    discount: clampDiscount(item.discount ?? defaultDiscount),
+    actualSellPrice: Number(item.actualSellPrice ?? 0),
+    note: item.note ?? "",
+  };
+}
+
+function mapRecordToBatch(record: UnboxRecordDTO): UnboxBatch {
+  const defaultDiscount = clampDiscount(Number(record.defaultDiscount ?? 0));
+  return {
+    id: record.id,
+    goodsId: record.goodsId,
+    boxName: record.boxName ?? "",
+    date: record.unboxDate ?? "",
+    defaultDiscount,
+    note: record.note ?? "",
+    rows: record.items.map((item) => mapRecordItemToRow(item, defaultDiscount)),
+  };
+}
+
+function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
+  return {
+    goodsId: batch.goodsId!,
+    unboxDate: batch.date,
+    defaultDiscount: clampDiscount(batch.defaultDiscount),
+    note: batch.note.trim(),
+    items: batch.rows.map((row) => ({
+      handlingStatus: row.handlingStatus,
+      boxPurchasePrice: round(row.boxPurchasePrice),
+      weaponName: row.weaponName.trim(),
+      inGamePrice: round(row.inGamePrice),
+      discount: hasDiscountValue(row.discount) ? clampDiscount(row.discount) : null,
+      actualSellPrice: round(row.actualSellPrice),
+      note: row.note.trim(),
+    })),
+  };
+}
+
+async function fetchGoodsOptions(keyword = "") {
+  goodsLoading.value = true;
+  try {
+    const items = await goodsApi.getSimpleList(normalizeGoodsKeyword(keyword));
+    goodsCatalog.value = items;
+    ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error("获取箱子商品失败");
+  } finally {
+    goodsLoading.value = false;
+  }
+}
+
+async function loadBatches() {
+  listLoading.value = true;
+  try {
+    const records = await unboxApi.list();
+    batches.value = records.map(mapRecordToBatch);
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error("获取开箱记录失败");
+  } finally {
+    listLoading.value = false;
+  }
+}
+
+function handleGoodsPopupVisibleChange(visible: boolean) {
+  if (!visible || goodsCatalog.value.length > 0 || goodsLoading.value) return;
+  void fetchGoodsOptions();
+}
+
+function handleGoodsSearch(keyword: string) {
+  void fetchGoodsOptions(keyword);
+}
+
+onMounted(() => {
+  void loadBatches();
+});
 
 function isRowEditable(row: UnboxRow) {
   return row.handlingStatus !== "discarded";
 }
 
-function shouldCountRow(row: UnboxRow) {
+function shouldIncludeRowInSummary(row: UnboxRow) {
   return row.handlingStatus !== "stored";
 }
 
 const getRowMetrics = (row: UnboxRow): RowMetrics => {
-  if (!shouldCountRow(row)) {
-    return {
-      purchaseCost: null,
-      actualFee: null,
-      actualNetIncome: null,
-      actualNetProfit: null,
-      actualProfitRate: null,
-    };
-  }
-
   const purchaseCost = round(row.inGamePrice * clampDiscount(row.discount));
 
   const shouldCalculateActualMetrics =
     row.actualSellPrice > 0 || row.boxPurchasePrice > 0 || purchaseCost > 0;
   const actualFee = shouldCalculateActualMetrics ? getFee(row.actualSellPrice) : null;
   const actualNetIncome =
-    shouldCalculateActualMetrics && actualFee !== null ? round(row.actualSellPrice - actualFee) : null;
+    shouldCalculateActualMetrics && actualFee !== null
+      ? round(row.actualSellPrice - actualFee)
+      : null;
   const actualNetProfit =
     shouldCalculateActualMetrics && actualFee !== null
       ? round(row.actualSellPrice - row.boxPurchasePrice - purchaseCost - actualFee)
       : null;
   const actualProfitRate =
-    actualNetProfit !== null && purchaseCost > 0 ? round((actualNetProfit / purchaseCost) * 100) : null;
+    actualNetProfit !== null && purchaseCost > 0
+      ? round((actualNetProfit / purchaseCost) * 100)
+      : null;
 
   return {
     purchaseCost,
@@ -1298,19 +1439,20 @@ function buildBatchSummary(
   let totalActualNetProfit = 0;
 
   entries.forEach(({ row, metrics }) => {
-    if (!shouldCountRow(row)) return;
+    if (shouldIncludeRowInSummary(row)) {
+      countedRowCount += 1;
+      if (row.handlingStatus === "purchased") {
+        boughtCount += 1;
+      }
+      totalInGamePrice += row.inGamePrice;
+      totalPurchaseCost += metrics.purchaseCost ?? 0;
 
-    countedRowCount += 1;
-    if (row.handlingStatus === "purchased") {
-      boughtCount += 1;
+      if (row.actualSellPrice > 0) {
+        soldCount += 1;
+      }
     }
-    totalInGamePrice += row.inGamePrice;
-    totalPurchaseCost += metrics.purchaseCost ?? 0;
 
-    if (row.actualSellPrice > 0) {
-      soldCount += 1;
-    }
-    if (metrics.actualNetProfit !== null) {
+    if (shouldIncludeRowInSummary(row) && metrics.actualNetProfit !== null) {
       totalActualNetIncome += metrics.actualNetIncome ?? 0;
       totalActualFee += metrics.actualFee ?? 0;
       totalActualNetProfit += metrics.actualNetProfit ?? 0;
@@ -1362,24 +1504,52 @@ const batchSummaryRows = computed<BatchSummaryRow[]>(() =>
   })
 );
 
+const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(() => {
+  const [periodStart, periodEnd] = currentPeriodRange.value;
+  const customRange = customDateRange.value.length === 2 ? customDateRange.value : null;
+
+  return batchSummaryRows.value.filter((item) => {
+    const batchDate = dayjs(item.batch.date);
+    if (!batchDate.isValid()) return false;
+
+    const dayKey = formatDayKey(batchDate);
+    const inPeriod = dayKey >= periodStart && dayKey <= periodEnd;
+    if (!inPeriod) return false;
+
+    if (!customRange) return true;
+
+    return dayKey >= customRange[0] && dayKey <= customRange[1];
+  });
+});
+
 function sortableNumber(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : 0;
 }
 
 const summaryTableHeaderClass =
-  "!bg-slate-50 !text-slate-500 !text-xs !font-medium !tracking-[0.08em] uppercase whitespace-nowrap";
-const summaryTableBodyClass = "!py-3 text-slate-700 align-middle";
+  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+const summaryToolbarFieldClass =
+  "[&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+const summaryTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 const fieldBaseClass =
-  "w-full [&_.t-input__wrap]:min-h-8 [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const numberFieldBaseClass =
-  "w-full [&_.t-input-number]:w-full [&_.t-input-number]:min-w-0 [&_.t-input__wrap]:min-h-8 [&_.t-input__wrap]:w-full [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input-number]:w-full [&_.t-input-number]:min-w-0 [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:w-full [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const batchDiscountFieldClass = `!w-full min-w-0 ${numberFieldBaseClass} [&_.t-input__wrap]:px-0 [&_.t-input]:w-full [&_.t-input]:px-3 [&_.t-input__inner]:w-full [&_.t-input__inner]:text-left`;
 const numberFieldPrimaryClass = `${numberFieldBaseClass} [&_.t-input__wrap]:border-sky-300 [&_.t-input__wrap]:bg-sky-50 [&_.t-input__wrap:hover]:border-sky-400`;
+const draftFieldClass = `min-w-0 max-w-full ${fieldBaseClass}`;
+const draftNumberFieldClass = `min-w-0 max-w-full ${numberFieldBaseClass}`;
+const draftNumberFieldPrimaryClass = `min-w-0 max-w-full ${numberFieldPrimaryClass}`;
+const draftCellControlClass = "min-w-0 max-w-full";
 
 const batchColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "date",
-    title: "日期",
+    title: createTooltipTitle(
+      "日期",
+      "使用批次日期作为该次开箱记录的唯一标识，不再额外展示批次列。",
+      "日期列说明"
+    ),
     width: 120,
     cell: "date",
     align: "left",
@@ -1387,18 +1557,9 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
     thClassName: summaryTableHeaderClass,
   },
   {
-    colKey: "batchName",
-    title: "批次",
-    minWidth: 220,
-    cell: "batchName",
-    align: "left",
-    className: summaryTableBodyClass,
-    thClassName: summaryTableHeaderClass,
-  },
-  {
     colKey: "totalCount",
-    title: "总条数",
-    width: 100,
+    title: createTooltipTitle("开箱数量", "对应该单次记录开箱的数量汇总。", "开箱数量说明"),
+    width: 108,
     cell: "totalCount",
     align: "left",
     className: summaryTableBodyClass,
@@ -1406,8 +1567,8 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   },
   {
     colKey: "purchaseCost",
-    title: "总实际购入价",
-    width: 140,
+    title: createTooltipTitle("购买总花费", "单次开箱实际花费的总金额", "购买总花费说明"),
+    width: 148,
     cell: "purchaseCost",
     align: "left",
     className: summaryTableBodyClass,
@@ -1415,7 +1576,7 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   },
   {
     colKey: "totalFee",
-    title: "总手续费",
+    title: createTooltipTitle("总手续费", "饰品上架的总手续费", "总手续费说明"),
     width: 120,
     cell: "totalFee",
     align: "left",
@@ -1424,29 +1585,37 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   },
   {
     colKey: "actualNetProfit",
-    title: "总实际净利润",
-    width: 150,
+    title: createTooltipTitle("总利润", "单次开箱扣除手续费后的总利润", "总利润说明"),
+    width: 130,
     cell: "actualNetProfit",
     align: "left",
-    sorter: (a, b) => sortableNumber(a.summary.totalActualNetProfit) - sortableNumber(b.summary.totalActualNetProfit),
+    sorter: (a, b) =>
+      sortableNumber(a.summary.totalActualNetProfit) -
+      sortableNumber(b.summary.totalActualNetProfit),
     sortType: "all",
     className: summaryTableBodyClass,
     thClassName: summaryTableHeaderClass,
   },
   {
     colKey: "actualProfitRate",
-    title: "总利润率",
+    title: createTooltipTitle("总利润率", "单次开箱的总利润率", "总利润率说明"),
     width: 120,
     cell: "actualProfitRate",
     align: "left",
-    sorter: (a, b) => sortableNumber(a.summary.totalActualProfitRate) - sortableNumber(b.summary.totalActualProfitRate),
+    sorter: (a, b) =>
+      sortableNumber(a.summary.totalActualProfitRate) -
+      sortableNumber(b.summary.totalActualProfitRate),
     sortType: "all",
     className: summaryTableBodyClass,
     thClassName: summaryTableHeaderClass,
   },
   {
     colKey: "status",
-    title: "状态",
+    title: createTooltipTitle(
+      "状态",
+      "根据该批次内明细处理情况自动汇总，用于快速判断当前批次是否仍有待处理项目。",
+      "状态列说明"
+    ),
     width: 120,
     cell: "status",
     align: "left",
@@ -1456,7 +1625,7 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "operation",
     title: "操作",
-    width: 150,
+    width: 138,
     cell: "operation",
     fixed: "right",
     align: "left",
@@ -1466,10 +1635,9 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
 ]);
 
 const pageSummary = computed(() => {
-  return batchSummaryRows.value.reduce(
+  return filteredBatchSummaryRows.value.reduce(
     (result, item) => {
       result.totalBatches += 1;
-      result.totalBoxes += item.summary.totalCount;
       result.totalPurchaseCost += item.summary.totalPurchaseCost;
       result.totalFee += item.summary.totalActualFee;
       result.totalActualNetProfit += item.summary.totalActualNetProfit;
@@ -1477,7 +1645,6 @@ const pageSummary = computed(() => {
     },
     {
       totalBatches: 0,
-      totalBoxes: 0,
       totalPurchaseCost: 0,
       totalFee: 0,
       totalActualNetProfit: 0,
@@ -1487,15 +1654,15 @@ const pageSummary = computed(() => {
 
 const pageSummaryCards = computed<SummaryCard[]>(() => [
   {
-    label: "批次数量",
+    label: "开箱数量",
     value: `${pageSummary.value.totalBatches}`,
-    hint: `累计记录 ${pageSummary.value.totalBoxes} 条明细`,
+    hint: `与下方表格数据条数保持一致，共 ${pageSummary.value.totalBatches} 条`,
     valueClass: "text-[#303133]",
   },
   {
-    label: "总实际购入价",
+    label: "购买总花费",
     value: formatCurrency(pageSummary.value.totalPurchaseCost),
-    hint: "游戏买入价 × 折扣后的汇总成本",
+    hint: "按当前筛选结果中的实际购入价口径汇总",
     valueClass: "text-[#303133]",
   },
   {
@@ -1505,15 +1672,98 @@ const pageSummaryCards = computed<SummaryCard[]>(() => [
     valueClass: "text-amber-600",
   },
   {
-    label: "总实际净利润",
+    label: "总利润",
     value: formatSignedCurrency(pageSummary.value.totalActualNetProfit),
-    hint: "仅按当前平台卖出价口径统计",
+    hint: "卖出价 - 箱子购入价 - 实际购入价 - 手续费",
     valueClass: profitClass(pageSummary.value.totalActualNetProfit),
   },
 ]);
 
-const draftHandlingStatusOptions: DraftHandlingStatusOption[] = [
-  { value: "pending", label: "待处理", theme: "default" },
+const sortedBatchSummaryRows = computed(() => {
+  const currentSort = Array.isArray(batchSummarySort.value)
+    ? batchSummarySort.value[0]
+    : batchSummarySort.value;
+
+  if (!currentSort?.sortBy) {
+    return filteredBatchSummaryRows.value;
+  }
+
+  const direction = currentSort.descending ? -1 : 1;
+  return [...filteredBatchSummaryRows.value].sort((left, right) => {
+    if (currentSort.sortBy === "actualNetProfit") {
+      return (
+        (sortableNumber(left.summary.totalActualNetProfit) -
+          sortableNumber(right.summary.totalActualNetProfit)) *
+        direction
+      );
+    }
+
+    if (currentSort.sortBy === "actualProfitRate") {
+      return (
+        (sortableNumber(left.summary.totalActualProfitRate) -
+          sortableNumber(right.summary.totalActualProfitRate)) *
+        direction
+      );
+    }
+
+    return 0;
+  });
+});
+
+const pagedBatchSummaryRows = computed(() => {
+  const total = sortedBatchSummaryRows.value.length;
+  const maxPage = Math.max(1, Math.ceil(total / batchPagination.value.pageSize));
+  const current = Math.min(batchPagination.value.current, maxPage);
+  const start = (current - 1) * batchPagination.value.pageSize;
+  const end = start + batchPagination.value.pageSize;
+  return sortedBatchSummaryRows.value.slice(start, end);
+});
+
+watch(
+  [sortedBatchSummaryRows, () => batchPagination.value.pageSize],
+  ([rows]) => {
+    const total = rows.length;
+    const maxPage = Math.max(1, Math.ceil(total / batchPagination.value.pageSize));
+    if (batchPagination.value.current > maxPage) {
+      batchPagination.value.current = maxPage;
+    }
+  },
+  { immediate: true }
+);
+
+watch(batchSummarySort, () => {
+  batchPagination.value.current = 1;
+});
+
+watch([activePeriod, customDateRange], () => {
+  batchPagination.value.current = 1;
+});
+
+watch(
+  () => draftBatch.value.goodsId,
+  (goodsId) => {
+    if (!goodsId) {
+      draftBatch.value.boxName = "";
+      return;
+    }
+    const selected = goodsCatalog.value.find((item) => getGoodsOptionValue(item) === goodsId);
+    if (selected?.name) {
+      draftBatch.value.boxName = selected.name;
+    }
+  }
+);
+
+function handleBatchPageChange(pageInfo: PageInfo) {
+  batchPagination.value.current = pageInfo.current;
+  batchPagination.value.pageSize = pageInfo.pageSize;
+}
+
+watch(activePresetKey, (presetKey) => {
+  if (presetKey === null) return;
+  customDateRange.value = getPresetRange(presetKey);
+});
+
+const selectableDraftHandlingStatusOptions: SelectableDraftHandlingStatusOption[] = [
   { value: "discarded", label: "丢弃", theme: "danger" },
   { value: "stored", label: "暂存", theme: "warning" },
   { value: "purchased", label: "已买", theme: "success" },
@@ -1535,7 +1785,7 @@ function getDraftRowStageTheme(stage: DraftRowStage): DraftRowStageTheme {
 
 function getDraftRowStageDescription(stage: DraftRowStage) {
   if (stage === "丢弃") return "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计";
-  if (stage === "暂存") return "先放在这里，等全部开完后还有闲钱再买，不参与任何计算";
+  if (stage === "暂存") return "继续计算单条净利润和利润率，但不计入汇总利润率";
   if (stage === "已买") return "确认接手，参与成本、卖价和净利润统计";
   return "默认参与成本、卖价和净利润统计";
 }
@@ -1554,11 +1804,11 @@ const draftRowEntries = computed<DraftRowEntry[]>(() =>
 );
 
 const draftTableHeaderClass =
-  "!bg-slate-100 !text-slate-600 !text-xs !font-semibold !tracking-[0.08em] whitespace-nowrap";
-const draftTableBodyClass = "!py-2 text-slate-700 align-middle";
+  "!bg-slate-100 !text-slate-600 !text-sm !font-semibold !tracking-[0.08em] whitespace-nowrap";
+const draftTableBodyClass = "!py-2 px-3 text-slate-700 align-middle";
 const draftTableFixedBodyClass = `${draftTableBodyClass} !bg-white`;
 const draftTableFooterClass =
-  "!bg-slate-100/70 !py-2 align-top text-[14px] leading-4.5 font-semibold text-slate-500";
+  "flex min-h-[56px] flex-col justify-center gap-1 whitespace-nowrap px-2 py-2 text-sm leading-4 font-semibold text-slate-500";
 const draftTableFooterFixedClass = draftTableFooterClass;
 const Tooltip = resolveComponent("t-tooltip");
 const tooltipTriggerClass =
@@ -1606,10 +1856,22 @@ const purchaseStateTitle = () =>
         theme: "light",
         content: () =>
           h("div", { class: "space-y-1 text-slate-600" }, [
-            h("div", [h("span", { class: "font-semibold text-slate-700" }, "待处理："), "默认参与成本、卖价和净利润统计"]),
-            h("div", [h("span", { class: "font-semibold text-slate-700" }, "丢弃："), "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计"]),
-            h("div", [h("span", { class: "font-semibold text-slate-700" }, "暂存："), "先放在这里，等全部开完后还有闲钱再买，不参与任何计算"]),
-            h("div", [h("span", { class: "font-semibold text-slate-700" }, "已买："), "确认接手，参与成本、卖价和净利润统计"]),
+            h("div", [
+              h("span", { class: "font-semibold text-slate-700" }, "待处理："),
+              "默认参与成本、卖价和净利润统计",
+            ]),
+            h("div", [
+              h("span", { class: "font-semibold text-slate-700" }, "丢弃："),
+              "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计",
+            ]),
+            h("div", [
+              h("span", { class: "font-semibold text-slate-700" }, "暂存："),
+              "继续计算单条净利润和利润率，但不计入汇总利润率",
+            ]),
+            h("div", [
+              h("span", { class: "font-semibold text-slate-700" }, "已买："),
+              "确认接手，参与成本、卖价和净利润统计",
+            ]),
           ]),
       },
       {
@@ -1642,7 +1904,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "boxPurchasePrice",
     title: "箱子购入价",
-    width: 118,
+    width: 132,
+    minWidth: 132,
     cell: "boxPurchasePrice",
     foot: "footerBoxPurchasePrice",
     align: "left",
@@ -1652,7 +1915,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "purchaseState",
     title: purchaseStateTitle,
-    width: 138,
+    width: 168,
+    minWidth: 148,
     cell: "purchaseState",
     foot: "footerPurchaseState",
     align: "left",
@@ -1662,6 +1926,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "weaponName",
     title: "饰品名称",
+    width: 192,
     minWidth: 192,
     cell: "weaponName",
     foot: "footerWeaponName",
@@ -1672,7 +1937,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "inGamePrice",
     title: "游戏买入价",
-    width: 112,
+    width: 126,
+    minWidth: 126,
     cell: "inGamePrice",
     foot: "footerInGamePrice",
     align: "left",
@@ -1682,7 +1948,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "discount",
     title: "折扣",
-    width: 88,
+    width: 102,
+    minWidth: 102,
     cell: "discount",
     foot: "footerDiscount",
     align: "left",
@@ -1692,6 +1959,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "purchaseCost",
     title: purchaseCostTitle,
+    width: 118,
     minWidth: 118,
     cell: "purchaseCost",
     foot: "footerPurchaseCost",
@@ -1702,6 +1970,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "actualSellPrice",
     title: "平台卖出价",
+    width: 130,
     minWidth: 130,
     cell: "actualSellPrice",
     foot: "footerActualSellPrice",
@@ -1712,6 +1981,7 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "actualFee",
     title: actualFeeTitle,
+    width: 132,
     minWidth: 132,
     cell: "actualFee",
     foot: "footerActualFee",
@@ -1727,7 +1997,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     cell: "actualNetProfit",
     foot: "footerActualNetProfit",
     align: "left",
-    sorter: (a, b) => sortableNumber(a.metrics.actualNetProfit) - sortableNumber(b.metrics.actualNetProfit),
+    sorter: (a, b) =>
+      sortableNumber(a.metrics.actualNetProfit) - sortableNumber(b.metrics.actualNetProfit),
     sortType: "all",
     fixed: "right",
     className: draftTableFixedBodyClass,
@@ -1741,7 +2012,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     cell: "actualProfitRate",
     foot: "footerActualProfitRate",
     align: "left",
-    sorter: (a, b) => sortableNumber(a.metrics.actualProfitRate) - sortableNumber(b.metrics.actualProfitRate),
+    sorter: (a, b) =>
+      sortableNumber(a.metrics.actualProfitRate) - sortableNumber(b.metrics.actualProfitRate),
     sortType: "all",
     fixed: "right",
     className: draftTableFixedBodyClass,
@@ -1763,9 +2035,9 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
 
 const draftTableHeight = computed(() => Math.max(Math.floor(draftTableViewportHeight.value), 320));
 
-const draftTableScrollContainer = () => draftTableViewportRef.value ?? document.body;
-
-const draftSummary = computed(() => buildBatchSummary(draftBatch.value.rows.length, draftRowEntries.value));
+const draftSummary = computed(() =>
+  buildBatchSummary(draftBatch.value.rows.length, draftRowEntries.value)
+);
 const draftFooterRows = computed<DraftFooterRow[]>(() => [{ type: "summary" }]);
 
 function formatCurrency(value: number) {
@@ -1826,12 +2098,13 @@ function toggleBatchInfoCollapsed() {
 function openCreateEditor() {
   editingBatchId.value = null;
   draftBatch.value = createBlankBatch();
+  ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
   isEditorFullscreen.value = false;
-  isBatchInfoCollapsed.value = true;
+  isBatchInfoCollapsed.value = false;
   editorVisible.value = true;
 }
 
-function openEditEditor(batchId: string) {
+function openEditEditor(batchId: number) {
   const target = batches.value.find((item) => item.id === batchId);
   if (!target) {
     MessagePlugin.error("批次不存在或已删除");
@@ -1839,43 +2112,72 @@ function openEditEditor(batchId: string) {
   }
   editingBatchId.value = batchId;
   draftBatch.value = cloneBatch(target);
+  ensureGoodsInCatalog(target.goodsId, target.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = true;
   editorVisible.value = true;
 }
 
-function saveDraftBatch() {
+async function saveDraftBatch() {
+  if (savingBatch.value) return;
+  if (!draftBatch.value.goodsId) {
+    MessagePlugin.warning("请选择箱子商品");
+    return;
+  }
+  const selected = goodsCatalog.value.find(
+    (item) => getGoodsOptionValue(item) === draftBatch.value.goodsId
+  );
+  draftBatch.value.boxName = selected?.name ?? draftBatch.value.boxName;
   if (!draftBatch.value.date) {
     MessagePlugin.warning("请选择开箱日期");
     return;
   }
-  if (!draftBatch.value.rows.length) {
-    MessagePlugin.warning("请至少保留一条明细");
+  if (!hasDiscountValue(draftBatch.value.defaultDiscount)) {
+    MessagePlugin.warning("请填写默认折扣");
     return;
   }
-
-  const normalized = cloneBatch(draftBatch.value);
-  if (editingBatchId.value) {
-    const index = batches.value.findIndex((item) => item.id === editingBatchId.value);
-    if (index === -1) {
-      MessagePlugin.error("批次不存在或已删除");
-      return;
+  savingBatch.value = true;
+  try {
+    const payload = buildSaveParam(draftBatch.value);
+    if (editingBatchId.value) {
+      await unboxApi.update(editingBatchId.value, payload);
+      MessagePlugin.success("批次已更新");
+    } else {
+      await unboxApi.create(payload);
+      MessagePlugin.success("批次已创建");
     }
-    batches.value.splice(index, 1, normalized);
-    MessagePlugin.success("批次已更新");
-  } else {
-    batches.value.unshift(normalized);
-    MessagePlugin.success("批次已创建");
+    editorVisible.value = false;
+    await loadBatches();
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error(editingBatchId.value ? "更新批次失败" : "创建批次失败");
+  } finally {
+    savingBatch.value = false;
   }
-  editorVisible.value = false;
 }
 
-function removeBatch(batchId: string) {
-  batches.value = batches.value.filter((item) => item.id !== batchId);
-  MessagePlugin.success("批次已删除");
+async function removeBatch(batchId: number) {
+  try {
+    await unboxApi.delete(batchId);
+    batches.value = batches.value.filter((item) => item.id !== batchId);
+    MessagePlugin.success("批次已删除");
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error("删除批次失败");
+  }
 }
 
-function setHandlingStatus(row: UnboxRow, handlingStatus: DraftHandlingStatus) {
+function getDraftStatusButtonActiveClass(status: SelectableDraftHandlingStatus) {
+  if (status === "discarded") {
+    return "!border-rose-200 !bg-rose-50 !text-rose-600";
+  }
+  if (status === "stored") {
+    return "!border-amber-200 !bg-amber-50 !text-amber-600";
+  }
+  return "!border-emerald-200 !bg-emerald-50 !text-emerald-600";
+}
+
+function setHandlingStatus(row: UnboxRow, handlingStatus: SelectableDraftHandlingStatus) {
   row.handlingStatus = handlingStatus;
 }
 
@@ -1895,7 +2197,9 @@ function handleAddRow(index?: number) {
 function handleBulkAdd(count: number) {
   const normalizedCount = Math.max(1, Math.min(200, Math.floor(Number(count) || 0)));
   const nextBoxPurchasePrice = round(toolbarBoxPurchasePrice.value);
-  const newRows = Array.from({ length: normalizedCount }, () => createToolbarDefaultRow(nextBoxPurchasePrice));
+  const newRows = Array.from({ length: normalizedCount }, () =>
+    createToolbarDefaultRow(nextBoxPurchasePrice)
+  );
   draftBatch.value.rows.push(...newRows);
   MessagePlugin.success(`已新增 ${normalizedCount} 条明细`);
 }
@@ -1920,10 +2224,15 @@ function applyToolbarBoxPurchasePriceToAllRows() {
 }
 
 function applyDefaultsToEmptyRows() {
+  if (!hasDiscountValue(draftBatch.value.defaultDiscount)) {
+    MessagePlugin.warning("请先填写默认折扣");
+    return;
+  }
+
   let updatedCount = 0;
   draftBatch.value.rows.forEach((row) => {
     let changed = false;
-    if (row.discount <= 0) {
+    if (!hasDiscountValue(row.discount) || row.discount <= 0) {
       row.discount = draftBatch.value.defaultDiscount;
       changed = true;
     }
@@ -1938,10 +2247,6 @@ function applyDefaultsToEmptyRows() {
 }
 
 function handleRemoveRow(id: string) {
-  if (draftBatch.value.rows.length === 1) {
-    MessagePlugin.warning("至少保留一条明细，避免批次编辑区为空");
-    return;
-  }
   draftBatch.value.rows = draftBatch.value.rows.filter((item) => item.id !== id);
 }
 </script>
@@ -1964,10 +2269,55 @@ function handleRemoveRow(id: string) {
   width: 100%;
   height: 100%;
   overflow: auto;
+  scrollbar-gutter: stable both-edges;
 }
 
 :deep(.draft-detail-table .t-table) {
   height: 100%;
+  table-layout: fixed;
+}
+
+:deep(.draft-detail-table .t-table__header),
+:deep(.draft-detail-table .t-table__body),
+:deep(.draft-detail-table .t-table__footer) {
+  table-layout: fixed;
+}
+
+:deep(.draft-detail-table .t-table__body td),
+:deep(.draft-detail-table .t-table__header th),
+:deep(.draft-detail-table .t-table__footer td) {
+  overflow: visible;
+}
+
+:deep(.draft-detail-table .t-input-number),
+:deep(.draft-detail-table .t-input),
+:deep(.draft-detail-table .t-input-number__wrap),
+:deep(.draft-detail-table .t-input__wrap) {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+:deep(.draft-detail-table .draft-status-cell) {
+  width: 100%;
+  min-width: 0;
+}
+
+:deep(.draft-detail-table .draft-status-cell__group) {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+:deep(.draft-detail-table .draft-status-cell__button) {
+  display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
+  flex: 1 1 calc(33.333% - 0.25rem);
+  justify-content: center;
 }
 
 :deep(.draft-detail-table .t-table__content-inner) {
@@ -1975,23 +2325,28 @@ function handleRemoveRow(id: string) {
 }
 
 :deep(.draft-detail-table .t-table__table) {
+  width: max-content;
   min-width: 100%;
 }
 
 :deep(.draft-detail-table .t-table__fixed-right-column),
 :deep(.draft-detail-table .t-table__fixed-left-column) {
+  box-sizing: border-box;
   background: rgb(255 255 255);
 }
-
 
 :deep(.draft-detail-table tfoot td) {
   background: rgb(241 245 249 / 0.7);
   border-top: none;
+  vertical-align: top;
+  white-space: nowrap;
+  word-break: keep-all;
 }
 
 :deep(.draft-detail-table tfoot .t-table__fixed-right-column),
 :deep(.draft-detail-table tfoot .t-table__fixed-left-column) {
   background: rgb(241 245 249 / 0.7);
+  vertical-align: top;
 }
 
 .scrollbar-stable {
@@ -2014,4 +2369,30 @@ function handleRemoveRow(id: string) {
   background: rgb(248 250 252);
 }
 
+:deep(.unbox-summary-table .t-table__header th) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+:deep(.unbox-summary-table .t-table__body td) {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+:deep(.unbox-summary-table .t-table) {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:deep(.unbox-summary-table .t-table__content) {
+  border: none;
+  border-radius: 0;
+}
+
+:deep(.unbox-summary-table .t-table__header) {
+  overflow: visible;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
 </style>
