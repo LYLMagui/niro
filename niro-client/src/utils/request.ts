@@ -60,6 +60,10 @@ service.interceptors.request.use(
     requestConfig.metadata = { startTime: new Date() };
     console.log(`[Request Start] ${config.method?.toUpperCase()} ${config.url}`);
 
+    if (config.data instanceof FormData) {
+      delete config.headers["Content-Type"];
+    }
+
     // 从 localStorage 获取 token
     const token = localStorage.getItem("niro-web-token");
     // 如果 token 存在，则添加到请求头

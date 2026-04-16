@@ -239,9 +239,13 @@
           </div>
         </div>
 
-        <div class="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 sm:px-3 sm:py-3">
+        <div
+          ref="editorContentRef"
+          class="min-h-0 flex-1 overflow-hidden px-2.5 py-2.5 sm:px-3 sm:py-3"
+        >
           <div class="flex h-full min-h-0 flex-col gap-3">
             <section
+              ref="batchInfoSectionRef"
               class="shrink-0 overflow-hidden rounded-[10px] border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm"
             >
               <div class="flex items-start justify-between gap-3">
@@ -366,7 +370,7 @@
             </section>
 
             <section
-              class="flex h-full min-h-0 flex-1 flex-col overflow-hidden rounded-[10px] border border-slate-200/80 bg-white shadow-sm"
+              class="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-slate-200/80 bg-white shadow-sm"
             >
               <div class="shrink-0 border-b border-slate-200/80 px-3 py-2">
                 <div class="space-y-2">
@@ -375,7 +379,7 @@
                       <div
                         class="shrink-0 text-sm font-medium tracking-[0.14em] text-slate-400 uppercase"
                       >
-                        批次明细
+                        开箱明细
                       </div>
                     </div>
 
@@ -437,20 +441,20 @@
 
               <div v-if="!isMobile" class="min-h-0 flex-1 overflow-hidden bg-white">
                 <div
-                  ref="draftTableViewportRef"
-                  class="h-full min-h-0 overflow-hidden overscroll-contain"
+                  class="min-h-0 overflow-hidden overscroll-contain"
+                  :style="draftTableViewportStyle"
                 >
                   <t-table
                     row-key="row.id"
                     :data="draftRowEntries"
                     :columns="draftTableColumns"
                     :foot-data="draftFooterRows"
-                    :height="draftTableHeight"
+                    :max-height="draftTableMaxHeight"
                     v-model:sort="draftTableSort"
                     table-layout="fixed"
                     vertical-align="middle"
                     hover
-                    class="draft-detail-table h-full w-full [&_.t-table]:h-full [&_.t-table]:w-full [&_.t-table__content]:relative [&_.t-table__content]:h-full [&_.t-table__content]:w-full [&_.t-table__content-inner]:min-w-full [&_.t-table__header]:bg-white [&_table]:h-full"
+                    class="draft-detail-table w-full [&_.t-table]:w-full [&_.t-table__content]:relative [&_.t-table__content]:w-full [&_.t-table__content-inner]:min-w-full [&_.t-table__header]:bg-white"
                   >
                     <template #index="{ rowIndex }">
                       <div class="font-numeric text-sm leading-4 font-semibold text-slate-600">
@@ -475,54 +479,50 @@
                     </template>
 
                     <template #purchaseState="{ row: entry }">
-                      <div class="draft-status-cell">
-                        <div class="draft-status-cell__group">
-                          <button
-                            v-for="option in selectableDraftHandlingStatusOptions"
-                            :key="option.value"
-                            type="button"
-                            class="draft-status-cell__button h-6 rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
-                            :class="
-                              entry.row.handlingStatus === option.value
-                                ? getDraftStatusButtonActiveClass(option.value)
-                                : 'text-slate-500'
-                            "
-                            @click="setHandlingStatus(entry.row, option.value)"
-                          >
-                            {{ option.label }}
-                          </button>
-                        </div>
+                      <div class="flex flex-wrap gap-1">
+                        <button
+                          v-for="option in selectableDraftHandlingStatusOptions"
+                          :key="option.value"
+                          type="button"
+                          :class="[
+                            `h-7 ${draftStatusButtonBaseClass}`,
+                            entry.row.handlingStatus === option.value
+                              ? getDraftStatusButtonActiveClass(option.value)
+                              : 'text-slate-500',
+                          ]"
+                          @click="setHandlingStatus(entry.row, option.value)"
+                        >
+                          {{ option.label }}
+                        </button>
                       </div>
                     </template>
 
                     <template #weaponName="{ row: entry }">
-                      <div :class="draftCellControlClass">
-                        <t-input
+                      <div class="flex items-center gap-2" :class="draftCellControlClass">
+                        <t-select
                           v-model="entry.row.weaponName"
+                          :class="`flex-1 ${draftSelectFieldClass}`"
                           :disabled="!isRowEditable(entry.row)"
-                          :class="draftFieldWithOcrClass"
+                          :options="WEAPON_NAME_OPTIONS"
                           clearable
-                          maxlength="40"
-                          placeholder="例如：AK-47 | 血腥运动"
+                          filterable
+                          placeholder="请选择饰品名称"
+                        />
+                        <button
+                          type="button"
+                          class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                          :disabled="
+                            !isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'
+                          "
+                          :aria-label="getRowOcrTooltip(entry.row.id)"
+                          @click.stop="triggerRowOcrFileSelect(entry.row)"
                         >
-                          <template #suffixIcon>
-                            <t-tooltip :content="getRowOcrTooltip(entry.row.id)" placement="top">
-                              <button
-                                type="button"
-                                class="group inline-flex h-6 w-6 items-center justify-center rounded-md transition-colors focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="!isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'"
-                                :aria-label="getRowOcrTooltip(entry.row.id)"
-                                @click.stop="triggerRowOcrUpload(entry.row)"
-                              >
-                                <component
-                                  :is="getRowOcrIcon(entry.row.id)"
-                                  class="h-4 w-4 transition-colors"
-                                  :class="getRowOcrIconClass(entry.row.id)"
-                                />
-                              </button>
-                            </t-tooltip>
-                          </template>
-                        </t-input>
+                          <component
+                            :is="getRowOcrIcon(entry.row.id)"
+                            class="h-4 w-4 transition-colors"
+                            :class="getRowOcrIconClass(entry.row.id)"
+                          />
+                        </button>
                       </div>
                     </template>
 
@@ -555,6 +555,36 @@
                           :class="draftNumberFieldClass"
                           placeholder="0.72"
                           theme="normal"
+                        />
+                      </div>
+                    </template>
+
+                    <template #wear="{ row: entry }">
+                      <div :class="draftCellControlClass">
+                        <t-input-number
+                          v-model="entry.row.wear"
+                          :decimal-places="16"
+                          :disabled="!isRowEditable(entry.row)"
+                          :format="formatWearDisplay"
+                          :max="1"
+                          :min="0"
+                          :step="0.000000001"
+                          align="right"
+                          :class="draftNumberFieldClass"
+                          :placeholder="getWearPlaceholder()"
+                          theme="normal"
+                        />
+                      </div>
+                    </template>
+
+                    <template #exterior="{ row: entry }">
+                      <div :class="draftCellControlClass">
+                        <t-select
+                          v-model="entry.row.exterior"
+                          :class="draftSelectFieldClass"
+                          :disabled="!isRowEditable(entry.row)"
+                          :options="EXTERIOR_OPTIONS"
+                          placeholder="请选择外观"
                         />
                       </div>
                     </template>
@@ -774,35 +804,51 @@
                   <div class="p-4">
                     <div class="grid grid-cols-1 gap-3">
                       <div class="grid grid-cols-2 gap-3">
-                        <div class="space-y-1.5">
+                        <label class="space-y-1.5">
                           <span class="text-sm font-medium text-slate-600">处理状态</span>
-                          <div class="flex flex-nowrap gap-2 overflow-x-auto pb-0.5">
+                          <div class="flex flex-wrap gap-2">
                             <button
                               v-for="option in selectableDraftHandlingStatusOptions"
                               :key="option.value"
                               type="button"
-                              class="inline-flex h-8 min-w-0 shrink-0 touch-manipulation items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
-                              :class="
+                              :class="[
+                                `h-8 touch-manipulation ${draftStatusButtonBaseClass}`,
                                 row.handlingStatus === option.value
                                   ? getDraftStatusButtonActiveClass(option.value)
-                                  : 'text-slate-500'
-                              "
+                                  : 'text-slate-500',
+                              ]"
                               @click="setHandlingStatus(row, option.value)"
                             >
                               {{ option.label }}
                             </button>
                           </div>
-                        </div>
+                        </label>
                         <label class="space-y-1.5">
                           <span class="text-sm font-medium text-slate-600">饰品名称</span>
-                          <t-input
-                            v-model="row.weaponName"
-                            :disabled="!isRowEditable(row)"
-                            :class="fieldBaseClass"
-                            clearable
-                            maxlength="40"
-                            placeholder="例如：M4A1-S | 印花集"
-                          />
+                          <div class="flex items-center gap-2">
+                            <t-select
+                              v-model="row.weaponName"
+                              :class="`flex-1 ${fieldBaseClass}`"
+                              :disabled="!isRowEditable(row)"
+                              :options="WEAPON_NAME_OPTIONS"
+                              clearable
+                              filterable
+                              placeholder="请选择饰品名称"
+                            />
+                            <button
+                              type="button"
+                              class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              :disabled="!isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'"
+                              :aria-label="getRowOcrTooltip(row.id)"
+                              @click.stop="triggerRowOcrFileSelect(row)"
+                            >
+                              <component
+                                :is="getRowOcrIcon(row.id)"
+                                class="h-4 w-4 transition-colors"
+                                :class="getRowOcrIconClass(row.id)"
+                              />
+                            </button>
+                          </div>
                         </label>
                       </div>
 
@@ -834,6 +880,35 @@
                             :class="draftNumberFieldClass"
                             placeholder="0.72"
                             theme="normal"
+                          />
+                        </label>
+                      </div>
+
+                      <div class="grid grid-cols-2 gap-3">
+                        <label class="space-y-1.5">
+                          <span class="text-sm font-medium text-slate-600">磨损</span>
+                          <t-input-number
+                            v-model="row.wear"
+                            :decimal-places="16"
+                            :disabled="!isRowEditable(row)"
+                            :format="formatWearDisplay"
+                            :max="1"
+                            :min="0"
+                            :step="0.000000001"
+                            align="left"
+                            :class="draftNumberFieldClass"
+                            :placeholder="getWearPlaceholder()"
+                            theme="normal"
+                          />
+                        </label>
+                        <label class="space-y-1.5">
+                          <span class="text-sm font-medium text-slate-600">外观</span>
+                          <t-select
+                            v-model="row.exterior"
+                            :class="fieldBaseClass"
+                            :disabled="!isRowEditable(row)"
+                            :options="EXTERIOR_OPTIONS"
+                            placeholder="请选择外观"
                           />
                         </label>
                       </div>
@@ -975,6 +1050,8 @@ interface UnboxRow {
   inGamePrice: number;
   discount: DiscountValue;
   actualSellPrice: number;
+  wear: number | "";
+  exterior: number;
   note: string;
 }
 
@@ -1060,7 +1137,34 @@ interface RowOcrState {
 }
 
 const OCR_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
-const OCR_FIELD_MISSING_MESSAGE = "识别结果不完整，请重新上传";
+const OCR_FIELD_MISSING_MESSAGE = "未识别到价格，请重新上传";
+const OCR_REQUEST_FAILURE_MESSAGE = "图片识别失败";
+const EXTERIOR_OPTIONS = [
+  { label: "崭新出厂", value: 0 },
+  { label: "略有磨损", value: 1 },
+  { label: "久经沙场", value: 2 },
+  { label: "破损不堪", value: 3 },
+  { label: "战痕累累", value: 4 },
+];
+const WEAPON_NAME_OPTIONS = [
+  { label: "SCAR-20 | 牢笼", value: "SCAR-20 | 牢笼" },
+  { label: "AUG | 后发制人", value: "AUG | 后发制人" },
+  { label: "P2000 | 红翼", value: "P2000 | 红翼" },
+  { label: "MP9 | 打口碟", value: "MP9 | 打口碟" },
+  { label: "P250 | 牛蛙", value: "P250 | 牛蛙" },
+  { label: "MAG-7 | 震级", value: "MAG-7 | 震级" },
+  { label: "MP5-SD | 专注", value: "MP5-SD | 专注" },
+  { label: "新星 | 目镜", value: "新星 | 目镜" },
+  { label: "M4A1消音版 | 液化", value: "M4A1消音版 | 液化" },
+  { label: "双持贝瑞塔 | 天矢之眼", value: "双持贝瑞塔 | 天矢之眼" },
+  { label: "MAC-10 | 纸老虎", value: "MAC-10 | 纸老虎" },
+  { label: "UMP-45 | 连续体", value: "UMP-45 | 连续体" },
+  { label: "AWP | 可燃冰", value: "AWP | 可燃冰" },
+  { label: "MP7 | 吸烟有害健康", value: "MP7 | 吸烟有害健康" },
+  { label: "格洛克18型 | 镜面马赛克", value: "格洛克18型 | 镜面马赛克" },
+  { label: "M4A4 | 破浪狂飙", value: "M4A4 | 破浪狂飙" },
+  { label: "AK-47 | 流金王朝", value: "AK-47 | 流金王朝" },
+];
 
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
@@ -1083,8 +1187,10 @@ const editorDialogAttach = computed<AttachNode>(() => {
   if (isMobile.value) return "body";
   return () => pageHostRef.value ?? document.body;
 });
-const draftTableViewportRef = ref<HTMLElement | null>(null);
-const { height: draftTableViewportHeight } = useElementSize(draftTableViewportRef);
+const editorContentRef = ref<HTMLElement | null>(null);
+const batchInfoSectionRef = ref<HTMLElement | null>(null);
+const { height: editorContentHeight } = useElementSize(editorContentRef);
+const { height: batchInfoSectionHeight } = useElementSize(batchInfoSectionRef);
 
 const editorVisible = ref(false);
 const isEditorFullscreen = ref(false);
@@ -1152,6 +1258,23 @@ const round = (value: number, digits = 2) => {
   return Math.round((Number.isFinite(value) ? value : 0) * base) / base;
 };
 
+const formatWearDisplay = (
+  value?: number | string | null,
+  context?: { fixedNumber?: number | string },
+) => {
+  const normalizedValue = context?.fixedNumber ?? value;
+  if (normalizedValue === undefined || normalizedValue === null || normalizedValue === "") {
+    return "";
+  }
+
+  const numericValue = typeof normalizedValue === "string" ? Number(normalizedValue) : normalizedValue;
+  if (!Number.isFinite(numericValue)) {
+    return "";
+  }
+
+  return numericValue.toFixed(9).replace(/\.0+$/, "").replace(/\.?0+$/, "");
+};
+
 const LISTING_FEE_RATE = 0.01;
 const TOTAL_FEE_RATE = LISTING_FEE_RATE;
 
@@ -1163,6 +1286,10 @@ const clampDiscount = (value: DiscountValue | null | undefined) => {
 
 function hasDiscountValue(value: DiscountValue | null | undefined): value is number {
   return value !== "" && value !== null && value !== undefined && Number.isFinite(value);
+}
+
+function getWearPlaceholder() {
+  return editingBatchId.value ? "-" : "";
 }
 
 const getFee = (sellPrice: number) => round(Math.max(sellPrice, 0) * TOTAL_FEE_RATE);
@@ -1292,6 +1419,8 @@ const createRow = (
   discount:
     defaults?.discount ?? (hasDiscountValue(batch?.defaultDiscount) ? batch.defaultDiscount : ""),
   actualSellPrice: defaults?.actualSellPrice ?? 0,
+  wear: defaults?.wear ?? "",
+  exterior: defaults?.exterior ?? 0,
   note: defaults?.note ?? "",
 });
 
@@ -1379,18 +1508,18 @@ function getRowOcrState(rowId: string) {
 function getRowOcrTooltip(rowId: string) {
   const state = getRowOcrState(rowId);
   if (state.status === "success") {
-    return "识别成功，点击重新上传";
+    return "识别成功，可重新上传或粘贴";
   }
   if (state.status === "error") {
-    return state.errorMessage || "识别失败，点击重新上传";
+    return state.errorMessage || "识别失败，可重新上传或粘贴";
   }
   if (state.status === "uploading") {
     return "识别中...";
   }
-  return "上传图片识别";
+  return "上传或粘贴图片识别价格和磨损";
 }
 
-function getOcrErrorMessage(error: unknown, fallback = "图片识别失败") {
+function getOcrErrorMessage(error: unknown, fallback = OCR_REQUEST_FAILURE_MESSAGE) {
   if (error instanceof Error && error.message) {
     return error.message;
   }
@@ -1398,7 +1527,7 @@ function getOcrErrorMessage(error: unknown, fallback = "图片识别失败") {
 }
 
 function normalizeOcrResultPrice(result: UnboxRecordOcrResult) {
-  const rawValue = result.inGamePrice;
+  const rawValue = result.price;
   if (rawValue === null || rawValue === undefined || rawValue === "") {
     return null;
   }
@@ -1406,10 +1535,23 @@ function normalizeOcrResultPrice(result: UnboxRecordOcrResult) {
   return Number.isFinite(numericValue) ? round(numericValue) : null;
 }
 
+function normalizeOcrResultWear(result: UnboxRecordOcrResult) {
+  const rawValue = result.wear;
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return null;
+  }
+  const numericValue = Number(rawValue);
+  if (!Number.isFinite(numericValue)) {
+    return null;
+  }
+  return numericValue >= 0 && numericValue <= 1 ? numericValue : null;
+}
+
 function handleOcrValidationFailure(rowId: string, message: string) {
   const state = ensureRowOcrState(rowId);
   state.status = "error";
   state.errorMessage = message;
+  MessagePlugin.warning(message);
 }
 
 function validateOcrImage(file: File, rowId: string) {
@@ -1424,7 +1566,7 @@ function validateOcrImage(file: File, rowId: string) {
   return true;
 }
 
-function triggerRowOcrUpload(row: UnboxRow) {
+function triggerRowOcrFileSelect(row: UnboxRow) {
   if (!isRowEditable(row)) return;
   const state = getRowOcrState(row.id);
   if (state.status === "uploading") return;
@@ -1433,15 +1575,50 @@ function triggerRowOcrUpload(row: UnboxRow) {
 }
 
 function normalizeOcrResult(result: UnboxRecordOcrResult) {
-  const weaponName = result.weaponName?.trim();
   const normalizedPrice = normalizeOcrResultPrice(result);
-  const hasName = Boolean(weaponName);
-  const hasPrice = result.inGamePrice !== null && result.inGamePrice !== undefined && result.inGamePrice !== "";
+  const normalizedWear = normalizeOcrResultWear(result);
+  const hasPrice = result.price !== null && result.price !== undefined && result.price !== "";
   return {
-    weaponName,
-    inGamePrice: normalizedPrice,
-    valid: hasName && hasPrice && normalizedPrice !== null,
+    price: normalizedPrice,
+    wear: normalizedWear,
+    valid: hasPrice && normalizedPrice !== null,
   };
+}
+
+async function uploadRowOcrFile(rowId: string, file: File) {
+  if (!validateOcrImage(file, rowId)) {
+    return;
+  }
+
+  const state = getRowOcrState(rowId);
+  state.status = "uploading";
+  state.errorMessage = "";
+
+  try {
+    const result = await unboxApi.ocrImage(file);
+    const targetRow = draftBatch.value.rows.find((item) => item.id === rowId);
+    const latestState = rowOcrStateMap.value[rowId];
+    if (!targetRow || !latestState) return;
+    const normalized = normalizeOcrResult(result);
+    if (!normalized.valid || normalized.price === null) {
+      latestState.status = "error";
+      latestState.errorMessage = OCR_FIELD_MISSING_MESSAGE;
+      return;
+    }
+    targetRow.inGamePrice = normalized.price;
+    if (normalized.wear !== null) {
+      targetRow.wear = normalized.wear;
+    }
+    latestState.status = "success";
+    latestState.errorMessage = "";
+  } catch (error) {
+    const latestState = rowOcrStateMap.value[rowId];
+    if (!latestState) return;
+    latestState.status = "error";
+    latestState.errorMessage = getOcrErrorMessage(error);
+  } finally {
+    activeOcrRowId.value = null;
+  }
 }
 
 async function handleRowOcrFileChange(event: Event) {
@@ -1455,44 +1632,7 @@ async function handleRowOcrFileChange(event: Event) {
     activeOcrRowId.value = null;
     return;
   }
-  if (!validateOcrImage(file, rowId)) {
-    activeOcrRowId.value = null;
-    return;
-  }
-
-  const state = getRowOcrState(rowId);
-  state.status = "uploading";
-  state.errorMessage = "";
-
-  try {
-    const result = await unboxApi.ocrImage(file);
-    const targetRow = draftBatch.value.rows.find((item) => item.id === rowId);
-    const latestState = rowOcrStateMap.value[rowId];
-    if (!targetRow || !latestState) return;
-    const responseError = result.errorMessage?.trim() || result.message?.trim();
-    if (responseError) {
-      latestState.status = "error";
-      latestState.errorMessage = responseError;
-      return;
-    }
-    const normalized = normalizeOcrResult(result);
-    if (!normalized.valid || !normalized.weaponName || normalized.inGamePrice === null) {
-      latestState.status = "error";
-      latestState.errorMessage = OCR_FIELD_MISSING_MESSAGE;
-      return;
-    }
-    targetRow.weaponName = normalized.weaponName;
-    targetRow.inGamePrice = normalized.inGamePrice;
-    latestState.status = "success";
-    latestState.errorMessage = "";
-  } catch (error) {
-    const latestState = rowOcrStateMap.value[rowId];
-    if (!latestState) return;
-    latestState.status = "error";
-    latestState.errorMessage = getOcrErrorMessage(error);
-  } finally {
-    activeOcrRowId.value = null;
-  }
+  await uploadRowOcrFile(rowId, file);
 }
 
 function getRowOcrIcon(rowId: string) {
@@ -1515,6 +1655,7 @@ function mapRecordItemToRow(
   item: UnboxRecordDTO["items"][number],
   defaultDiscount: number
 ): UnboxRow {
+  const wearValue = Number(item.wear ?? 0);
   return {
     id: String(item.id ?? createId()),
     handlingStatus: item.handlingStatus,
@@ -1523,6 +1664,8 @@ function mapRecordItemToRow(
     inGamePrice: Number(item.inGamePrice ?? 0),
     discount: clampDiscount(item.discount ?? defaultDiscount),
     actualSellPrice: Number(item.actualSellPrice ?? 0),
+    wear: wearValue > 0 ? wearValue : "",
+    exterior: Number(item.exterior ?? 0),
     note: item.note ?? "",
   };
 }
@@ -1553,6 +1696,8 @@ function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
       inGamePrice: round(row.inGamePrice),
       discount: hasDiscountValue(row.discount) ? clampDiscount(row.discount) : null,
       actualSellPrice: round(row.actualSellPrice),
+      wear: row.wear === "" ? null : Number(row.wear),
+      exterior: row.exterior,
       note: row.note.trim(),
     })),
   };
@@ -1746,10 +1891,11 @@ const numberFieldBaseClass =
   "w-full [&_.t-input-number]:w-full [&_.t-input-number]:min-w-0 [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:w-full [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const batchDiscountFieldClass = `!w-full min-w-0 ${numberFieldBaseClass} [&_.t-input__wrap]:px-0 [&_.t-input]:w-full [&_.t-input]:px-3 [&_.t-input__inner]:w-full [&_.t-input__inner]:text-left`;
 const numberFieldPrimaryClass = `${numberFieldBaseClass} [&_.t-input__wrap]:border-sky-300 [&_.t-input__wrap]:bg-sky-50 [&_.t-input__wrap:hover]:border-sky-400`;
-const draftFieldClass = `min-w-0 max-w-full ${fieldBaseClass}`;
-const draftFieldWithOcrClass = `${draftFieldClass} [&_.t-input__suffix]:flex [&_.t-input__suffix]:items-center`;
+const draftSelectFieldClass = `min-w-0 max-w-full ${fieldBaseClass}`;
 const draftNumberFieldClass = `min-w-0 max-w-full ${numberFieldBaseClass}`;
 const draftNumberFieldPrimaryClass = `min-w-0 max-w-full ${numberFieldPrimaryClass}`;
+const draftStatusButtonBaseClass =
+  "inline-flex min-w-0 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none";
 const draftCellControlClass = "min-w-0 max-w-full";
 
 const batchColumns = computed<PrimaryTableCol[]>(() => [
@@ -1994,6 +2140,20 @@ const selectableDraftHandlingStatusOptions: SelectableDraftHandlingStatusOption[
   { value: "purchased", label: "已买", theme: "success" },
 ];
 
+function getDraftStatusButtonActiveClass(status: SelectableDraftHandlingStatus) {
+  if (status === "discarded") {
+    return "!border-rose-200 !bg-rose-50 !text-rose-600";
+  }
+  if (status === "stored") {
+    return "!border-amber-200 !bg-amber-50 !text-amber-600";
+  }
+  return "!border-emerald-200 !bg-emerald-50 !text-emerald-600";
+}
+
+function setHandlingStatus(row: UnboxRow, handlingStatus: SelectableDraftHandlingStatus) {
+  row.handlingStatus = handlingStatus;
+}
+
 function getDraftRowStage(row: UnboxRow): DraftRowStage {
   if (row.handlingStatus === "discarded") return "丢弃";
   if (row.handlingStatus === "stored") return "暂存";
@@ -2182,6 +2342,26 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
     thClassName: draftTableHeaderClass,
   },
   {
+    colKey: "wear",
+    title: "磨损",
+    width: 132,
+    minWidth: 132,
+    cell: "wear",
+    align: "left",
+    className: draftTableBodyClass,
+    thClassName: draftTableHeaderClass,
+  },
+  {
+    colKey: "exterior",
+    title: "外观",
+    width: 124,
+    minWidth: 124,
+    cell: "exterior",
+    align: "left",
+    className: draftTableBodyClass,
+    thClassName: draftTableHeaderClass,
+  },
+  {
     colKey: "purchaseCost",
     title: purchaseCostTitle,
     width: 118,
@@ -2258,7 +2438,29 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   },
 ]);
 
-const draftTableHeight = computed(() => Math.max(Math.floor(draftTableViewportHeight.value), 320));
+const DRAFT_TABLE_MIN_HEIGHT = 320;
+const DRAFT_TABLE_HEADER_TOOLBAR_HEIGHT = 68;
+const DRAFT_TABLE_SECTION_PADDING = 24;
+
+const draftTableMaxHeight = computed(() => {
+  const editorContentAvailableHeight =
+    editorContentHeight.value - batchInfoSectionHeight.value - DRAFT_TABLE_SECTION_PADDING;
+  const sectionAvailableHeight = editorContentAvailableHeight - DRAFT_TABLE_HEADER_TOOLBAR_HEIGHT;
+  return Math.max(Math.floor(sectionAvailableHeight), DRAFT_TABLE_MIN_HEIGHT);
+});
+
+const draftTableViewportStyle = computed(() => {
+  if (draftRowEntries.value.length === 0) {
+    return {
+      minHeight: `${DRAFT_TABLE_MIN_HEIGHT}px`,
+      maxHeight: `${draftTableMaxHeight.value}px`,
+    };
+  }
+
+  return {
+    maxHeight: `${draftTableMaxHeight.value}px`,
+  };
+});
 
 const draftSummary = computed(() =>
   buildBatchSummary(draftBatch.value.rows.length, draftRowEntries.value)
@@ -2394,20 +2596,6 @@ async function removeBatch(batchId: number) {
   }
 }
 
-function getDraftStatusButtonActiveClass(status: SelectableDraftHandlingStatus) {
-  if (status === "discarded") {
-    return "!border-rose-200 !bg-rose-50 !text-rose-600";
-  }
-  if (status === "stored") {
-    return "!border-amber-200 !bg-amber-50 !text-amber-600";
-  }
-  return "!border-emerald-200 !bg-emerald-50 !text-emerald-600";
-}
-
-function setHandlingStatus(row: UnboxRow, handlingStatus: SelectableDraftHandlingStatus) {
-  row.handlingStatus = handlingStatus;
-}
-
 function createToolbarDefaultRow(boxPurchasePrice = round(toolbarBoxPurchasePrice.value)) {
   return createRow({ boxPurchasePrice }, draftBatch.value);
 }
@@ -2494,13 +2682,13 @@ function handleRemoveRow(id: string) {
 
 :deep(.draft-detail-table .t-table__content) {
   width: 100%;
-  height: 100%;
+  max-height: 100%;
   overflow: auto;
   scrollbar-gutter: stable both-edges;
 }
 
 :deep(.draft-detail-table .t-table) {
-  height: 100%;
+  width: 100%;
   table-layout: fixed;
 }
 
@@ -2526,29 +2714,8 @@ function handleRemoveRow(id: string) {
   box-sizing: border-box;
 }
 
-:deep(.draft-detail-table .draft-status-cell) {
-  width: 100%;
-  min-width: 0;
-}
-
-:deep(.draft-detail-table .draft-status-cell__group) {
-  display: flex;
-  width: 100%;
-  min-width: 0;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-}
-
-:deep(.draft-detail-table .draft-status-cell__button) {
-  display: inline-flex;
-  min-width: 0;
-  max-width: 100%;
-  flex: 1 1 calc(33.333% - 0.25rem);
-  justify-content: center;
-}
-
 :deep(.draft-detail-table .t-table__content-inner) {
-  min-height: 100%;
+  min-width: 100%;
 }
 
 :deep(.draft-detail-table .t-table__table) {

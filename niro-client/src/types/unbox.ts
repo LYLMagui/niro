@@ -9,6 +9,8 @@ export interface UnboxRecordItemDTO {
   inGamePrice: number;
   discount: number | null;
   actualSellPrice: number;
+  wear: number;
+  exterior: number;
   note: string;
   createdAt?: string;
   updatedAt?: string;
@@ -33,6 +35,8 @@ export interface UnboxRecordItemParam {
   inGamePrice: number;
   discount: number | null;
   actualSellPrice: number;
+  wear: number | null;
+  exterior: number;
   note: string;
 }
 
@@ -45,8 +49,6 @@ export interface UnboxRecordSaveParam {
 }
 
 export interface UnboxRecordOcrResult {
-  weaponName?: string;
-  inGamePrice?: number | string | null;
-  errorMessage?: string;
-  message?: string;
+  price?: number | string | null;
+  wear?: number | string | null;
 }
