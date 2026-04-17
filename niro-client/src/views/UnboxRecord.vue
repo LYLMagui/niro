@@ -619,17 +619,89 @@
 
                     <template #actualSellPrice="{ row: entry }">
                       <div class="space-y-1" :class="draftCellControlClass">
-                        <t-input-number
-                          v-model="entry.row.actualSellPrice"
-                          :decimal-places="2"
-                          :disabled="!isRowEditable(entry.row)"
-                          :min="0"
-                          :step="0.1"
-                          align="right"
-                          :class="draftNumberFieldPrimaryClass"
-                          placeholder="优先录这里"
-                          theme="normal"
-                        />
+                        <div class="flex items-center gap-2">
+                          <t-input-number
+                            v-model="entry.row.actualSellPrice"
+                            :decimal-places="2"
+                            :disabled="!isRowEditable(entry.row)"
+                            :min="0"
+                            :step="0.1"
+                            align="right"
+                            :class="`flex-1 ${draftNumberFieldPrimaryClass}`"
+                            placeholder="优先录这里"
+                            theme="normal"
+                          />
+                          <t-popup
+                            :visible="activeC5PopupRowId === entry.row.id"
+                            trigger="click"
+                            placement="left-top"
+                            show-arrow
+                            attach="body"
+                            overlay-inner-class-name="unbox-c5-popup__inner"
+                            :disabled="!isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                            @visible-change="(visible) => handleRowC5PopupVisibleChange(entry.row.id, visible)"
+                          >
+                            <template #content>
+                              <div class="w-[280px] space-y-2">
+                                <div class="flex items-center justify-between gap-3">
+                                  <div>
+                                    <div class="text-sm font-semibold text-slate-700">C5 模拟挂单</div>
+                                    <div class="mt-1 text-xs text-slate-500">
+                                      {{ getRowC5TriggerTooltip(entry.row) }}
+                                    </div>
+                                  </div>
+                                </div>
+                                <button
+                                  v-for="listing in getRowC5Listings(entry.row)"
+                                  :key="listing.id"
+                                  type="button"
+                                  class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
+                                  @click.stop="applyMockC5Listing(entry.row, listing)"
+                                >
+                                  <div class="min-w-0">
+                                    <div class="font-numeric text-sm font-semibold text-slate-800">
+                                      {{ formatCurrency(listing.price) }}
+                                    </div>
+                                    <div class="mt-1 text-xs text-slate-500">
+                                      {{ listing.sellerName }}
+                                    </div>
+                                  </div>
+                                  <div class="text-right text-xs text-slate-500">
+                                    <div>磨损 {{ formatWearDisplay(listing.wear) }}</div>
+                                    <div class="mt-1">
+                                      差值
+                                      {{
+                                        entry.row.wear === ""
+                                          ? "默认"
+                                          : formatWearDisplay(Math.abs(listing.wear - entry.row.wear))
+                                      }}
+                                    </div>
+                                  </div>
+                                </button>
+                              </div>
+                            </template>
+                            <button
+                              type="button"
+                              class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              :disabled="!isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                              :aria-label="getRowC5TriggerTooltip(entry.row)"
+                            >
+                              <svg
+                                viewBox="0 0 16 16"
+                                aria-hidden="true"
+                                :class="[
+                                  'h-4 w-4 text-slate-400 transition-all group-hover:text-sky-500',
+                                  activeC5PopupRowId === entry.row.id ? 'rotate-180 text-sky-500' : '',
+                                ]"
+                              >
+                                <path
+                                  d="M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z"
+                                  fill="currentColor"
+                                />
+                              </svg>
+                            </button>
+                          </t-popup>
+                        </div>
                       </div>
                     </template>
 
@@ -975,17 +1047,87 @@
                       <div class="grid grid-cols-2 gap-3">
                         <label class="space-y-1.5">
                           <span class="text-sm font-semibold text-sky-700">平台卖出价</span>
-                          <t-input-number
-                            v-model="row.actualSellPrice"
-                            :decimal-places="2"
-                            :disabled="!isRowEditable(row)"
-                            :min="0"
-                            :step="0.1"
-                            align="left"
-                            :class="numberFieldPrimaryClass"
-                            placeholder="优先录这里"
-                            theme="normal"
-                          />
+                          <div class="flex items-center gap-2">
+                            <t-input-number
+                              v-model="row.actualSellPrice"
+                              :decimal-places="2"
+                              :disabled="!isRowEditable(row)"
+                              :min="0"
+                              :step="0.1"
+                              align="left"
+                              :class="`flex-1 ${numberFieldPrimaryClass}`"
+                              placeholder="优先录这里"
+                              theme="normal"
+                            />
+                            <t-popup
+                              :visible="activeC5PopupRowId === row.id"
+                              trigger="click"
+                              placement="left-top"
+                              show-arrow
+                              attach="body"
+                              overlay-inner-class-name="unbox-c5-popup__inner"
+                              :disabled="!isRowEditable(row) || !row.weaponName.trim()"
+                              @visible-change="(visible) => handleRowC5PopupVisibleChange(row.id, visible)"
+                            >
+                              <template #content>
+                                <div class="w-[280px] space-y-2">
+                                  <div>
+                                    <div class="text-sm font-semibold text-slate-700">C5 模拟挂单</div>
+                                    <div class="mt-1 text-xs text-slate-500">
+                                      {{ getRowC5TriggerTooltip(row) }}
+                                    </div>
+                                  </div>
+                                  <button
+                                    v-for="listing in getRowC5Listings(row)"
+                                    :key="listing.id"
+                                    type="button"
+                                    class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
+                                    @click.stop="applyMockC5Listing(row, listing)"
+                                  >
+                                    <div class="min-w-0">
+                                      <div class="font-numeric text-sm font-semibold text-slate-800">
+                                        {{ formatCurrency(listing.price) }}
+                                      </div>
+                                      <div class="mt-1 text-xs text-slate-500">
+                                        {{ listing.sellerName }}
+                                      </div>
+                                    </div>
+                                    <div class="text-right text-xs text-slate-500">
+                                      <div>磨损 {{ formatWearDisplay(listing.wear) }}</div>
+                                      <div class="mt-1">
+                                        差值
+                                        {{
+                                          row.wear === ""
+                                            ? "默认"
+                                            : formatWearDisplay(Math.abs(listing.wear - row.wear))
+                                        }}
+                                      </div>
+                                    </div>
+                                  </button>
+                                </div>
+                              </template>
+                              <button
+                                type="button"
+                                class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="!isRowEditable(row) || !row.weaponName.trim()"
+                                :aria-label="getRowC5TriggerTooltip(row)"
+                              >
+                                <svg
+                                  viewBox="0 0 16 16"
+                                  aria-hidden="true"
+                                  :class="[
+                                    'h-4 w-4 text-slate-400 transition-all group-hover:text-sky-500',
+                                    activeC5PopupRowId === row.id ? 'rotate-180 text-sky-500' : '',
+                                  ]"
+                                >
+                                  <path
+                                    d="M4.47 6.97a.75.75 0 0 1 1.06 0L8 9.44l2.47-2.47a.75.75 0 1 1 1.06 1.06l-3 3a.75.75 0 0 1-1.06 0l-3-3a.75.75 0 0 1 0-1.06Z"
+                                    fill="currentColor"
+                                  />
+                                </svg>
+                              </button>
+                            </t-popup>
+                          </div>
                         </label>
                         <div class="rounded-[4px] border border-slate-200/80 bg-white p-3">
                           <div class="text-sm text-slate-500">手续费</div>
@@ -1204,9 +1346,18 @@ interface RowOcrState {
   errorMessage: string;
 }
 
+interface MockC5Listing {
+  id: string;
+  price: number;
+  wear: number;
+  sellerName: string;
+}
+
 const OCR_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
 const OCR_FIELD_MISSING_MESSAGE = "未识别到价格，请重新上传";
 const OCR_REQUEST_FAILURE_MESSAGE = "图片识别失败";
+const MOCK_C5_LISTING_PRICE_OFFSETS = [-1.26, -0.58, -0.12, 0.18, 0.63];
+const MOCK_C5_LISTING_WEAR_OFFSETS = [-0.041235678, -0.018764321, -0.004125678, 0.009845321, 0.027451236];
 const EXTERIOR_OPTIONS = [
   { label: "崭新出厂", value: 0 },
   { label: "略有磨损", value: 1 },
@@ -1287,6 +1438,7 @@ const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
 const ocrInputRef = ref<HTMLInputElement | null>(null);
 const activeOcrRowId = ref<string | null>(null);
 const activeOcrPopupRowId = ref<string | null>(null);
+const activeC5PopupRowId = ref<string | null>(null);
 const loadingDetailBatchId = ref<number | null>(null);
 
 const editorDialogClassName = computed(() => {
@@ -1543,6 +1695,7 @@ function resetRowOcrState(rows: UnboxRow[]) {
   );
   activeOcrRowId.value = null;
   activeOcrPopupRowId.value = null;
+  activeC5PopupRowId.value = null;
 }
 
 function ensureRowOcrState(rowId: string) {
@@ -1631,6 +1784,51 @@ function validateOcrImage(file: File, rowId: string) {
 
 function handleRowOcrPopupVisibleChange(rowId: string, visible: boolean) {
   activeOcrPopupRowId.value = visible ? rowId : activeOcrPopupRowId.value === rowId ? null : activeOcrPopupRowId.value;
+}
+
+function handleRowC5PopupVisibleChange(rowId: string, visible: boolean) {
+  activeC5PopupRowId.value = visible ? rowId : activeC5PopupRowId.value === rowId ? null : activeC5PopupRowId.value;
+}
+
+function getMockC5Listings(row: UnboxRow): MockC5Listing[] {
+  const basePrice = row.actualSellPrice > 0 ? row.actualSellPrice : row.inGamePrice > 0 ? row.inGamePrice * 2.2 : 10;
+  const baseWear = row.wear === "" ? 0.15 : row.wear;
+  const listings = MOCK_C5_LISTING_PRICE_OFFSETS.map((priceOffset, index) => {
+    const wear = Math.min(1, Math.max(0, baseWear + MOCK_C5_LISTING_WEAR_OFFSETS[index]));
+    return {
+      id: `${row.id}-${index}`,
+      price: round(Math.max(0.01, basePrice + priceOffset)),
+      wear,
+      sellerName: `C5卖家${index + 1}`,
+    };
+  });
+  const targetWear = row.wear === "" ? null : row.wear;
+  return listings.sort((left, right) => {
+    if (targetWear === null) {
+      return left.price - right.price;
+    }
+    return Math.abs(left.wear - targetWear) - Math.abs(right.wear - targetWear);
+  });
+}
+
+function getRowC5Listings(row: UnboxRow) {
+  return getMockC5Listings(row);
+}
+
+function getRowC5TriggerTooltip(row: UnboxRow) {
+  if (!row.weaponName.trim()) {
+    return "请先填写饰品名称";
+  }
+  if (row.wear === "") {
+    return "当前未填写磨损，将按默认顺序展示模拟挂单";
+  }
+  return "查看 C5 模拟挂单并回填卖出价";
+}
+
+function applyMockC5Listing(row: UnboxRow, listing: MockC5Listing) {
+  row.actualSellPrice = listing.price;
+  activeC5PopupRowId.value = null;
+  MessagePlugin.success(`已回填平台卖出价 ${formatCurrency(listing.price)}`);
 }
 
 function triggerRowOcrFileSelect(row: UnboxRow) {
@@ -2232,6 +2430,9 @@ watch(
     if (activeOcrPopupRowId.value && !nextIds.has(activeOcrPopupRowId.value)) {
       activeOcrPopupRowId.value = null;
     }
+    if (activeC5PopupRowId.value && !nextIds.has(activeC5PopupRowId.value)) {
+      activeC5PopupRowId.value = null;
+    }
   },
   { immediate: true }
 );
@@ -2819,6 +3020,10 @@ function handleRemoveRow(id: string) {
 
 :deep(.unbox-ocr-popup__inner .t-button) {
   justify-content: center;
+}
+
+:deep(.unbox-c5-popup__inner) {
+  padding: 8px;
 }
 
 :deep(.draft-detail-table .t-table) {
