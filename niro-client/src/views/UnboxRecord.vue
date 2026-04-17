@@ -14,6 +14,7 @@
           v-for="card in pageSummaryCards"
           :key="card.label"
           class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
+          :class="summaryLoading ? 'opacity-70' : ''"
         >
           <div class="truncate text-sm font-medium tracking-[0.03em] text-slate-500">
             {{ card.label }}
@@ -33,16 +34,16 @@
           class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
         >
           <div class="flex min-w-0 flex-1 flex-col gap-3">
-            <div class="flex flex-wrap items-center gap-2" aria-label="快捷日期筛选">
+            <div class="flex flex-wrap items-center gap-2" aria-label="周期快捷筛选">
               <t-button
-                v-for="preset in dateRangePresets"
-                :key="preset.key"
+                v-for="period in periodOptions"
+                :key="period.value"
                 variant="outline"
-                :theme="activePresetKey === preset.key ? 'primary' : 'default'"
+                :theme="activePeriod === period.value ? 'primary' : 'default'"
                 class="touch-manipulation"
-                @click="applyDatePreset(preset.key)"
+                @click="setActivePeriod(period.value)"
               >
-                {{ preset.label }}
+                {{ period.label }}
               </t-button>
             </div>
 
@@ -60,20 +61,10 @@
                 @change="handleDateRangeChange"
               />
 
-              <div class="flex flex-wrap items-center gap-2" aria-label="周期筛选">
-                <t-button
-                  v-for="period in periodOptions"
-                  :key="period.value"
-                  variant="outline"
-                  :theme="activePeriod === period.value ? 'primary' : 'default'"
-                  class="touch-manipulation"
-                  @click="setActivePeriod(period.value)"
-                >
-                  {{ period.label }}
+              <div class="flex flex-wrap items-center gap-2">
+                <t-button theme="primary" class="touch-manipulation" @click="handleSummarySearch">
+                  查询
                 </t-button>
-
-                <span class="text-sm text-slate-400">当前周期内与日期范围交集生效</span>
-
                 <t-button variant="text" theme="default" @click="resetFilters">重置</t-button>
               </div>
             </div>
@@ -143,7 +134,7 @@
 
             <template #operation="{ row }">
               <div class="flex flex-wrap gap-1.5">
-                <t-button variant="outline" @click="openEditEditor(row.batch.id)">编辑</t-button>
+                <t-button variant="outline" :loading="detailLoading && loadingDetailBatchId === row.batch.id" @click="openEditEditor(row.batch.id)">编辑</t-button>
                 <t-popconfirm
                   content="确认删除该批次吗？"
                   theme="danger"
@@ -157,14 +148,11 @@
           </t-table>
         </div>
 
-        <div
-          v-if="filteredBatchSummaryRows.length > 0"
-          class="border-t border-slate-200 bg-white px-4 py-3"
-        >
+        <div v-if="batchPagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
             :current="batchPagination.current"
             :page-size="batchPagination.pageSize"
-            :total="filteredBatchSummaryRows.length"
+            :total="batchPagination.total"
             @change="handleBatchPageChange"
           />
         </div>
@@ -211,7 +199,7 @@
                 {{ isEditorFullscreen ? "缩小" : "全屏" }}
               </t-button>
               <t-button variant="outline" @click="editorVisible = false">取消</t-button>
-              <t-button theme="primary" @click="saveDraftBatch">
+              <t-button theme="primary" :loading="savingBatch" @click="saveDraftBatch">
                 {{ savingBatch ? "保存中..." : "保存批次" }}
               </t-button>
               <button
@@ -503,26 +491,58 @@
                           v-model="entry.row.weaponName"
                           :class="`flex-1 ${draftSelectFieldClass}`"
                           :disabled="!isRowEditable(entry.row)"
-                          :options="WEAPON_NAME_OPTIONS"
+                          :options="weaponNameOptions"
                           clearable
                           filterable
                           placeholder="请选择饰品名称"
                         />
-                        <button
-                          type="button"
-                          class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                        <t-popup
+                          :visible="activeOcrPopupRowId === entry.row.id"
+                          trigger="hover"
+                          placement="top"
+                          show-arrow
+                          attach="body"
+                          overlay-inner-class-name="unbox-ocr-popup__inner"
                           :disabled="
                             !isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'
                           "
-                          :aria-label="getRowOcrTooltip(entry.row.id)"
-                          @click.stop="triggerRowOcrFileSelect(entry.row)"
+                          @visible-change="(visible) => handleRowOcrPopupVisibleChange(entry.row.id, visible)"
                         >
-                          <component
-                            :is="getRowOcrIcon(entry.row.id)"
-                            class="h-4 w-4 transition-colors"
-                            :class="getRowOcrIconClass(entry.row.id)"
-                          />
-                        </button>
+                          <template #content>
+                            <div class="grid min-w-[148px] grid-cols-2 gap-2">
+                              <t-button
+                                size="small"
+                                variant="outline"
+                                class="w-full"
+                                @click.stop="triggerRowOcrFileSelect(entry.row)"
+                              >
+                                上传
+                              </t-button>
+                              <t-button
+                                size="small"
+                                variant="outline"
+                                class="w-full"
+                                @click.stop="handlePasteRowOcrImage(entry.row)"
+                              >
+                                粘贴
+                              </t-button>
+                            </div>
+                          </template>
+                          <button
+                            type="button"
+                            class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                            :disabled="
+                              !isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'
+                            "
+                            :aria-label="getRowOcrTooltip(entry.row.id)"
+                          >
+                            <component
+                              :is="getRowOcrIcon(entry.row.id)"
+                              class="h-4 w-4 transition-colors"
+                              :class="getRowOcrIconClass(entry.row.id)"
+                            />
+                          </button>
+                        </t-popup>
                       </div>
                     </template>
 
@@ -830,24 +850,54 @@
                               v-model="row.weaponName"
                               :class="`flex-1 ${fieldBaseClass}`"
                               :disabled="!isRowEditable(row)"
-                              :options="WEAPON_NAME_OPTIONS"
+                              :options="weaponNameOptions"
                               clearable
                               filterable
                               placeholder="请选择饰品名称"
                             />
-                            <button
-                              type="button"
-                              class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                            <t-popup
+                              :visible="activeOcrPopupRowId === row.id"
+                              trigger="hover"
+                              placement="top"
+                              show-arrow
+                              attach="body"
+                              overlay-inner-class-name="unbox-ocr-popup__inner"
                               :disabled="!isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'"
-                              :aria-label="getRowOcrTooltip(row.id)"
-                              @click.stop="triggerRowOcrFileSelect(row)"
+                              @visible-change="(visible) => handleRowOcrPopupVisibleChange(row.id, visible)"
                             >
-                              <component
-                                :is="getRowOcrIcon(row.id)"
-                                class="h-4 w-4 transition-colors"
-                                :class="getRowOcrIconClass(row.id)"
-                              />
-                            </button>
+                              <template #content>
+                                <div class="grid min-w-[148px] grid-cols-2 gap-2">
+                                  <t-button
+                                    size="small"
+                                    variant="outline"
+                                    class="w-full"
+                                    @click.stop="triggerRowOcrFileSelect(row)"
+                                  >
+                                    上传
+                                  </t-button>
+                                  <t-button
+                                    size="small"
+                                    variant="outline"
+                                    class="w-full"
+                                    @click.stop="handlePasteRowOcrImage(row)"
+                                  >
+                                    粘贴
+                                  </t-button>
+                                </div>
+                              </template>
+                              <button
+                                type="button"
+                                class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="!isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'"
+                                :aria-label="getRowOcrTooltip(row.id)"
+                              >
+                                <component
+                                  :is="getRowOcrIcon(row.id)"
+                                  class="h-4 w-4 transition-colors"
+                                  :class="getRowOcrIconClass(row.id)"
+                                />
+                              </button>
+                            </t-popup>
                           </div>
                         </label>
                       </div>
@@ -1037,7 +1087,9 @@ import type {
   DraftHandlingStatus,
   UnboxRecordDTO,
   UnboxRecordOcrResult,
+  UnboxRecordPageDTO,
   UnboxRecordSaveParam,
+  UnboxRecordSummaryDTO,
 } from "@/types/unbox";
 
 type DiscountValue = number | "";
@@ -1063,6 +1115,15 @@ interface UnboxBatch {
   defaultDiscount: DiscountValue;
   note: string;
   rows: UnboxRow[];
+}
+
+interface BatchListRecord {
+  id: number;
+  goodsId?: number;
+  boxName: string;
+  date: string;
+  defaultDiscount: DiscountValue;
+  note: string;
 }
 
 type BatchStatus = "未结算" | "部分结算" | "已结算";
@@ -1107,13 +1168,20 @@ interface SummaryCard {
 }
 
 type PeriodFilter = "week" | "month" | "year";
-type DatePresetKey = "today" | "last7" | "last30";
 type DateRangeValue = TDateRangeValue;
+
+interface BatchPageSummary {
+  totalCount: number;
+  totalPurchaseCost: number;
+  totalActualFee: number;
+  totalActualNetProfit: number;
+  totalActualProfitRate: number | null;
+}
 
 interface BatchSummaryRow {
   key: number;
-  batch: UnboxBatch;
-  summary: BatchSummary;
+  batch: BatchListRecord;
+  summary: BatchPageSummary;
   status: BatchStatus;
 }
 
@@ -1146,7 +1214,7 @@ const EXTERIOR_OPTIONS = [
   { label: "破损不堪", value: 3 },
   { label: "战痕累累", value: 4 },
 ];
-const WEAPON_NAME_OPTIONS = [
+const BASE_WEAPON_NAME_OPTIONS = [
   { label: "SCAR-20 | 牢笼", value: "SCAR-20 | 牢笼" },
   { label: "AUG | 后发制人", value: "AUG | 后发制人" },
   { label: "P2000 | 红翼", value: "P2000 | 红翼" },
@@ -1202,18 +1270,24 @@ const batchSummarySort = ref<TableSort>();
 const batchPagination = ref({
   current: 1,
   pageSize: 10,
+  total: 0,
 });
 const draftTableSort = ref<TableSort>();
 const activePeriod = ref<PeriodFilter>("month");
-const activePresetKey = ref<DatePresetKey | null>(null);
 const customDateRange = ref<DateRangeValue>([]);
+const appliedDateRange = ref<DateRangeValue>([]);
+const appliedPeriod = ref<PeriodFilter>("month");
 const listLoading = ref(false);
+const summaryLoading = ref(false);
+const detailLoading = ref(false);
 const savingBatch = ref(false);
 const goodsLoading = ref(false);
 const goodsCatalog = ref<GoodsSimple[]>([]);
 const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
 const ocrInputRef = ref<HTMLInputElement | null>(null);
 const activeOcrRowId = ref<string | null>(null);
+const activeOcrPopupRowId = ref<string | null>(null);
+const loadingDetailBatchId = ref<number | null>(null);
 
 const editorDialogClassName = computed(() => {
   if (isMobile.value || isEditorFullscreen.value) {
@@ -1300,12 +1374,6 @@ const periodOptions: Array<{ label: string; value: PeriodFilter }> = [
   { label: "本年", value: "year" },
 ];
 
-const dateRangePresets: Array<{ key: DatePresetKey; label: string }> = [
-  { key: "today", label: "今天" },
-  { key: "last7", label: "近7天" },
-  { key: "last30", label: "近30天" },
-];
-
 const formatDayKey = (value: Dayjs) => value.format("YYYY-MM-DD");
 
 function getCurrentWeekRange(baseDate = dayjs()): [string, string] {
@@ -1316,34 +1384,23 @@ function getCurrentWeekRange(baseDate = dayjs()): [string, string] {
   return [formatDayKey(start), formatDayKey(end)];
 }
 
-function getPresetRange(key: DatePresetKey): [string, string] {
-  const today = dayjs();
-
-  if (key === "today") {
-    const value = formatDayKey(today);
-    return [value, value];
+function getPeriodRange(period: PeriodFilter, baseDate = dayjs()): [string, string] {
+  if (period === "week") {
+    return getCurrentWeekRange(baseDate);
   }
 
-  if (key === "last7") {
-    return [formatDayKey(today.subtract(6, "day")), formatDayKey(today)];
+  if (period === "year") {
+    return [formatDayKey(baseDate.startOf("year")), formatDayKey(baseDate.endOf("year"))];
   }
 
-  return [formatDayKey(today.subtract(29, "day")), formatDayKey(today)];
+  return [formatDayKey(baseDate.startOf("month")), formatDayKey(baseDate.endOf("month"))];
 }
 
-const currentPeriodRange = computed<[string, string]>(() => {
-  const today = dayjs();
+const currentPeriodRange = computed<[string, string]>(() => getPeriodRange(appliedPeriod.value));
 
-  if (activePeriod.value === "week") {
-    return getCurrentWeekRange(today);
-  }
-
-  if (activePeriod.value === "year") {
-    return [formatDayKey(today.startOf("year")), formatDayKey(today.endOf("year"))];
-  }
-
-  return [formatDayKey(today.startOf("month")), formatDayKey(today.endOf("month"))];
-});
+const initialSummaryRange = getPeriodRange(activePeriod.value);
+customDateRange.value = [...initialSummaryRange];
+appliedDateRange.value = [...initialSummaryRange];
 
 const dateRangeValue = computed<DateRangeValue>(() => customDateRange.value);
 
@@ -1364,47 +1421,32 @@ function normalizeDateRange(value: DateRangeValue): [string, string] | [] {
     : [formatDayKey(start), formatDayKey(end)];
 }
 
-function isSameRange(left: DateRangeValue, right: DateRangeValue) {
-  if (left.length !== right.length) return false;
-  if (left.length === 0 && right.length === 0) return true;
-  return left[0] === right[0] && left[1] === right[1];
-}
-
-function applyDatePreset(key: DatePresetKey) {
-  const range = getPresetRange(key);
-  customDateRange.value = range;
-  activePresetKey.value = key;
-  batchPagination.value.current = 1;
-}
-
 function handleDateRangeChange(value: DateRangeValue) {
-  const normalizedRange = normalizeDateRange(value);
-  customDateRange.value = normalizedRange;
+  customDateRange.value = normalizeDateRange(value);
+}
 
-  if (normalizedRange.length === 0) {
-    activePresetKey.value = null;
-    batchPagination.value.current = 1;
-    return;
-  }
-
-  const matchedPreset = dateRangePresets.find((preset) =>
-    isSameRange(normalizedRange, getPresetRange(preset.key))
-  );
-  activePresetKey.value = matchedPreset?.key ?? null;
+function applySummaryFilters() {
+  appliedPeriod.value = activePeriod.value;
+  appliedDateRange.value = customDateRange.value.length === 2 ? [...customDateRange.value] : [];
   batchPagination.value.current = 1;
+  void loadBatchPageAndSummary();
 }
 
 function setActivePeriod(period: PeriodFilter) {
   if (activePeriod.value === period) return;
   activePeriod.value = period;
-  batchPagination.value.current = 1;
+  customDateRange.value = getPeriodRange(period);
+  applySummaryFilters();
+}
+
+function handleSummarySearch() {
+  applySummaryFilters();
 }
 
 function resetFilters() {
   activePeriod.value = "month";
-  activePresetKey.value = null;
   customDateRange.value = [];
-  batchPagination.value.current = 1;
+  applySummaryFilters();
 }
 
 const createRow = (
@@ -1434,18 +1476,26 @@ const createBlankBatch = (): UnboxBatch => ({
   rows: [],
 });
 
-const cloneBatch = (batch: UnboxBatch): UnboxBatch => ({
-  id: batch.id,
-  goodsId: batch.goodsId,
-  boxName: batch.boxName,
-  date: batch.date,
-  defaultDiscount: batch.defaultDiscount,
-  note: batch.note,
-  rows: batch.rows.map((row) => ({ ...row })),
+const EMPTY_SUMMARY: UnboxRecordSummaryDTO = {
+  totalBatches: 0,
+  totalPurchaseCost: 0,
+  totalFee: 0,
+  totalActualNetProfit: 0,
+};
+
+const weaponNameOptions = computed(() => {
+  const optionMap = new Map(BASE_WEAPON_NAME_OPTIONS.map((item) => [item.value, item]));
+  for (const row of draftBatch.value.rows) {
+    const weaponName = row.weaponName.trim();
+    if (!weaponName || optionMap.has(weaponName)) continue;
+    optionMap.set(weaponName, { label: weaponName, value: weaponName });
+  }
+  return Array.from(optionMap.values());
 });
 
 const draftBatch = ref<UnboxBatch>(createBlankBatch());
-const batches = ref<UnboxBatch[]>([]);
+const currentPageBatchSummaryRows = ref<BatchSummaryRow[]>([]);
+const summaryState = ref<UnboxRecordSummaryDTO>({ ...EMPTY_SUMMARY });
 
 function normalizeGoodsKeyword(keyword: string) {
   return keyword.trim();
@@ -1492,6 +1542,7 @@ function resetRowOcrState(rows: UnboxRow[]) {
     rows.map((row) => [row.id, createDefaultRowOcrState()])
   );
   activeOcrRowId.value = null;
+  activeOcrPopupRowId.value = null;
 }
 
 function ensureRowOcrState(rowId: string) {
@@ -1547,6 +1598,18 @@ function normalizeOcrResultWear(result: UnboxRecordOcrResult) {
   return numericValue >= 0 && numericValue <= 1 ? numericValue : null;
 }
 
+function normalizeOcrResultExterior(result: UnboxRecordOcrResult) {
+  const rawValue = result.exterior;
+  if (rawValue === null || rawValue === undefined || rawValue === "") {
+    return null;
+  }
+  const numericValue = Number(rawValue);
+  if (!Number.isInteger(numericValue)) {
+    return null;
+  }
+  return numericValue >= 0 && numericValue <= 4 ? numericValue : null;
+}
+
 function handleOcrValidationFailure(rowId: string, message: string) {
   const state = ensureRowOcrState(rowId);
   state.status = "error";
@@ -1566,21 +1629,57 @@ function validateOcrImage(file: File, rowId: string) {
   return true;
 }
 
+function handleRowOcrPopupVisibleChange(rowId: string, visible: boolean) {
+  activeOcrPopupRowId.value = visible ? rowId : activeOcrPopupRowId.value === rowId ? null : activeOcrPopupRowId.value;
+}
+
 function triggerRowOcrFileSelect(row: UnboxRow) {
   if (!isRowEditable(row)) return;
   const state = getRowOcrState(row.id);
   if (state.status === "uploading") return;
+  activeOcrPopupRowId.value = null;
   activeOcrRowId.value = row.id;
   ocrInputRef.value?.click();
+}
+
+async function handlePasteRowOcrImage(row: UnboxRow) {
+  if (!isRowEditable(row)) return;
+  const state = getRowOcrState(row.id);
+  if (state.status === "uploading") return;
+  if (!navigator.clipboard?.read) {
+    handleOcrValidationFailure(row.id, "当前环境不支持读取剪贴板图片");
+    return;
+  }
+
+  try {
+    const clipboardItems = await navigator.clipboard.read();
+    for (const clipboardItem of clipboardItems) {
+      const imageType = clipboardItem.types.find((type) => type.startsWith("image/"));
+      if (!imageType) continue;
+      const blob = await clipboardItem.getType(imageType);
+      const extension = imageType.split("/")[1] || "png";
+      const file = new File([blob], `ocr-paste-${row.id}.${extension}`, { type: imageType });
+      activeOcrPopupRowId.value = null;
+      await uploadRowOcrFile(row.id, file);
+      return;
+    }
+    handleOcrValidationFailure(row.id, "剪贴板中没有图片，请先复制图片再粘贴");
+  } catch (error) {
+    handleOcrValidationFailure(row.id, getOcrErrorMessage(error, "读取剪贴板图片失败"));
+  }
 }
 
 function normalizeOcrResult(result: UnboxRecordOcrResult) {
   const normalizedPrice = normalizeOcrResultPrice(result);
   const normalizedWear = normalizeOcrResultWear(result);
+  const normalizedExterior = normalizeOcrResultExterior(result);
+  const normalizedName = result.name?.trim() || "";
   const hasPrice = result.price !== null && result.price !== undefined && result.price !== "";
   return {
+    name: normalizedName,
     price: normalizedPrice,
     wear: normalizedWear,
+    exterior: normalizedExterior,
     valid: hasPrice && normalizedPrice !== null,
   };
 }
@@ -1605,9 +1704,15 @@ async function uploadRowOcrFile(rowId: string, file: File) {
       latestState.errorMessage = OCR_FIELD_MISSING_MESSAGE;
       return;
     }
+    if (normalized.name) {
+      targetRow.weaponName = normalized.name;
+    }
     targetRow.inGamePrice = normalized.price;
     if (normalized.wear !== null) {
       targetRow.wear = normalized.wear;
+    }
+    if (normalized.exterior !== null) {
+      targetRow.exterior = normalized.exterior;
     }
     latestState.status = "success";
     latestState.errorMessage = "";
@@ -1632,6 +1737,7 @@ async function handleRowOcrFileChange(event: Event) {
     activeOcrRowId.value = null;
     return;
   }
+  activeOcrPopupRowId.value = null;
   await uploadRowOcrFile(rowId, file);
 }
 
@@ -1683,6 +1789,39 @@ function mapRecordToBatch(record: UnboxRecordDTO): UnboxBatch {
   };
 }
 
+function normalizeBatchStatus(status?: string): BatchStatus {
+  if (status === "已结算" || status === "部分结算") {
+    return status;
+  }
+  return "未结算";
+}
+
+function mapPageRecordToSummaryRow(record: UnboxRecordPageDTO): BatchSummaryRow {
+  const defaultDiscount = clampDiscount(Number(record.defaultDiscount ?? 0));
+  return {
+    key: record.id,
+    batch: {
+      id: record.id,
+      goodsId: record.goodsId,
+      boxName: record.boxName ?? "",
+      date: record.unboxDate ?? "",
+      defaultDiscount,
+      note: record.note ?? "",
+    },
+    summary: {
+      totalCount: Number(record.totalCount ?? 0),
+      totalPurchaseCost: Number(record.totalPurchaseCost ?? 0),
+      totalActualFee: Number(record.totalActualFee ?? 0),
+      totalActualNetProfit: Number(record.totalActualNetProfit ?? 0),
+      totalActualProfitRate:
+        record.totalActualProfitRate === null || record.totalActualProfitRate === undefined
+          ? null
+          : Number(record.totalActualProfitRate),
+    },
+    status: normalizeBatchStatus(record.status),
+  };
+}
+
 function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
   return {
     goodsId: batch.goodsId!,
@@ -1717,16 +1856,63 @@ async function fetchGoodsOptions(keyword = "") {
   }
 }
 
-async function loadBatches() {
+function getAppliedRequestRange(): [string, string] {
+  return appliedDateRange.value.length === 2
+    ? (normalizeDateRange(appliedDateRange.value) as [string, string])
+    : currentPeriodRange.value;
+}
+
+async function loadBatchPage(targetPage = batchPagination.value.current) {
   listLoading.value = true;
   try {
-    const records = await unboxApi.list();
-    batches.value = records.map(mapRecordToBatch);
+    const [startDate, endDate] = getAppliedRequestRange();
+    const result = await unboxApi.page({
+      page: targetPage,
+      pageSize: batchPagination.value.pageSize,
+      startDate,
+      endDate,
+    });
+    currentPageBatchSummaryRows.value = result.records.map(mapPageRecordToSummaryRow);
+    batchPagination.value.current = result.total > 0 ? result.current : 1;
+    batchPagination.value.pageSize = result.size;
+    batchPagination.value.total = result.total;
   } catch (error) {
     console.error(error);
+    currentPageBatchSummaryRows.value = [];
+    batchPagination.value.total = 0;
     MessagePlugin.error("获取开箱记录失败");
   } finally {
     listLoading.value = false;
+  }
+}
+
+async function loadBatchSummary() {
+  summaryLoading.value = true;
+  try {
+    const [startDate, endDate] = getAppliedRequestRange();
+    summaryState.value = await unboxApi.summary({ startDate, endDate });
+  } catch (error) {
+    console.error(error);
+    summaryState.value = { ...EMPTY_SUMMARY };
+    MessagePlugin.error("获取开箱记录汇总失败");
+  } finally {
+    summaryLoading.value = false;
+  }
+}
+
+async function loadBatchPageAndSummary(targetPage = batchPagination.value.current) {
+  await Promise.all([loadBatchPage(targetPage), loadBatchSummary()]);
+}
+
+async function refreshCurrentBatchPageAndSummary() {
+  const currentPage = batchPagination.value.current;
+  await Promise.all([loadBatchPage(currentPage), loadBatchSummary()]);
+  if (
+    currentPage > 1 &&
+    batchPagination.value.total > 0 &&
+    currentPageBatchSummaryRows.value.length === 0
+  ) {
+    await loadBatchPage(currentPage - 1);
   }
 }
 
@@ -1740,7 +1926,7 @@ function handleGoodsSearch(keyword: string) {
 }
 
 onMounted(() => {
-  void loadBatches();
+  void loadBatchPageAndSummary();
 });
 
 function isRowEditable(row: UnboxRow) {
@@ -1840,41 +2026,7 @@ const getBatchSummary = (batch: UnboxBatch): BatchSummary =>
     }))
   );
 
-const getBatchStatus = (summary: BatchSummary): BatchStatus => {
-  if (summary.countedRowCount === 0 || summary.soldCount === 0) return "未结算";
-  if (summary.unsoldCount === 0) return "已结算";
-  return "部分结算";
-};
-
-const batchSummaryRows = computed<BatchSummaryRow[]>(() =>
-  batches.value.map((batch) => {
-    const summary = getBatchSummary(batch);
-    return {
-      key: batch.id,
-      batch,
-      summary,
-      status: getBatchStatus(summary),
-    };
-  })
-);
-
-const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(() => {
-  const [periodStart, periodEnd] = currentPeriodRange.value;
-  const customRange = customDateRange.value.length === 2 ? customDateRange.value : null;
-
-  return batchSummaryRows.value.filter((item) => {
-    const batchDate = dayjs(item.batch.date);
-    if (!batchDate.isValid()) return false;
-
-    const dayKey = formatDayKey(batchDate);
-    const inPeriod = dayKey >= periodStart && dayKey <= periodEnd;
-    if (!inPeriod) return false;
-
-    if (!customRange) return true;
-
-    return dayKey >= customRange[0] && dayKey <= customRange[1];
-  });
-});
+const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(() => currentPageBatchSummaryRows.value);
 
 function sortableNumber(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : 0;
@@ -1990,29 +2142,13 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   },
 ]);
 
-const pageSummary = computed(() => {
-  return filteredBatchSummaryRows.value.reduce(
-    (result, item) => {
-      result.totalBatches += 1;
-      result.totalPurchaseCost += item.summary.totalPurchaseCost;
-      result.totalFee += item.summary.totalActualFee;
-      result.totalActualNetProfit += item.summary.totalActualNetProfit;
-      return result;
-    },
-    {
-      totalBatches: 0,
-      totalPurchaseCost: 0,
-      totalFee: 0,
-      totalActualNetProfit: 0,
-    }
-  );
-});
+const pageSummary = computed(() => summaryState.value);
 
 const pageSummaryCards = computed<SummaryCard[]>(() => [
   {
     label: "开箱数量",
     value: `${pageSummary.value.totalBatches}`,
-    hint: `与下方表格数据条数保持一致，共 ${pageSummary.value.totalBatches} 条`,
+    hint: `当前筛选结果共 ${pageSummary.value.totalBatches} 批`,
     valueClass: "text-[#303133]",
   },
   {
@@ -2066,34 +2202,7 @@ const sortedBatchSummaryRows = computed(() => {
   });
 });
 
-const pagedBatchSummaryRows = computed(() => {
-  const total = sortedBatchSummaryRows.value.length;
-  const maxPage = Math.max(1, Math.ceil(total / batchPagination.value.pageSize));
-  const current = Math.min(batchPagination.value.current, maxPage);
-  const start = (current - 1) * batchPagination.value.pageSize;
-  const end = start + batchPagination.value.pageSize;
-  return sortedBatchSummaryRows.value.slice(start, end);
-});
-
-watch(
-  [sortedBatchSummaryRows, () => batchPagination.value.pageSize],
-  ([rows]) => {
-    const total = rows.length;
-    const maxPage = Math.max(1, Math.ceil(total / batchPagination.value.pageSize));
-    if (batchPagination.value.current > maxPage) {
-      batchPagination.value.current = maxPage;
-    }
-  },
-  { immediate: true }
-);
-
-watch(batchSummarySort, () => {
-  batchPagination.value.current = 1;
-});
-
-watch([activePeriod, customDateRange], () => {
-  batchPagination.value.current = 1;
-});
+const pagedBatchSummaryRows = computed(() => sortedBatchSummaryRows.value);
 
 watch(
   () => draftBatch.value.goodsId,
@@ -2120,6 +2229,9 @@ watch(
     if (activeOcrRowId.value && !nextIds.has(activeOcrRowId.value)) {
       activeOcrRowId.value = null;
     }
+    if (activeOcrPopupRowId.value && !nextIds.has(activeOcrPopupRowId.value)) {
+      activeOcrPopupRowId.value = null;
+    }
   },
   { immediate: true }
 );
@@ -2127,12 +2239,8 @@ watch(
 function handleBatchPageChange(pageInfo: PageInfo) {
   batchPagination.value.current = pageInfo.current;
   batchPagination.value.pageSize = pageInfo.pageSize;
+  void loadBatchPage(pageInfo.current);
 }
-
-watch(activePresetKey, (presetKey) => {
-  if (presetKey === null) return;
-  customDateRange.value = getPresetRange(presetKey);
-});
 
 const selectableDraftHandlingStatusOptions: SelectableDraftHandlingStatusOption[] = [
   { value: "discarded", label: "丢弃", theme: "danger" },
@@ -2151,7 +2259,14 @@ function getDraftStatusButtonActiveClass(status: SelectableDraftHandlingStatus) 
 }
 
 function setHandlingStatus(row: UnboxRow, handlingStatus: SelectableDraftHandlingStatus) {
-  row.handlingStatus = handlingStatus;
+  const nextHandlingStatus = row.handlingStatus === handlingStatus ? "pending" : handlingStatus;
+  row.handlingStatus = nextHandlingStatus;
+
+  if (nextHandlingStatus === "discarded") {
+    row.boxPurchasePrice = 0;
+    row.inGamePrice = 0;
+    row.actualSellPrice = 0;
+  }
 }
 
 function getDraftRowStage(row: UnboxRow): DraftRowStage {
@@ -2169,10 +2284,10 @@ function getDraftRowStageTheme(stage: DraftRowStage): DraftRowStageTheme {
 }
 
 function getDraftRowStageDescription(stage: DraftRowStage) {
-  if (stage === "丢弃") return "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计";
+  if (stage === "丢弃") return "确认放弃该饰品，并清空价格输入后不再允许编辑";
   if (stage === "暂存") return "继续计算单条净利润和利润率，但不计入汇总利润率";
   if (stage === "已买") return "确认接手，参与成本、卖价和净利润统计";
-  return "默认参与成本、卖价和净利润统计";
+  return "未选中任何状态时，按未处理参与成本、卖价和净利润统计";
 }
 
 const draftRowEntries = computed<DraftRowEntry[]>(() =>
@@ -2243,11 +2358,11 @@ const purchaseStateTitle = () =>
           h("div", { class: "space-y-1 text-slate-600" }, [
             h("div", [
               h("span", { class: "font-semibold text-slate-700" }, "待处理："),
-              "默认参与成本、卖价和净利润统计",
+              "未选中任何状态时，按未处理参与成本、卖价和净利润统计",
             ]),
             h("div", [
               h("span", { class: "font-semibold text-slate-700" }, "丢弃："),
-              "确认放弃该饰品，但保留已录入价格并继续参与成本与利润统计",
+              "确认放弃该饰品，并清空价格输入后不再允许编辑",
             ]),
             h("div", [
               h("span", { class: "font-semibold text-slate-700" }, "暂存："),
@@ -2524,6 +2639,7 @@ function toggleBatchInfoCollapsed() {
 
 function openCreateEditor() {
   editingBatchId.value = null;
+  loadingDetailBatchId.value = null;
   draftBatch.value = createBlankBatch();
   resetRowOcrState(draftBatch.value.rows);
   ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
@@ -2532,19 +2648,29 @@ function openCreateEditor() {
   editorVisible.value = true;
 }
 
-function openEditEditor(batchId: number) {
-  const target = batches.value.find((item) => item.id === batchId);
-  if (!target) {
-    MessagePlugin.error("批次不存在或已删除");
+async function openEditEditor(batchId: number) {
+  if (!batchId || detailLoading.value) {
     return;
   }
-  editingBatchId.value = batchId;
-  draftBatch.value = cloneBatch(target);
-  resetRowOcrState(draftBatch.value.rows);
-  ensureGoodsInCatalog(target.goodsId, target.boxName);
-  isEditorFullscreen.value = false;
-  isBatchInfoCollapsed.value = true;
-  editorVisible.value = true;
+  detailLoading.value = true;
+  loadingDetailBatchId.value = batchId;
+  try {
+    const detail = await unboxApi.getDetail(batchId);
+    const nextBatch = mapRecordToBatch(detail);
+    editingBatchId.value = batchId;
+    draftBatch.value = nextBatch;
+    resetRowOcrState(draftBatch.value.rows);
+    ensureGoodsInCatalog(nextBatch.goodsId, nextBatch.boxName);
+    isEditorFullscreen.value = false;
+    isBatchInfoCollapsed.value = true;
+    editorVisible.value = true;
+  } catch (error) {
+    console.error(error);
+    MessagePlugin.error("获取批次详情失败");
+  } finally {
+    detailLoading.value = false;
+    loadingDetailBatchId.value = null;
+  }
 }
 
 async function saveDraftBatch() {
@@ -2576,7 +2702,7 @@ async function saveDraftBatch() {
       MessagePlugin.success("批次已创建");
     }
     editorVisible.value = false;
-    await loadBatches();
+    await refreshCurrentBatchPageAndSummary();
   } catch (error) {
     console.error(error);
     MessagePlugin.error(editingBatchId.value ? "更新批次失败" : "创建批次失败");
@@ -2588,7 +2714,7 @@ async function saveDraftBatch() {
 async function removeBatch(batchId: number) {
   try {
     await unboxApi.delete(batchId);
-    batches.value = batches.value.filter((item) => item.id !== batchId);
+    await refreshCurrentBatchPageAndSummary();
     MessagePlugin.success("批次已删除");
   } catch (error) {
     console.error(error);
@@ -2685,6 +2811,14 @@ function handleRemoveRow(id: string) {
   max-height: 100%;
   overflow: auto;
   scrollbar-gutter: stable both-edges;
+}
+
+:deep(.unbox-ocr-popup__inner) {
+  padding: 8px;
+}
+
+:deep(.unbox-ocr-popup__inner .t-button) {
+  justify-content: center;
 }
 
 :deep(.draft-detail-table .t-table) {
