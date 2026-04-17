@@ -27,6 +27,10 @@ public class UnboxRecordItemDTO {
 
     private BigDecimal actualSellPrice;
 
+    private BigDecimal wear;
+
+    private Integer exterior;
+
     private String note;
 
     private LocalDateTime createdAt;

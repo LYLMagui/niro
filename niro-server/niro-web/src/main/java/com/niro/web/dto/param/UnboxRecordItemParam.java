@@ -3,6 +3,8 @@ package com.niro.web.dto.param;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -44,6 +46,17 @@ public class UnboxRecordItemParam {
     @DecimalMin(value = "0", message = "实际卖出价不能小于0")
     @Schema(description = "实际卖出价")
     private BigDecimal actualSellPrice;
+
+    @DecimalMin(value = "0", message = "磨损不能小于0")
+    @DecimalMax(value = "1", message = "磨损不能大于1")
+    @Schema(description = "磨损值，取值范围0到1")
+    private BigDecimal wear;
+
+    @NotNull(message = "外观不能为空")
+    @Min(value = 0, message = "外观值不能小于0")
+    @Max(value = 4, message = "外观值不能大于4")
+    @Schema(description = "外观，0崭新出厂、1略有磨损、2久经沙场、3破损不堪、4战痕累累")
+    private Integer exterior;
 
     @Schema(description = "备注")
     private String note;

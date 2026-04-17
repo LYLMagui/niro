@@ -2,14 +2,20 @@ package com.niro.web.controller;
 
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.web.dto.UnboxRecordDTO;
+import com.niro.web.dto.UnboxRecordOcrResultDTO;
+import com.niro.web.dto.UnboxRecordPageDTO;
+import com.niro.web.dto.UnboxRecordSummaryDTO;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
+import com.niro.web.service.UnboxRecordOcrService;
 import com.niro.web.service.UnboxRecordService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.time.LocalDate;
 import java.util.List;
@@ -25,6 +31,25 @@ import java.util.List;
 public class UnboxRecordController {
 
     private final UnboxRecordService unboxRecordService;
+    private final UnboxRecordOcrService unboxRecordOcrService;
+
+    @Operation(summary = "分页查询开箱记录")
+    @GetMapping("/page")
+    public Page<UnboxRecordPageDTO> page(@RequestParam(defaultValue = "1") Integer page,
+                                         @RequestParam(defaultValue = "10") Integer pageSize,
+                                         @RequestParam(required = false) LocalDate startDate,
+                                         @RequestParam(required = false) LocalDate endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return unboxRecordService.page(userId, page, pageSize, startDate, endDate);
+    }
+
+    @Operation(summary = "查询开箱记录汇总")
+    @GetMapping("/summary")
+    public UnboxRecordSummaryDTO summary(@RequestParam(required = false) LocalDate startDate,
+                                         @RequestParam(required = false) LocalDate endDate) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return unboxRecordService.summary(userId, startDate, endDate);
+    }
 
     @Operation(summary = "查询开箱记录列表")
     @GetMapping("/list")
@@ -53,6 +78,12 @@ public class UnboxRecordController {
     public void update(@PathVariable Long id, @RequestBody @Valid UnboxRecordSaveParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         unboxRecordService.update(userId, id, param);
+    }
+
+    @Operation(summary = "开箱记录 OCR 识别")
+    @PostMapping(value = "/ocr", consumes = "multipart/form-data")
+    public UnboxRecordOcrResultDTO recognize(@RequestPart("file") MultipartFile file) {
+        return unboxRecordOcrService.recognize(file);
     }
 
     @Operation(summary = "删除开箱记录")

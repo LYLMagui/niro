@@ -13,9 +13,11 @@ import org.springframework.web.context.request.RequestContextHolder;
 import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONUtil;
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -27,7 +29,10 @@ import lombok.extern.slf4j.Slf4j;
 @Aspect
 @Component
 @Slf4j
+@RequiredArgsConstructor
 public class WebLogAspect {
+
+    private final ObjectMapper objectMapper;
 
     /**
      * 定义切点，切入点为controller层的所有方法
@@ -62,7 +67,7 @@ public class WebLogAspect {
         
         String params = "";
         try {
-             params = JSONUtil.toJsonStr(logArgs);
+            params = objectMapper.writeValueAsString(logArgs);
         } catch (Throwable e) {
             // 捕获 Throwable 防止某些情况下序列化导致 StackOverflowError
             params = "无法序列化参数";
@@ -80,7 +85,7 @@ public class WebLogAspect {
         // 记录响应结果（可选，如果结果太大可以截断或不打印）
         String resultStr = "";
         try {
-            resultStr = JSONUtil.toJsonStr(result);
+            resultStr = objectMapper.writeValueAsString(result);
             // 如果返回结果过长，截取前1000个字符
             if (StrUtil.length(resultStr) > 1000) {
                 resultStr = StrUtil.sub(resultStr, 0, 1000) + "...";

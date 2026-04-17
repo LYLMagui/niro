@@ -3,9 +3,12 @@ package com.niro.web.service.impl;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.core.util.Assert;
 import com.niro.web.dto.UnboxRecordDTO;
 import com.niro.web.dto.UnboxRecordItemDTO;
+import com.niro.web.dto.UnboxRecordPageDTO;
+import com.niro.web.dto.UnboxRecordSummaryDTO;
 import com.niro.web.dto.param.UnboxRecordItemParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
 import com.niro.web.entity.BuffGoods;
@@ -21,6 +24,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -35,8 +39,57 @@ import java.util.stream.Collectors;
 public class UnboxRecordServiceImpl implements UnboxRecordService {
 
     private final UnboxRecordMapperManager unboxRecordMapperManager;
+    private static final BigDecimal HUNDRED = new BigDecimal("100");
+    private static final BigDecimal FEE_RATE = new BigDecimal("0.01");
+    private static final String STATUS_UNSETTLED = "未结算";
+    private static final String STATUS_PARTIAL = "部分结算";
+    private static final String STATUS_SETTLED = "已结算";
+
     private final UnboxRecordItemMapperManager unboxRecordItemMapperManager;
     private final BuffGoodsMapperManager buffGoodsMapperManager;
+
+    @Override
+    public Page<UnboxRecordPageDTO> page(Long userId, Integer page, Integer pageSize, LocalDate startDate, LocalDate endDate) {
+        Page<UnboxRecord> recordPage = unboxRecordMapperManager.pageByUserId(userId, page, pageSize, startDate, endDate);
+        Page<UnboxRecordPageDTO> dtoPage = new Page<>(recordPage.getCurrent(), recordPage.getSize(), recordPage.getTotal());
+        List<UnboxRecord> records = recordPage.getRecords();
+        if (CollUtil.isEmpty(records)) {
+            dtoPage.setRecords(List.of());
+            return dtoPage;
+        }
+
+        Map<Long, List<UnboxRecordItem>> itemMap = getItemEntityMap(records);
+        dtoPage.setRecords(records.stream()
+                .map(record -> toPageDto(record, itemMap.getOrDefault(record.getId(), List.of())))
+                .toList());
+        return dtoPage;
+    }
+
+    @Override
+    public UnboxRecordSummaryDTO summary(Long userId, LocalDate startDate, LocalDate endDate) {
+        List<UnboxRecord> records = unboxRecordMapperManager.listByUserId(userId, startDate, endDate);
+        if (CollUtil.isEmpty(records)) {
+            return createEmptySummary();
+        }
+
+        Map<Long, List<UnboxRecordItem>> itemMap = getItemEntityMap(records);
+        BigDecimal totalPurchaseCost = BigDecimal.ZERO;
+        BigDecimal totalFee = BigDecimal.ZERO;
+        BigDecimal totalActualNetProfit = BigDecimal.ZERO;
+        for (UnboxRecord record : records) {
+            RecordSummaryMetrics metrics = buildRecordSummary(record, itemMap.getOrDefault(record.getId(), List.of()));
+            totalPurchaseCost = totalPurchaseCost.add(metrics.totalPurchaseCost());
+            totalFee = totalFee.add(metrics.totalActualFee());
+            totalActualNetProfit = totalActualNetProfit.add(metrics.totalActualNetProfit());
+        }
+
+        UnboxRecordSummaryDTO summary = createEmptySummary();
+        summary.setTotalBatches(records.size());
+        summary.setTotalPurchaseCost(scaleAmount(totalPurchaseCost));
+        summary.setTotalFee(scaleAmount(totalFee));
+        summary.setTotalActualNetProfit(scaleAmount(totalActualNetProfit));
+        return summary;
+    }
 
     @Override
     public List<UnboxRecordDTO> list(Long userId, LocalDate startDate, LocalDate endDate) {
@@ -45,11 +98,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
             return List.of();
         }
 
-        List<Long> recordIds = records.stream().map(UnboxRecord::getId).toList();
-        Map<Long, List<UnboxRecordItemDTO>> itemMap = unboxRecordItemMapperManager.listByRecordIds(recordIds).stream()
-                .collect(Collectors.groupingBy(UnboxRecordItem::getRecordId,
-                        Collectors.mapping(this::toItemDto, Collectors.toList())));
-
+        Map<Long, List<UnboxRecordItemDTO>> itemMap = getItemDtoMap(records);
         return records.stream()
                 .map(record -> toDto(record, itemMap.getOrDefault(record.getId(), List.of())))
                 .toList();
@@ -135,6 +184,12 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
                 Assert.isTrue(item.getDiscount().compareTo(BigDecimal.ZERO) >= 0 && item.getDiscount().compareTo(BigDecimal.ONE) <= 0,
                         "明细折扣范围必须在0到1之间");
             }
+            if (item.getWear() != null) {
+                Assert.isTrue(item.getWear().compareTo(BigDecimal.ZERO) >= 0 && item.getWear().compareTo(BigDecimal.ONE) <= 0,
+                        "磨损范围必须在0到1之间");
+            }
+            Assert.notNull(item.getExterior(), "外观不能为空");
+            Assert.isTrue(item.getExterior() >= 0 && item.getExterior() <= 4, "外观值必须在0到4之间");
         }
     }
 
@@ -155,11 +210,25 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         Assert.isTrue(saved, "保存开箱记录明细失败");
     }
 
+    private Map<Long, List<UnboxRecordItem>> getItemEntityMap(List<UnboxRecord> records) {
+        List<Long> recordIds = records.stream().map(UnboxRecord::getId).toList();
+        return unboxRecordItemMapperManager.listByRecordIds(recordIds).stream()
+                .collect(Collectors.groupingBy(UnboxRecordItem::getRecordId));
+    }
+
+    private Map<Long, List<UnboxRecordItemDTO>> getItemDtoMap(List<UnboxRecord> records) {
+        return getItemEntityMap(records).entrySet().stream()
+                .collect(Collectors.toMap(Map.Entry::getKey,
+                        entry -> entry.getValue().stream().map(this::toItemDto).toList()));
+    }
+
     private UnboxRecordItem toItemEntity(Long recordId, UnboxRecordItemParam item, Integer sortNo, LocalDateTime now) {
         UnboxRecordItem entity = BeanUtil.copyProperties(item, UnboxRecordItem.class);
         entity.setRecordId(recordId);
         entity.setSortNo(sortNo);
         entity.setWeaponName(normalizeText(item.getWeaponName()));
+        entity.setWear(item.getWear() == null ? BigDecimal.ZERO : item.getWear());
+        entity.setExterior(item.getExterior());
         entity.setNote(normalizeText(item.getNote()));
         entity.setCreatedAt(now);
         entity.setUpdatedAt(now);
@@ -172,11 +241,139 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         return dto;
     }
 
+    private UnboxRecordPageDTO toPageDto(UnboxRecord record, List<UnboxRecordItem> items) {
+        UnboxRecordPageDTO dto = BeanUtil.copyProperties(record, UnboxRecordPageDTO.class);
+        RecordSummaryMetrics metrics = buildRecordSummary(record, items);
+        dto.setTotalCount(metrics.totalCount());
+        dto.setTotalPurchaseCost(metrics.totalPurchaseCost());
+        dto.setTotalActualFee(metrics.totalActualFee());
+        dto.setTotalActualNetProfit(metrics.totalActualNetProfit());
+        dto.setTotalActualProfitRate(metrics.totalActualProfitRate());
+        dto.setStatus(metrics.status());
+        return dto;
+    }
+
+    private RecordSummaryMetrics buildRecordSummary(UnboxRecord record, List<UnboxRecordItem> items) {
+        BigDecimal totalPurchaseCost = BigDecimal.ZERO;
+        BigDecimal totalActualFee = BigDecimal.ZERO;
+        BigDecimal totalActualNetProfit = BigDecimal.ZERO;
+        int countedRowCount = 0;
+        int soldCount = 0;
+
+        for (UnboxRecordItem item : items) {
+            if (!shouldIncludeInSummary(item)) {
+                continue;
+            }
+            countedRowCount++;
+            BigDecimal purchaseCost = getPurchaseCost(item, record.getDefaultDiscount());
+            totalPurchaseCost = totalPurchaseCost.add(purchaseCost);
+
+            if (hasActualSellPrice(item)) {
+                soldCount++;
+            }
+
+            if (shouldCalculateActualMetrics(item, purchaseCost)) {
+                BigDecimal actualFee = getActualFee(item.getActualSellPrice());
+                totalActualFee = totalActualFee.add(actualFee);
+                totalActualNetProfit = totalActualNetProfit.add(getActualNetProfit(item, purchaseCost, actualFee));
+            }
+        }
+
+        return new RecordSummaryMetrics(
+                items.size(),
+                scaleAmount(totalPurchaseCost),
+                scaleAmount(totalActualFee),
+                scaleAmount(totalActualNetProfit),
+                getActualProfitRate(totalPurchaseCost, totalActualNetProfit),
+                resolveStatus(countedRowCount, soldCount)
+        );
+    }
+
+    private UnboxRecordSummaryDTO createEmptySummary() {
+        UnboxRecordSummaryDTO summary = new UnboxRecordSummaryDTO();
+        summary.setTotalBatches(0);
+        summary.setTotalPurchaseCost(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        summary.setTotalFee(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        summary.setTotalActualNetProfit(BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP));
+        return summary;
+    }
+
+    private boolean shouldIncludeInSummary(UnboxRecordItem item) {
+        return !UnboxHandlingStatusEnum.STORED.getCode().equals(item.getHandlingStatus());
+    }
+
+    private boolean shouldCalculateActualMetrics(UnboxRecordItem item, BigDecimal purchaseCost) {
+        return hasActualSellPrice(item)
+                || isPositive(item.getBoxPurchasePrice())
+                || isPositive(purchaseCost);
+    }
+
+    private boolean hasActualSellPrice(UnboxRecordItem item) {
+        return isPositive(item.getActualSellPrice());
+    }
+
+    private BigDecimal getPurchaseCost(UnboxRecordItem item, BigDecimal defaultDiscount) {
+        BigDecimal inGamePrice = defaultZero(item.getInGamePrice());
+        BigDecimal discount = item.getDiscount() == null ? defaultZero(defaultDiscount) : item.getDiscount();
+        return scaleAmount(inGamePrice.multiply(discount));
+    }
+
+    private BigDecimal getActualFee(BigDecimal actualSellPrice) {
+        return scaleAmount(defaultZero(actualSellPrice).multiply(FEE_RATE));
+    }
+
+    private BigDecimal getActualNetProfit(UnboxRecordItem item, BigDecimal purchaseCost, BigDecimal actualFee) {
+        return scaleAmount(defaultZero(item.getActualSellPrice())
+                .subtract(defaultZero(item.getBoxPurchasePrice()))
+                .subtract(purchaseCost)
+                .subtract(actualFee));
+    }
+
+    private BigDecimal getActualProfitRate(BigDecimal totalPurchaseCost, BigDecimal totalActualNetProfit) {
+        if (!isPositive(totalPurchaseCost)) {
+            return null;
+        }
+        return totalActualNetProfit.multiply(HUNDRED)
+                .divide(totalPurchaseCost, 2, RoundingMode.HALF_UP);
+    }
+
+    private String resolveStatus(int countedRowCount, int soldCount) {
+        if (countedRowCount == 0 || soldCount == 0) {
+            return STATUS_UNSETTLED;
+        }
+        if (countedRowCount == soldCount) {
+            return STATUS_SETTLED;
+        }
+        return STATUS_PARTIAL;
+    }
+
+    private BigDecimal defaultZero(BigDecimal value) {
+        return value == null ? BigDecimal.ZERO : value;
+    }
+
+    private boolean isPositive(BigDecimal value) {
+        return defaultZero(value).compareTo(BigDecimal.ZERO) > 0;
+    }
+
+    private BigDecimal scaleAmount(BigDecimal value) {
+        return defaultZero(value).setScale(2, RoundingMode.HALF_UP);
+    }
+
     private UnboxRecordItemDTO toItemDto(UnboxRecordItem item) {
         return BeanUtil.copyProperties(item, UnboxRecordItemDTO.class);
     }
 
     private String normalizeText(String value) {
         return StrUtil.blankToDefault(StrUtil.trim(value), "");
+    }
+
+    private record RecordSummaryMetrics(
+            Integer totalCount,
+            BigDecimal totalPurchaseCost,
+            BigDecimal totalActualFee,
+            BigDecimal totalActualNetProfit,
+            BigDecimal totalActualProfitRate,
+            String status
+    ) {
     }
 }
