@@ -1,0 +1,31 @@
+services:
+  minio:
+    image: pgsty/minio:latest
+    container_name: niro-minio
+    restart: always
+    mem_limit: 1g
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:-niroadmin}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:-change-this-password}
+      MINIO_BROWSER: ${MINIO_BROWSER:-on}
+      TZ: ${TZ:-Asia/Shanghai}
+      # 如果后续接入域名或反向代理，可按需开启下面两个变量
+      # MINIO_SERVER_URL: ${MINIO_SERVER_URL:-https://img.example.com}
+      # MINIO_BROWSER_REDIRECT_URL: ${MINIO_BROWSER_REDIRECT_URL:-https://img.example.com/minio/}
+    volumes:
+      - ./data:/data
+    ports:
+      - "${MINIO_API_PORT:-9000}:9000"
+      - "${MINIO_CONSOLE_PORT:-9001}:9001"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9000/minio/health/live"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 20s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "20m"
+        max-file: "3"
