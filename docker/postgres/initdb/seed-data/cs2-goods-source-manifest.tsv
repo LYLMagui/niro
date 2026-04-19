@@ -1,0 +1,9 @@
+# dataset	url
+skins_not_grouped	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/skins_not_grouped.json
+crates	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/crates.json
+keys	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/keys.json
+stickers	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/stickers.json
+agents	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/agents.json
+patches	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/patches.json
+music_kits	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/music_kits.json
+graffiti	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/graffiti.json

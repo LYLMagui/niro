@@ -11,6 +11,7 @@ services:
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
       - niro_db_data_test:/var/lib/postgresql/data
+      - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
       - "5432:5432"
     shm_size: "1gb" # 生产环境建议提升共享内存
@@ -41,6 +42,24 @@ services:
     networks:
       - niro-data-net-test
 
+  niro-ocr-test:
+    image: niro_ocr_test
+    build:
+      context: ./ocr_demo
+      dockerfile: Dockerfile
+    container_name: niro-ocr-test
+    restart: always
+    ports:
+      - "5000:5000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - niro-data-net-test
+
   niro-web-test:
     image: niro_web_test
     build:
@@ -53,6 +72,8 @@ services:
         condition: service_healthy
       niro-redis-test:
         condition: service_healthy
+      niro-ocr-test:
+        condition: service_healthy
     env_file:
       - .env
     environment:
@@ -63,6 +84,7 @@ services:
       - SPRING_DATA_REDIS_HOST=niro-redis-test
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
+      - NIRO_OCR_BASE_URL=http://niro-ocr-test:5000
     volumes:
       - niro_shared_logs_test:/var/log/niro
     ports:
