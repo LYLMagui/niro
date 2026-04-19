@@ -63,6 +63,10 @@ services:
     build:
       context: ./ocr_demo
       dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTP_PROXY:-}
+        NO_PROXY: localhost,127.0.0.1,host.docker.internal
     container_name: niro-ocr-test
     restart: always
     ports:
