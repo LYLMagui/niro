@@ -16,14 +16,27 @@ mkdir -p "$WORKDIR"
 download_file() {
   url="$1"
   dest="$2"
+  connect_timeout="${NIRO_INITDB_CONNECT_TIMEOUT:-10}"
+  download_timeout="${NIRO_INITDB_DOWNLOAD_TIMEOUT:-300}"
+  download_retries="${NIRO_INITDB_DOWNLOAD_RETRIES:-3}"
 
-  if command -v wget >/dev/null 2>&1; then
-    wget -q -O "$dest" "$url"
+  if command -v curl >/dev/null 2>&1; then
+    curl -fL \
+      --connect-timeout "$connect_timeout" \
+      --max-time "$download_timeout" \
+      --retry "$download_retries" \
+      --retry-delay 2 \
+      -o "$dest" \
+      "$url"
     return 0
   fi
 
-  if command -v curl >/dev/null 2>&1; then
-    curl -fsSL "$url" -o "$dest"
+  if command -v wget >/dev/null 2>&1; then
+    wget -q \
+      -T "$download_timeout" \
+      --tries="$download_retries" \
+      -O "$dest" \
+      "$url"
     return 0
   fi
 
