@@ -1,5 +1,12 @@
 import request from "@/utils/request";
-import type { UserDTO, UserLoginParam } from "@/types/user";
+import type {
+  SendRegisterEmailCodeParam,
+  UserDTO,
+  UserLoginParam,
+  UserRegisterParam,
+  ValidateInviteCodeParam,
+  ValidateInviteCodeResponse,
+} from "@/types/user";
 
 /**
  * 用户信息响应
@@ -32,6 +39,30 @@ export const userApi = {
    */
   login: (params: UserLoginParam) => {
     return request.post<UserDTO>("/user/login", params);
+  },
+
+  /**
+   * 校验邀请码
+   * @param params 邀请码参数
+   */
+  validateInviteCode: (params: ValidateInviteCodeParam) => {
+    return request.post<ValidateInviteCodeResponse>("/user/register/invite-code/validate", params);
+  },
+
+  /**
+   * 发送注册邮箱验证码
+   * @param params 邀请码和邮箱参数
+   */
+  sendRegisterEmailCode: (params: SendRegisterEmailCodeParam) => {
+    return request.post<unknown>("/user/register/email-code/send", params);
+  },
+
+  /**
+   * 用户注册
+   * @param params 注册参数
+   */
+  register: (params: UserRegisterParam) => {
+    return request.post<unknown>("/user/register", params);
   },
 
   /**
