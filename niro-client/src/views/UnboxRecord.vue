@@ -242,9 +242,6 @@
                     记录信息
                   </div>
                   <div class="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-600">
-                    <span class="font-medium text-slate-800">
-                      {{ getBatchDisplayName(draftBatch) }}
-                    </span>
                     <span>{{ draftBatch.boxName || "未选箱子" }}</span>
                     <span>{{ draftBatch.date || "未选日期" }}</span>
                     <span>
@@ -639,45 +636,136 @@
                             attach="body"
                             overlay-inner-class-name="unbox-c5-popup__inner"
                             :disabled="!isRowEditable(entry.row) || !entry.row.weaponName.trim()"
-                            @visible-change="(visible) => handleRowC5PopupVisibleChange(entry.row.id, visible)"
+                            @visible-change="(visible) => handleRowC5PopupVisibleChange(entry.row, visible)"
                           >
                             <template #content>
-                              <div class="w-[280px] space-y-2">
-                                <div class="flex items-center justify-between gap-3">
-                                  <div>
-                                    <div class="text-sm font-semibold text-slate-700">C5 模拟挂单</div>
+                              <div class="flex w-[320px] flex-col gap-2">
+                                <div class="flex items-start justify-between gap-3 px-1 pt-2">
+                                  <div class="min-w-0">
+                                    <div class="text-sm font-semibold text-slate-700">C5 在售挂单</div>
                                     <div class="mt-1 text-xs text-slate-500">
                                       {{ getRowC5TriggerTooltip(entry.row) }}
                                     </div>
+                                    <div class="mt-1 text-xs text-slate-500">
+                                      {{ getRowC5QuerySummary(entry.row) }}
+                                    </div>
+                                    <div v-if="getRowC5WearHint(entry.row)" class="mt-1 text-xs text-slate-400">
+                                      {{ getRowC5WearHint(entry.row) }}
+                                    </div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    class="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
+                                    @click.stop="runRowC5Query(entry.row, { force: true })"
+                                  >
+                                    刷新
+                                  </button>
+                                </div>
+                                <div class="space-y-2 px-1">
+                                  <t-select
+                                    :value="getRowC5State(entry.row.id).selectedRangeKey"
+                                    :options="getRowC5RangeOptions(entry.row)"
+                                    placeholder="选择磨损区间"
+                                    size="small"
+                                    @change="(value) => handleRowC5RangeChange(entry.row, value)"
+                                  />
+                                  <div v-if="getRowC5State(entry.row.id).selectedRangeKey === C5_WEAR_RANGE_CUSTOM_KEY" class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2">
+                                    <div class="grid grid-cols-2 gap-2">
+                                      <t-input-number
+                                        :value="getRowC5State(entry.row.id).customWearMin ?? ''"
+                                        :decimal-places="4"
+                                        :theme="'normal'"
+                                        :step="0.0001"
+                                        align="right"
+                                        placeholder="最小磨损"
+                                        @change="(value) => handleRowC5CustomWearMinChange(entry.row, value)"
+                                      />
+                                      <t-input-number
+                                        :value="getRowC5State(entry.row.id).customWearMax ?? ''"
+                                        :decimal-places="4"
+                                        :theme="'normal'"
+                                        :step="0.0001"
+                                        align="right"
+                                        placeholder="最大磨损"
+                                        @change="(value) => handleRowC5CustomWearMaxChange(entry.row, value)"
+                                      />
+                                    </div>
+                                    <div class="text-xs text-slate-500">
+                                      {{ getRowC5CustomRangeHint(entry.row) }}
+                                    </div>
+                                  </div>
+                                  <div v-if="getRowC5PresetMissHint(entry.row)" class="text-xs text-amber-600">
+                                    {{ getRowC5PresetMissHint(entry.row) }}
+                                  </div>
+                                  <div class="flex justify-end">
+                                    <t-button size="small" theme="primary" @click="runRowC5Query(entry.row, { force: true })">
+                                      查询
+                                    </t-button>
                                   </div>
                                 </div>
-                                <button
-                                  v-for="listing in getRowC5Listings(entry.row)"
-                                  :key="listing.id"
-                                  type="button"
-                                  class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
-                                  @click.stop="applyMockC5Listing(entry.row, listing)"
+                                <div
+                                  class="max-h-[360px] overflow-y-auto pr-1"
+                                  @scroll.passive="(event) => handleRowC5ListScroll(entry.row, event)"
                                 >
-                                  <div class="min-w-0">
-                                    <div class="font-numeric text-sm font-semibold text-slate-800">
-                                      {{ formatCurrency(listing.price) }}
+                                  <div
+                                    v-if="getRowC5State(entry.row.id).status === 'loading'"
+                                    class="flex items-center justify-center py-8 text-sm text-slate-500"
+                                  >
+                                    加载中...
+                                  </div>
+                                  <div
+                                    v-else-if="getRowC5State(entry.row.id).status === 'error' && !getRowC5Listings(entry.row).length"
+                                    class="space-y-2 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-3 text-sm text-rose-600"
+                                  >
+                                    <div>{{ getRowC5State(entry.row.id).errorMessage || '获取 C5 在售列表失败' }}</div>
+                                    <button
+                                      type="button"
+                                      class="inline-flex items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                                      @click.stop="runRowC5Query(entry.row, { force: true })"
+                                    >
+                                      重试
+                                    </button>
+                                  </div>
+                                  <div
+                                    v-else-if="!getRowC5Listings(entry.row).length"
+                                    class="py-8 text-center text-sm text-slate-500"
+                                  >
+                                    {{ getRowC5State(entry.row.id).appliedWearMin === null ? '暂无在售挂单' : '当前磨损区间暂无在售挂单' }}
+                                  </div>
+                                  <div v-else class="space-y-2 px-1">
+                                    <button
+                                      v-for="listing in getRowC5Listings(entry.row)"
+                                      :key="listing.productId"
+                                      type="button"
+                                      class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
+                                      @click.stop="applyC5Listing(entry.row, listing)"
+                                    >
+                                      <div class="min-w-0">
+                                        <div class="font-numeric text-sm font-semibold text-slate-800">
+                                          {{ formatCurrency(listing.price) }}
+                                        </div>
+                                        <div class="mt-1 truncate text-xs text-slate-500">
+                                          {{ listing.sellerName || listing.sellerUid || '卖家未知' }}
+                                        </div>
+                                      </div>
+                                      <div class="text-right text-xs text-slate-500">
+                                        <div>
+                                          磨损
+                                          {{ listing.wear === null ? '--' : formatWearDisplay(listing.wear) }}
+                                        </div>
+                                      </div>
+                                    </button>
+                                    <div v-if="getRowC5State(entry.row.id).loadingMore" class="py-2 text-center text-xs text-slate-500">
+                                      加载中...
                                     </div>
-                                    <div class="mt-1 text-xs text-slate-500">
-                                      {{ listing.sellerName }}
+                                    <div v-else-if="getRowC5State(entry.row.id).errorMessage" class="py-2 text-center text-xs text-rose-500">
+                                      {{ getRowC5State(entry.row.id).errorMessage }}
+                                    </div>
+                                    <div v-else-if="!getRowC5State(entry.row.id).hasMore" class="py-2 text-center text-xs text-slate-400">
+                                      已加载全部挂单
                                     </div>
                                   </div>
-                                  <div class="text-right text-xs text-slate-500">
-                                    <div>磨损 {{ formatWearDisplay(listing.wear) }}</div>
-                                    <div class="mt-1">
-                                      差值
-                                      {{
-                                        entry.row.wear === ""
-                                          ? "默认"
-                                          : formatWearDisplay(Math.abs(listing.wear - entry.row.wear))
-                                      }}
-                                    </div>
-                                  </div>
-                                </button>
+                                </div>
                               </div>
                             </template>
                             <button
@@ -1067,43 +1155,136 @@
                               attach="body"
                               overlay-inner-class-name="unbox-c5-popup__inner"
                               :disabled="!isRowEditable(row) || !row.weaponName.trim()"
-                              @visible-change="(visible) => handleRowC5PopupVisibleChange(row.id, visible)"
+                              @visible-change="(visible) => handleRowC5PopupVisibleChange(row, visible)"
                             >
                               <template #content>
-                                <div class="w-[280px] space-y-2">
-                                  <div>
-                                    <div class="text-sm font-semibold text-slate-700">C5 模拟挂单</div>
-                                    <div class="mt-1 text-xs text-slate-500">
-                                      {{ getRowC5TriggerTooltip(row) }}
-                                    </div>
-                                  </div>
-                                  <button
-                                    v-for="listing in getRowC5Listings(row)"
-                                    :key="listing.id"
-                                    type="button"
-                                    class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
-                                    @click.stop="applyMockC5Listing(row, listing)"
-                                  >
+                                <div class="flex w-[320px] flex-col gap-2">
+                                  <div class="flex items-start justify-between gap-3 px-1 pt-2">
                                     <div class="min-w-0">
-                                      <div class="font-numeric text-sm font-semibold text-slate-800">
-                                        {{ formatCurrency(listing.price) }}
+                                      <div class="text-sm font-semibold text-slate-700">C5 在售挂单</div>
+                                      <div class="mt-1 text-xs text-slate-500">
+                                        {{ getRowC5TriggerTooltip(row) }}
                                       </div>
                                       <div class="mt-1 text-xs text-slate-500">
-                                        {{ listing.sellerName }}
+                                        {{ getRowC5QuerySummary(row) }}
+                                      </div>
+                                      <div v-if="getRowC5WearHint(row)" class="mt-1 text-xs text-slate-400">
+                                        {{ getRowC5WearHint(row) }}
                                       </div>
                                     </div>
-                                    <div class="text-right text-xs text-slate-500">
-                                      <div>磨损 {{ formatWearDisplay(listing.wear) }}</div>
-                                      <div class="mt-1">
-                                        差值
-                                        {{
-                                          row.wear === ""
-                                            ? "默认"
-                                            : formatWearDisplay(Math.abs(listing.wear - row.wear))
-                                        }}
+                                    <button
+                                      type="button"
+                                      class="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
+                                      @click.stop="runRowC5Query(row, { force: true })"
+                                    >
+                                      刷新
+                                    </button>
+                                  </div>
+                                  <div class="space-y-2 px-1">
+                                    <t-select
+                                      :value="getRowC5State(row.id).selectedRangeKey"
+                                      :options="getRowC5RangeOptions(row)"
+                                      placeholder="选择磨损区间"
+                                      size="small"
+                                      @change="(value) => handleRowC5RangeChange(row, value)"
+                                    />
+                                    <div v-if="getRowC5State(row.id).selectedRangeKey === C5_WEAR_RANGE_CUSTOM_KEY" class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2">
+                                      <div class="grid grid-cols-2 gap-2">
+                                        <t-input-number
+                                          :value="getRowC5State(row.id).customWearMin ?? ''"
+                                          :decimal-places="4"
+                                          :theme="'normal'"
+                                          :step="0.0001"
+                                          align="right"
+                                          placeholder="最小磨损"
+                                          @change="(value) => handleRowC5CustomWearMinChange(row, value)"
+                                        />
+                                        <t-input-number
+                                          :value="getRowC5State(row.id).customWearMax ?? ''"
+                                          :decimal-places="4"
+                                          :theme="'normal'"
+                                          :step="0.0001"
+                                          align="right"
+                                          placeholder="最大磨损"
+                                          @change="(value) => handleRowC5CustomWearMaxChange(row, value)"
+                                        />
+                                      </div>
+                                      <div class="text-xs text-slate-500">
+                                        {{ getRowC5CustomRangeHint(row) }}
                                       </div>
                                     </div>
-                                  </button>
+                                    <div v-if="getRowC5PresetMissHint(row)" class="text-xs text-amber-600">
+                                      {{ getRowC5PresetMissHint(row) }}
+                                    </div>
+                                    <div class="flex justify-end">
+                                      <t-button size="small" theme="primary" @click="runRowC5Query(row, { force: true })">
+                                        查询
+                                      </t-button>
+                                    </div>
+                                  </div>
+                                  <div
+                                    class="max-h-[360px] overflow-y-auto pr-1"
+                                    @scroll.passive="(event) => handleRowC5ListScroll(row, event)"
+                                  >
+                                    <div
+                                      v-if="getRowC5State(row.id).status === 'loading'"
+                                      class="flex items-center justify-center py-8 text-sm text-slate-500"
+                                    >
+                                      加载中...
+                                    </div>
+                                    <div
+                                      v-else-if="getRowC5State(row.id).status === 'error' && !getRowC5Listings(row).length"
+                                      class="space-y-2 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-3 text-sm text-rose-600"
+                                    >
+                                      <div>{{ getRowC5State(row.id).errorMessage || '获取 C5 在售列表失败' }}</div>
+                                      <button
+                                        type="button"
+                                        class="inline-flex items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                                        @click.stop="runRowC5Query(row, { force: true })"
+                                      >
+                                        重试
+                                      </button>
+                                    </div>
+                                    <div
+                                      v-else-if="!getRowC5Listings(row).length"
+                                      class="py-8 text-center text-sm text-slate-500"
+                                    >
+                                      {{ getRowC5State(row.id).appliedWearMin === null ? '暂无在售挂单' : '当前磨损区间暂无在售挂单' }}
+                                    </div>
+                                    <div v-else class="space-y-2 px-1">
+                                      <button
+                                        v-for="listing in getRowC5Listings(row)"
+                                        :key="listing.productId"
+                                        type="button"
+                                        class="flex w-full items-center justify-between rounded-lg border border-slate-200 px-3 py-2 text-left transition-colors hover:border-sky-300 hover:bg-sky-50/70"
+                                        @click.stop="applyC5Listing(row, listing)"
+                                      >
+                                        <div class="min-w-0">
+                                          <div class="font-numeric text-sm font-semibold text-slate-800">
+                                            {{ formatCurrency(listing.price) }}
+                                          </div>
+                                          <div class="mt-1 truncate text-xs text-slate-500">
+                                            {{ listing.sellerName || listing.sellerUid || '卖家未知' }}
+                                          </div>
+                                        </div>
+                                        <div class="text-right text-xs text-slate-500">
+                                          <div>
+                                            磨损
+                                            {{ listing.wear === null ? '--' : formatWearDisplay(listing.wear) }}
+                                          </div>
+                                        </div>
+                                      </button>
+                                      <div v-if="getRowC5State(row.id).loadingMore" class="py-2 text-center text-xs text-slate-500">
+                                        加载中...
+                                      </div>
+                                      <div v-else-if="getRowC5State(row.id).errorMessage" class="py-2 text-center text-xs text-rose-500">
+                                        {{ getRowC5State(row.id).errorMessage }}
+                                      </div>
+                                      <div v-else-if="!getRowC5State(row.id).hasMore" class="py-2 text-center text-xs text-slate-400">
+                                        已加载全部挂单
+                                      </div>
+                                    </div>
+                                  </div>
                                 </div>
                               </template>
                               <button
@@ -1218,6 +1399,7 @@ import type {
   DateRangeValue as TDateRangeValue,
   PageInfo,
   PrimaryTableCol,
+  SelectProps,
   Styles,
   TableSort,
 } from "tdesign-vue-next";
@@ -1227,6 +1409,9 @@ import { unboxApi } from "@/api/unbox";
 import type { GoodsSimple } from "@/types/goods";
 import type {
   DraftHandlingStatus,
+  UnboxRecordC5Listing,
+  UnboxRecordC5ListingPageResult,
+  UnboxRecordC5ListingQueryParam,
   UnboxRecordDTO,
   UnboxRecordOcrResult,
   UnboxRecordPageDTO,
@@ -1346,18 +1531,44 @@ interface RowOcrState {
   errorMessage: string;
 }
 
-interface MockC5Listing {
-  id: string;
-  price: number;
-  wear: number;
-  sellerName: string;
+type C5RangeMode = "all" | "preset" | "custom";
+type C5QueryStatus = "idle" | "loading" | "success" | "error";
+
+interface C5WearRangeOption {
+  label: string;
+  value: string;
+  mode: C5RangeMode;
+  wearMin?: number;
+  wearMax?: number;
+  exteriorMin?: number;
+  exteriorMax?: number;
+}
+
+interface RowC5State {
+  status: C5QueryStatus;
+  errorMessage: string;
+  listings: UnboxRecordC5Listing[];
+  queryKey: string;
+  initialized: boolean;
+  loadingMore: boolean;
+  hasMore: boolean;
+  pageNum: number;
+  pageSize: number;
+  selectedRangeKey: string;
+  customWearMin: number | null;
+  customWearMax: number | null;
+  appliedWearMin: number | null;
+  appliedWearMax: number | null;
+  appliedRangeKey: string;
+  invalidationKey: string;
 }
 
 const OCR_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
 const OCR_FIELD_MISSING_MESSAGE = "未识别到价格，请重新上传";
 const OCR_REQUEST_FAILURE_MESSAGE = "图片识别失败";
-const MOCK_C5_LISTING_PRICE_OFFSETS = [-1.26, -0.58, -0.12, 0.18, 0.63];
-const MOCK_C5_LISTING_WEAR_OFFSETS = [-0.041235678, -0.018764321, -0.004125678, 0.009845321, 0.027451236];
+const C5_POPUP_PAGE_SIZE = 20;
+const C5_WEAR_RANGE_ALL_KEY = "all";
+const C5_WEAR_RANGE_CUSTOM_KEY = "custom";
 const EXTERIOR_OPTIONS = [
   { label: "崭新出厂", value: 0 },
   { label: "略有磨损", value: 1 },
@@ -1384,6 +1595,48 @@ const BASE_WEAPON_NAME_OPTIONS = [
   { label: "M4A4 | 破浪狂飙", value: "M4A4 | 破浪狂飙" },
   { label: "AK-47 | 流金王朝", value: "AK-47 | 流金王朝" },
 ];
+const C5_EXTERIOR_TOTAL_RANGES: Record<number, { min: number; max: number }> = {
+  0: { min: 0, max: 0.07 },
+  1: { min: 0.07, max: 0.15 },
+  2: { min: 0.15, max: 0.38 },
+  3: { min: 0.38, max: 0.45 },
+  4: { min: 0.45, max: 1 },
+};
+const C5_EXTERIOR_PRESET_RANGES: Record<number, Array<{ min: number; max: number }>> = {
+  0: [
+    { min: 0, max: 0.01 },
+    { min: 0.01, max: 0.02 },
+    { min: 0.02, max: 0.03 },
+    { min: 0.03, max: 0.04 },
+    { min: 0.04, max: 0.07 },
+  ],
+  1: [
+    { min: 0.07, max: 0.08 },
+    { min: 0.08, max: 0.09 },
+    { min: 0.09, max: 0.1 },
+    { min: 0.1, max: 0.11 },
+    { min: 0.11, max: 0.15 },
+  ],
+  2: [
+    { min: 0.15, max: 0.18 },
+    { min: 0.18, max: 0.21 },
+    { min: 0.21, max: 0.24 },
+    { min: 0.24, max: 0.27 },
+    { min: 0.27, max: 0.38 },
+  ],
+  3: [
+    { min: 0.38, max: 0.39 },
+    { min: 0.39, max: 0.4 },
+    { min: 0.4, max: 0.41 },
+    { min: 0.41, max: 0.42 },
+    { min: 0.42, max: 0.45 },
+  ],
+  4: [
+    { min: 0.45, max: 0.5 },
+    { min: 0.5, max: 0.63 },
+    { min: 0.63, max: 0.7 },
+  ],
+};
 
 const currencyFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
@@ -1435,6 +1688,7 @@ const savingBatch = ref(false);
 const goodsLoading = ref(false);
 const goodsCatalog = ref<GoodsSimple[]>([]);
 const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
+const rowC5StateMap = ref<Record<string, RowC5State>>({});
 const ocrInputRef = ref<HTMLInputElement | null>(null);
 const activeOcrRowId = ref<string | null>(null);
 const activeOcrPopupRowId = ref<string | null>(null);
@@ -1689,9 +1943,33 @@ function createDefaultRowOcrState(): RowOcrState {
   };
 }
 
-function resetRowOcrState(rows: UnboxRow[]) {
+function createDefaultRowC5State(): RowC5State {
+  return {
+    status: "idle",
+    errorMessage: "",
+    listings: [],
+    queryKey: "",
+    initialized: false,
+    loadingMore: false,
+    hasMore: false,
+    pageNum: 1,
+    pageSize: C5_POPUP_PAGE_SIZE,
+    selectedRangeKey: C5_WEAR_RANGE_ALL_KEY,
+    customWearMin: null,
+    customWearMax: null,
+    appliedWearMin: null,
+    appliedWearMax: null,
+    appliedRangeKey: C5_WEAR_RANGE_ALL_KEY,
+    invalidationKey: "",
+  };
+}
+
+function resetRowStates(rows: UnboxRow[]) {
   rowOcrStateMap.value = Object.fromEntries(
     rows.map((row) => [row.id, createDefaultRowOcrState()])
+  );
+  rowC5StateMap.value = Object.fromEntries(
+    rows.map((row) => [row.id, createDefaultRowC5State()])
   );
   activeOcrRowId.value = null;
   activeOcrPopupRowId.value = null;
@@ -1705,8 +1983,19 @@ function ensureRowOcrState(rowId: string) {
   return rowOcrStateMap.value[rowId];
 }
 
+function ensureRowC5State(rowId: string) {
+  if (!rowC5StateMap.value[rowId]) {
+    rowC5StateMap.value[rowId] = createDefaultRowC5State();
+  }
+  return rowC5StateMap.value[rowId];
+}
+
 function getRowOcrState(rowId: string) {
   return ensureRowOcrState(rowId);
+}
+
+function getRowC5State(rowId: string) {
+  return ensureRowC5State(rowId);
 }
 
 function getRowOcrTooltip(rowId: string) {
@@ -1786,49 +2075,408 @@ function handleRowOcrPopupVisibleChange(rowId: string, visible: boolean) {
   activeOcrPopupRowId.value = visible ? rowId : activeOcrPopupRowId.value === rowId ? null : activeOcrPopupRowId.value;
 }
 
-function handleRowC5PopupVisibleChange(rowId: string, visible: boolean) {
-  activeC5PopupRowId.value = visible ? rowId : activeC5PopupRowId.value === rowId ? null : activeC5PopupRowId.value;
+function handleRowC5PopupVisibleChange(row: UnboxRow, visible: boolean) {
+  activeC5PopupRowId.value = visible ? row.id : activeC5PopupRowId.value === row.id ? null : activeC5PopupRowId.value;
+  if (visible) {
+    initializeRowC5State(row);
+    void runRowC5Query(row);
+  }
 }
 
-function getMockC5Listings(row: UnboxRow): MockC5Listing[] {
-  const basePrice = row.actualSellPrice > 0 ? row.actualSellPrice : row.inGamePrice > 0 ? row.inGamePrice * 2.2 : 10;
-  const baseWear = row.wear === "" ? 0.15 : row.wear;
-  const listings = MOCK_C5_LISTING_PRICE_OFFSETS.map((priceOffset, index) => {
-    const wear = Math.min(1, Math.max(0, baseWear + MOCK_C5_LISTING_WEAR_OFFSETS[index]));
-    return {
-      id: `${row.id}-${index}`,
-      price: round(Math.max(0.01, basePrice + priceOffset)),
-      wear,
-      sellerName: `C5卖家${index + 1}`,
-    };
+function formatC5WearBoundary(value: number) {
+  return value.toFixed(4).replace(/0+$/, "").replace(/\.$/, ".0");
+}
+
+function formatC5WearRangeLabel(min: number, max: number) {
+  return `${formatC5WearBoundary(min)} - ${formatC5WearBoundary(max)}`;
+}
+
+function normalizeC5WearValue(value: number | null | undefined) {
+  if (value === null || value === undefined || !Number.isFinite(value)) {
+    return null;
+  }
+  return Number(value.toFixed(4));
+}
+
+function getRowExteriorValue(row: UnboxRow) {
+  return Number.isInteger(row.exterior) ? row.exterior : null;
+}
+
+function getRowWearValue(row: UnboxRow) {
+  if (row.wear === "") {
+    return null;
+  }
+  return Number.isFinite(row.wear) ? row.wear : null;
+}
+
+function getC5ExteriorRange(exterior: number | null) {
+  if (exterior === null) return null;
+  return C5_EXTERIOR_TOTAL_RANGES[exterior] ?? null;
+}
+
+function isWearInRange(wear: number, min: number, max: number) {
+  const normalizedWear = normalizeC5WearValue(wear);
+  if (normalizedWear === null) return false;
+  if (max >= 1) {
+    return normalizedWear >= min && normalizedWear <= max;
+  }
+  return normalizedWear >= min && normalizedWear < max;
+}
+
+function getRowC5RangeOptions(row: UnboxRow): C5WearRangeOption[] {
+  const options: C5WearRangeOption[] = [
+    {
+      label: "不筛磨损（按价格）",
+      value: C5_WEAR_RANGE_ALL_KEY,
+      mode: "all",
+    },
+  ];
+  const exterior = getRowExteriorValue(row);
+  if (exterior === null) {
+    return options;
+  }
+  const presets = C5_EXTERIOR_PRESET_RANGES[exterior] ?? [];
+  options.push(
+    ...presets.map((item) => ({
+      label: formatC5WearRangeLabel(item.min, item.max),
+      value: `${item.min}-${item.max}`,
+      mode: "preset" as const,
+      wearMin: item.min,
+      wearMax: item.max,
+    }))
+  );
+  const exteriorRange = getC5ExteriorRange(exterior);
+  if (exteriorRange) {
+    options.push({
+      label: "自定义区间",
+      value: C5_WEAR_RANGE_CUSTOM_KEY,
+      mode: "custom",
+      exteriorMin: exteriorRange.min,
+      exteriorMax: exteriorRange.max,
+    });
+  }
+  return options;
+}
+
+function getRowC5SelectedOption(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  return getRowC5RangeOptions(row).find((item) => item.value === state.selectedRangeKey) ?? null;
+}
+
+function getDefaultRowC5RangeKey(row: UnboxRow) {
+  const wear = getRowWearValue(row);
+  if (wear === null) {
+    return C5_WEAR_RANGE_ALL_KEY;
+  }
+  const options = getRowC5RangeOptions(row);
+  const presetOption = options.find(
+    (item) => item.mode === "preset" && item.wearMin !== undefined && item.wearMax !== undefined && isWearInRange(wear, item.wearMin, item.wearMax)
+  );
+  if (presetOption) {
+    return presetOption.value;
+  }
+  const exterior = getRowExteriorValue(row);
+  const exteriorRange = getC5ExteriorRange(exterior);
+  if (exteriorRange && isWearInRange(wear, exteriorRange.min, exteriorRange.max)) {
+    return C5_WEAR_RANGE_CUSTOM_KEY;
+  }
+  return C5_WEAR_RANGE_ALL_KEY;
+}
+
+function getRowC5InvalidationKey(row: UnboxRow) {
+  return JSON.stringify({
+    weaponName: row.weaponName.trim(),
+    exterior: getRowExteriorValue(row),
+    wear: getRowWearValue(row),
   });
-  const targetWear = row.wear === "" ? null : row.wear;
-  return listings.sort((left, right) => {
-    if (targetWear === null) {
-      return left.price - right.price;
-    }
-    return Math.abs(left.wear - targetWear) - Math.abs(right.wear - targetWear);
-  });
+}
+
+function initializeRowC5State(row: UnboxRow) {
+  const state = ensureRowC5State(row.id);
+  const invalidationKey = getRowC5InvalidationKey(row);
+  if (state.invalidationKey === invalidationKey && state.initialized) {
+    return;
+  }
+  const defaultRangeKey = getDefaultRowC5RangeKey(row);
+  state.status = "idle";
+  state.errorMessage = "";
+  state.listings = [];
+  state.queryKey = "";
+  state.initialized = true;
+  state.loadingMore = false;
+  state.hasMore = false;
+  state.pageNum = 1;
+  state.pageSize = C5_POPUP_PAGE_SIZE;
+  state.selectedRangeKey = defaultRangeKey;
+  state.customWearMin = null;
+  state.customWearMax = null;
+  state.appliedWearMin = null;
+  state.appliedWearMax = null;
+  state.appliedRangeKey = C5_WEAR_RANGE_ALL_KEY;
+  state.invalidationKey = invalidationKey;
+}
+
+function resetRowC5Pagination(state: RowC5State) {
+  state.pageNum = 1;
+  state.hasMore = false;
+  state.listings = [];
+}
+
+function getRowC5QuerySummary(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  const option = getRowC5SelectedOption(row);
+  if (state.appliedRangeKey === C5_WEAR_RANGE_ALL_KEY) {
+    return "当前区间：不筛磨损（按价格）";
+  }
+  if (state.appliedRangeKey !== C5_WEAR_RANGE_CUSTOM_KEY) {
+    const appliedOption = getRowC5RangeOptions(row).find((item) => item.value === state.appliedRangeKey);
+    return `当前区间：${appliedOption?.label ?? option?.label ?? "未选择"}`;
+  }
+  if (state.appliedWearMin !== null && state.appliedWearMax !== null) {
+    return `当前区间：自定义 ${formatC5WearRangeLabel(state.appliedWearMin, state.appliedWearMax)}`;
+  }
+  return "当前区间：自定义区间";
+}
+
+function getRowC5WearHint(row: UnboxRow) {
+  const wear = getRowWearValue(row);
+  if (wear === null) {
+    return "";
+  }
+  const exterior = EXTERIOR_OPTIONS.find((item) => item.value === getRowExteriorValue(row));
+  return `当前磨损：${formatWearDisplay(wear)}${exterior ? ` · 当前外观：${exterior.label}` : ""}`;
+}
+
+function getRowC5CustomRangeHint(row: UnboxRow) {
+  const option = getRowC5SelectedOption(row);
+  if (!option || option.mode !== "custom") {
+    return "";
+  }
+  return `自定义区间需落在 ${formatC5WearRangeLabel(option.exteriorMin ?? 0, option.exteriorMax ?? 1)}`;
+}
+
+function getRowC5PresetMissHint(row: UnboxRow) {
+  const wear = getRowWearValue(row);
+  if (wear === null) {
+    return "";
+  }
+  const state = getRowC5State(row.id);
+  if (state.selectedRangeKey !== C5_WEAR_RANGE_CUSTOM_KEY) {
+    return "";
+  }
+  return `当前磨损 ${formatWearDisplay(wear)} 不在预设区间内，请手动设置`;
+}
+
+function buildRowC5Query(row: UnboxRow, pageNum: number): UnboxRecordC5ListingQueryParam {
+  const state = getRowC5State(row.id);
+  return {
+    weaponName: row.weaponName.trim(),
+    wearMin: state.appliedWearMin,
+    wearMax: state.appliedWearMax,
+    exterior: getRowExteriorValue(row),
+    pageNum,
+    pageSize: state.pageSize,
+  };
+}
+
+function getRowC5QueryKey(row: UnboxRow, pageNum: number) {
+  return JSON.stringify(buildRowC5Query(row, pageNum));
+}
+
+function validateRowC5CustomRange(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  const option = getRowC5SelectedOption(row);
+  if (!option || option.mode !== "custom") {
+    return { valid: true as const, wearMin: null, wearMax: null };
+  }
+  const wearMin = state.customWearMin;
+  const wearMax = state.customWearMax;
+  if (wearMin === null) {
+    state.errorMessage = "最小磨损不能为空";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  if (wearMax === null) {
+    state.errorMessage = "最大磨损不能为空";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  if (!Number.isFinite(wearMin) || !Number.isFinite(wearMax)) {
+    state.errorMessage = "自定义区间必须是数字";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  const normalizedMin = normalizeC5WearValue(wearMin);
+  const normalizedMax = normalizeC5WearValue(wearMax);
+  if (normalizedMin === null || normalizedMax === null) {
+    state.errorMessage = "自定义区间必须是数字";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  if (normalizedMin < 0 || normalizedMax > 1) {
+    state.errorMessage = "自定义区间必须在 0 到 1 之间";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  const exteriorMin = option.exteriorMin ?? 0;
+  const exteriorMax = option.exteriorMax ?? 1;
+  if (normalizedMin < exteriorMin || normalizedMax > exteriorMax) {
+    state.errorMessage = `自定义区间必须落在当前外观范围内（${formatC5WearRangeLabel(exteriorMin, exteriorMax)}）`;
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  if (normalizedMin >= normalizedMax) {
+    state.errorMessage = "最小磨损必须小于最大磨损";
+    return { valid: false as const, wearMin: null, wearMax: null };
+  }
+  return { valid: true as const, wearMin: normalizedMin, wearMax: normalizedMax };
+}
+
+function applyRowC5Filters(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  const option = getRowC5SelectedOption(row);
+  state.errorMessage = "";
+  if (!option || option.mode === "all") {
+    state.appliedWearMin = null;
+    state.appliedWearMax = null;
+    state.appliedRangeKey = C5_WEAR_RANGE_ALL_KEY;
+    return true;
+  }
+  if (option.mode === "preset") {
+    state.appliedWearMin = option.wearMin ?? null;
+    state.appliedWearMax = option.wearMax ?? null;
+    state.appliedRangeKey = option.value;
+    return true;
+  }
+  const result = validateRowC5CustomRange(row);
+  if (!result.valid) {
+    MessagePlugin.warning(state.errorMessage);
+    return false;
+  }
+  state.appliedWearMin = result.wearMin;
+  state.appliedWearMax = result.wearMax;
+  state.appliedRangeKey = C5_WEAR_RANGE_CUSTOM_KEY;
+  return true;
+}
+
+async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
+  const state = getRowC5State(row.id);
+  const query = buildRowC5Query(row, pageNum);
+  const result = await unboxApi.queryC5Listings(query);
+  const pageResult: UnboxRecordC5ListingPageResult = result;
+  state.queryKey = getRowC5QueryKey(row, pageNum);
+  state.pageNum = pageResult.pageNum || pageNum;
+  state.pageSize = pageResult.pageSize || state.pageSize;
+  state.hasMore = Boolean(pageResult.hasMore);
+  state.listings = pageNum === 1 ? pageResult.records : [...state.listings, ...pageResult.records];
+}
+
+async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
+  const state = getRowC5State(row.id);
+  if (!row.weaponName.trim()) {
+    state.status = "error";
+    state.errorMessage = "请先填写饰品名称";
+    state.listings = [];
+    state.queryKey = "";
+    return;
+  }
+  if (!applyRowC5Filters(row)) {
+    state.status = "error";
+    return;
+  }
+  const nextQueryKey = getRowC5QueryKey(row, 1);
+  if (!options?.force && state.status === "success" && state.queryKey === nextQueryKey) {
+    return;
+  }
+  if (state.status === "loading") {
+    return;
+  }
+  state.status = "loading";
+  state.errorMessage = "";
+  resetRowC5Pagination(state);
+  try {
+    await fetchRowC5Listings(row, 1);
+    state.status = "success";
+  } catch (error) {
+    state.status = "error";
+    state.errorMessage = getOcrErrorMessage(error, "获取 C5 在售列表失败");
+    state.listings = [];
+    state.hasMore = false;
+  }
+}
+
+async function loadMoreRowC5Listings(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  if (state.status !== "success" || state.loadingMore || !state.hasMore) {
+    return;
+  }
+  state.loadingMore = true;
+  state.errorMessage = "";
+  try {
+    await fetchRowC5Listings(row, state.pageNum + 1);
+  } catch (error) {
+    state.errorMessage = getOcrErrorMessage(error, "加载更多失败");
+  } finally {
+    state.loadingMore = false;
+  }
+}
+
+function handleRowC5ListScroll(row: UnboxRow, event: Event) {
+  const target = event.target as HTMLElement | null;
+  if (!target) {
+    return;
+  }
+  const distanceToBottom = target.scrollHeight - target.scrollTop - target.clientHeight;
+  if (distanceToBottom <= 24) {
+    void loadMoreRowC5Listings(row);
+  }
+}
+
+function handleRowC5RangeChange(row: UnboxRow, value: SelectProps["value"]) {
+  const state = getRowC5State(row.id);
+  state.selectedRangeKey = String(value ?? C5_WEAR_RANGE_ALL_KEY);
+  state.errorMessage = "";
+}
+
+function handleRowC5CustomWearMinChange(row: UnboxRow, value: string | number) {
+  const state = getRowC5State(row.id);
+  if (value === "") {
+    state.customWearMin = null;
+    return;
+  }
+  const numericValue = Number(value);
+  state.customWearMin = Number.isFinite(numericValue) ? numericValue : null;
+}
+
+function handleRowC5CustomWearMaxChange(row: UnboxRow, value: string | number) {
+  const state = getRowC5State(row.id);
+  if (value === "") {
+    state.customWearMax = null;
+    return;
+  }
+  const numericValue = Number(value);
+  state.customWearMax = Number.isFinite(numericValue) ? numericValue : null;
 }
 
 function getRowC5Listings(row: UnboxRow) {
-  return getMockC5Listings(row);
+  return getRowC5State(row.id).listings;
 }
 
 function getRowC5TriggerTooltip(row: UnboxRow) {
   if (!row.weaponName.trim()) {
     return "请先填写饰品名称";
   }
-  if (row.wear === "") {
-    return "当前未填写磨损，将按默认顺序展示模拟挂单";
+  const state = getRowC5State(row.id);
+  if (state.status === "loading") {
+    return "C5 在售列表加载中";
   }
-  return "查看 C5 模拟挂单并回填卖出价";
+  if (state.status === "error") {
+    return state.errorMessage || "获取 C5 在售列表失败，点击重试";
+  }
+  if (getRowWearValue(row) === null) {
+    return "查看 C5 在售最低价并回填卖出价";
+  }
+  return "按磨损区间查看 C5 在售列表并回填卖出价";
 }
 
-function applyMockC5Listing(row: UnboxRow, listing: MockC5Listing) {
-  row.actualSellPrice = listing.price;
+function applyC5Listing(row: UnboxRow, listing: UnboxRecordC5Listing) {
+  row.actualSellPrice = round(Number(listing.price ?? 0));
   activeC5PopupRowId.value = null;
-  MessagePlugin.success(`已回填平台卖出价 ${formatCurrency(listing.price)}`);
+  MessagePlugin.success(`已回填平台卖出价 ${formatCurrency(row.actualSellPrice)}`);
 }
 
 function triggerRowOcrFileSelect(row: UnboxRow) {
@@ -2215,15 +2863,6 @@ function buildBatchSummary(
   };
 }
 
-const getBatchSummary = (batch: UnboxBatch): BatchSummary =>
-  buildBatchSummary(
-    batch.rows.length,
-    batch.rows.map((row) => ({
-      row,
-      metrics: getRowMetrics(row),
-    }))
-  );
-
 const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(() => currentPageBatchSummaryRows.value);
 
 function sortableNumber(value: number | null | undefined) {
@@ -2417,13 +3056,22 @@ watch(
 );
 
 watch(
-  () => draftBatch.value.rows.map((row) => row.id),
-  (rowIds) => {
+  () => draftBatch.value.rows.map((row) => ({ id: row.id, invalidationKey: getRowC5InvalidationKey(row) })),
+  (rows) => {
+    const rowIds = rows.map((row) => row.id);
     const nextIds = new Set(rowIds);
-    const nextStateMap = Object.fromEntries(
+    rowOcrStateMap.value = Object.fromEntries(
       rowIds.map((rowId) => [rowId, rowOcrStateMap.value[rowId] ?? createDefaultRowOcrState()])
     );
-    rowOcrStateMap.value = nextStateMap;
+    rowC5StateMap.value = Object.fromEntries(
+      rows.map(({ id, invalidationKey }) => {
+        const prevState = rowC5StateMap.value[id] ?? createDefaultRowC5State();
+        if (prevState.invalidationKey && prevState.invalidationKey !== invalidationKey) {
+          return [id, createDefaultRowC5State()];
+        }
+        return [id, prevState];
+      })
+    );
     if (activeOcrRowId.value && !nextIds.has(activeOcrRowId.value)) {
       activeOcrRowId.value = null;
     }
@@ -2842,7 +3490,7 @@ function openCreateEditor() {
   editingBatchId.value = null;
   loadingDetailBatchId.value = null;
   draftBatch.value = createBlankBatch();
-  resetRowOcrState(draftBatch.value.rows);
+  resetRowStates(draftBatch.value.rows);
   ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = false;
@@ -2860,7 +3508,7 @@ async function openEditEditor(batchId: number) {
     const nextBatch = mapRecordToBatch(detail);
     editingBatchId.value = batchId;
     draftBatch.value = nextBatch;
-    resetRowOcrState(draftBatch.value.rows);
+    resetRowStates(draftBatch.value.rows);
     ensureGoodsInCatalog(nextBatch.goodsId, nextBatch.boxName);
     isEditorFullscreen.value = false;
     isBatchInfoCollapsed.value = true;

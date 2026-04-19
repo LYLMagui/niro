@@ -3,10 +3,12 @@ package com.niro.web.controller;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.stp.StpUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.niro.web.dto.UnboxRecordC5ListingPageDTO;
 import com.niro.web.dto.UnboxRecordDTO;
 import com.niro.web.dto.UnboxRecordOcrResultDTO;
 import com.niro.web.dto.UnboxRecordPageDTO;
 import com.niro.web.dto.UnboxRecordSummaryDTO;
+import com.niro.web.dto.param.UnboxRecordC5ListingQueryParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
 import com.niro.web.service.UnboxRecordOcrService;
 import com.niro.web.service.UnboxRecordService;
@@ -84,6 +86,13 @@ public class UnboxRecordController {
     @PostMapping(value = "/ocr", consumes = "multipart/form-data")
     public UnboxRecordOcrResultDTO recognize(@RequestPart("file") MultipartFile file) {
         return unboxRecordOcrService.recognize(file);
+    }
+
+    @Operation(summary = "查询开箱记录 C5 在售列表")
+    @PostMapping("/c5/listings")
+    public UnboxRecordC5ListingPageDTO listC5Listings(@RequestBody @Valid UnboxRecordC5ListingQueryParam param) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        return unboxRecordService.listC5Listings(userId, param);
     }
 
     @Operation(summary = "删除开箱记录")

@@ -72,3 +72,16 @@ comment on column unbox_record_item.actual_sell_price is '实际卖出价';
 comment on column unbox_record_item.note is '明细备注';
 comment on column unbox_record_item.created_at is '创建时间';
 comment on column unbox_record_item.updated_at is '更新时间';
+
+alter table unbox_record_item
+  add column wear numeric(17,16) not null default 0.0000000000000000,
+  add column exterior integer not null default 0;
+
+alter table unbox_record_item
+  add constraint chk_unbox_record_item_wear
+    check (wear >= 0 and wear <= 1),
+  add constraint chk_unbox_record_item_exterior
+    check (exterior in (0, 1, 2, 3, 4));
+
+comment on column unbox_record_item.wear is '磨损值，取值范围0到1，保留16位小数';
+comment on column unbox_record_item.exterior is '外观：0崭新出厂、1略有磨损、2久经沙场、3破损不堪、4战痕累累';

@@ -1,9 +1,12 @@
 package com.niro.web.service;
 
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
+import com.niro.web.dto.UnboxRecordC5ListingPageDTO;
+import com.niro.web.dto.UnboxRecordC5ListingVO;
 import com.niro.web.dto.UnboxRecordDTO;
 import com.niro.web.dto.UnboxRecordPageDTO;
 import com.niro.web.dto.UnboxRecordSummaryDTO;
+import com.niro.web.dto.param.UnboxRecordC5ListingQueryParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
 
 import java.time.LocalDate;
@@ -21,6 +24,8 @@ public interface UnboxRecordService {
     List<UnboxRecordDTO> list(Long userId, LocalDate startDate, LocalDate endDate);
 
     UnboxRecordDTO getDetail(Long userId, Long id);
+
+    UnboxRecordC5ListingPageDTO listC5Listings(Long userId, UnboxRecordC5ListingQueryParam param);
 
     Long create(Long userId, UnboxRecordSaveParam param);
 
