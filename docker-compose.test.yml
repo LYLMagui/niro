@@ -9,6 +9,14 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
       TZ: Asia/Shanghai
       PGDATA: /var/lib/postgresql/data/pgdata
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      all_proxy: ${ALL_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     volumes:
       - niro_db_data_test:/var/lib/postgresql/data
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
@@ -16,7 +24,7 @@ services:
       - "5432:5432"
     shm_size: "1gb" # 生产环境建议提升共享内存
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-niro-admin} -d niro"]
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -p 5432 -U ${DB_USERNAME:-niro-admin} -d niro"]
       interval: 10s
       timeout: 5s
       retries: 5
