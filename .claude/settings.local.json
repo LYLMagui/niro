@@ -8,7 +8,14 @@
       "mcp__tdesign-mcp-server__get-component-docs",
       "mcp__serena-niro-claude__find_symbol",
       "Bash(python:*)",
-      "mcp__nocturne-memory__read_memory"
+      "mcp__nocturne-memory__read_memory",
+      "mcp__serena-niro-claude__activate_project",
+      "mcp__serena-niro-claude__initial_instructions",
+      "mcp__serena-niro-claude__find_file",
+      "Bash(PYTHONPATH=\"D:/MySpace/niro/ocr_demo\" python *)",
+      "mcp__serena-niro-claude__list_dir",
+      "Bash(mvn clean *)",
+      "Bash(mvn compile *)"
     ]
   },
   "enableAllProjectMcpServers": true,

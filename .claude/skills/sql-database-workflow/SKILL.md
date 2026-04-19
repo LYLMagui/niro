@@ -43,6 +43,10 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 - 设计表结构或修改字段时，必须同时考虑注释、索引、约束和兼容性。
 - 所有新表和新字段都必须补齐注释；不允许只建结构不写注释。
 - 输出 SQL 时必须遵循目标数据库方言，不混用 PostgreSQL / MySQL 语法。
+- 对 PostgreSQL 输出示例时，优先复用当前项目现有 SQL 基线，不要拿通用偏好覆盖项目现实；尤其是默认值写法，以及 `created_at` / `updated_at` 这类通用字段的类型与默认值。
+- PostgreSQL reference 中禁止使用外键；关系约束改由业务约束、唯一约束、检查约束和关联字段索引表达。
+- PostgreSQL reference 中字段默认要带默认值；除非 PostgreSQL 官方明确说明该类型或场景不允许设置默认值。
+- PostgreSQL reference 中通用时间类字段必须使用无时区类型。
 - 修改已有表前，优先评估默认值、非空约束、索引创建方式、数据回填和锁影响。
 - 如果无法从项目中可靠识别数据库类型，先问用户，不要猜。
 
@@ -87,6 +91,7 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 1. 如果 reference 已存在，先读取它，再输出 SQL。
 2. 如果 reference 不存在，不要凭空混写两种方言；先基于当前项目补对应 reference，再继续。
 3. 任何数据库专有语法、避坑点、注释写法、迁移习惯，都应该沉淀在对应 reference 中。
+4. 如果 PostgreSQL reference 已经存在项目内的现成建表 SQL 基线，优先沿用这些真实写法，例如 `timestamp not null default now()`、`text not null default ''`、`numeric(4,2) not null default 0.00`。
 
 ### Step 4: Design the schema change before writing SQL
 在开始写 SQL 前，至少确认：
@@ -95,7 +100,7 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 - 现有数据是否需要回填
 - 新字段是否真的需要 `not null`
 - 默认值是否会触发高成本表重写
-- 外键、唯一约束、检查约束是否需要同步加索引
+- 唯一约束、检查约束、关联字段索引是否需要同步设计
 - 迁移是否需要分步骤执行以降低锁风险
 
 目标是先把变更路径想清楚，再写 SQL，而不是用 DDL 硬顶生产数据。
@@ -126,7 +131,7 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 
 - 是否误用了另一种数据库的语法
 - 表和字段是否都有注释
-- 是否遗漏外键相关索引或关键约束
+- 是否遗漏关键业务索引、唯一约束或检查约束
 - 是否存在高风险整表重写、长事务或阻塞写入风险
 - SQL 是否适合当前任务场景：建表、迁移、修复、补注释
 
@@ -143,8 +148,8 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 
 1. 先查当前项目配置和依赖，确认是不是 PostgreSQL。
 2. 读取 `references/postgresql-sql-standard.md`。
-3. 按 PostgreSQL 语法输出 `create table`、索引、`comment on table`、`comment on column`。
-4. 如果有外键，补对应索引。
+3. 按 PostgreSQL 语法输出 `create table`、索引、`comment on table`、`comment on column`，并优先贴合项目现有 SQL 基线中的默认值与通用字段类型。
+4. 不使用外键，改用唯一约束、检查约束和关联字段索引表达关系约束。
 
 ### Example 2: Add a new column to an existing table
 用户说：
@@ -183,4 +188,5 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 - `references/postgresql-sql-standard.md`
 - `references/mysql-sql-standard.md`（未来扩展；识别为 MySQL 时应先读取或补齐该文件）
 - `D:\MySpace\niro\.claude\skills\postgresql-table-design\SKILL.md`
+- `D:\MySpace\niro\docs\sql\开箱记录表设计.sql`
 - 当前项目中的数据库配置、依赖与迁移脚本
