@@ -7,176 +7,196 @@
     desktop-content-class="px-4 pt-3 pb-4"
     mobile-content-class="px-3 pt-3 pb-0"
   >
-    <t-tabs
-      v-model="activeTab"
-      class="jsh-tabs border-b border-[#e8e8e8] bg-white"
-      @change="handleTabChange"
-    >
-      <t-tab-panel :value="0" label="全部" />
-      <t-tab-panel :value="1" label="成功" />
-      <t-tab-panel :value="2" label="失败" />
-      <t-tab-panel :value="3" label="取消" />
-    </t-tabs>
+    <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <t-tabs
+        v-model="activeTab"
+        class="jsh-tabs border-b border-slate-200 bg-white px-4"
+        @change="handleTabChange"
+      >
+        <t-tab-panel :value="0" label="全部" />
+        <t-tab-panel :value="1" label="成功" />
+        <t-tab-panel :value="2" label="失败" />
+        <t-tab-panel :value="3" label="取消" />
+      </t-tabs>
 
-    <div>
-      <div class="jsh-filter-layout flex flex-wrap items-center gap-x-6 gap-y-3">
-        <div class="jsh-filter-item flex items-center">
-          <span class="jsh-label">订单关键词：</span>
-          <t-input
-            v-model="queryParams.keyword"
-            placeholder="请输入商品名/C5订单号"
-            clearable
-            class="jsh-filter-input"
-            @enter="handleSearch"
-            @clear="handleKeywordClear"
-          />
-        </div>
+      <div class="flex flex-col gap-3 bg-slate-50/70 px-4 py-3">
+        <div
+          :class="[
+            'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
+            showAdvancedFilters
+              ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,320px)_auto]'
+              : 'xl:grid-cols-[minmax(0,280px)_auto]',
+          ]"
+        >
+          <label class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+            <span class="jsh-label text-sm font-medium text-slate-700">订单关键词</span>
+            <t-input
+              v-model="queryParams.keyword"
+              placeholder="请输入商品名/C5订单号"
+              clearable
+              class="jsh-filter-input"
+              :class="toolbarFieldClass"
+              @enter="handleSearch"
+              @clear="handleKeywordClear"
+            />
+          </label>
 
-        <div v-if="showAdvancedFilters" class="jsh-filter-item flex items-center">
-          <span class="jsh-label">订单日期：</span>
-          <t-date-range-picker
-            v-model="dateRange"
-            clearable
-            value-type="YYYY-MM-DD"
-            format="YYYY-MM-DD"
-            class="jsh-filter-select"
-            :placeholder="['开始日期', '结束日期']"
-            @change="handleDateRangeChange"
-          />
-        </div>
-
-        <div class="jsh-filter-actions flex items-center gap-2">
-          <t-button
-            v-permission="PermissionConstant.TASK_RECORD_LIST"
-            theme="primary"
-            @click="handleSearch"
+          <label
+            v-if="showAdvancedFilters"
+            class="jsh-filter-item flex min-w-0 flex-col gap-1.5"
           >
-            查询
-          </t-button>
-          <t-button
-            v-permission="PermissionConstant.TASK_RECORD_LIST"
-            variant="outline"
-            theme="default"
-            @click="handleReset"
-          >
-            重置
-          </t-button>
-          <a class="jsh-expand-link" @click="toggleAdvancedFilters">
-            {{ showAdvancedFilters ? "收起" : "展开" }}
-          </a>
-        </div>
-      </div>
-    </div>
+            <span class="jsh-label text-sm font-medium text-slate-700">订单日期</span>
+            <t-date-range-picker
+              v-model="dateRange"
+              clearable
+              value-type="YYYY-MM-DD"
+              format="YYYY-MM-DD"
+              class="jsh-filter-select"
+              :class="toolbarFieldClass"
+              :placeholder="['开始日期', '结束日期']"
+              @change="handleDateRangeChange"
+            />
+          </label>
 
-    <div class="mt-3 pt-2">
-      <div v-if="isMobile" class="order-status-filter">
-        <span class="order-status-filter__label">订单状态：</span>
-        <div class="order-status-filter__options">
-          <button
-            v-for="item in mobileStatusOptions"
-            :key="item.value"
-            type="button"
-            class="order-status-filter__option"
-            :class="{ 'order-status-filter__option--active': activeTab === item.value }"
-            @click="handleTabChange(item.value)"
-          >
-            {{ item.label }}
-          </button>
-        </div>
-      </div>
-
-      <div class="jsh-toolbar flex flex-wrap items-start justify-between gap-y-3">
-        <div class="order-toolbar-main flex min-w-0 flex-1 flex-wrap items-center gap-2">
           <div
-            class="table-operator flex flex-wrap items-center"
-            :class="{ 'table-operator--mobile': isMobile }"
+            class="jsh-filter-actions flex flex-wrap items-center gap-2"
+            :class="showAdvancedFilters ? 'xl:justify-end' : 'xl:justify-start'"
           >
-            <div
-              v-permission="PermissionConstant.TASK_C5_LIST"
-              class="order-sync-control flex items-center gap-2"
-              :class="{ 'order-sync-control--mobile': isMobile }"
+            <t-button
+              v-permission="PermissionConstant.TASK_RECORD_LIST"
+              theme="primary"
+              class="jsh-action-btn jsh-action-btn--primary"
+              @click="handleSearch"
             >
-              <span class="order-sync-control__label">同步范围</span>
-              <t-select
-                v-model="selectedSyncRange"
-                class="order-sync-control__select"
-                :disabled="c5SyncLoading"
-                :options="syncRangeOptions"
-                aria-label="同步范围"
-              />
+              查询
+            </t-button>
+            <t-button
+              v-permission="PermissionConstant.TASK_RECORD_LIST"
+              variant="outline"
+              theme="default"
+              class="jsh-action-btn"
+              @click="handleReset"
+            >
+              重置
+            </t-button>
+            <button type="button" class="jsh-expand-link" @click="toggleAdvancedFilters">
+              {{ showAdvancedFilters ? "收起" : "展开" }}
+            </button>
+          </div>
+        </div>
+
+        <div v-if="isMobile" class="order-status-filter">
+          <span class="order-status-filter__label">订单状态：</span>
+          <div class="order-status-filter__options">
+            <button
+              v-for="item in mobileStatusOptions"
+              :key="item.value"
+              type="button"
+              class="order-status-filter__option"
+              :class="{ 'order-status-filter__option--active': activeTab === item.value }"
+              @click="handleTabChange(item.value)"
+            >
+              {{ item.label }}
+            </button>
+          </div>
+        </div>
+
+        <div
+          class="jsh-toolbar flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between"
+        >
+          <div class="order-toolbar-main flex min-w-0 flex-1 flex-wrap items-center gap-2">
+            <div
+              class="table-operator flex flex-wrap items-center gap-2"
+              :class="{ 'table-operator--mobile': isMobile }"
+            >
+              <div
+                v-permission="PermissionConstant.TASK_C5_LIST"
+                class="order-sync-control flex items-center gap-2"
+                :class="{ 'order-sync-control--mobile': isMobile }"
+              >
+                <span class="order-sync-control__label">同步范围</span>
+                <t-select
+                  v-model="selectedSyncRange"
+                  class="order-sync-control__select"
+                  :class="toolbarCompactFieldClass"
+                  :disabled="c5SyncLoading"
+                  :options="syncRangeOptions"
+                  aria-label="同步范围"
+                />
+                <t-popconfirm
+                  :content="syncConfirmContent"
+                  :disabled="!shouldConfirmFullHistorySync"
+                  placement="top"
+                  theme="warning"
+                  cancel-btn="取消"
+                  :confirm-btn="{ content: '确认同步', theme: 'warning' }"
+                  :popup-props="syncConfirmPopupProps"
+                  @confirm="handleConfirmFullHistorySync"
+                >
+                  <t-button
+                    variant="outline"
+                    theme="default"
+                    class="jsh-action-btn"
+                    :loading="c5SyncLoading"
+                    @click="handleC5Sync"
+                  >
+                    {{ isMobile ? "同步订单" : "同步 C5 订单" }}
+                  </t-button>
+                </t-popconfirm>
+              </div>
+
               <t-popconfirm
-                :content="syncConfirmContent"
-                :disabled="!shouldConfirmFullHistorySync"
-                placement="top"
-                theme="warning"
-                cancel-btn="取消"
-                :confirm-btn="{ content: '确认同步', theme: 'warning' }"
-                :popup-props="syncConfirmPopupProps"
-                @confirm="handleConfirmFullHistorySync"
+                v-permission="PermissionConstant.ORDER_RECORD_DELETE"
+                content="确认批量删除勾选订单吗？"
+                @confirm="handleBatchDelete"
               >
                 <t-button
                   variant="outline"
                   theme="default"
                   class="jsh-action-btn"
-                  :loading="c5SyncLoading"
-                  @click="handleC5Sync"
+                  :disabled="selectedRowKeys.length === 0"
                 >
-                  {{ isMobile ? "同步订单" : "同步 C5 订单" }}
+                  批量删除
                 </t-button>
               </t-popconfirm>
             </div>
 
-            <t-popconfirm
-              v-permission="PermissionConstant.ORDER_RECORD_DELETE"
-              content="确认批量删除勾选订单吗？"
-              @confirm="handleBatchDelete"
+            <div
+              class="order-overview-inline flex min-w-0 flex-1 flex-wrap items-center gap-2"
+              :class="{ 'order-overview-inline--mobile': isMobile }"
             >
-              <t-button
-                variant="outline"
-                theme="default"
-                class="jsh-action-btn"
-                :disabled="selectedRowKeys.length === 0"
+              <div
+                v-for="item in orderSummaryCards"
+                :key="item.key"
+                class="order-overview-pill inline-flex h-7 items-center gap-1 rounded-[6px] px-2.5"
+                :class="item.pillClass"
               >
-                批量删除
-              </t-button>
-            </t-popconfirm>
+                <span class="text-[12px] leading-none">{{ item.label }}</span>
+                <span class="text-[14px] leading-none font-semibold">{{ item.value }}</span>
+              </div>
+            </div>
           </div>
 
           <div
-            class="order-overview-inline flex min-w-0 flex-1 flex-wrap items-center gap-2"
-            :class="{ 'order-overview-inline--mobile': isMobile }"
+            class="text-xs text-slate-500"
+            :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'"
           >
-            <div
-              v-for="item in orderSummaryCards"
-              :key="item.key"
-              class="order-overview-pill inline-flex h-6 items-center gap-1 rounded-[6px] px-2"
-              :class="item.pillClass"
+            <t-tag theme="primary" variant="light" class="selection-summary__count rounded-[2px]">
+              已选择 {{ selectedRowKeys.length }} 项
+            </t-tag>
+            <t-button
+              variant="outline"
+              theme="default"
+              class="jsh-action-btn"
+              :disabled="selectedRowKeys.length === 0"
+              @click="clearSelection"
             >
-              <span class="text-[12px] leading-none">{{ item.label }}</span>
-              <span class="text-[14px] leading-none font-semibold">{{ item.value }}</span>
-            </div>
+              清空勾选
+            </t-button>
           </div>
         </div>
-
-        <div
-          class="text-xs text-[#909399]"
-          :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2'"
-        >
-          <t-tag theme="primary" variant="light" class="selection-summary__count rounded-[2px]">
-            已选择 {{ selectedRowKeys.length }} 项
-          </t-tag>
-          <t-button
-            variant="outline"
-            theme="default"
-            class="jsh-action-btn"
-            :disabled="selectedRowKeys.length === 0"
-            @click="clearSelection"
-          >
-            清空勾选
-          </t-button>
-        </div>
       </div>
-    </div>
+    </section>
 
     <div
       :class="[
@@ -184,24 +204,28 @@
         isMobile ? 'min-h-fit flex-none pt-3 pb-0' : 'min-h-0 flex-1 pt-3 pb-4',
       ]"
     >
-      <div v-if="!isMobile" class="order-record-table-wrap relative h-full min-h-0 overflow-hidden">
-        <t-table
-          row-key="id"
-          height="100%"
-          :data="dataList"
-          :columns="columns"
-          :loading="loading"
-          :pagination="undefined"
-          :selected-row-keys="selectedRowKeys"
-          select-on-row-click
-          hover
-          :class="[
-            'niro-unified-table bg-white',
-            { 'niro-unified-table--empty': !loading && dataList.length === 0 },
-          ]"
-          @sort-change="onSortChange"
-          @select-change="handleSelectChange"
-        >
+      <div
+        v-if="!isMobile"
+        class="order-record-table-wrap relative flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+      >
+        <div class="min-h-0 flex-1 overflow-hidden">
+          <t-table
+            row-key="id"
+            height="100%"
+            :data="dataList"
+            :columns="columns"
+            :loading="loading"
+            :pagination="undefined"
+            :selected-row-keys="selectedRowKeys"
+            select-on-row-click
+            hover
+            :class="[
+              'order-c5-table w-full bg-white',
+              { 'niro-unified-table--empty': !loading && dataList.length === 0 },
+            ]"
+            @sort-change="onSortChange"
+            @select-change="handleSelectChange"
+          >
           <template #empty>
             <div class="jsh-ledger-empty">
               <t-empty description="暂无订单记录" />
@@ -306,11 +330,12 @@
               </t-popconfirm>
             </div>
           </template>
-        </t-table>
+          </t-table>
+        </div>
 
         <div
           v-if="pagination.total > 0"
-          class="border-t border-[#e8e8e8] bg-white px-4 py-3"
+          class="border-t border-slate-200 bg-white px-4 py-3"
         >
           <t-pagination
             size="small"
@@ -566,6 +591,14 @@ const pagination = reactive({
   size: "small",
 });
 
+const orderTableHeaderClass =
+  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+const orderTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
+const toolbarFieldClass =
+  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+const toolbarCompactFieldClass =
+  "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+
 const priceFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
   currency: "CNY",
@@ -574,14 +607,76 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
 });
 
 const columns = computed<PrimaryTableCol[]>(() => [
-  { colKey: "row-select", type: "multiple", width: 56, fixed: "left" },
-  { colKey: "goods", title: "商品信息", width: 280, cell: "goods" },
-  { colKey: "account", title: "平台/账号", width: 150, cell: "account" },
-  { colKey: "orderId", title: "C5订单号", width: 180, cell: "orderId" },
-  { colKey: "price", title: "价格", width: 120, cell: "price", sorter: true },
-  { colKey: "status", title: "状态", width: 220, cell: "status", sorter: true },
-  { colKey: "createTime", title: "时间", width: 180, cell: "time", sorter: true },
-  { colKey: "operation", title: "操作", width: 120, fixed: "right", cell: "operation" },
+  {
+    colKey: "row-select",
+    type: "multiple",
+    width: 56,
+    fixed: "left",
+    className: `${orderTableBodyClass} !bg-white`,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "goods",
+    title: "商品信息",
+    width: 280,
+    cell: "goods",
+    align: "left",
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "account",
+    title: "平台/账号",
+    width: 150,
+    cell: "account",
+    align: "left",
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "orderId",
+    title: "C5订单号",
+    width: 180,
+    cell: "orderId",
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "price",
+    title: "价格",
+    width: 120,
+    cell: "price",
+    sorter: true,
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "status",
+    title: "状态",
+    width: 220,
+    cell: "status",
+    sorter: true,
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "createTime",
+    title: "时间",
+    width: 180,
+    cell: "time",
+    sorter: true,
+    className: orderTableBodyClass,
+    thClassName: orderTableHeaderClass,
+  },
+  {
+    colKey: "operation",
+    title: "操作",
+    width: 120,
+    fixed: "right",
+    cell: "operation",
+    className: `${orderTableBodyClass} !bg-white`,
+    thClassName: orderTableHeaderClass,
+  },
 ]);
 
 const selectedRecords = computed(() => {
@@ -978,41 +1073,37 @@ watch(
 </script>
 
 <style scoped>
-.jsh-filter-layout {
-  row-gap: 12px;
-}
-
-.jsh-filter-item {
-  flex-shrink: 0;
-}
-
-.jsh-label {
-  width: 96px;
-  padding-right: 10px;
-  color: #303133;
-  font-size: 13px;
-  line-height: 32px;
-  text-align: right;
-  white-space: nowrap;
-}
-
 .jsh-expand-link {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 36px;
   padding: 0 4px;
-  color: rgb(24, 144, 255);
-  line-height: 32px;
+  border: 0;
+  background: transparent;
+  color: rgb(71 85 105);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
   user-select: none;
 }
 
 .jsh-expand-link:hover {
-  color: rgb(64, 169, 255);
+  color: rgb(15 23 42);
 }
 
-.table-operator {
-  gap: 8px;
+.table-operator :deep(.t-popup__reference) {
+  display: inline-flex;
 }
 
-.table-operator :deep(.t-button) {
-  margin: 0;
+:deep(.jsh-action-btn.t-button) {
+  min-width: 88px;
+  border-radius: 4px;
+  box-shadow: none;
+}
+
+.jsh-filter-item {
+  min-width: 0;
 }
 
 .order-sync-control {
@@ -1022,20 +1113,14 @@ watch(
 
 .order-sync-control__label {
   flex-shrink: 0;
-  color: #606266;
-  font-size: 12px;
+  color: rgb(71 85 105);
+  font-size: 13px;
   line-height: 1;
 }
 
 .order-sync-control__select {
-  width: 93px;
-  min-width: 93px;
-}
-
-.order-sync-control__hint {
-  color: #909399;
-  font-size: 12px;
-  line-height: 1.5;
+  width: 108px;
+  min-width: 108px;
 }
 
 .task-selection-summary {
@@ -1043,10 +1128,6 @@ watch(
   flex-wrap: wrap;
   align-items: center;
   gap: 8px;
-}
-
-.selection-summary__hint {
-  min-width: 0;
 }
 
 .selection-summary__count {
@@ -1062,7 +1143,7 @@ watch(
 }
 
 .order-overview-pill {
-  min-height: 24px;
+  min-height: 28px;
   white-space: nowrap;
 }
 
@@ -1085,8 +1166,35 @@ watch(
   min-height: 100%;
 }
 
-:deep(.niro-unified-table) {
-  height: 100%;
+:deep(.order-c5-table .t-table__header th) {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+:deep(.order-c5-table .t-table__body td) {
+  padding-top: 8px;
+  padding-bottom: 8px;
+}
+
+:deep(.order-c5-table .t-table) {
+  border: none;
+  border-radius: 0;
+  box-shadow: none;
+}
+
+:deep(.order-c5-table .t-table__content) {
+  border: none;
+  border-radius: 0;
+}
+
+:deep(.order-c5-table .t-table__header) {
+  overflow: visible;
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+}
+
+:deep(.order-c5-table .t-table__row--hover td) {
+  background: #fcfcfc !important;
 }
 
 .order-record-table-wrap {
@@ -1402,17 +1510,6 @@ watch(
     display: none;
   }
 
-  .jsh-toolbar {
-    flex-direction: column;
-    align-items: stretch;
-    gap: 10px;
-  }
-
-  .jsh-toolbar > .task-selection-summary,
-  .jsh-toolbar > .flex.items-center.gap-2 {
-    width: 100%;
-  }
-
   .jsh-filter-layout {
     gap: 12px;
   }
@@ -1420,8 +1517,8 @@ watch(
   .jsh-filter-item {
     display: flex;
     flex-direction: column;
-    align-items: stretch;
     width: 100%;
+    align-items: stretch;
   }
 
   .jsh-filter-item:deep(.t-input),
@@ -1433,17 +1530,17 @@ watch(
 
   .jsh-label {
     width: 100%;
-    margin-bottom: 6px;
     padding-right: 0;
+    margin-bottom: 6px;
     line-height: 1.5;
     text-align: left;
   }
 
   .jsh-filter-actions {
+    width: 100%;
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
-    width: 100%;
   }
 
   .jsh-filter-actions :deep(.t-button) {
@@ -1508,15 +1605,6 @@ watch(
     align-items: center;
     gap: 10px 12px;
     width: 100%;
-  }
-
-  .selection-summary__hint {
-    display: block;
-    min-width: 0;
-    margin-bottom: -2px;
-    line-height: 1.5;
-    overflow-wrap: anywhere;
-    word-break: break-word;
   }
 
   .selection-summary__count {
