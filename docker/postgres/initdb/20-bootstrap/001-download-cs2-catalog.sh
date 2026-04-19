@@ -22,10 +22,12 @@ download_file() {
 
   if command -v curl >/dev/null 2>&1; then
     curl -fL \
+      --http1.1 \
       --connect-timeout "$connect_timeout" \
       --max-time "$download_timeout" \
       --retry "$download_retries" \
       --retry-delay 2 \
+      --retry-all-errors \
       -o "$dest" \
       "$url"
     return 0
