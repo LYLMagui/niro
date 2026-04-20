@@ -23,7 +23,15 @@
       "Bash(gh api *)",
       "WebFetch(domain:skills.sh)",
       "Bash(PYTHONIOENCODING=utf-8 python *)",
-      "WebSearch"
+      "WebSearch",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/claude-skills/prd-generator/SKILL.md\" \".claude/skills/solo-pm-workflow/references/prd-generator/SKILL.md\")",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/claude-skills/competitive-analysis/SKILL.md\" \".claude/skills/solo-pm-workflow/references/competitive-analysis/SKILL.md\")",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/claude-skills/competitive-analysis/references/data-collection.md\" \".claude/skills/solo-pm-workflow/references/competitive-analysis/references/data-collection.md\")",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/claude-skills/competitive-analysis/references/diagrams.md\" \".claude/skills/solo-pm-workflow/references/competitive-analysis/references/diagrams.md\")",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/claude-skills/competitive-analysis/references/frameworks.md\" \".claude/skills/solo-pm-workflow/references/competitive-analysis/references/frameworks.md\")",
+      "Bash(mkdir -p \".claude/skills/solo-pm-workflow/references/html-style-generator/config\" \".claude/skills/solo-pm-workflow/references/html-style-generator/styles\")",
+      "Bash(cp \".claude/skills/solo-pm-workflow/references/_extract_html_style_generator/html-style-generator-main/config/pitfalls.yaml\" \".claude/skills/solo-pm-workflow/references/html-style-generator/config/pitfalls.yaml\")",
+      "Bash(cp .claude/skills/solo-pm-workflow/references/_extract_html_style_generator/html-style-generator-main/styles/*.md \".claude/skills/solo-pm-workflow/references/html-style-generator/styles/\")"
     ]
   },
   "enableAllProjectMcpServers": true,
