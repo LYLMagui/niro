@@ -386,6 +386,8 @@ Verification: [准备如何验证]
 - 高风险操作必须确认
 - **涉及到前端UI组件的修改时，必须使用`tdesign-mcp`查询官方组件的API**
 - **涉及后端编译、单测、启动等需要调用 JDK 的操作时，必须优先使用 `D:\Environment\JDK\jdk-21.0.2`，执行前先确认该路径存在；执行 Maven 编译/测试时直接带上该 JDK 对应参数，启动时也要显式指定该 JDK。若该 JDK 不存在，则跳过编译/测试/启动，并明确说明是因为 JDK 缺失而未执行。**
+- 禁止在本地构建和启动docker容器
+- 更新docker compose文件时，test环境和prod环境必须统一更新
 
 ### Skills 使用原则
 - 任务明显匹配某个 skill 时，优先使用对应 skill
