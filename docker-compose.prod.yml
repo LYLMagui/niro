@@ -1,6 +1,14 @@
 services:
   niro-db-prod:
-    image: postgres:18-alpine
+    image: niro_postgres_prod
+    build:
+      context: ./docker/postgres
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        ALL_PROXY: ${ALL_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     container_name: niro-db-prod
     restart: always
     environment:
@@ -9,11 +17,19 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
       TZ: Asia/Shanghai
       PGDATA: /var/lib/postgresql/data/pgdata
+      http_proxy: ${HTTP_PROXY:-}
+      https_proxy: ${HTTPS_PROXY:-}
+      all_proxy: ${ALL_PROXY:-}
+      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     volumes:
       - niro_db_data_prod:/var/lib/postgresql/data
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
-      - "5433:5432"
+      - "5432:5432"
     shm_size: "1gb"
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${DB_USERNAME:-niro-admin} -d niro"]
@@ -32,12 +48,38 @@ services:
       - ./docker/redis/redis-prod.conf:/etc/redis/redis.conf
       - niro_redis_data_prod:/data
     ports:
-      - "6380:6379"
+      - "6379:6379"
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 5s
       retries: 3
+    networks:
+      - niro-data-net-prod
+
+  niro-ocr-prod:
+    image: niro_ocr_prod
+    build:
+      context: ./ocr_demo
+      dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
+    container_name: niro-ocr-prod
+    restart: always
+    ports:
+      - "5000:5000"
+    volumes:
+      - niro_ocr_paddlex_cache_prod:/root/.paddlex
+      - niro_ocr_paddleocr_cache_prod:/root/.paddleocr
+      - niro_ocr_paddle_cache_prod:/root/.cache/paddle
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5).read()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     networks:
       - niro-data-net-prod
 
@@ -48,12 +90,18 @@ services:
       dockerfile: Dockerfile
       args:
         ENV_TYPE: prod
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        ALL_PROXY: ${ALL_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     container_name: niro-web-prod
     restart: always
     depends_on:
       niro-db-prod:
         condition: service_healthy
       niro-redis-prod:
+        condition: service_healthy
+      niro-ocr-prod:
         condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
@@ -63,6 +111,7 @@ services:
       SPRING_DATA_REDIS_HOST: niro-redis-prod
       SPRING_DATA_REDIS_PORT: "6379"
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_niro_pwd}
+      NIRO_OCR_BASE_URL: http://niro-ocr-prod:5000
       XXL_JOB_ADMIN_ADDRESS: ${XXL_JOB_ADMIN_ADDRESS:-http://119.29.200.243:8001/xxl-job-admin}
       XXL_JOB_ACCESS_TOKEN: ${XXL_JOB_ACCESS_TOKEN:-niro-xxl-job}
       XXL_JOB_EXECUTOR_APPNAME: ${XXL_JOB_EXECUTOR_APPNAME:-niro-executor}
@@ -76,8 +125,8 @@ services:
     volumes:
       - niro_shared_logs_prod:/var/log/niro
     ports:
-      - "8081:8080"
-      - "10000:9999"
+      - "8080:8080"
+      - "9999:9999"
     healthcheck:
       test: ["CMD-SHELL", "nc -z localhost 8080 || exit 1"]
       interval: 30s
@@ -94,13 +143,17 @@ services:
       dockerfile: Dockerfile
       args:
         ENV_TYPE: prod
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        ALL_PROXY: ${ALL_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     container_name: niro-client-prod
     restart: always
     depends_on:
       niro-web-prod:
         condition: service_healthy
     ports:
-      - "81:80"
+      - "80:80"
     networks:
       - niro-data-net-prod
 
@@ -116,3 +169,9 @@ volumes:
     name: niro_redis_data_prod
   niro_shared_logs_prod:
     name: niro_shared_logs_prod
+  niro_ocr_paddlex_cache_prod:
+    name: niro_ocr_paddlex_cache_prod
+  niro_ocr_paddleocr_cache_prod:
+    name: niro_ocr_paddleocr_cache_prod
+  niro_ocr_paddle_cache_prod:
+    name: niro_ocr_paddle_cache_prod
