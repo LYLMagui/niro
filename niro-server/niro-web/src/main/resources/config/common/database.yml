@@ -43,6 +43,26 @@ spring:
         slow-sql-millis: 5000
         log-slow-sql: true
 
+  # Flyway 数据库版本管理
+  flyway:
+    enabled: true
+    # 迁移脚本位置：classpath:db/migration
+    locations: classpath:db/migration
+    # 非空 schema 且无 flyway 历史表时，自动建立 baseline（首次接入保护）
+    baseline-on-migrate: true
+    # baseline 版本（低于所有真实 migration，确保历史脚本会被回放）
+    baseline-version: 1
+    baseline-description: "Initial baseline"
+    # 启动时校验脚本 checksum，历史脚本被改过则启动失败
+    validate-on-migrate: true
+    # 禁止乱序执行（强制按版本号递增）
+    out-of-order: false
+    # 禁用 clean 命令，防止误清库
+    clean-disabled: true
+    # 统一历史表名
+    table: flyway_schema_history
+    # 默认使用 druid 同一数据源（Spring Boot 自动装配）
+
 # MyBatis-Plus配置
 mybatis-plus:
   configuration:

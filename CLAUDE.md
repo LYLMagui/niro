@@ -402,5 +402,16 @@ Verification: [准备如何验证]
 - **禁止在本地执行SQL脚本，所有SQL脚本必须交由用户执行。**
 - 验证问题需时如果需要验证数据，使用`PostgreSQL`MCP。
 
+#### SQL 变更通过 Flyway 管理
+- **已执行/已合入的脚本视为历史，一律禁止修改**：包括 `docker/postgres/initdb/**` 下的全部初始化脚本，以及 `niro-server/niro-web/src/main/resources/db/migration/**` 下已合入 main 的任何 migration。Flyway 会对历史脚本做 checksum 校验，**改过的脚本会导致应用启动失败**。所有 bug 修复、结构调整、数据补偿都只能另开新 migration 文件。
+- **所有增量变更统一放在 `niro-server/niro-web/src/main/resources/db/migration/`**，由应用启动时的 Flyway 自动执行（Spring Boot 自动装配）。`docker/postgres/initdb/**` 只负责新容器首次启动的 schema baseline，不再承担增量职责。
+- **文件命名遵循 Flyway V 前缀规范**：`V{yyyy.MM.dd.NNN}__{snake_case 描述}.sql`。例如 `V2026.04.20.002__menu_redesign_v1.sql`。`NNN` 是同一天内的顺序号，从 `001` 开始。版本号必须单调递增，严禁倒灌。
+- **必须幂等**：同一 migration 在同一库上重复执行不得报错。DDL 用 `create ... if not exists` / `add column if not exists` / `drop ... if exists`；数据用 `on conflict` 或 `where not exists` 保护；`rename column` 等 PostgreSQL 不支持 `if exists` 的语句用 `do $$ if exists ... $$` 块包裹。
+- **整体用事务包裹**（`begin; ... commit;`）。`create index concurrently`、`alter type ... add value` 等 PostgreSQL 规定不能在事务里执行的语句，单独拆到同一文件尾部并标注清楚。
+- **改数据优先用稳定唯一键定位**（如 `name`、`path`、`permission`、`role_key`），禁止按自增 id 硬写 UPDATE/DELETE，避免不同环境 id 错位导致误伤。
+- **破坏性变更优先软删除 / 软弃用**（`del_flag=1`、`status=0`、`enabled=false`），便于回滚与审计；需要真正 `drop` 表/列时，先发软弃用 migration，观察一段时间后再发硬删除 migration。
+- **每个 migration 顶部必须写注释块**，至少包含：变更日期、目标、幂等策略、回滚思路；尾部可附复核 SELECT。
+- **Flyway 配置不改动**：`spring.flyway.clean-disabled=true`、`validate-on-migrate=true`、`out-of-order=false` 是生产安全基线，不得关闭。
+
 ### git提交准则
 - 提交信息必须使用中文且内容要简洁。
