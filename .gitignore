@@ -85,6 +85,6 @@ logs/
 *.swp
 *.swo
 .DS_Store
-/docs/superpowers/
 /.playwright-cli/
 /.serena/
+/.claude/skills/sql-database-workflow/references/

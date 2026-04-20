@@ -14,8 +14,16 @@
       "mcp__serena-niro-claude__find_file",
       "Bash(PYTHONPATH=\"D:/MySpace/niro/ocr_demo\" python *)",
       "mcp__serena-niro-claude__list_dir",
-      "Bash(mvn clean *)",
-      "Bash(mvn compile *)"
+      "Bash(mvn *)",
+      "mcp__serena-niro-claude__read_memory",
+      "mcp__serena-niro-claude__list_memories",
+      "Bash(curl *)",
+      "Bash(git *)",
+      "Bash(gh repo *)",
+      "Bash(gh api *)",
+      "WebFetch(domain:skills.sh)",
+      "Bash(PYTHONIOENCODING=utf-8 python *)",
+      "WebSearch"
     ]
   },
   "enableAllProjectMcpServers": true,
