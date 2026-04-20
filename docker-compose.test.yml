@@ -143,8 +143,11 @@ services:
     depends_on:
       niro-web-test:
         condition: service_healthy
+    volumes:
+      - /home/workspace/certificate:/etc/nginx/certs:ro
     ports:
-      - "80:80" # 生产环境映射到 81，避免与测试环境 80 冲突
+      - "80:80"
+      - "443:443"
     networks:
       - niro-data-net-test
 

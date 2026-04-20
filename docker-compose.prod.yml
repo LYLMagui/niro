@@ -150,8 +150,11 @@ services:
     depends_on:
       niro-web-prod:
         condition: service_healthy
+    volumes:
+      - /home/workspace/certificate:/etc/nginx/certs:ro
     ports:
       - "80:80"
+      - "443:443"
     networks:
       - niro-data-net-prod
 
