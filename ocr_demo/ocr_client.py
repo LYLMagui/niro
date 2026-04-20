@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 from pathlib import Path
 from typing import Any
@@ -21,6 +22,8 @@ if _MODEL_VARIANT not in {"mobile", "server"}:
 _DET_MODEL = f"PP-OCRv5_{_MODEL_VARIANT}_det"
 _REC_MODEL = f"PP-OCRv5_{_MODEL_VARIANT}_rec"
 
+logger = logging.getLogger(__name__)
+
 
 class OcrClient:
     def __init__(self) -> None:
@@ -35,6 +38,15 @@ class OcrClient:
             cpu_threads=4,
         )
         self.use_predict_api = hasattr(self.ocr, "predict")
+        self._warmup_image = np.full((64, 320, 3), 255, dtype=np.uint8)
+        self._warmup()
+
+    def _warmup(self) -> None:
+        try:
+            self._infer_once(self._warmup_image)
+        except Exception:
+            logger.warning("ocr warmup first pass failed, retrying", exc_info=True)
+            self._infer_once(self._warmup_image)
 
     def _parse_result(self, results: Any) -> dict[str, Any]:
         if not results:
@@ -75,10 +87,19 @@ class OcrClient:
                 scores.append(float(score))
         return {"texts": texts, "scores": scores}
 
-    def _infer(self, image_input: str | np.ndarray) -> Any:
+    def _infer_once(self, image_input: str | np.ndarray) -> Any:
         if self.use_predict_api:
             return self.ocr.predict(input=image_input)
         return self.ocr.ocr(image_input, cls=False)
+
+    def _infer(self, image_input: str | np.ndarray) -> Any:
+        try:
+            return self._infer_once(image_input)
+        except RuntimeError as exc:
+            if str(exc).strip() != "std::exception":
+                raise
+            logger.warning("ocr inference first pass hit std::exception, retrying")
+            return self._infer_once(image_input)
 
     def recognize(self, image_path: str | Path) -> dict[str, Any]:
         image_path = Path(image_path)
