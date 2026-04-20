@@ -173,7 +173,7 @@
                 size="small"
                 theme="warning"
                 class="niro-table-action-btn"
-                @click="openCreateTaskDialog(row)"
+                disabled
               >
                 <template #icon><shop-icon /></template>
                 扫货
@@ -183,9 +183,6 @@
         </t-table>
       </div>
     </t-card>
-    <!-- 任务配置弹窗组件 (隐藏主体只用弹窗) -->
-    <task-config ref="taskConfigRef" dialog-only />
-
     <!-- 分类同步弹窗 -->
     <t-dialog
       v-model:visible="syncDialogVisible"
@@ -228,7 +225,6 @@
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import { usePermission } from "@/hooks/usePermission";
-import TaskConfig from "@/views/TaskConfig.vue";
 import type { Goods, GoodsPageQuery, GoodsSimple, PageResult } from "@/types/goods";
 import {
   CloudDownloadIcon,
@@ -248,12 +244,10 @@ import { PermissionConstant } from "@/constant/PermissionConstant";
 
 const { hasPermission } = usePermission();
 const canViewGoods = computed(() => hasPermission(PermissionConstant.GOODS_LIST));
-const canCreateTask = computed(() => hasPermission(PermissionConstant.TASK_BUFF_LIST));
 
 // 图片预览状态
 const visible = ref(false);
 const previewImage = ref("");
-const taskConfigRef = ref();
 
 const onPreview = (url: string) => {
   previewImage.value = url;
@@ -317,14 +311,6 @@ const categoryOptions = ref<CategoryNode[]>([]);
 
 // 表格数据
 const loading = ref(false);
-
-const openCreateTaskDialog = (row: GoodsSimple) => {
-  if (!canCreateTask.value) {
-    MessagePlugin.warning("当前账号没有任务创建权限");
-    return;
-  }
-  taskConfigRef.value?.openWithGoods(row);
-};
 
 // ------------------------
 const dataList = ref<Goods[]>([]);

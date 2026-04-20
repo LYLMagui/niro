@@ -8,6 +8,7 @@ export interface UnboxRecordItemDTO {
   handlingStatus: DraftHandlingStatus;
   boxPurchasePrice: number;
   weaponName: string;
+  cs2GoodsId?: number;
   inGamePrice: number;
   discount: number | null;
   actualSellPrice: number;
@@ -20,7 +21,7 @@ export interface UnboxRecordItemDTO {
 
 export interface UnboxRecordDTO {
   id: number;
-  goodsId: number;
+  boxGoodsId: number;
   boxName: string;
   unboxDate: string;
   defaultDiscount: number;
@@ -32,7 +33,7 @@ export interface UnboxRecordDTO {
 
 export interface UnboxRecordPageDTO {
   id: number;
-  goodsId: number;
+  boxGoodsId: number;
   boxName: string;
   unboxDate: string;
   defaultDiscount: number;
@@ -69,7 +70,7 @@ export interface UnboxRecordItemParam {
 }
 
 export interface UnboxRecordSaveParam {
-  goodsId: number;
+  boxGoodsId: number;
   unboxDate: string;
   defaultDiscount: number;
   note: string;
@@ -84,7 +85,7 @@ export interface UnboxRecordOcrResult {
 }
 
 export interface UnboxRecordC5ListingQueryParam {
-  weaponName: string;
+  cs2GoodsId: number;
   wearMin?: number | null;
   wearMax?: number | null;
   exterior?: number | null;

@@ -2,10 +2,11 @@ import { computed, reactive, ref } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import { taskApi } from "@/api/task";
 import { PlatformEnum } from "@/enums/PlatformEnum";
+import type { TaskSaveParam } from "@/types/task";
 
 export interface FormData {
   id?: number;
-  goodsId: number | undefined;
+  cs2GoodsId: number | undefined;
   maxPrice: number;
   minPaintwear: number;
   maxPaintwear: number;
@@ -19,14 +20,12 @@ export interface FormData {
   taskType: number;
   runMode: "SCAN" | "TRADE" | "BOTH";
   platform: string;
-  extraConfig?: string;
-  name?: string;
 }
 
-export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
+export function useTaskForm(emit: (event: "success") => void) {
   const formData = reactive<FormData>({
     id: undefined,
-    goodsId: undefined,
+    cs2GoodsId: undefined,
     maxPrice: 0,
     minPaintwear: 0,
     maxPaintwear: 1,
@@ -47,7 +46,7 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
   const resetForm = () => {
     Object.assign(formData, {
       id: undefined,
-      goodsId: undefined,
+      cs2GoodsId: undefined,
       maxPrice: 0,
       minPaintwear: 0,
       maxPaintwear: 1,
@@ -73,8 +72,22 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
 
     submitLoading.value = true;
     try {
-      const data: any = {
-        ...formData,
+      const data: TaskSaveParam = {
+        id: formData.id,
+        cs2GoodsId: formData.cs2GoodsId,
+        maxPrice: formData.maxPrice,
+        minPaintwear: formData.minPaintwear,
+        maxPaintwear: formData.maxPaintwear,
+        buyCount: formData.buyCount,
+        cronExpression: formData.cronExpression,
+        durationMinutes: formData.durationMinutes,
+        restPeriod: formData.restPeriod,
+        scanInterval: formData.scanInterval,
+        scanIntervalMin: formData.scanIntervalMin,
+        scanIntervalMax: formData.scanIntervalMax,
+        taskType: formData.taskType,
+        runMode: formData.runMode,
+        platform: formData.platform,
         safetyMargin: c5Config.safeMargin / 100,
         ladderStep: c5Config.anchorTierIndex,
       };
@@ -107,7 +120,7 @@ export function useTaskForm(emit: (event: "success", ...args: any[]) => void) {
   };
 
   const rules = computed(() => ({
-    goodsId: [
+    cs2GoodsId: [
       {
         validator: (val: number) => !!val,
         message: "请选择商品",

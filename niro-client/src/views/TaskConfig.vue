@@ -24,9 +24,9 @@
         @submit="onFormSubmit"
       >
         <div class="form-container">
-          <t-form-item label="选择商品：" name="goodsId" requiredMark>
+          <t-form-item label="选择商品：" name="cs2GoodsId" requiredMark>
             <t-select
-              v-model="formData.goodsId"
+              v-model="formData.cs2GoodsId"
               filterable
               :placeholder="goodsSelectPlaceholder"
               :loading="goodsLoading"
@@ -36,11 +36,11 @@
             >
               <t-option
                 v-for="item in goodsOptions"
-                :key="item.goodsId"
-                :value="item.goodsId"
-                :label="item.name"
+                :key="item.id"
+                :value="item.id"
+                :label="item.displayName"
               >
-                {{ item.name }}
+                {{ item.displayName }}
               </t-option>
             </t-select>
           </t-form-item>
@@ -57,7 +57,7 @@
             />
           </t-form-item>
 
-          <t-form-item v-if="shouldShowWearRange" label="磨损范围：" name="wear">
+          <t-form-item v-if="isWearable" label="磨损范围：" name="wear">
             <div
               class="task-config-range flex items-center gap-3"
               :class="{ 'task-config-range--disabled': !isWearable }"
@@ -143,7 +143,7 @@
 </template>
 
 <script setup lang="ts">
-import type { GoodsSimple } from "@/types/goods";
+import type { Cs2GoodsOption } from "@/types/cs2-goods";
 import type { TaskItem } from "@/types/task";
 import { useWindowSize } from "@vueuse/core";
 import { computed, nextTick, ref, toRef, watch } from "vue";
@@ -155,7 +155,7 @@ import {
   DURATION_FACTORS,
   INTERVAL_FACTORS,
 } from "@/composables/useUiState";
-import { NON_WEARABLE_CATEGORIES, useGoodsSearch } from "@/composables/useGoodsSearch";
+import { useCs2GoodsSearch } from "@/composables/useCs2GoodsSearch";
 import { useTaskForm } from "@/composables/useTaskForm";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
@@ -165,7 +165,6 @@ const emit = defineEmits<{
   (event: "open-change"): void;
 }>();
 
-// --- Composables & State ---
 const visible = ref(false);
 const dialogTitle = ref("新增任务");
 const formRef = ref<{
@@ -189,23 +188,13 @@ const { formData, submitLoading, rules, resetForm, handleSubmit } = useTaskForm(
 const dialogWidth = computed(() => "min(620px, calc(100vw - 32px))");
 
 const { uiState, c5Config, handleIntervalMinBlur, handleIntervalUnitChange, syncFromUiState } =
-  useUiState(formData as any);
+  useUiState(formData);
 
-const initialWearable = ref(true);
-const { goodsLoading, goodsOptions, remoteSearchGoods, isWearable } = useGoodsSearch(
-  toRef(formData, "goodsId") as any,
-  { canViewGoods }
-);
-const shouldShowWearRange = computed(() => {
-  if (!visible.value) {
-    return true;
-  }
-  const selected = goodsOptions.value.find((item) => item.goodsId === formData.goodsId);
-  if (selected?.parentCategoryName) {
-    return isWearable.value;
-  }
-  return initialWearable.value;
-});
+const { goodsLoading, goodsOptions, remoteSearchGoods, selectedGoods, isWearable } =
+  useCs2GoodsSearch(toRef(formData, "cs2GoodsId"), {
+    canViewGoods,
+    scene: "task",
+  });
 
 const handleGoodsSearch = (keyword: string) => remoteSearchGoods(keyword);
 
@@ -217,15 +206,7 @@ const clearFieldValidate = (fields: string[]) => {
   formRef.value?.clearValidate(fields);
 };
 
-const isNonWearableGoods = (goods?: Pick<GoodsSimple, "parentCategoryName"> | null) => {
-  if (!goods?.parentCategoryName) {
-    return false;
-  }
-  return NON_WEARABLE_CATEGORIES.some((keyword) => goods.parentCategoryName?.includes(keyword));
-};
-
 const applyWearableState = (wearable: boolean) => {
-  initialWearable.value = wearable;
   if (!wearable) {
     formData.minPaintwear = 0;
     formData.maxPaintwear = 1;
@@ -233,24 +214,25 @@ const applyWearableState = (wearable: boolean) => {
 };
 
 const hydrateGoodsOption = (row: TaskItem) => {
-  if (!row.goodsId) {
+  if (!row.cs2GoodsId) {
     goodsOptions.value = [];
-    initialWearable.value = true;
     return;
   }
 
-  const fallbackGoods: GoodsSimple = {
-    goodsId: row.goodsId,
-    name: row.goodsName || row.name,
-    parentCategoryName: row.parentCategoryName,
+  const fallbackGoods: Cs2GoodsOption = {
+    id: row.cs2GoodsId,
+    displayName: row.goodsDisplayName || row.name,
+    marketHashName: row.marketHashName,
+    itemType: row.itemType,
+    hasExterior: row.hasExterior ?? true,
+    imageUrl: row.goodsIconUrl,
   };
   goodsOptions.value = [fallbackGoods];
-  applyWearableState(!isNonWearableGoods(fallbackGoods));
+  applyWearableState(fallbackGoods.hasExterior ?? true);
 };
 
 const resetFormState = () => {
   goodsSelectionLocked.value = false;
-  initialWearable.value = true;
 };
 
 const closeDialog = () => {
@@ -258,18 +240,15 @@ const closeDialog = () => {
   visible.value = false;
 };
 
-// --- Watchers ---
 watch(
-  () => formData.goodsId,
-  (goodsId) => {
-    if (goodsId) {
-      clearFieldValidate(["goodsId"]);
+  selectedGoods,
+  (goods) => {
+    if (goods) {
+      clearFieldValidate(["cs2GoodsId"]);
+      applyWearableState(goods.hasExterior ?? true);
     }
-    const selected = goodsOptions.value.find((item) => item.goodsId === goodsId);
-    if (selected) {
-      applyWearableState(!isNonWearableGoods(selected));
-    }
-  }
+  },
+  { immediate: true }
 );
 
 watch(canViewGoods, (allowed) => {
@@ -305,7 +284,6 @@ watch(
   }
 );
 
-// --- Methods (Exposed) ---
 const handleAdd = () => {
   resetForm();
   resetFormState();
@@ -320,21 +298,33 @@ const handleAdd = () => {
   nextTick(() => formRef.value?.clearValidate());
 };
 
-const openWithGoods = (goods: GoodsSimple) => {
+const openWithGoods = (goods: Cs2GoodsOption) => {
   handleAdd();
-  formData.goodsId = goods.goodsId;
+  formData.cs2GoodsId = goods.id;
   goodsOptions.value = [goods];
-  applyWearableState(!isNonWearableGoods(goods));
-  dialogTitle.value = `新增扫货任务 - ${goods.name}`;
+  applyWearableState(goods.hasExterior ?? true);
+  dialogTitle.value = `新增扫货任务 - ${goods.displayName}`;
 };
 
 const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
   resetForm();
   resetFormState();
-  Object.assign(formData, row);
+  formData.id = row.id;
+  formData.cs2GoodsId = row.cs2GoodsId;
+  formData.maxPrice = row.maxPrice ?? 0;
+  formData.minPaintwear = row.minPaintwear ?? 0;
+  formData.maxPaintwear = row.maxPaintwear ?? 1;
+  formData.buyCount = row.buyCount;
+  formData.cronExpression = row.cronExpression ?? "";
+  formData.durationMinutes = row.durationMinutes ?? 0;
+  formData.restPeriod = row.restPeriod ?? 0;
+  formData.scanInterval = row.scanInterval ?? 1;
+  formData.scanIntervalMin = row.scanIntervalMin ?? 15;
+  formData.scanIntervalMax = row.scanIntervalMax ?? 20;
+  formData.taskType = row.taskType;
+  formData.runMode = row.runMode ?? "BOTH";
   formData.platform = platform;
 
-  // 解析 C5 配置
   if (platform === PlatformEnum.C5 && row.extraConfig) {
     try {
       const parsed = JSON.parse(row.extraConfig);
@@ -346,12 +336,11 @@ const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
       console.error("解析 C5 配置失败", e);
     }
   } else {
-    c5Config.safeMargin = ((row as any).safetyMargin ?? 0.03) * 100;
-    c5Config.anchorTierIndex = (row as any).ladderStep ?? 2;
+    c5Config.safeMargin = (row.safetyMargin ?? 0.03) * 100;
+    c5Config.anchorTierIndex = row.ladderStep ?? 2;
     c5Config.minConcurrency = 5;
   }
 
-  // 初始化 UI 状态
   const duration = convertToUi(row.durationMinutes || 0, DURATION_FACTORS);
   uiState.durationValue = duration.value;
   uiState.durationUnit = duration.unit as "m" | "h" | "d";
@@ -364,7 +353,6 @@ const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
 
   const intervalMin = convertToUi(row.scanIntervalMin || 15, INTERVAL_FACTORS);
   const intervalMax = convertToUi(row.scanIntervalMax || 20, INTERVAL_FACTORS);
-
   const unitOrder = ["s", "m", "h", "d"];
   const minIdx = unitOrder.indexOf(intervalMin.unit);
   const maxIdx = unitOrder.indexOf(intervalMax.unit);

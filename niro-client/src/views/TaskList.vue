@@ -200,10 +200,12 @@
                 <t-icon name="setting" />
               </div>
               <div>
-                <div class="max-w-xs truncate font-medium" :title="row.name">
-                  {{ row.name }}
+                <div class="max-w-xs truncate font-medium" :title="row.goodsDisplayName || row.name">
+                  {{ row.goodsDisplayName || row.name }}
                 </div>
-                <div v-if="row.goodsId" class="text-xs text-gray-500">ID: {{ row.goodsId }}</div>
+                <div v-if="row.cs2GoodsId" class="text-xs text-gray-500">
+                  ID: {{ row.cs2GoodsId }}
+                </div>
               </div>
             </div>
           </template>
@@ -379,11 +381,11 @@
                   <t-icon name="setting" />
                 </div>
                 <div class="min-w-0 flex-1">
-                  <div class="truncate text-sm font-medium text-[#303133]" :title="row.name">
-                    {{ row.name }}
+                  <div class="truncate text-sm font-medium text-[#303133]" :title="row.goodsDisplayName || row.name">
+                    {{ row.goodsDisplayName || row.name }}
                   </div>
-                  <div v-if="row.goodsId" class="mt-1 text-xs text-[#909399]">
-                    ID: {{ row.goodsId }}
+                  <div v-if="row.cs2GoodsId" class="mt-1 text-xs text-[#909399]">
+                    ID: {{ row.cs2GoodsId }}
                   </div>
                 </div>
               </div>
@@ -538,7 +540,7 @@ const queryParams = reactive<TaskQueryParam>({
   pageSize: 10,
   keyword: "",
   status: undefined,
-  runMode: "BOTH" as any,
+  runMode: "BOTH",
   platform: PlatformEnum.C5,
 });
 

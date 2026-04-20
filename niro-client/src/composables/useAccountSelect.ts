@@ -33,14 +33,14 @@ export function useAccountSelect(
     }
   };
 
-  const fetchTradeTasks = async (goodsId?: number) => {
+  const fetchTradeTasks = async (cs2GoodsId?: number) => {
     if (options?.canViewTradeTasks && !options.canViewTradeTasks.value) {
       tradeTasks.value = [];
       return;
     }
     tradeTasksLoading.value = true;
     try {
-      tradeTasks.value = await taskApi.getTradeTasks(goodsId);
+      tradeTasks.value = await taskApi.getTradeTasks(cs2GoodsId);
     } finally {
       tradeTasksLoading.value = false;
     }

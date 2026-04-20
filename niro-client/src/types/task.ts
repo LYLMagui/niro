@@ -1,11 +1,14 @@
 export interface TaskItem {
   id: number;
   name: string;
-  goodsId?: number;
-  goodsName?: string;
+  cs2GoodsId?: number;
+  goodsDisplayName?: string;
   goodsIconUrl?: string;
   marketHashName?: string;
-  parentCategoryName?: string;
+  hasExterior?: boolean;
+  itemType?: string;
+  safetyMargin?: number;
+  ladderStep?: number;
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;
@@ -59,7 +62,7 @@ export interface TaskQueryParam {
 
 export interface TaskSaveParam {
   id?: number;
-  goodsId?: number;
+  cs2GoodsId?: number;
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;
@@ -74,4 +77,7 @@ export interface TaskSaveParam {
   minProfit?: number;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   platform?: string;
+  safetyMargin?: number;
+  ladderStep?: number;
+  extraConfig?: string;
 }

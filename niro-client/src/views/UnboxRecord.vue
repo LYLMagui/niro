@@ -307,7 +307,7 @@
                     <label class="space-y-1.5 xl:col-span-3">
                       <span class="text-sm font-medium text-slate-700">箱子</span>
                       <t-select
-                        v-model="draftBatch.goodsId"
+                        v-model="draftBatch.boxGoodsId"
                         :class="fieldBaseClass"
                         clearable
                         filterable
@@ -1404,9 +1404,9 @@ import type {
   TableSort,
 } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
-import { goodsApi } from "@/api/goods";
+import { cs2GoodsApi } from "@/api/cs2-goods";
 import { unboxApi } from "@/api/unbox";
-import type { GoodsSimple } from "@/types/goods";
+import type { Cs2GoodsOption } from "@/types/cs2-goods";
 import type {
   DraftHandlingStatus,
   UnboxRecordC5Listing,
@@ -1426,6 +1426,7 @@ interface UnboxRow {
   handlingStatus: DraftHandlingStatus;
   boxPurchasePrice: number;
   weaponName: string;
+  cs2GoodsId?: number;
   inGamePrice: number;
   discount: DiscountValue;
   actualSellPrice: number;
@@ -1436,7 +1437,7 @@ interface UnboxRow {
 
 interface UnboxBatch {
   id: number;
-  goodsId?: number;
+  boxGoodsId?: number;
   boxName: string;
   date: string;
   defaultDiscount: DiscountValue;
@@ -1446,7 +1447,7 @@ interface UnboxBatch {
 
 interface BatchListRecord {
   id: number;
-  goodsId?: number;
+  boxGoodsId?: number;
   boxName: string;
   date: string;
   defaultDiscount: DiscountValue;
@@ -1561,6 +1562,7 @@ interface RowC5State {
   appliedWearMax: number | null;
   appliedRangeKey: string;
   invalidationKey: string;
+  resolvingGoodsId: boolean;
 }
 
 const OCR_FILE_SIZE_LIMIT = 5 * 1024 * 1024;
@@ -1686,7 +1688,7 @@ const summaryLoading = ref(false);
 const detailLoading = ref(false);
 const savingBatch = ref(false);
 const goodsLoading = ref(false);
-const goodsCatalog = ref<GoodsSimple[]>([]);
+const boxGoodsCatalog = ref<Cs2GoodsOption[]>([]);
 const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
 const rowC5StateMap = ref<Record<string, RowC5State>>({});
 const ocrInputRef = ref<HTMLInputElement | null>(null);
@@ -1863,6 +1865,7 @@ const createRow = (
   handlingStatus: defaults?.handlingStatus ?? "pending",
   boxPurchasePrice: defaults?.boxPurchasePrice ?? 0,
   weaponName: defaults?.weaponName ?? "",
+  cs2GoodsId: defaults?.cs2GoodsId,
   inGamePrice: defaults?.inGamePrice ?? 0,
   discount:
     defaults?.discount ?? (hasDiscountValue(batch?.defaultDiscount) ? batch.defaultDiscount : ""),
@@ -1874,7 +1877,7 @@ const createRow = (
 
 const createBlankBatch = (): UnboxBatch => ({
   id: 0,
-  goodsId: undefined,
+  boxGoodsId: undefined,
   boxName: "",
   date: dayjs().format("YYYY-MM-DD"),
   defaultDiscount: "",
@@ -1907,25 +1910,34 @@ function normalizeGoodsKeyword(keyword: string) {
   return keyword.trim();
 }
 
-function getGoodsOptionLabel(goods: Pick<GoodsSimple, "name" | "parentCategoryName">) {
-  return goods.parentCategoryName ? `${goods.name}（${goods.parentCategoryName}）` : goods.name;
+function getGoodsOptionLabel(goods: Cs2GoodsOption) {
+  return goods.displayName;
 }
 
-function getGoodsOptionValue(goods: GoodsSimple) {
-  return goods.id ?? goods.goodsId;
-}
-
-function ensureGoodsInCatalog(goodsId: number | undefined, boxName: string) {
-  if (!goodsId || !boxName) return;
-  const exists = goodsCatalog.value.some((item) => getGoodsOptionValue(item) === goodsId);
+function ensureGoodsInCatalog(boxGoodsId: number | undefined, boxName: string) {
+  if (!boxGoodsId || !boxName) return;
+  const exists = boxGoodsCatalog.value.some((item) => item.id === boxGoodsId);
   if (exists) return;
-  goodsCatalog.value = [{ id: goodsId, goodsId, name: boxName }, ...goodsCatalog.value];
+  boxGoodsCatalog.value = [
+    {
+      id: boxGoodsId,
+      displayName: boxName,
+      marketHashName: "",
+      itemType: "case",
+      weaponType: "",
+      rarity: "",
+      exteriorName: "",
+      hasExterior: false,
+      imageUrl: "",
+    },
+    ...boxGoodsCatalog.value,
+  ];
 }
 
 const goodsOptions = computed(() =>
-  goodsCatalog.value.map((item) => ({
+  boxGoodsCatalog.value.map((item) => ({
     label: getGoodsOptionLabel(item),
-    value: getGoodsOptionValue(item),
+    value: item.id,
   }))
 );
 
@@ -1961,6 +1973,7 @@ function createDefaultRowC5State(): RowC5State {
     appliedWearMax: null,
     appliedRangeKey: C5_WEAR_RANGE_ALL_KEY,
     invalidationKey: "",
+    resolvingGoodsId: false,
   };
 }
 
@@ -2186,6 +2199,7 @@ function getDefaultRowC5RangeKey(row: UnboxRow) {
 function getRowC5InvalidationKey(row: UnboxRow) {
   return JSON.stringify({
     weaponName: row.weaponName.trim(),
+    cs2GoodsId: row.cs2GoodsId,
     exterior: getRowExteriorValue(row),
     wear: getRowWearValue(row),
   });
@@ -2267,10 +2281,40 @@ function getRowC5PresetMissHint(row: UnboxRow) {
   return `当前磨损 ${formatWearDisplay(wear)} 不在预设区间内，请手动设置`;
 }
 
-function buildRowC5Query(row: UnboxRow, pageNum: number): UnboxRecordC5ListingQueryParam {
+async function resolveRowCs2GoodsId(row: UnboxRow) {
   const state = getRowC5State(row.id);
+  const weaponName = row.weaponName.trim();
+  if (!weaponName) {
+    row.cs2GoodsId = undefined;
+    return null;
+  }
+  if (row.cs2GoodsId) {
+    return row.cs2GoodsId;
+  }
+  if (state.resolvingGoodsId) {
+    return null;
+  }
+
+  state.resolvingGoodsId = true;
+  try {
+    const items = await cs2GoodsApi.getC5TaskOptions(weaponName);
+    const matchedItem = items.find(
+      (item) => item.displayName === weaponName || item.marketHashName === weaponName
+    );
+    row.cs2GoodsId = matchedItem?.id;
+    return row.cs2GoodsId ?? null;
+  } finally {
+    state.resolvingGoodsId = false;
+  }
+}
+
+function buildRowC5Query(row: UnboxRow, pageNum: number): UnboxRecordC5ListingQueryParam | null {
+  const state = getRowC5State(row.id);
+  if (!row.cs2GoodsId) {
+    return null;
+  }
   return {
-    weaponName: row.weaponName.trim(),
+    cs2GoodsId: row.cs2GoodsId,
     wearMin: state.appliedWearMin,
     wearMax: state.appliedWearMax,
     exterior: getRowExteriorValue(row),
@@ -2280,7 +2324,8 @@ function buildRowC5Query(row: UnboxRow, pageNum: number): UnboxRecordC5ListingQu
 }
 
 function getRowC5QueryKey(row: UnboxRow, pageNum: number) {
-  return JSON.stringify(buildRowC5Query(row, pageNum));
+  const query = buildRowC5Query(row, pageNum);
+  return query ? JSON.stringify(query) : "";
 }
 
 function validateRowC5CustomRange(row: UnboxRow) {
@@ -2356,6 +2401,9 @@ function applyRowC5Filters(row: UnboxRow) {
 async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
   const state = getRowC5State(row.id);
   const query = buildRowC5Query(row, pageNum);
+  if (!query) {
+    throw new Error("missing cs2GoodsId");
+  }
   const result = await unboxApi.queryC5Listings(query);
   const pageResult: UnboxRecordC5ListingPageResult = result;
   state.queryKey = getRowC5QueryKey(row, pageNum);
@@ -2367,9 +2415,10 @@ async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
 
 async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
   const state = getRowC5State(row.id);
-  if (!row.weaponName.trim()) {
+  const resolvedGoodsId = await resolveRowCs2GoodsId(row);
+  if (!resolvedGoodsId) {
     state.status = "error";
-    state.errorMessage = "请先填写饰品名称";
+    state.errorMessage = row.weaponName.trim() ? "未匹配到对应饰品" : "请先选择饰品名称";
     state.listings = [];
     state.queryKey = "";
     return;
@@ -2457,10 +2506,16 @@ function getRowC5Listings(row: UnboxRow) {
 }
 
 function getRowC5TriggerTooltip(row: UnboxRow) {
-  if (!row.weaponName.trim()) {
-    return "请先填写饰品名称";
-  }
   const state = getRowC5State(row.id);
+  if (state.resolvingGoodsId) {
+    return "正在匹配饰品";
+  }
+  if (!row.weaponName.trim()) {
+    return "请先选择饰品名称";
+  }
+  if (!row.cs2GoodsId && state.status === "error") {
+    return state.errorMessage || "未匹配到对应饰品";
+  }
   if (state.status === "loading") {
     return "C5 在售列表加载中";
   }
@@ -2613,6 +2668,7 @@ function mapRecordItemToRow(
     handlingStatus: item.handlingStatus,
     boxPurchasePrice: Number(item.boxPurchasePrice ?? 0),
     weaponName: item.weaponName ?? "",
+    cs2GoodsId: item.cs2GoodsId,
     inGamePrice: Number(item.inGamePrice ?? 0),
     discount: clampDiscount(item.discount ?? defaultDiscount),
     actualSellPrice: Number(item.actualSellPrice ?? 0),
@@ -2626,7 +2682,7 @@ function mapRecordToBatch(record: UnboxRecordDTO): UnboxBatch {
   const defaultDiscount = clampDiscount(Number(record.defaultDiscount ?? 0));
   return {
     id: record.id,
-    goodsId: record.goodsId,
+    boxGoodsId: record.boxGoodsId,
     boxName: record.boxName ?? "",
     date: record.unboxDate ?? "",
     defaultDiscount,
@@ -2648,7 +2704,7 @@ function mapPageRecordToSummaryRow(record: UnboxRecordPageDTO): BatchSummaryRow 
     key: record.id,
     batch: {
       id: record.id,
-      goodsId: record.goodsId,
+      boxGoodsId: record.boxGoodsId,
       boxName: record.boxName ?? "",
       date: record.unboxDate ?? "",
       defaultDiscount,
@@ -2670,7 +2726,7 @@ function mapPageRecordToSummaryRow(record: UnboxRecordPageDTO): BatchSummaryRow 
 
 function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
   return {
-    goodsId: batch.goodsId!,
+    boxGoodsId: batch.boxGoodsId!,
     unboxDate: batch.date,
     defaultDiscount: clampDiscount(batch.defaultDiscount),
     note: batch.note.trim(),
@@ -2691,9 +2747,9 @@ function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
 async function fetchGoodsOptions(keyword = "") {
   goodsLoading.value = true;
   try {
-    const items = await goodsApi.getSimpleList(normalizeGoodsKeyword(keyword));
-    goodsCatalog.value = items;
-    ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
+    const items = await cs2GoodsApi.getUnboxCaseOptions(normalizeGoodsKeyword(keyword));
+    boxGoodsCatalog.value = items;
+    ensureGoodsInCatalog(draftBatch.value.boxGoodsId, draftBatch.value.boxName);
   } catch (error) {
     console.error(error);
     MessagePlugin.error("获取箱子商品失败");
@@ -2763,7 +2819,7 @@ async function refreshCurrentBatchPageAndSummary() {
 }
 
 function handleGoodsPopupVisibleChange(visible: boolean) {
-  if (!visible || goodsCatalog.value.length > 0 || goodsLoading.value) return;
+  if (!visible || boxGoodsCatalog.value.length > 0 || goodsLoading.value) return;
   void fetchGoodsOptions();
 }
 
@@ -3042,22 +3098,33 @@ const sortedBatchSummaryRows = computed(() => {
 const pagedBatchSummaryRows = computed(() => sortedBatchSummaryRows.value);
 
 watch(
-  () => draftBatch.value.goodsId,
-  (goodsId) => {
-    if (!goodsId) {
+  () => draftBatch.value.boxGoodsId,
+  (boxGoodsId) => {
+    if (!boxGoodsId) {
       draftBatch.value.boxName = "";
       return;
     }
-    const selected = goodsCatalog.value.find((item) => getGoodsOptionValue(item) === goodsId);
-    if (selected?.name) {
-      draftBatch.value.boxName = selected.name;
+    const selected = boxGoodsCatalog.value.find((item) => item.id === boxGoodsId);
+    if (selected?.displayName) {
+      draftBatch.value.boxName = selected.displayName;
     }
   }
 );
 
 watch(
   () => draftBatch.value.rows.map((row) => ({ id: row.id, invalidationKey: getRowC5InvalidationKey(row) })),
-  (rows) => {
+  (rows, previousRows) => {
+    const previousRowsById = new Map((previousRows ?? []).map((row) => [row.id, row.invalidationKey]));
+    draftBatch.value.rows.forEach((row) => {
+      const previousInvalidationKey = previousRowsById.get(row.id);
+      if (!previousInvalidationKey) {
+        return;
+      }
+      const previousPayload = JSON.parse(previousInvalidationKey) as { weaponName?: string };
+      if (previousPayload.weaponName !== row.weaponName.trim()) {
+        row.cs2GoodsId = undefined;
+      }
+    });
     const rowIds = rows.map((row) => row.id);
     const nextIds = new Set(rowIds);
     rowOcrStateMap.value = Object.fromEntries(
@@ -3491,7 +3558,7 @@ function openCreateEditor() {
   loadingDetailBatchId.value = null;
   draftBatch.value = createBlankBatch();
   resetRowStates(draftBatch.value.rows);
-  ensureGoodsInCatalog(draftBatch.value.goodsId, draftBatch.value.boxName);
+  ensureGoodsInCatalog(draftBatch.value.boxGoodsId, draftBatch.value.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = false;
   editorVisible.value = true;
@@ -3509,7 +3576,7 @@ async function openEditEditor(batchId: number) {
     editingBatchId.value = batchId;
     draftBatch.value = nextBatch;
     resetRowStates(draftBatch.value.rows);
-    ensureGoodsInCatalog(nextBatch.goodsId, nextBatch.boxName);
+    ensureGoodsInCatalog(nextBatch.boxGoodsId, nextBatch.boxName);
     isEditorFullscreen.value = false;
     isBatchInfoCollapsed.value = true;
     editorVisible.value = true;
@@ -3524,14 +3591,12 @@ async function openEditEditor(batchId: number) {
 
 async function saveDraftBatch() {
   if (savingBatch.value) return;
-  if (!draftBatch.value.goodsId) {
+  if (!draftBatch.value.boxGoodsId) {
     MessagePlugin.warning("请选择箱子商品");
     return;
   }
-  const selected = goodsCatalog.value.find(
-    (item) => getGoodsOptionValue(item) === draftBatch.value.goodsId
-  );
-  draftBatch.value.boxName = selected?.name ?? draftBatch.value.boxName;
+  const selected = boxGoodsCatalog.value.find((item) => item.id === draftBatch.value.boxGoodsId);
+  draftBatch.value.boxName = selected?.displayName ?? draftBatch.value.boxName;
   if (!draftBatch.value.date) {
     MessagePlugin.warning("请选择开箱日期");
     return;
