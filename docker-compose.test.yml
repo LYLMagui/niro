@@ -89,6 +89,11 @@ services:
     build:
       context: ./niro-server
       dockerfile: Dockerfile
+      args:
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        ALL_PROXY: ${ALL_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     container_name: niro-web-test
     restart: always
     depends_on:
@@ -130,7 +135,11 @@ services:
       context: ./niro-client
       dockerfile: Dockerfile
       args:
-        - ENV_TYPE=${CLIENT_ENV}
+        ENV_TYPE: ${CLIENT_ENV}
+        HTTP_PROXY: ${HTTP_PROXY:-}
+        HTTPS_PROXY: ${HTTPS_PROXY:-}
+        ALL_PROXY: ${ALL_PROXY:-}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     container_name: niro-client-test
     restart: always
     depends_on:
