@@ -71,6 +71,10 @@ services:
     restart: always
     ports:
       - "5000:5000"
+    volumes:
+      - niro_ocr_paddlex_cache_test:/root/.paddlex
+      - niro_ocr_paddleocr_cache_test:/root/.paddleocr
+      - niro_ocr_paddle_cache_test:/root/.cache/paddle
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5).read()"]
       interval: 30s
@@ -149,3 +153,9 @@ volumes:
     name: niro_redis_data_test
   niro_shared_logs_test:
     name: niro_shared_logs_test
+  niro_ocr_paddlex_cache_test:
+    name: niro_ocr_paddlex_cache_test
+  niro_ocr_paddleocr_cache_test:
+    name: niro_ocr_paddleocr_cache_test
+  niro_ocr_paddle_cache_test:
+    name: niro_ocr_paddle_cache_test

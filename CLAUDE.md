@@ -386,8 +386,8 @@ Verification: [准备如何验证]
 - 高风险操作必须确认
 - **涉及到前端UI组件的修改时，必须使用`tdesign-mcp`查询官方组件的API**
 - **涉及后端编译、单测、启动等需要调用 JDK 的操作时，必须优先使用 `D:\Environment\JDK\jdk-21.0.2`，执行前先确认该路径存在；执行 Maven 编译/测试时直接带上该 JDK 对应参数，启动时也要显式指定该 JDK。若该 JDK 不存在，则跳过编译/测试/启动，并明确说明是因为 JDK 缺失而未执行。**
-### Skills 使用原则
 
+### Skills 使用原则
 - 任务明显匹配某个 skill 时，优先使用对应 skill
 - **只要任务涉及后端代码编写、修改、重构、规范化，尤其是 Controller / Service / MapperManager / Mapper / Entity、DTO / VO / Param、接口返回值、MyBatis-Plus 查询等内容时，必须优先使用 `backend-development-standard` skill，不得跳过。在进行后端代码review时，也必须遵循这个原则**
 - **当会话上下文接近窗口阈值时，阈值按上下文窗口的 70% 计算；一旦接近该阈值，必须先使用 `context-compression` skill 做上下文总结，再执行内置 `/compact` 压缩上下文，顺序不得颠倒。**
@@ -395,4 +395,10 @@ Verification: [准备如何验证]
 - Skill 用于补充专项流程，不替代基本的上下文阅读、规划和验证
 - Skill 与当前任务无关时，不强行触发
 
-## 
+### 数据库准则
+- **编写或修改SQL脚本时，必须使用`sql-database-workflow`技能。**
+- **禁止在本地执行SQL脚本，所有SQL脚本必须交由用户执行。**
+- 验证问题需时如果需要验证数据，使用`PostgreSQL`MCP。
+
+### git提交准则
+- 提交信息必须使用中文且内容要简洁。

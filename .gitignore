@@ -55,6 +55,10 @@ niro-server/**/.DS_Store
 .claude/worktrees/
 .superpowers/
 memory/
+findings.md
+progress.md
+task_plan.md
+ocr_demo/images/
 
 # Python (General)
 __pycache__/
@@ -83,3 +87,4 @@ logs/
 .DS_Store
 /docs/superpowers/
 /.playwright-cli/
+/.serena/

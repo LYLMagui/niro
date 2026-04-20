@@ -305,7 +305,7 @@
                     </label>
 
                     <label class="space-y-1.5 xl:col-span-3">
-                      <span class="text-sm font-medium text-slate-700">箱子商品</span>
+                      <span class="text-sm font-medium text-slate-700">箱子</span>
                       <t-select
                         v-model="draftBatch.goodsId"
                         :class="fieldBaseClass"
@@ -313,7 +313,7 @@
                         filterable
                         :loading="goodsLoading"
                         :options="goodsOptions"
-                        placeholder="搜索并选择箱子商品"
+                        placeholder="搜索并选择箱子"
                         @popup-visible-change="handleGoodsPopupVisibleChange"
                         @search="handleGoodsSearch"
                       />
