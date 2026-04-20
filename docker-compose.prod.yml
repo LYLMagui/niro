@@ -101,8 +101,6 @@ services:
         condition: service_healthy
       niro-redis-prod:
         condition: service_healthy
-      niro-ocr-prod:
-        condition: service_healthy
     environment:
       SPRING_PROFILES_ACTIVE: prod
       SPRING_DATASOURCE_URL: "jdbc:postgresql://niro-db-prod:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8"

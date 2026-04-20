@@ -101,8 +101,6 @@ services:
         condition: service_healthy
       niro-redis-test:
         condition: service_healthy
-      niro-ocr-test:
-        condition: service_healthy
     env_file:
       - .env
     environment:
