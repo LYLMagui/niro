@@ -1,0 +1,558 @@
+# cs2_goods 商品选择链路重构设计
+
+日期：2026-04-20  
+范围：开箱记录页、C5 任务配置页、相关后端接口与 PostgreSQL SQL
+
+## 1. 目标
+
+本次重构要把以下两条链路彻底切到新商品表 `cs2_goods`：
+
+1. 开箱记录页的“箱子商品”选择
+2. C5 任务配置页的商品选择，以及与该选择直接耦合的任务保存、任务回显、下单任务筛选
+
+本次不是在旧 `buff_goods` 逻辑上补兼容，而是明确停止在这两条链路中继续使用旧语义：
+
+- 不再把 `buff_goods` 当作商品来源
+- 不再继续使用 `goodsId` 表达两个业务的不同含义
+- 不再通过 `parentCategoryName` 推导磨损能力
+- 不再让开箱记录 C5 挂单查询依赖 `buff_goods` 名称匹配
+
+## 2. 已确认边界
+
+用户已确认以下决策：
+
+1. 采用两个明确的新接口，而不是 `scene` 分发接口。
+2. 两个接口统一返回新的 `Cs2GoodsOption` 结构，不兼容旧 `GoodsSimple`。
+3. 前后端一起重构，不继续使用旧逻辑。
+4. 数据库字段命名和语义一起重构，而不是只改代码不改字段。
+5. C5 任务商品范围选择为：`enabled = true` 的全部商品。
+6. SQL 统一写到 `D:\MySpace\niro\docker\postgres` 下。
+
+## 3. 当前事实与问题
+
+### 3.1 开箱记录页当前事实
+
+当前前端 `UnboxRecord.vue` 通过 `goodsApi.getSimpleList()` 拉取 `/goods/simple-list` 作为箱子商品下拉来源。该接口实际落在：
+
+- `niro-server/niro-web/src/main/java/com/niro/web/controller/BuffGoodsController.java`
+- `niro-server/niro-web/src/main/java/com/niro/web/service/impl/BuffGoodsServiceImpl.java`
+
+查询对象仍是旧表 `buff_goods`，并返回 `GoodsSimple`：
+
+- `goodsId`
+- `name`
+- `parentCategoryName`
+
+而 `UnboxRecordServiceImpl` 在保存开箱记录时，也仍然通过 `BuffGoodsMapperManager` 校验并回填：
+
+- `UnboxRecord.goodsId`
+- `UnboxRecord.boxName`
+
+同时，开箱记录页的 C5 在售挂单查询 `listC5Listings` 也仍然先用 `BuffGoodsMapperManager` 按名称和外观去旧表匹配，再拿到 `market_hash_name` 去请求 C5。
+
+### 3.2 C5 任务页当前事实
+
+当前 `TaskConfig.vue` 使用 `useGoodsSearch.ts`，该 composable 绑定旧接口 `/goods/simple-list`，并且整个商品可磨损判断基于旧分类语义：
+
+- `GoodsSimple.parentCategoryName`
+- `NON_WEARABLE_CATEGORIES`
+
+后端 `BuffScanTaskServiceImpl` 在保存和回显时也都仍然基于旧表：
+
+- `BuffScanTask.goodsId`
+- `buff_scan_task.goods_id`
+- `BuffGoodsService` / `BuffGoodsCategoryService`
+- `pageTask()` 中通过 `BuffGoods.goodsId` 补充 `goodsName / goodsIconUrl / marketHashName / parentCategoryName`
+
+此外，`listTradeTasks(goodsId)` 也仍以旧 `goodsId` 做过滤。
+
+### 3.3 现状的核心问题
+
+这不是单纯的接口路径问题，而是三层语义已经混乱：
+
+1. 开箱记录的 `goodsId` 实际上是“箱子商品主键”
+2. 任务的 `goodsId` 实际上是“任务目标商品主键”
+3. 老代码里又把 `goodsId` 当成 `buff_goods.goods_id` 或系统商品 id 混用
+
+继续兼容只会把新商品表再次拖回旧模型。因此这次必须直接把字段名和 DTO 名一起重构。
+
+## 4. 目标语义模型
+
+### 4.1 开箱记录域
+
+开箱记录记录的是“箱子商品”。因此统一改成：
+
+- 数据库字段：`box_goods_id`
+- 后端字段：`boxGoodsId`
+- 前端字段：`boxGoodsId`
+
+`box_name` 保留，但其来源改成 `cs2_goods.display_name`，仅作为冗余快照，避免未来商品名称调整导致历史记录展示受影响。
+
+### 4.2 任务域
+
+C5 任务记录的是“任务目标商品”。因此统一改成：
+
+- 数据库字段：`cs2_goods_id`
+- 后端字段：`cs2GoodsId`
+- 前端字段：`cs2GoodsId`
+
+同时展示名称统一命名为：
+
+- `goodsDisplayName`
+
+不再继续用旧的：
+
+- `goodsId`
+- `goodsName`
+- `parentCategoryName`
+
+## 5. 新接口设计
+
+新增 `Cs2GoodsController`，提供两个专用接口。
+
+### 5.1 开箱记录箱子选择
+
+`GET /cs2-goods/unbox-case-options`
+
+过滤规则：
+
+- `enabled = true`
+- `item_type = 'case'`
+- keyword 非空时，对 `display_name` 和 `market_hash_name` 做模糊匹配
+- 固定 `limit 50`
+
+### 5.2 C5 任务商品选择
+
+`GET /cs2-goods/c5-task-options`
+
+过滤规则：
+
+- `enabled = true`
+- keyword 非空时，对 `display_name` 和 `market_hash_name` 做模糊匹配
+- 固定 `limit 50`
+
+### 5.3 返回结构
+
+两个接口统一返回：
+
+```ts
+interface Cs2GoodsOption {
+  id: number;
+  displayName: string;
+  marketHashName: string;
+  itemType: string;
+  weaponType: string;
+  rarity: string;
+  exteriorName: string;
+  hasExterior: boolean;
+  imageUrl: string;
+}
+```
+
+说明：
+
+- `id` 就是 `cs2_goods.id`
+- `displayName` 作为统一展示名称
+- `hasExterior` 替代旧的 `parentCategoryName + NON_WEARABLE_CATEGORIES`
+- 不再返回旧 `goodsId / name / parentCategoryName`
+
+## 6. 后端重构设计
+
+### 6.1 推荐分层
+
+按当前项目推荐规范落地：
+
+`Controller -> Service -> MapperManager -> Mapper -> Entity`
+
+当前项目已存在 `MapperManager` 基线，因此新 `cs2_goods` 查询链路应直接按推荐分层新增，而不是继续把查库散落在旧 `ServiceImpl` 里。
+
+### 6.2 新增后端对象
+
+新增：
+
+- `entity/Cs2Goods.java`
+- `mapper/Cs2GoodsMapper.java`
+- `manager/Cs2GoodsMapperManager.java`
+- `dto/Cs2GoodsOptionDTO.java`
+- `service/Cs2GoodsService.java`
+- `service/impl/Cs2GoodsServiceImpl.java`
+- `controller/Cs2GoodsController.java`
+
+`Cs2GoodsMapperManager` 提供最少两类查询：
+
+1. `listUnboxCaseOptions(keyword)`
+2. `listC5TaskOptions(keyword)`
+
+另外补一个按 id 查询的语义化方法，供开箱记录和任务保存时复用，例如：
+
+- `getEnabledById(id)`
+
+### 6.3 开箱记录后端改造
+
+涉及文件：
+
+- `entity/UnboxRecord.java`
+- `dto/UnboxRecordDTO.java`
+- `dto/UnboxRecordPageDTO.java`
+- `dto/param/UnboxRecordSaveParam.java`
+- `service/impl/UnboxRecordServiceImpl.java`
+
+统一改名：
+
+- `goodsId` -> `boxGoodsId`
+
+`UnboxRecordServiceImpl` 改造点：
+
+1. 保存/更新时不再使用 `BuffGoodsMapperManager`
+2. 改为通过 `Cs2GoodsMapperManager.getEnabledById(boxGoodsId)` 校验商品存在
+3. 强校验 `itemType = 'case'`
+4. `boxName` 冗余取 `cs2_goods.display_name`
+
+### 6.4 开箱记录 C5 挂单查询改造
+
+涉及文件：
+
+- `dto/param/UnboxRecordC5ListingQueryParam.java`
+- `service/impl/UnboxRecordServiceImpl.java`
+
+当前 `listC5Listings` 通过旧 `BuffGoodsMapperManager.findByShortName/findByWeaponName` 匹配旧商品表，再拿 `market_hash_name` 请求 C5。
+
+这条逻辑也必须切掉。
+
+改造方案：
+
+1. 请求参数从“武器名 + 外观”改成明确的 `cs2GoodsId + wearMin + wearMax + pageNum + pageSize`
+2. 服务层按 `cs2GoodsId` 直接查询 `cs2_goods`
+3. 用 `cs2_goods.market_hash_name` 直接请求 C5
+4. 列表项回填名称和图片时，统一使用 `cs2_goods.display_name / image_url`
+
+这能彻底删除“先 OCR 武器名，再回旧商品表模糊匹配”的旧路径。
+
+### 6.5 任务域后端改造
+
+涉及文件：
+
+- `entity/BuffScanTask.java`
+- `dto/param/BuffScanTaskParam.java`
+- `dto/BuffScanTaskDTO.java`
+- `service/BuffScanTaskService.java`
+- `service/impl/BuffScanTaskServiceImpl.java`
+- `controller/BuffScanTaskController.java`
+
+统一改名：
+
+- `goodsId` -> `cs2GoodsId`
+- `goodsName` -> `goodsDisplayName`
+
+`BuffScanTaskServiceImpl` 主要改造：
+
+1. 保存任务时，不再查旧 `BuffGoodsService`
+2. 改为按 `cs2GoodsId` 查 `cs2_goods`
+3. 任务名称默认取 `cs2_goods.display_name`
+4. 可磨损判断由前端 `hasExterior` 决定，后端只负责保存范围值
+5. `pageTask()` 回显时，按 `cs2_goods_id` 批量查询 `cs2_goods`
+6. DTO 回填字段改为：
+   - `goodsDisplayName`
+   - `goodsIconUrl`
+   - `marketHashName`
+   - `hasExterior`
+   - `itemType`
+7. 删除 `parentCategoryName` 相关回填逻辑
+8. `listTradeTasks(goodsId)` 改成 `listTradeTasks(cs2GoodsId)`
+
+### 6.6 系统任务遗留问题
+
+当前 `BuffScanTaskServiceImpl.syncCategoryGoods()` 里把 `categoryId` 塞进 `goodsId` 字段，这本身就是历史坏味道。重构后不能继续沿用。
+
+处理方案：
+
+- `SYNC_CATEGORY_GOODS` 属于系统任务，不应该复用商品字段表达分类 id
+- 第一阶段直接把这条路径改成：系统任务不再依赖 `cs2_goods_id`
+- 若当前实现必须保留该信息，则单独新增字段承载；但这已经超出本次“商品选择链路”范围
+- 因为本次目标聚焦开箱记录与 C5 任务，所以不顺手扩散重构系统任务模型；只要求不要再向 `cs2GoodsId` 塞分类 id
+
+实现上可在保存系统任务时保持 `cs2GoodsId = null`，并维持原任务名逻辑。
+
+## 7. 前端重构设计
+
+本次前端采用“方案 3 的数据链路重做”思路，但明确保留现有页面样式与布局：
+
+- 不改页面结构
+- 不改卡片/表格/弹窗的视觉层级
+- 不改现有 Tailwind / scoped CSS 断点和样式类
+- 只替换商品数据源、字段映射和回显逻辑
+
+### 7.1 新类型
+
+新增独立类型：
+
+- `types/cs2-goods.ts`
+
+内容至少包含：
+
+- `Cs2GoodsOption`
+
+同时改造：
+
+- `types/unbox.ts`
+- `types/task.ts`
+
+字段统一改名：
+
+#### 开箱记录
+- `goodsId` -> `boxGoodsId`
+
+#### 任务
+- `goodsId` -> `cs2GoodsId`
+- `goodsName` -> `goodsDisplayName`
+
+### 7.2 新前端 API
+
+新增：
+
+- `api/cs2-goods.ts`
+
+提供：
+
+- `getUnboxCaseOptions(keyword?)`
+- `getC5TaskOptions(keyword?)`
+
+保留旧 `api/goods.ts` 给旧商品管理链路继续使用，但不再让开箱记录和 C5 任务页面引用它。
+
+### 7.3 开箱记录页改造
+
+涉及：
+
+- `views/UnboxRecord.vue`
+- `types/unbox.ts`
+- `api/unbox.ts`（若 C5 查询参数结构变化）
+
+改造点：
+
+1. “箱子商品”远程搜索改用 `cs2GoodsApi.getUnboxCaseOptions`
+2. `goodsCatalog` 改成 `Cs2GoodsOption[]`
+3. 选择值直接使用 `id`
+4. 删除 `id ?? goodsId` 兼容逻辑
+5. 删除 `name + parentCategoryName` 展示逻辑，统一用 `displayName`
+6. `UnboxRecordSaveParam` 改成提交 `boxGoodsId`
+7. C5 挂单查询入参改成 `cs2GoodsId`，不再传 `weaponName`
+8. 本地 fallback 只兼容新结构：
+   - `id`
+   - `displayName`
+
+### 7.4 TaskConfig 页改造
+
+涉及：
+
+- `views/TaskConfig.vue`
+- `composables/useTaskForm.ts`
+- `composables/useGoodsSearch.ts`
+- `types/task.ts`
+- `api/task.ts`
+- `composables/useAccountSelect.ts`
+
+改造方案：
+
+1. 不再复用 `useGoodsSearch.ts`
+2. 新增 `useCs2GoodsSearch.ts`，只服务新任务商品选择
+3. 远程搜索接口改为 `cs2GoodsApi.getC5TaskOptions`
+4. 选择值改成 `cs2GoodsId`
+5. 展示名称统一用 `displayName`
+6. 可磨损判断改为 `selected.hasExterior`
+7. 表单字段改成 `cs2GoodsId`
+8. `taskApi.getTradeTasks()` 入参也改成 `cs2GoodsId`
+9. `openWithGoods()` 改成接收 `Cs2GoodsOption`
+10. `TaskItem` 回显字段改成 `goodsDisplayName`
+
+### 7.5 受影响的次级页面
+
+虽然本次不重构整站商品域，但以下页面会受任务字段改名影响，至少要做兼容调整：
+
+- `views/TaskList.vue`
+- `composables/useAccountSelect.ts`
+- `api/task.ts`
+- `types/task.ts`
+
+另外，`GoodsList.vue` 里有“基于当前商品直接打开创建任务弹窗”的入口：
+
+- `openCreateTaskDialog(row)` -> `taskConfigRef.openWithGoods(row)`
+
+这里的 `row` 当前还是旧 `GoodsSimple`。本次不改旧商品管理页的查询来源，但这个入口如果继续保留，将与新 `TaskConfig.openWithGoods(Cs2GoodsOption)` 发生类型冲突。
+
+处理方案二选一：
+
+1. 第一阶段禁用 `GoodsList.vue` 的“直接创建任务”入口
+2. 或者在 `TaskConfig` 增加一个明确的桥接入口，把旧行数据转换成新 `Cs2GoodsOption`
+
+推荐方案：**先禁用旧商品管理页直开任务**，因为用户已经要求“不使用旧逻辑”，继续从旧商品管理页直开新任务本身就违背本次边界。
+
+## 8. PostgreSQL SQL 设计
+
+SQL 统一落在 `D:\MySpace\niro\docker\postgres`。
+
+### 8.1 initdb 基线调整
+
+需要更新：
+
+- `docker/postgres/initdb/00-schema/002-unbox-record.sql`
+- `docker/postgres/initdb/00-schema/005-legacy-task-and-support.sql`
+
+#### `unbox_record`
+
+字段调整：
+
+- `goods_id` -> `box_goods_id`
+- 索引：`idx_unbox_record_goods_id` -> `idx_unbox_record_box_goods_id`
+- 注释更新为：对应 `cs2_goods.id`
+
+推荐基线：
+
+```sql
+create table if not exists public.unbox_record (
+  id bigint generated always as identity primary key,
+  user_id bigint not null default 0,
+  box_goods_id bigint not null default 0,
+  unbox_date date not null default current_date,
+  box_name varchar(100) not null default '',
+  default_discount numeric(4,2) not null default 0.00,
+  note text not null default '',
+  created_at timestamp not null default now(),
+  updated_at timestamp not null default now(),
+  constraint chk_unbox_record_default_discount
+    check (default_discount >= 0 and default_discount <= 1)
+);
+```
+
+并补对应注释与索引：
+
+```sql
+create index if not exists idx_unbox_record_box_goods_id
+  on public.unbox_record (box_goods_id);
+```
+
+#### `buff_scan_task`
+
+字段调整：
+
+- `goods_id` -> `cs2_goods_id`
+- 注释更新为：关联 `cs2_goods.id`
+- 建议补索引：`idx_buff_scan_task_cs2_goods_id`
+
+推荐基线：
+
+```sql
+alter table public.buff_scan_task add column cs2_goods_id bigint default 0;
+comment on column public.buff_scan_task.cs2_goods_id is '任务目标商品ID，对应cs2_goods表id';
+```
+
+最终 initdb 结构直接以重构后的列名落地，不再保留旧 `goods_id`。
+
+### 8.2 增量迁移 SQL
+
+除了 initdb 基线，还需要一份增量迁移 SQL，放到：
+
+- `docker/postgres/migrations/2026-04-20-cs2-goods-selection-refactor.sql`
+
+内容分步执行，避免脏状态：
+
+#### 对 `unbox_record`
+
+```sql
+alter table public.unbox_record rename column goods_id to box_goods_id;
+alter index if exists public.idx_unbox_record_goods_id rename to idx_unbox_record_box_goods_id;
+comment on column public.unbox_record.box_goods_id is '箱子商品id，对应cs2_goods表id';
+```
+
+#### 对 `buff_scan_task`
+
+```sql
+alter table public.buff_scan_task rename column goods_id to cs2_goods_id;
+comment on column public.buff_scan_task.cs2_goods_id is '任务目标商品id，对应cs2_goods表id';
+create index if not exists idx_buff_scan_task_cs2_goods_id on public.buff_scan_task (cs2_goods_id);
+```
+
+### 8.3 风险说明
+
+这次是测试环境全量重构，用户已明确允许重建，因此不需要为旧测试数据做保守兼容设计。
+
+但仍需注意：
+
+1. `rename column` 会影响所有依赖实体、XML、DTO、脚本，必须代码和 SQL 同步改。
+2. `syncCategoryGoods()` 不能继续把分类 id 塞进 `cs2_goods_id`。
+3. 若现有测试库已经有旧表数据，迁移 SQL 应先于新版服务启动。
+
+## 9. 最小实现清单
+
+### 后端最小编辑集
+
+- `entity/UnboxRecord.java`
+- `dto/UnboxRecordDTO.java`
+- `dto/UnboxRecordPageDTO.java`
+- `dto/param/UnboxRecordSaveParam.java`
+- `dto/param/UnboxRecordC5ListingQueryParam.java`
+- `service/impl/UnboxRecordServiceImpl.java`
+- `entity/BuffScanTask.java`
+- `dto/param/BuffScanTaskParam.java`
+- `dto/BuffScanTaskDTO.java`
+- `service/BuffScanTaskService.java`
+- `service/impl/BuffScanTaskServiceImpl.java`
+- `controller/BuffScanTaskController.java`
+- 新增 `entity/mapper/manager/service/controller` 一套 `Cs2Goods` 查询链路
+
+### 前端最小编辑集
+
+- `src/types/unbox.ts`
+- `src/types/task.ts`
+- 新增 `src/types/cs2-goods.ts`
+- 新增 `src/api/cs2-goods.ts`
+- `src/views/UnboxRecord.vue`
+- `src/views/TaskConfig.vue`
+- `src/composables/useTaskForm.ts`
+- 新增 `src/composables/useCs2GoodsSearch.ts`
+- `src/composables/useAccountSelect.ts`
+- `src/api/task.ts`
+- `src/views/TaskList.vue`
+
+### SQL
+
+- `docker/postgres/initdb/00-schema/002-unbox-record.sql`
+- `docker/postgres/initdb/00-schema/005-legacy-task-and-support.sql`
+- 新增 `docker/postgres/migrations/2026-04-20-cs2-goods-selection-refactor.sql`
+
+## 10. 不在本次范围内
+
+以下内容明确不在这次规格里：
+
+1. 整个 `buff_goods` 商品管理域的全量删除
+2. 旧 `GoodsList.vue` 分页接口改查 `cs2_goods`
+3. 订单记录、利润统计、库存看板等所有 `goodsName` 展示链路重构
+4. 系统任务模型完整重构
+5. 开箱记录 OCR 识别逻辑改造
+
+## 11. 规格自检
+
+### 11.1 占位符检查
+
+已消除 `TODO / 待定 / 后续再说` 类占位符，所有关键字段、接口与 SQL 落点均已明确。
+
+### 11.2 一致性检查
+
+- 前端和后端字段命名统一：
+  - 开箱记录：`boxGoodsId`
+  - 任务：`cs2GoodsId`
+- SQL 列名与 Java/TS 字段语义一致：
+  - `box_goods_id`
+  - `cs2_goods_id`
+- 开箱记录 C5 查询改为通过 `cs2GoodsId` 直接命中 `market_hash_name`，不再与旧 `buff_goods` 名称匹配逻辑冲突。
+
+### 11.3 范围检查
+
+范围聚焦在“开箱记录 + C5 任务商品选择链路”，虽然会波及若干任务列表回显文件，但仍可由单一实现计划覆盖，不需要继续拆子项目。
+
+### 11.4 模糊性检查
+
+已明确以下易歧义点：
+
+1. C5 任务商品范围不是可磨损白名单，而是全部 `enabled = true` 商品。
+2. 旧商品管理页不再作为新任务创建入口的可信来源。
+3. C5 挂单查询参数语义从 `weaponName` 改成 `cs2GoodsId`，不再存在“名称匹配哪张表”的歧义。
