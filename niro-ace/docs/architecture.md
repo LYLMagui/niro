@@ -155,7 +155,7 @@ SQL 规范如下：
 - 所有字段必须提供默认值
 - 所有外键列和高频过滤列必须建立合适索引
 - 主键统一使用 `bigint generated always as identity`
-- SQL DDL 作为数据库真规范，ORM 模型必须服从 `docs/schema.sql`
+- SQL DDL 作为数据库真规范，ORM 模型必须服从 `../docker/postgres/reference/niro-ace-schema.sql`
 - 统一建模为 `source -> document -> chunk`
 - 默认检索范围限定为当前 `workspace + project`，只有显式指定时才允许全局搜索
 

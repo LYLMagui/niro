@@ -277,4 +277,4 @@ create index concurrently idx_trade_order_paid_at on trade_order (paid_at);
 ## 11. Reference sources
 
 - `D:\MySpace\niro\.claude\skills\postgresql-table-design\SKILL.md`
-- `D:\MySpace\niro\niro-ace\sql\schema.sql`
+- `D:\MySpace\niro\docker\postgres\reference\niro-ace-schema.sql`

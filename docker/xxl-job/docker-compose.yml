@@ -16,7 +16,7 @@ services:
       - "${MYSQL_PORT_EXTERNAL:-3306}:3306"
     volumes:
       # 说明：仅数据库首次初始化时执行；
-      - ./tables_xxl_job.sql:/docker-entrypoint-initdb.d/tables_xxl_job.sql:ro
+      - ../postgres/reference/xxl-job-tables-mysql.sql:/docker-entrypoint-initdb.d/tables_xxl_job.sql:ro
       # 3、数据库持久化目录位置，建议自定义：
       - ${MYSQL_PATH:-./mysql}/conf:/etc/mysql/conf.d
       - ${MYSQL_PATH:-./mysql}/logs:/var/log/mysql

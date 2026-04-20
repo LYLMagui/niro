@@ -188,5 +188,5 @@ description: 当用户要求设计数据库、修改表结构、编写 SQL 迁�
 - `references/postgresql-sql-standard.md`
 - `references/mysql-sql-standard.md`（未来扩展；识别为 MySQL 时应先读取或补齐该文件）
 - `D:\MySpace\niro\.claude\skills\postgresql-table-design\SKILL.md`
-- `D:\MySpace\niro\docs\sql\开箱记录表设计.sql`
+- `D:\MySpace\niro\docker\postgres\initdb\00-schema\002-unbox-record.sql`
 - 当前项目中的数据库配置、依赖与迁移脚本
