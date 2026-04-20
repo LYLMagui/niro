@@ -25,6 +25,7 @@ import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.enums.TaskTypeEnum;
 import com.niro.web.manager.BuffAccountMapperManager;
 import com.niro.web.manager.BuffScanTaskAccountMapperManager;
+import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.service.*;
@@ -32,7 +33,6 @@ import com.niro.web.service.strategy.PlatformStrategyFactory;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,16 +55,15 @@ import java.util.stream.Collectors;
 @Slf4j
 public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, BuffScanTask> implements BuffScanTaskService {
 
-    private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
     private final BuffAccountMapperManager buffAccountManagerMapper;
     private final BuffScanTaskAccountMapperManager buffScanTaskAccountManagerMapper;
+    private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final RedisUtil redisUtil;
     private final WeComNotifyService weComNotifyService;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final PlatformStrategyFactory platformStrategyFactory;
     private final TradeOrderRecordMapperManager tradeOrderRecordManagerMapper;
-    
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -90,24 +89,16 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             // 系统任务不需要关联商品，手动设置任务名
             task.setName(TaskTypeEnum.getDescByCode(param.getTaskType()));
             task.setRunMode(TaskRunModeEnum.SCAN); // 系统任务默认为扫描模式
+            task.setCs2GoodsId(null);
         } else if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
             // 仅下单模式：如果有关联商品，则使用商品名，否则设为"下单任务"
-            if (param.getGoodsId() != null) {
-                BuffGoods goods = buffGoodsService.lambdaQuery()
-                        .eq(BuffGoods::getGoodsId, param.getGoodsId())
-                        .one();
-                task.setName(goods != null ? goods.getName() : "下单任务");
-            } else {
-                task.setName("下单任务");
-            }
+            Cs2Goods goods = getEnabledCs2Goods(param.getCs2GoodsId());
+            task.setName(goods != null ? goods.getDisplayName() : "下单任务");
         } else {
             // 校验商品是否存在
-            BuffGoods goods = buffGoodsService.lambdaQuery()
-                    .eq(BuffGoods::getGoodsId, param.getGoodsId())
-                    .one();
-            Assert.validateNull(goods, "商品不存在");
+            Cs2Goods goods = requireEnabledCs2Goods(param.getCs2GoodsId());
             // 默认任务名为商品名
-            task.setName(goods.getName());
+            task.setName(goods.getDisplayName());
             // 如果未指定模式，默认为全能模式
             if (task.getRunMode() == null) {
                 task.setRunMode(TaskRunModeEnum.BOTH);
@@ -184,19 +175,13 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("任务正在运行中，无法修改配置，请先停止任务");
         }
 
-        // 仅允许修改配置字段，不允许修改 goodsId
+        // 仅允许修改配置字段，不允许修改 cs2GoodsId
         task.setRunMode(param.getRunMode());
         if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
             // 下单模式：重新生成名称
-            if (param.getGoodsId() != null) {
-                BuffGoods goods = buffGoodsService.lambdaQuery()
-                        .eq(BuffGoods::getGoodsId, param.getGoodsId())
-                        .one();
-                if (goods != null) {
-                    task.setName(goods.getName() + " (下单:" + task.getId() + ")");
-                } else {
-                    task.setName("下单任务:" + task.getId());
-                }
+            Cs2Goods goods = getEnabledCs2Goods(task.getCs2GoodsId());
+            if (goods != null) {
+                task.setName(goods.getDisplayName() + " (下单:" + task.getId() + ")");
             } else {
                 task.setName("下单任务:" + task.getId());
             }
@@ -253,7 +238,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         }
 
         if (TaskTypeEnum.isSystemTask(param.getTaskType())) {
-            // 系统任务不需要校验 goodsId、maxPrice 和 scanInterval 限制
+            // 系统任务不需要校验 cs2GoodsId、maxPrice 和 scanInterval 限制
             return;
         }
 
@@ -261,15 +246,15 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             throw new BusinessException("运行模式不能为空");
         }
 
-        // TRADE 模式下商品ID、最高价格、最小利润等均非必填
+        // TRADE 模式下 CS2 商品ID、最高价格、最小利润等均非必填
         if (TaskRunModeEnum.TRADE.equals(param.getRunMode())) {
             // 仅下单模式不再校验 listenerTag，也无需 targetTaskId
             return;
         }
 
-        // 非系统任务且非下单模式，商品ID不能为空
-        if (param.getGoodsId() == null) {
-            throw new BusinessException("非系统任务下，商品ID不能为空");
+        // 非系统任务且非下单模式，CS2商品ID不能为空
+        if (param.getCs2GoodsId() == null) {
+            throw new BusinessException("非系统任务下，CS2商品ID不能为空");
         }
 
         // 如果是扫描或全能模式，且有关联下单的需求，建议关联下单任务
@@ -317,6 +302,20 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 throw new BusinessException("全能模式下，购买数量必须大于0");
             }
         }
+    }
+
+    private Cs2Goods getEnabledCs2Goods(Long cs2GoodsId) {
+        if (cs2GoodsId == null) {
+            return null;
+        }
+        Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(cs2GoodsId);
+        Assert.notNull(goods, "CS2商品不存在");
+        return goods;
+    }
+
+    private Cs2Goods requireEnabledCs2Goods(Long cs2GoodsId) {
+        Assert.notNull(cs2GoodsId, "CS2商品ID不能为空");
+        return getEnabledCs2Goods(cs2GoodsId);
     }
 
     @Override
@@ -631,30 +630,26 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
                 .countSuccessByTaskIds(dtoList.stream().map(BuffScanTaskDTO::getId).collect(Collectors.toList()));
         dtoList.forEach(dto -> dto.setSuccessCount(successCountMap.getOrDefault(dto.getId(), 0)));
 
-        Set<Long> goodsIds = dtoList.stream()
-                .map(BuffScanTaskDTO::getGoodsId)
+        Set<Long> cs2GoodsIds = dtoList.stream()
+                .map(BuffScanTaskDTO::getCs2GoodsId)
                 .filter(Objects::nonNull)
                 .collect(Collectors.toSet());
 
-        if (CollUtil.isNotEmpty(goodsIds)) {
-            List<BuffGoods> goodsList = buffGoodsService.lambdaQuery()
-                    .in(BuffGoods::getGoodsId, goodsIds)
+        if (CollUtil.isNotEmpty(cs2GoodsIds)) {
+            List<Cs2Goods> goodsList = cs2GoodsMapperManager.lambdaQuery()
+                    .in(Cs2Goods::getId, cs2GoodsIds)
                     .list();
-            Map<Long, BuffGoods> goodsMap = goodsList.stream()
-                    .collect(Collectors.toMap(BuffGoods::getGoodsId, g -> g));
-
-            Set<Long> categoryIds = goodsList.stream()
-                    .map(BuffGoods::getCategoryId)
-                    .filter(Objects::nonNull)
-                    .collect(Collectors.toSet());
-            Map<Long, String> parentCategoryMap = buildParentCategoryMap(categoryIds);
+            Map<Long, Cs2Goods> goodsMap = goodsList.stream()
+                    .collect(Collectors.toMap(Cs2Goods::getId, g -> g));
 
             dtoList.forEach(dto -> {
-                if (dto.getGoodsId() != null && goodsMap.containsKey(dto.getGoodsId())) {
-                    BuffGoods g = goodsMap.get(dto.getGoodsId());
-                    dto.setGoodsIconUrl(g.getIconUrl());
+                if (dto.getCs2GoodsId() != null && goodsMap.containsKey(dto.getCs2GoodsId())) {
+                    Cs2Goods g = goodsMap.get(dto.getCs2GoodsId());
+                    dto.setGoodsDisplayName(g.getDisplayName());
+                    dto.setGoodsIconUrl(g.getImageUrl());
                     dto.setMarketHashName(g.getMarketHashName());
-                    dto.setParentCategoryName(parentCategoryMap.get(g.getCategoryId()));
+                    dto.setHasExterior(g.getHasExterior());
+                    dto.setItemType(g.getItemType());
                 }
             });
         }
@@ -702,32 +697,6 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         return dtoList;
     }
 
-    private Map<Long, String> buildParentCategoryMap(Set<Long> categoryIds) {
-        if (CollUtil.isEmpty(categoryIds)) {
-            return Map.of();
-        }
-
-        List<BuffGoodsCategory> categories = buffGoodsCategoryService.listByIds(categoryIds);
-        if (CollUtil.isEmpty(categories)) {
-            return Map.of();
-        }
-
-        Set<Long> parentIds = categories.stream()
-                .map(BuffGoodsCategory::getParentId)
-                .filter(id -> id != null && id > 0)
-                .collect(Collectors.toSet());
-        if (CollUtil.isEmpty(parentIds)) {
-            return Map.of();
-        }
-
-        Map<Long, String> parentNameMap = buffGoodsCategoryService.listByIds(parentIds).stream()
-                .collect(Collectors.toMap(BuffGoodsCategory::getId, BuffGoodsCategory::getName));
-
-        return categories.stream()
-                .filter(category -> category.getParentId() != null && category.getParentId() > 0)
-                .filter(category -> parentNameMap.containsKey(category.getParentId()))
-                .collect(Collectors.toMap(BuffGoodsCategory::getId, category -> parentNameMap.get(category.getParentId())));
-    }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
@@ -777,7 +746,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         // 检查是否已有该分类的同步任务
         BuffScanTask existingTask = this.lambdaQuery()
                 .eq(BuffScanTask::getTaskType, TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode())
-                .eq(BuffScanTask::getGoodsId, categoryId)
+                .eq(BuffScanTask::getName, "同步分类: " + category.getName())
                 .one();
 
         if (existingTask != null) {
@@ -789,7 +758,7 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
             BuffScanTask task = new BuffScanTask();
             task.setName("同步分类: " + category.getName());
             task.setTaskType(TaskTypeEnum.SYNC_CATEGORY_GOODS.getCode());
-            task.setGoodsId(categoryId); // 使用 goodsId 存储 categoryId
+            task.setCs2GoodsId(null);
             task.setUserId(currentUserId);
             task.setStatus(1); // 立即运行
             this.save(task);
@@ -797,10 +766,10 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
     }
 
     @Override
-    public List<BuffScanTask> listTradeTasks(Long goodsId) {
+    public List<BuffScanTask> listTradeTasks(Long cs2GoodsId) {
         return this.lambdaQuery()
                 .eq(BuffScanTask::getRunMode, TaskRunModeEnum.TRADE)
-                .eq(goodsId != null, BuffScanTask::getGoodsId, goodsId)
+                .eq(cs2GoodsId != null, BuffScanTask::getCs2GoodsId, cs2GoodsId)
                 .list();
     }
 }

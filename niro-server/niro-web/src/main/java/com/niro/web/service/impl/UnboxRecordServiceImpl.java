@@ -19,11 +19,11 @@ import com.niro.web.dto.UnboxRecordSummaryDTO;
 import com.niro.web.dto.param.UnboxRecordC5ListingQueryParam;
 import com.niro.web.dto.param.UnboxRecordItemParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
-import com.niro.web.entity.BuffGoods;
+import com.niro.web.entity.Cs2Goods;
 import com.niro.web.entity.UnboxRecord;
 import com.niro.web.entity.UnboxRecordItem;
 import com.niro.web.enums.UnboxHandlingStatusEnum;
-import com.niro.web.manager.BuffGoodsMapperManager;
+import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.manager.UnboxRecordItemMapperManager;
 import com.niro.web.manager.UnboxRecordMapperManager;
 import com.niro.web.service.C5ApiClientService;
@@ -56,7 +56,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
     private static final String STATUS_SETTLED = "已结算";
 
     private final UnboxRecordItemMapperManager unboxRecordItemMapperManager;
-    private final BuffGoodsMapperManager buffGoodsMapperManager;
+    private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final C5ApiClientService c5ApiClientService;
 
     @Override
@@ -128,17 +128,11 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
     public UnboxRecordC5ListingPageDTO listC5Listings(Long userId, UnboxRecordC5ListingQueryParam param) {
         Assert.notNull(userId, "用户不能为空");
         Assert.notNull(param, "参数不能为空");
-        String weaponName = normalizeText(param.getWeaponName());
-        Assert.notBlank(weaponName, "饰品名称不能为空");
         validateWearRange(param.getWearMin(), param.getWearMax());
 
-        BuffGoods goods = buffGoodsMapperManager.findByShortName(weaponName, param.getExterior());
-        if (goods == null) {
-            goods = buffGoodsMapperManager.findByWeaponName(weaponName, param.getExterior());
-        }
-        Assert.notNull(goods, "未找到匹配的饰品，请确认识别名称或外观");
-        BuffGoods matchedGoods = goods;
-        String marketHashName = StrUtil.trim(matchedGoods.getMarketHashName());
+        Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(param.getCs2GoodsId());
+        Assert.notNull(goods, "未找到匹配的饰品");
+        String marketHashName = StrUtil.trim(goods.getMarketHashName());
         Assert.notBlank(marketHashName, "未找到对应饰品的 marketHashName");
 
         C5ApiClient client = c5ApiClientService.getClient(userId);
@@ -149,7 +143,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
 
         UnboxRecordC5ListingPageDTO dto = new UnboxRecordC5ListingPageDTO();
         dto.setRecords(products.stream()
-                .map(product -> toC5ListingVO(product, matchedGoods))
+                .map(product -> toC5ListingVO(product, goods))
                 .toList());
         dto.setPageNum(response != null && response.getPageNum() != null ? response.getPageNum() : param.getPageNum());
         dto.setPageSize(response != null && response.getPageSize() != null ? response.getPageSize() : param.getPageSize());
@@ -160,13 +154,13 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
     @Override
     @Transactional(rollbackFor = Exception.class)
     public Long create(Long userId, UnboxRecordSaveParam param) {
-        BuffGoods goods = validateAndGetGoods(param);
+        Cs2Goods goods = validateAndGetGoods(param);
         LocalDateTime now = LocalDateTime.now();
 
         UnboxRecord record = new UnboxRecord();
         record.setUserId(userId);
-        record.setGoodsId(goods.getId());
-        record.setBoxName(normalizeText(goods.getName()));
+        record.setBoxGoodsId(goods.getId());
+        record.setBoxName(normalizeText(goods.getDisplayName()));
         record.setUnboxDate(param.getUnboxDate());
         record.setDefaultDiscount(param.getDefaultDiscount());
         record.setNote(normalizeText(param.getNote()));
@@ -183,11 +177,11 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
     @Transactional(rollbackFor = Exception.class)
     public void update(Long userId, Long id, UnboxRecordSaveParam param) {
         UnboxRecord record = getOwnedRecord(userId, id);
-        BuffGoods goods = validateAndGetGoods(param);
+        Cs2Goods goods = validateAndGetGoods(param);
         LocalDateTime now = LocalDateTime.now();
 
-        record.setGoodsId(goods.getId());
-        record.setBoxName(normalizeText(goods.getName()));
+        record.setBoxGoodsId(goods.getId());
+        record.setBoxName(normalizeText(goods.getDisplayName()));
         record.setUnboxDate(param.getUnboxDate());
         record.setDefaultDiscount(param.getDefaultDiscount());
         record.setNote(normalizeText(param.getNote()));
@@ -208,11 +202,12 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         Assert.isTrue(removed, "删除开箱记录失败");
     }
 
-    private BuffGoods validateAndGetGoods(UnboxRecordSaveParam param) {
+    private Cs2Goods validateAndGetGoods(UnboxRecordSaveParam param) {
         Assert.notNull(param, "参数不能为空");
-        BuffGoods goods = buffGoodsMapperManager.getById(param.getGoodsId());
+        Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(param.getBoxGoodsId());
         Assert.notNull(goods, "箱子商品不存在");
-        Assert.isTrue(StrUtil.length(goods.getName()) <= 100, "箱子名称长度不能超过100");
+        Assert.isTrue("case".equals(goods.getItemType()), "箱子商品类型不正确");
+        Assert.isTrue(StrUtil.length(goods.getDisplayName()) <= 100, "箱子名称长度不能超过100");
         validateItems(param.getItems());
         return goods;
     }
@@ -246,7 +241,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         Assert.isTrue(wearMin.compareTo(wearMax) < 0, "磨损区间最小值必须小于最大值");
     }
 
-    private UnboxRecordC5ListingVO toC5ListingVO(C5ProductListResponse.ProductDTO product, BuffGoods goods) {
+    private UnboxRecordC5ListingVO toC5ListingVO(C5ProductListResponse.ProductDTO product, Cs2Goods goods) {
         UnboxRecordC5ListingVO vo = new UnboxRecordC5ListingVO();
         vo.setProductId(product.getProductId());
         vo.setPrice(product.getPrice());
@@ -254,9 +249,9 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         vo.setSellerName(StrUtil.blankToDefault(product.getSellerUid(), "卖家未知"));
         vo.setWear(extractWear(product.getAssetInfo()));
         vo.setDelivery(product.getDelivery());
-        vo.setImageUrl(StrUtil.blankToDefault(product.getImg(), goods.getIconUrl()));
+        vo.setImageUrl(StrUtil.blankToDefault(product.getImg(), goods.getImageUrl()));
         vo.setMarketHashName(goods.getMarketHashName());
-        vo.setItemName(StrUtil.blankToDefault(goods.getName(), goods.getMarketHashName()));
+        vo.setItemName(StrUtil.blankToDefault(goods.getDisplayName(), goods.getMarketHashName()));
         return vo;
     }
 

@@ -21,7 +21,7 @@ public class UnboxRecord {
 
     private Long userId;
 
-    private Long goodsId;
+    private Long boxGoodsId;
 
     private LocalDate unboxDate;
 

@@ -1,7 +1,7 @@
 create table if not exists public.unbox_record (
   id bigint generated always as identity primary key,
   user_id bigint not null default 0,
-  goods_id bigint not null default 0,
+  box_goods_id bigint not null default 0,
   unbox_date date not null default current_date,
   box_name varchar(100) not null default '',
   default_discount numeric(4,2) not null default 0.00,
@@ -47,8 +47,8 @@ create table if not exists public.unbox_record_item (
 create index if not exists idx_unbox_record_user_id_unbox_date
   on public.unbox_record (user_id, unbox_date desc);
 
-create index if not exists idx_unbox_record_goods_id
-  on public.unbox_record (goods_id);
+create index if not exists idx_unbox_record_box_goods_id
+  on public.unbox_record (box_goods_id);
 
 create index if not exists idx_unbox_record_item_record_id_sort_no
   on public.unbox_record_item (record_id, sort_no);
@@ -56,7 +56,7 @@ create index if not exists idx_unbox_record_item_record_id_sort_no
 comment on table public.unbox_record is '开箱记录表';
 comment on column public.unbox_record.id is '主键';
 comment on column public.unbox_record.user_id is '用户id';
-comment on column public.unbox_record.goods_id is '箱子商品id，对应cs2_goods表id';
+comment on column public.unbox_record.box_goods_id is '箱子商品id，对应cs2_goods表id';
 comment on column public.unbox_record.unbox_date is '开箱日期';
 comment on column public.unbox_record.box_name is '箱子名称';
 comment on column public.unbox_record.default_discount is '默认折扣，取值范围0到1';

@@ -27,11 +27,11 @@ public class BuffScanTaskDTO {
     @Schema(description = "任务名称")
     private String name;
 
-    @Schema(description = "商品ID")
-    private Long goodsId;
+    @Schema(description = "CS2商品ID")
+    private Long cs2GoodsId;
 
-    @Schema(description = "商品名称 (关联查询)")
-    private String goodsName;
+    @Schema(description = "商品展示名称 (关联查询)")
+    private String goodsDisplayName;
 
     @Schema(description = "商品图标 (关联查询)")
     private String goodsIconUrl;
@@ -39,8 +39,11 @@ public class BuffScanTaskDTO {
     @Schema(description = "商品市场哈希名称 (关联查询)")
     private String marketHashName;
 
-    @Schema(description = "商品父级分类名称 (关联查询)")
-    private String parentCategoryName;
+    @Schema(description = "是否支持磨损 (关联查询)")
+    private Boolean hasExterior;
+
+    @Schema(description = "商品类型 (关联查询)")
+    private String itemType;
 
     @Schema(description = "目标最高价格")
     private BigDecimal maxPrice;

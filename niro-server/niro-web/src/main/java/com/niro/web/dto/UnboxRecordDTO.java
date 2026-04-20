@@ -16,7 +16,7 @@ public class UnboxRecordDTO {
 
     private Long id;
 
-    private Long goodsId;
+    private Long boxGoodsId;
 
     private String boxName;
 

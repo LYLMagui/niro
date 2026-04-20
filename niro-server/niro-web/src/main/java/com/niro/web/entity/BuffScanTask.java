@@ -41,9 +41,9 @@ public class BuffScanTask {
     private Long userId;
 
     /**
-     * Buff商品ID (关联 buff_goods.goods_id)
+     * CS2 商品ID (关联 cs2_goods.id)
      */
-    private Long goodsId;
+    private Long cs2GoodsId;
 
     /**
      * 目标最高价格(包含)

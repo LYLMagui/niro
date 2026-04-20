@@ -20,8 +20,8 @@ import java.util.List;
 public class UnboxRecordSaveParam {
 
     @NotNull(message = "箱子商品ID不能为空")
-    @Schema(description = "箱子商品ID，对应 buff_goods.id")
-    private Long goodsId;
+    @Schema(description = "箱子商品ID，对应 cs2_goods.id")
+    private Long boxGoodsId;
 
     @NotNull(message = "开箱日期不能为空")
     @Schema(description = "开箱日期")

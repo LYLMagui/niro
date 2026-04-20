@@ -28,8 +28,8 @@ public class BuffScanTaskParam {
     @Schema(description = "运行模式", defaultValue = "SCAN")
     private TaskRunModeEnum runMode;
 
-    @Schema(description = "Buff商品ID")
-    private Long goodsId;
+    @Schema(description = "CS2商品ID")
+    private Long cs2GoodsId;
 
     @Schema(description = "目标最高价格")
     private BigDecimal maxPrice;

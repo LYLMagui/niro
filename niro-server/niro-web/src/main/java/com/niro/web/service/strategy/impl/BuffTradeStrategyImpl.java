@@ -17,8 +17,8 @@ import com.niro.web.enums.*;
 import com.niro.web.manager.BuffAccountMapperManager;
 import com.niro.web.manager.BuffScanTaskAccountMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
 import lombok.RequiredArgsConstructor;
@@ -47,7 +47,7 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
     private final BuffAccountMapperManager buffAccountMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final BuffGoodsService buffGoodsService;
+    private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
 
     @Value("${proxy.global.enable:false}")
@@ -105,16 +105,14 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
 
         // 1.8 获取商品元数据 (新增：解耦 Python 读库依赖)
         String marketHashName = null;
-        String goodsName = task.getName();
+        String goodsDisplayName = task.getName();
         String iconUrl = null;
-        if (task.getGoodsId() != null && task.getGoodsId() > 0) {
-            BuffGoods goods = buffGoodsService.lambdaQuery()
-                    .eq(BuffGoods::getGoodsId, task.getGoodsId())
-                    .one();
+        if (task.getCs2GoodsId() != null && task.getCs2GoodsId() > 0) {
+            Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(task.getCs2GoodsId());
             if (goods != null) {
                 marketHashName = goods.getMarketHashName();
-                goodsName = goods.getName();
-                iconUrl = goods.getIconUrl();
+                goodsDisplayName = goods.getDisplayName();
+                iconUrl = goods.getImageUrl();
             }
         }
 
@@ -140,10 +138,10 @@ public class BuffTradeStrategyImpl implements IPlatformStrategy {
                 .taskType(task.getTaskType())
                 .name(task.getName())
                 .targetTaskId(task.getTargetTaskId())
-                .goodsId(task.getGoodsId())
-                .goodsName(goodsName) // 新增
-                .marketHashName(marketHashName) // 新增
-                .iconUrl(iconUrl) // 新增
+                .goodsId(task.getCs2GoodsId())
+                .goodsName(goodsDisplayName)
+                .marketHashName(marketHashName)
+                .iconUrl(iconUrl)
                 .proxyUrl(finalProxyUrl) // 新增
                 .maxPrice(task.getMaxPrice())
                 .minProfit(task.getMinProfit())

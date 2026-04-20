@@ -78,7 +78,7 @@ public class BuffScanTaskController {
     @GetMapping("/trade-tasks")
     @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
     @Operation(summary = "获取所有下单模式的任务列表")
-    public List<BuffScanTask> listTradeTasks(@RequestParam(required = false) Long goodsId) {
-        return buffScanTaskService.listTradeTasks(goodsId);
+    public List<BuffScanTask> listTradeTasks(@RequestParam(required = false) Long cs2GoodsId) {
+        return buffScanTaskService.listTradeTasks(cs2GoodsId);
     }
 }

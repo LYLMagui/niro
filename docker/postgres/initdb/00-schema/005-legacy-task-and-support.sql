@@ -2,7 +2,7 @@ create table if not exists public.buff_scan_task (
   id bigint generated always as identity primary key,
   name varchar not null default '',
   user_id bigint not null default 0,
-  goods_id bigint,
+  cs2_goods_id bigint,
   max_price numeric(10,2),
   min_paintwear numeric(10,6) not null default 0.000000,
   max_paintwear numeric(10,6) not null default 1.000000,
@@ -33,7 +33,7 @@ comment on table public.buff_scan_task is '扫货任务配置表';
 comment on column public.buff_scan_task.id is '主键';
 comment on column public.buff_scan_task.name is '任务名称(通常是商品名)';
 comment on column public.buff_scan_task.user_id is '创建用户ID';
-comment on column public.buff_scan_task.goods_id is 'Buff 商品ID (关联 buff_goods.goods_id)';
+comment on column public.buff_scan_task.cs2_goods_id is '任务目标商品ID，对应cs2_goods表id';
 comment on column public.buff_scan_task.max_price is '目标最高价格(包含)';
 comment on column public.buff_scan_task.min_paintwear is '最小磨损(包含)';
 comment on column public.buff_scan_task.max_paintwear is '最大磨损(包含)';
@@ -61,6 +61,7 @@ comment on column public.buff_scan_task.finish_time is '任务完成时间';
 
 create index if not exists idx_scan_task_user on public.buff_scan_task (user_id);
 create index if not exists idx_scan_task_status on public.buff_scan_task (status);
+create index if not exists idx_buff_scan_task_cs2_goods_id on public.buff_scan_task (cs2_goods_id);
 create index if not exists idx_buff_scan_task_run_mode on public.buff_scan_task (run_mode);
 create index if not exists idx_buff_scan_task_target_task_id on public.buff_scan_task (target_task_id);
 

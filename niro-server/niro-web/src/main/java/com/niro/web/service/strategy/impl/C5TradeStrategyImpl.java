@@ -22,8 +22,7 @@ import com.niro.web.enums.TaskStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.mapper.BuffScanTaskMapper;
 import com.niro.web.scheduler.C5TaskScheduler;
-import com.niro.web.service.BuffGoodsCategoryService;
-import com.niro.web.service.BuffGoodsService;
+import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.UserPlatformSettingsService;
 import com.niro.web.service.strategy.IPlatformStrategy;
@@ -53,8 +52,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     private final C5TaskScheduler c5TaskScheduler;
     private final C5ApiClientService c5ApiClientService;
     private final UserPlatformSettingsService userPlatformSettingsService;
-    private final BuffGoodsService buffGoodsService;
-    private final BuffGoodsCategoryService buffGoodsCategoryService;
+    private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final BuffScanTaskMapper buffScanTaskMapper;
     private final RedisUtil redisUtil;
@@ -162,9 +160,9 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
         }
 
         // 1. 准备参数与配置
-        BuffGoods goods = buffGoodsService.lambdaQuery().eq(BuffGoods::getGoodsId, task.getGoodsId()).one();
+        Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(task.getCs2GoodsId());
         if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
-            String errorMsg = goods == null ? "商品不存在" : "商品 MarketHashName 为空";
+            String errorMsg = goods == null ? "CS2商品不存在" : "商品 MarketHashName 为空";
             log.error("任务 [{}] {}", task.getId(), errorMsg);
             markTaskError(task, errorMsg);
             c5TaskScheduler.stop(task.getId());
@@ -175,20 +173,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
 
         final C5ApiClient client = resolveClient(task.getUserId());
 
-        // 检查是否为非磨损类物品 (父分类为"其他"或"Other")
-        boolean isNonWearable = false;
-        if (goods.getCategoryId() != null) {
-            BuffGoodsCategory category = buffGoodsCategoryService.getById(goods.getCategoryId());
-            if (category != null && category.getParentId() != null) {
-                BuffGoodsCategory parentCategory = buffGoodsCategoryService.getById(category.getParentId());
-                if (parentCategory != null) {
-                    String pName = parentCategory.getName();
-                    if ("其他".equals(pName) || "Other".equalsIgnoreCase(pName)) {
-                        isNonWearable = true;
-                    }
-                }
-            }
-        }
+        boolean isNonWearable = !Boolean.TRUE.equals(goods.getHasExterior());
 
         // 2. 搜索在售商品 (Search Products)
         final BigDecimal minWear = isNonWearable ? null : task.getMinPaintwear();
@@ -365,7 +350,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     }
 
     private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items,
-                            BuffGoods goods, int reservedQuota) {
+                            Cs2Goods goods, int reservedQuota) {
         // 中断检查 (下单动作前)
         if (Thread.currentThread().isInterrupted()) {
             log.warn("任务 [{}] 在批量下单前被中断", task.getId());
@@ -413,10 +398,10 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             record.setUserId(task.getUserId());
             record.setTaskId(task.getId());
             record.setPlatform(PlatformEnum.C5.name());
-            record.setGoodsName(goods.getName());
+            record.setGoodsName(goods.getDisplayName());
             record.setMarketHashName(goods.getMarketHashName());
             record.setPrice(item.getPrice());
-            record.setGoodsImg(goods.getIconUrl()); // 简单取 goods 图
+            record.setGoodsImg(goods.getImageUrl()); // 简单取 goods 图
 
             // 磨损值存储到 extra_info
             Double wearVal = null;
