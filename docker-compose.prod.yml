@@ -151,7 +151,7 @@ services:
       niro-web-prod:
         condition: service_healthy
     volumes:
-      - /home/workspace/certificate:/etc/nginx/certs:ro
+      - /home/app/certificate:/etc/nginx/certs:ro
     ports:
       - "80:80"
       - "443:443"
