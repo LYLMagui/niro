@@ -1,0 +1,894 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Niro Control · 菜单重构原型 V1</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --td-brand: #0052D9;
+    --td-brand-hover: #366EF4;
+    --td-brand-light: #E0EAFF;
+    --td-brand-lighter: #F2F3FF;
+    --td-bg: #F3F3F3;
+    --td-border: #E7E7E7;
+    --td-border-light: #F0F0F0;
+    --td-text-primary: #262626;
+    --td-text-secondary: #595959;
+    --td-text-placeholder: #BFBFBF;
+    --td-success: #00A870;
+    --td-warning: #ED7B2F;
+    --td-error: #D54941;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--td-text-primary);
+    background: var(--td-bg);
+  }
+
+  /* ===== 顶部栏 ===== */
+  .topbar {
+    height: 56px;
+    background: var(--td-brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .topbar-left { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 16px; }
+  .topbar-right { display: flex; align-items: center; gap: 16px; font-size: 13px; }
+  .topbar-btn {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; transition: background 0.15s;
+    background: rgba(255,255,255,0.08);
+  }
+  .topbar-btn:hover { background: rgba(255,255,255,0.18); }
+  .user-chip {
+    display: flex; align-items: center; gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 16px;
+    background: rgba(255,255,255,0.08);
+    cursor: pointer;
+  }
+  .user-chip:hover { background: rgba(255,255,255,0.18); }
+  .user-avatar {
+    width: 24px; height: 24px; border-radius: 50%;
+    background: #fff; color: var(--td-brand);
+    font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; justify-content: center;
+  }
+
+  /* ===== 主体布局 ===== */
+  .layout { display: flex; height: calc(100vh - 56px); }
+
+  /* ===== 左侧菜单 ===== */
+  .sidebar {
+    width: 220px;
+    background: #fff;
+    border-right: 1px solid var(--td-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-nav { padding: 8px 0; }
+  .menu-item {
+    display: flex; align-items: center; gap: 10px;
+    height: 40px;
+    padding: 0 20px;
+    color: var(--td-text-secondary);
+    cursor: pointer;
+    transition: all 0.15s;
+    user-select: none;
+    font-size: 14px;
+    position: relative;
+  }
+  .menu-item:hover { background: var(--td-brand-lighter); color: var(--td-text-primary); }
+  .menu-item.active {
+    background: var(--td-brand-light);
+    color: var(--td-brand);
+    font-weight: 500;
+  }
+  .menu-item.active::before {
+    content: "";
+    position: absolute; left: 0; top: 8px; bottom: 8px; width: 3px;
+    background: var(--td-brand); border-radius: 0 2px 2px 0;
+  }
+  .menu-item .icon { width: 16px; text-align: center; font-size: 15px; }
+  .menu-item .arrow { margin-left: auto; font-size: 10px; color: #999; transition: transform 0.2s; }
+  .menu-item.expanded .arrow { transform: rotate(90deg); }
+  .submenu { background: #FAFAFA; }
+  .submenu .menu-item { padding-left: 46px; font-size: 13px; }
+
+  /* ===== 主内容区 ===== */
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 24px;
+  }
+  .page-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+  }
+  .page-title { font-size: 18px; font-weight: 600; }
+  .page-subtitle { color: var(--td-text-placeholder); font-size: 12px; margin-top: 2px; }
+
+  /* ===== 平台 Tab ===== */
+  .platform-tabs {
+    display: flex;
+    gap: 4px;
+    background: #fff;
+    padding: 6px;
+    border-radius: 8px;
+    margin-bottom: 12px;
+    border: 1px solid var(--td-border-light);
+    width: fit-content;
+  }
+  .platform-tab {
+    padding: 6px 16px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    color: var(--td-text-secondary);
+    transition: all 0.15s;
+    display: flex; align-items: center; gap: 6px;
+    user-select: none;
+  }
+  .platform-tab:hover { background: var(--td-brand-lighter); }
+  .platform-tab.active { background: var(--td-brand); color: #fff; }
+  .platform-tab .count {
+    font-size: 11px;
+    background: rgba(255,255,255,0.25);
+    padding: 1px 6px;
+    border-radius: 8px;
+  }
+  .platform-tab:not(.active) .count { background: #F0F0F0; color: #999; }
+  .platform-tab .badge-dev {
+    font-size: 10px;
+    background: var(--td-warning);
+    color: #fff;
+    padding: 1px 5px;
+    border-radius: 3px;
+  }
+
+  /* ===== 卡片 ===== */
+  .card {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--td-border-light);
+  }
+  .card-section {
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--td-border-light);
+  }
+  .card-section:last-child { border-bottom: none; }
+
+  /* ===== 筛选区 ===== */
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 12px 16px;
+    align-items: end;
+  }
+  .filter-item label {
+    display: block;
+    font-size: 13px;
+    color: var(--td-text-secondary);
+    margin-bottom: 6px;
+  }
+  .input, .select {
+    width: 100%;
+    height: 32px;
+    padding: 0 12px;
+    border: 1px solid var(--td-border);
+    border-radius: 4px;
+    font-size: 13px;
+    outline: none;
+    background: #fff;
+    transition: border-color 0.15s;
+  }
+  .input:focus, .select:focus { border-color: var(--td-brand); }
+  .filter-actions { display: flex; gap: 8px; justify-self: end; }
+
+  /* ===== 按钮 ===== */
+  .btn {
+    height: 32px; padding: 0 16px;
+    border-radius: 4px; border: 1px solid var(--td-border);
+    background: #fff; color: var(--td-text-primary);
+    font-size: 13px; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--td-brand); color: var(--td-brand); }
+  .btn-primary {
+    background: var(--td-brand); color: #fff; border-color: var(--td-brand);
+  }
+  .btn-primary:hover { background: var(--td-brand-hover); color: #fff; border-color: var(--td-brand-hover); }
+  .btn-danger { color: var(--td-error); }
+  .btn-danger:hover { border-color: var(--td-error); color: var(--td-error); }
+  .btn-sm { height: 28px; padding: 0 12px; font-size: 12px; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-link {
+    background: none; border: none; color: var(--td-brand);
+    cursor: pointer; font-size: 13px; padding: 0 6px;
+  }
+  .btn-link.danger { color: var(--td-error); }
+
+  /* ===== 表格 ===== */
+  .table-toolbar {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--td-border-light);
+  }
+  .table-actions { display: flex; gap: 8px; align-items: center; }
+  .selected-hint { font-size: 13px; color: var(--td-text-secondary); }
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    background: #FAFAFA;
+    font-weight: 500;
+    color: var(--td-text-secondary);
+    text-align: left;
+    padding: 12px 20px;
+    font-size: 13px;
+    border-bottom: 1px solid var(--td-border-light);
+  }
+  tbody td {
+    padding: 12px 20px;
+    border-bottom: 1px solid var(--td-border-light);
+    font-size: 13px;
+    vertical-align: middle;
+  }
+  tbody tr:hover { background: #FAFAFA; }
+  .goods-info { display: flex; align-items: center; gap: 12px; }
+  .goods-thumb {
+    width: 56px; height: 42px;
+    border-radius: 4px;
+    background: linear-gradient(135deg, #3D3D3D, #1A1A1A);
+    display: flex; align-items: center; justify-content: center;
+    color: #FF6E3D; font-size: 10px; font-weight: 600;
+  }
+  .goods-name { font-weight: 500; }
+  .goods-meta { color: var(--td-text-placeholder); font-size: 12px; margin-top: 2px; }
+  .config-row { display: flex; gap: 6px; font-size: 12px; margin-bottom: 2px; }
+  .config-label { color: var(--td-text-secondary); }
+  .config-value { color: var(--td-text-primary); background: #FFF4E5; padding: 0 6px; border-radius: 3px; }
+
+  /* ===== 状态标签 ===== */
+  .tag {
+    display: inline-flex; align-items: center;
+    padding: 2px 8px; border-radius: 10px; font-size: 12px;
+  }
+  .tag-default { background: #F3F3F3; color: #666; }
+  .tag-success { background: #E8F7F0; color: var(--td-success); }
+  .tag-warning { background: #FFF3E5; color: var(--td-warning); }
+  .tag-brand { background: var(--td-brand-light); color: var(--td-brand); }
+
+  /* ===== 分页 ===== */
+  .pagination {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 20px;
+  }
+  .pagination-info { color: var(--td-text-secondary); font-size: 13px; }
+  .pagination-controls { display: flex; gap: 6px; align-items: center; }
+  .page-btn {
+    width: 28px; height: 28px; border: 1px solid var(--td-border);
+    background: #fff; border-radius: 4px;
+    display: inline-flex; align-items: center; justify-content: center;
+    cursor: pointer; font-size: 12px; color: var(--td-text-secondary);
+  }
+  .page-btn.active { background: var(--td-brand); color: #fff; border-color: var(--td-brand); }
+  .page-btn:hover:not(.active) { border-color: var(--td-brand); color: var(--td-brand); }
+
+  /* ===== 工作台 ===== */
+  .stat-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .stat-card {
+    background: #fff;
+    border-radius: 8px;
+    border: 1px solid var(--td-border-light);
+    padding: 16px 20px;
+  }
+  .stat-label { color: var(--td-text-secondary); font-size: 13px; margin-bottom: 6px; }
+  .stat-value { font-size: 24px; font-weight: 600; }
+  .stat-delta { font-size: 12px; margin-top: 4px; }
+  .stat-delta.up { color: var(--td-success); }
+  .stat-delta.down { color: var(--td-error); }
+
+  .dual-col {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: 16px;
+  }
+
+  /* ===== 空 / 开发中 ===== */
+  .empty-state {
+    padding: 80px 20px;
+    text-align: center;
+    color: var(--td-text-placeholder);
+  }
+  .empty-state .icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-state .title { font-size: 16px; color: var(--td-text-secondary); margin-bottom: 6px; }
+  .empty-state .desc { font-size: 13px; }
+
+  /* 滚动条 */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: #D9D9D9; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #BFBFBF; }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+
+<body>
+
+<!-- ========= 顶部栏 ========= -->
+<header class="topbar">
+  <div class="topbar-left">
+    <span style="font-size:18px;">‹</span>
+    <span>Niro Control</span>
+    <span style="font-size:11px; background:rgba(255,255,255,0.18); padding:2px 8px; border-radius:10px; font-weight:normal;">菜单重构原型 V1</span>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-btn" title="刷新">↻</div>
+    <div class="user-chip">
+      <div class="user-avatar">Y</div>
+      <span>_yL6qKunj</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ========= 左侧菜单 ========= -->
+  <aside class="sidebar">
+    <nav class="sidebar-nav" id="sidebar">
+      <div class="menu-item" data-page="dashboard">
+        <span class="icon">📊</span><span>工作台</span>
+      </div>
+      <div class="menu-item" data-page="scan">
+        <span class="icon">🔍</span><span>扫货</span>
+      </div>
+
+      <div class="menu-item expanded" data-group="order">
+        <span class="icon">📦</span><span>订单</span>
+        <span class="arrow">▸</span>
+      </div>
+      <div class="submenu" data-group-content="order">
+        <div class="menu-item" data-page="order-list"><span>订单记录</span></div>
+        <div class="menu-item" data-page="order-stat"><span>订单统计</span></div>
+      </div>
+
+      <div class="menu-item" data-page="unbox">
+        <span class="icon">🎁</span><span>开箱</span>
+      </div>
+
+      <div class="menu-item" data-page="goods">
+        <span class="icon">🗂</span><span>商品库</span>
+      </div>
+
+      <div class="menu-item expanded" data-group="system">
+        <span class="icon">⚙</span><span>系统</span>
+        <span class="arrow">▸</span>
+      </div>
+      <div class="submenu" data-group-content="system">
+        <div class="menu-item" data-page="sys-account"><span>账号</span></div>
+        <div class="menu-item" data-page="sys-role"><span>权限</span></div>
+        <div class="menu-item" data-page="sys-log"><span>日志</span></div>
+      </div>
+    </nav>
+  </aside>
+
+  <!-- ========= 主内容 ========= -->
+  <main class="main" id="main">
+
+    <!-- ---------- 扫货页（默认展示） ---------- -->
+    <section class="page" data-page="scan">
+      <div class="page-header">
+        <div>
+          <div class="page-title">扫货</div>
+          <div class="page-subtitle">在各平台批量发现低于目标价的饰品并下单</div>
+        </div>
+        <div>
+          <button class="btn btn-primary">＋ 新增任务</button>
+        </div>
+      </div>
+
+      <!-- 平台 Tab -->
+      <div class="platform-tabs" id="platformTabs">
+        <div class="platform-tab active" data-platform="all">
+          <span>全部</span><span class="count">1</span>
+        </div>
+        <div class="platform-tab" data-platform="c5">
+          <span>C5</span><span class="count">1</span>
+        </div>
+        <div class="platform-tab" data-platform="buff">
+          <span>BUFF</span><span class="badge-dev">开发中</span>
+        </div>
+        <div class="platform-tab" data-platform="youyou">
+          <span>悠悠</span><span class="badge-dev">开发中</span>
+        </div>
+        <div class="platform-tab" data-platform="igxe">
+          <span>IGXE</span><span class="badge-dev">规划中</span>
+        </div>
+      </div>
+
+      <!-- 筛选 + 表格 -->
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item">
+              <label>任务关键词</label>
+              <input class="input" placeholder="请输入任务/商品关键词" />
+            </div>
+            <div class="filter-item">
+              <label>任务状态</label>
+              <select class="select">
+                <option>全部</option>
+                <option>运行中</option>
+                <option>已停止</option>
+                <option>已完成</option>
+              </select>
+            </div>
+            <div class="filter-item">
+              <label>创建时间</label>
+              <input class="input" placeholder="选择时间范围" />
+            </div>
+            <div class="filter-actions">
+              <button class="btn btn-primary">查询</button>
+              <button class="btn">重置</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="table-toolbar">
+          <div class="table-actions">
+            <button class="btn btn-sm">批量启动</button>
+            <button class="btn btn-sm">批量停止</button>
+            <button class="btn btn-sm btn-danger">批量删除</button>
+          </div>
+          <div class="selected-hint">已选择 <b>0</b> 项 · <a class="btn-link">清空勾选</a></div>
+        </div>
+
+        <table>
+          <thead>
+            <tr>
+              <th style="width:36px;"><input type="checkbox" /></th>
+              <th>商品信息</th>
+              <th>平台</th>
+              <th>目标配置</th>
+              <th>进度</th>
+              <th>创建时间</th>
+              <th>状态</th>
+              <th style="width:200px;">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><input type="checkbox" /></td>
+              <td>
+                <div class="goods-info">
+                  <div class="goods-thumb">CS2</div>
+                  <div>
+                    <div class="goods-name">封装的毁灭之手终端机</div>
+                    <div class="goods-meta">ID: 6425</div>
+                  </div>
+                </div>
+              </td>
+              <td><span class="tag tag-brand">C5</span></td>
+              <td>
+                <div class="config-row"><span class="config-label">最高价:</span><span class="config-value">¥15</span></div>
+                <div class="config-row"><span class="config-label">扫描频率:</span><span class="config-value">1s</span></div>
+                <div class="config-row"><span class="config-label">磨损范围:</span><span class="config-value">0 - 1</span></div>
+              </td>
+              <td>0 / 1</td>
+              <td>2026-04-20 19:10</td>
+              <td><span class="tag tag-default">已停止</span></td>
+              <td>
+                <button class="btn-link">编辑</button>
+                <button class="btn-link">复制</button>
+                <button class="btn-link">启动</button>
+                <button class="btn-link danger">删除</button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="pagination">
+          <div class="pagination-info">共 1 条</div>
+          <div class="pagination-controls">
+            <select class="select" style="width:80px;"><option>10 / 页</option></select>
+            <div class="page-btn">‹</div>
+            <div class="page-btn active">1</div>
+            <div class="page-btn">›</div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 工作台 ---------- -->
+    <section class="page hidden" data-page="dashboard">
+      <div class="page-header">
+        <div>
+          <div class="page-title">工作台</div>
+          <div class="page-subtitle">今日关键指标与最近动态</div>
+        </div>
+      </div>
+
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">今日成交订单</div>
+          <div class="stat-value">23</div>
+          <div class="stat-delta up">↑ 15% 环比昨日</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">今日扫货命中</div>
+          <div class="stat-value">87</div>
+          <div class="stat-delta up">↑ 8%</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">运行中任务</div>
+          <div class="stat-value">12</div>
+          <div class="stat-delta" style="color:#999;">C5: 12 · BUFF: 0</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">本月毛利</div>
+          <div class="stat-value">¥2,840</div>
+          <div class="stat-delta down">↓ 3%</div>
+        </div>
+      </div>
+
+      <div class="dual-col">
+        <div class="card">
+          <div class="card-section" style="display:flex; justify-content:space-between; align-items:center;">
+            <b>成交趋势</b>
+            <select class="select" style="width:120px;">
+              <option>近 7 天</option><option>近 30 天</option>
+            </select>
+          </div>
+          <div class="card-section" style="height:240px; display:flex; align-items:end; gap:12px; padding-bottom:40px;">
+            <!-- 假柱状图 -->
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:40%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/14</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:65%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/15</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:50%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/16</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:80%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/17</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:55%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/18</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand); width:70%; height:70%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/19</span></div>
+            <div style="flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;"><div style="background:var(--td-brand-hover); width:70%; height:90%; border-radius:4px 4px 0 0;"></div><span style="font-size:11px; color:#999;">4/20</span></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-section"><b>最近动态</b></div>
+          <div class="card-section" style="display:flex; flex-direction:column; gap:10px;">
+            <div style="display:flex; gap:10px;"><span class="tag tag-success">成交</span><span style="flex:1; color:var(--td-text-secondary); font-size:13px;">封装的毁灭之手 · ¥14.50</span><span style="color:#999; font-size:12px;">2 分钟前</span></div>
+            <div style="display:flex; gap:10px;"><span class="tag tag-warning">缺货</span><span style="flex:1; color:var(--td-text-secondary); font-size:13px;">AK-47 红线(崭新) 目标价未命中</span><span style="color:#999; font-size:12px;">8 分钟前</span></div>
+            <div style="display:flex; gap:10px;"><span class="tag tag-brand">新任务</span><span style="flex:1; color:var(--td-text-secondary); font-size:13px;">AWP 二西莫夫(略磨) C5</span><span style="color:#999; font-size:12px;">22 分钟前</span></div>
+            <div style="display:flex; gap:10px;"><span class="tag tag-default">停止</span><span style="flex:1; color:var(--td-text-secondary); font-size:13px;">M4A4 龙王(久经) 手动停止</span><span style="color:#999; font-size:12px;">1 小时前</span></div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 订单记录 ---------- -->
+    <section class="page hidden" data-page="order-list">
+      <div class="page-header">
+        <div>
+          <div class="page-title">订单记录</div>
+          <div class="page-subtitle">所有平台的历史成交订单</div>
+        </div>
+        <div><button class="btn">导出</button></div>
+      </div>
+
+      <div class="platform-tabs">
+        <div class="platform-tab active"><span>全部</span><span class="count">132</span></div>
+        <div class="platform-tab"><span>C5</span><span class="count">132</span></div>
+        <div class="platform-tab"><span>BUFF</span><span class="badge-dev">开发中</span></div>
+        <div class="platform-tab"><span>悠悠</span><span class="badge-dev">开发中</span></div>
+      </div>
+
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item"><label>订单号 / 商品</label><input class="input" placeholder="输入关键词"/></div>
+            <div class="filter-item"><label>订单状态</label><select class="select"><option>全部</option><option>已完成</option><option>交易中</option><option>已取消</option></select></div>
+            <div class="filter-item"><label>成交时间</label><input class="input" placeholder="选择时间范围"/></div>
+            <div class="filter-actions">
+              <button class="btn btn-primary">查询</button>
+              <button class="btn">重置</button>
+            </div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>订单号</th><th>商品信息</th><th>平台</th><th>成交价</th><th>状态</th><th>成交时间</th><th style="width:140px;">操作</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td style="color:#666;">NB2026042001</td>
+              <td><div class="goods-info"><div class="goods-thumb">CS2</div><div><div class="goods-name">封装的毁灭之手终端机</div><div class="goods-meta">磨损: 0.08</div></div></div></td>
+              <td><span class="tag tag-brand">C5</span></td>
+              <td>¥14.50</td>
+              <td><span class="tag tag-success">已完成</span></td>
+              <td>2026-04-20 19:32</td>
+              <td><button class="btn-link">详情</button><button class="btn-link">复制 ID</button></td>
+            </tr>
+            <tr>
+              <td style="color:#666;">NB2026042002</td>
+              <td><div class="goods-info"><div class="goods-thumb">CS2</div><div><div class="goods-name">AWP | 二西莫夫</div><div class="goods-meta">略有磨损 · 0.12</div></div></div></td>
+              <td><span class="tag tag-brand">C5</span></td>
+              <td>¥98.20</td>
+              <td><span class="tag tag-warning">交易中</span></td>
+              <td>2026-04-20 18:45</td>
+              <td><button class="btn-link">详情</button><button class="btn-link">复制 ID</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <div class="pagination-info">共 132 条</div>
+          <div class="pagination-controls"><select class="select" style="width:80px;"><option>10 / 页</option></select><div class="page-btn">‹</div><div class="page-btn active">1</div><div class="page-btn">2</div><div class="page-btn">3</div><div class="page-btn">›</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 订单统计 ---------- -->
+    <section class="page hidden" data-page="order-stat">
+      <div class="page-header">
+        <div>
+          <div class="page-title">订单统计</div>
+          <div class="page-subtitle">成交数量、金额与利润的聚合分析</div>
+        </div>
+        <div>
+          <select class="select" style="width:160px;"><option>近 30 天</option><option>本月</option><option>本年</option></select>
+        </div>
+      </div>
+      <div class="stat-grid">
+        <div class="stat-card"><div class="stat-label">总成交单数</div><div class="stat-value">328</div><div class="stat-delta up">↑ 12%</div></div>
+        <div class="stat-card"><div class="stat-label">总成交额</div><div class="stat-value">¥18,420</div><div class="stat-delta up">↑ 18%</div></div>
+        <div class="stat-card"><div class="stat-label">总毛利</div><div class="stat-value">¥2,840</div><div class="stat-delta down">↓ 3%</div></div>
+        <div class="stat-card"><div class="stat-label">平均利润率</div><div class="stat-value">15.4%</div><div class="stat-delta up">↑ 1.2pt</div></div>
+      </div>
+      <div class="card">
+        <div class="card-section"><b>按平台分布</b></div>
+        <div class="card-section">
+          <table>
+            <thead><tr><th>平台</th><th>订单数</th><th>成交额</th><th>毛利</th><th>利润率</th></tr></thead>
+            <tbody>
+              <tr><td><span class="tag tag-brand">C5</span></td><td>328</td><td>¥18,420</td><td>¥2,840</td><td>15.4%</td></tr>
+              <tr style="color:#BFBFBF;"><td>BUFF</td><td colspan="4" style="text-align:center;">待接入</td></tr>
+              <tr style="color:#BFBFBF;"><td>悠悠</td><td colspan="4" style="text-align:center;">待接入</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 开箱 ---------- -->
+    <section class="page hidden" data-page="unbox">
+      <div class="page-header">
+        <div>
+          <div class="page-title">开箱</div>
+          <div class="page-subtitle">记录每次开箱的投入与产出</div>
+        </div>
+        <div><button class="btn btn-primary">＋ 记录开箱</button></div>
+      </div>
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item"><label>武器箱 / 掉落物</label><input class="input" placeholder="输入关键词"/></div>
+            <div class="filter-item"><label>结果</label><select class="select"><option>全部</option><option>回血</option><option>亏损</option><option>中奖</option></select></div>
+            <div class="filter-item"><label>开箱时间</label><input class="input" placeholder="选择时间范围"/></div>
+            <div class="filter-actions"><button class="btn btn-primary">查询</button><button class="btn">重置</button></div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>武器箱</th><th>钥匙花费</th><th>掉落物品</th><th>物品价值</th><th>盈亏</th><th>开箱时间</th><th style="width:120px;">操作</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="goods-info"><div class="goods-thumb" style="background:linear-gradient(135deg,#8C52FF,#3D1F8C);color:#fff;">BOX</div><div><div class="goods-name">反冲武器箱</div></div></div></td>
+              <td>¥17.00</td>
+              <td>AK-47 | 红线（崭新出厂）</td>
+              <td>¥138.40</td>
+              <td><span class="tag tag-success">+¥121.40</span></td>
+              <td>2026-04-20 17:22</td>
+              <td><button class="btn-link">详情</button><button class="btn-link danger">删除</button></td>
+            </tr>
+            <tr>
+              <td><div class="goods-info"><div class="goods-thumb" style="background:linear-gradient(135deg,#8C52FF,#3D1F8C);color:#fff;">BOX</div><div><div class="goods-name">Dreams & Nightmares</div></div></div></td>
+              <td>¥17.00</td>
+              <td>军用级 · 银光</td>
+              <td>¥3.20</td>
+              <td><span class="tag" style="background:#FEE8E8;color:var(--td-error);">-¥13.80</span></td>
+              <td>2026-04-20 17:21</td>
+              <td><button class="btn-link">详情</button><button class="btn-link danger">删除</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <div class="pagination-info">共 48 条 · 总盈亏 <b style="color:var(--td-success);">+¥428</b></div>
+          <div class="pagination-controls"><select class="select" style="width:80px;"><option>10 / 页</option></select><div class="page-btn">‹</div><div class="page-btn active">1</div><div class="page-btn">›</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 商品库 ---------- -->
+    <section class="page hidden" data-page="goods">
+      <div class="page-header">
+        <div>
+          <div class="page-title">商品库</div>
+          <div class="page-subtitle">所有平台共享的饰品主数据</div>
+        </div>
+        <div><button class="btn">同步 C5 数据</button></div>
+      </div>
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item"><label>关键词</label><input class="input" placeholder="搜索饰品名称"/></div>
+            <div class="filter-item"><label>类型</label><select class="select"><option>全部</option><option>匕首</option><option>手套</option><option>步枪</option><option>武器箱</option></select></div>
+            <div class="filter-item"><label>稀有度</label><select class="select"><option>全部</option><option>隐秘</option><option>保密</option><option>受限</option><option>军规</option></select></div>
+            <div class="filter-actions"><button class="btn btn-primary">查询</button><button class="btn">重置</button></div>
+          </div>
+        </div>
+        <table>
+          <thead>
+            <tr><th>商品</th><th>类型</th><th>稀有度</th><th>C5 参考价</th><th>BUFF 参考价</th><th>磨损可选</th><th style="width:140px;">操作</th></tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><div class="goods-info"><div class="goods-thumb">CS2</div><div><div class="goods-name">封装的毁灭之手终端机</div><div class="goods-meta">ID: 6425</div></div></div></td>
+              <td>印花胶囊</td>
+              <td><span class="tag tag-warning">保密</span></td>
+              <td>¥14.80</td>
+              <td style="color:#BFBFBF;">-</td>
+              <td>-</td>
+              <td><button class="btn-link">详情</button><button class="btn-link">加入扫货</button></td>
+            </tr>
+            <tr>
+              <td><div class="goods-info"><div class="goods-thumb">CS2</div><div><div class="goods-name">AWP | 二西莫夫</div><div class="goods-meta">ID: 3201</div></div></div></td>
+              <td>狙击步枪</td>
+              <td><span class="tag" style="background:#FFE5E8;color:#D54941;">隐秘</span></td>
+              <td>¥98.20</td>
+              <td style="color:#BFBFBF;">-</td>
+              <td>崭新/略磨/久经/破损/战痕</td>
+              <td><button class="btn-link">详情</button><button class="btn-link">加入扫货</button></td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="pagination">
+          <div class="pagination-info">共 1,240 条</div>
+          <div class="pagination-controls"><select class="select" style="width:80px;"><option>10 / 页</option></select><div class="page-btn">‹</div><div class="page-btn active">1</div><div class="page-btn">2</div><div class="page-btn">›</div></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ---------- 系统 / 账号 ---------- -->
+    <section class="page hidden" data-page="sys-account">
+      <div class="page-header">
+        <div>
+          <div class="page-title">账号</div>
+          <div class="page-subtitle">登录账号与第三方平台授权账号</div>
+        </div>
+        <div><button class="btn btn-primary">＋ 新增账号</button></div>
+      </div>
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item"><label>账号名</label><input class="input" placeholder="搜索用户名"/></div>
+            <div class="filter-item"><label>角色</label><select class="select"><option>全部</option><option>管理员</option><option>操作员</option></select></div>
+            <div class="filter-item"><label>状态</label><select class="select"><option>全部</option><option>启用</option><option>禁用</option></select></div>
+            <div class="filter-actions"><button class="btn btn-primary">查询</button><button class="btn">重置</button></div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th>账号</th><th>昵称</th><th>角色</th><th>C5 绑定</th><th>状态</th><th>最后登录</th><th style="width:180px;">操作</th></tr></thead>
+          <tbody>
+            <tr><td>admin</td><td>Niro 管理员</td><td><span class="tag tag-brand">管理员</span></td><td><span class="tag tag-success">已绑定</span></td><td><span class="tag tag-success">启用</span></td><td>2026-04-20 19:00</td><td><button class="btn-link">编辑</button><button class="btn-link">重置密码</button><button class="btn-link danger">禁用</button></td></tr>
+            <tr><td>operator01</td><td>小王</td><td><span class="tag tag-default">操作员</span></td><td><span class="tag tag-default">未绑定</span></td><td><span class="tag tag-success">启用</span></td><td>2026-04-19 22:11</td><td><button class="btn-link">编辑</button><button class="btn-link">重置密码</button><button class="btn-link danger">禁用</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- 系统 / 权限 ---------- -->
+    <section class="page hidden" data-page="sys-role">
+      <div class="page-header">
+        <div>
+          <div class="page-title">权限</div>
+          <div class="page-subtitle">角色与功能权限分配</div>
+        </div>
+        <div><button class="btn btn-primary">＋ 新增角色</button></div>
+      </div>
+      <div class="card">
+        <table>
+          <thead><tr><th>角色名</th><th>说明</th><th>权限范围</th><th>用户数</th><th style="width:180px;">操作</th></tr></thead>
+          <tbody>
+            <tr><td>管理员</td><td>拥有系统全部功能</td><td><span class="tag tag-brand">全部</span></td><td>1</td><td><button class="btn-link">编辑</button><button class="btn-link">成员</button></td></tr>
+            <tr><td>操作员</td><td>只能执行扫货与查看订单</td><td><span class="tag tag-default">扫货 / 订单 / 开箱</span></td><td>3</td><td><button class="btn-link">编辑</button><button class="btn-link">成员</button><button class="btn-link danger">删除</button></td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ---------- 系统 / 日志 ---------- -->
+    <section class="page hidden" data-page="sys-log">
+      <div class="page-header">
+        <div>
+          <div class="page-title">日志</div>
+          <div class="page-subtitle">操作日志与系统运行日志</div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-section">
+          <div class="filter-row">
+            <div class="filter-item"><label>模块</label><select class="select"><option>全部</option><option>扫货</option><option>订单</option><option>开箱</option><option>系统</option></select></div>
+            <div class="filter-item"><label>级别</label><select class="select"><option>全部</option><option>INFO</option><option>WARN</option><option>ERROR</option></select></div>
+            <div class="filter-item"><label>时间</label><input class="input" placeholder="选择时间范围"/></div>
+            <div class="filter-actions"><button class="btn btn-primary">查询</button><button class="btn">重置</button></div>
+          </div>
+        </div>
+        <table>
+          <thead><tr><th style="width:160px;">时间</th><th style="width:80px;">级别</th><th style="width:100px;">模块</th><th>内容</th><th style="width:120px;">操作人</th></tr></thead>
+          <tbody>
+            <tr><td>19:32:05</td><td><span class="tag tag-success">INFO</span></td><td>扫货</td><td>任务 6425 成交一单 · ¥14.50</td><td>admin</td></tr>
+            <tr><td>19:30:12</td><td><span class="tag tag-warning">WARN</span></td><td>扫货</td><td>C5 Token 即将过期（剩余 2h）</td><td>system</td></tr>
+            <tr><td>19:28:00</td><td><span class="tag tag-success">INFO</span></td><td>订单</td><td>订单 NB2026042001 状态变更: 交易中 → 已完成</td><td>system</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script>
+  // 菜单切换
+  const sidebar = document.getElementById('sidebar');
+  const pages = document.querySelectorAll('.page');
+
+  function showPage(pageKey) {
+    pages.forEach(p => p.classList.toggle('hidden', p.dataset.page !== pageKey));
+    document.querySelectorAll('.sidebar .menu-item').forEach(m => {
+      m.classList.toggle('active', m.dataset.page === pageKey);
+    });
+    document.querySelector('.main').scrollTo({ top: 0 });
+  }
+
+  sidebar.addEventListener('click', (e) => {
+    const item = e.target.closest('.menu-item');
+    if (!item) return;
+    // 分组折叠
+    if (item.dataset.group) {
+      const key = item.dataset.group;
+      const sub = document.querySelector(`[data-group-content="${key}"]`);
+      item.classList.toggle('expanded');
+      sub.classList.toggle('hidden');
+      return;
+    }
+    if (item.dataset.page) showPage(item.dataset.page);
+  });
+
+  // 平台 tab 切换（仅视觉切换）
+  document.querySelectorAll('.platform-tabs').forEach(tabs => {
+    tabs.addEventListener('click', (e) => {
+      const tab = e.target.closest('.platform-tab');
+      if (!tab) return;
+      tabs.querySelectorAll('.platform-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+    });
+  });
+
+  // 默认选中"扫货"
+  showPage('scan');
+</script>
+
+</body>
+</html>

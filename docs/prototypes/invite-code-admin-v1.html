@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Niro Control · 邀请码管理原型 V1</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>
+  :root {
+    --td-brand: #0052d9;
+    --td-brand-hover: #366ef4;
+    --td-brand-light: #e8f3ff;
+    --td-brand-lighter: #f2f6ff;
+    --td-success: #00a870;
+    --td-success-light: #e8f8f2;
+    --td-warning: #ed7b2f;
+    --td-warning-light: #fff3e6;
+    --td-error: #d54941;
+    --td-error-light: #fdecee;
+    --td-text-primary: #1f2329;
+    --td-text-secondary: #475569;
+    --td-text-placeholder: #94a3b8;
+    --td-bg-page: #f3f4f6;
+    --td-bg-card: #ffffff;
+    --td-bg-subtle: rgba(248, 250, 252, 0.7);
+    --td-border: #e2e8f0;
+    --td-border-light: #e2e8f0;
+    --td-shadow: 0 1px 2px rgba(15, 23, 42, 0.05);
+    --td-shadow-lg: 0 12px 28px rgba(15, 23, 42, 0.16);
+    --td-radius-card: 6px;
+    --td-radius-btn: 4px;
+    --td-radius-tag: 4px;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "PingFang SC", "Microsoft YaHei", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-size: 14px;
+    color: var(--td-text-primary);
+    background: var(--td-bg-page);
+  }
+  button, input, select, textarea { font: inherit; }
+
+  .hidden { display: none !important; }
+
+  .topbar {
+    height: 56px;
+    background: var(--td-brand);
+    color: #fff;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 20px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.08);
+  }
+  .topbar-left, .topbar-right { display: flex; align-items: center; gap: 12px; }
+  .topbar-left { font-size: 16px; font-weight: 600; }
+  .topbar-pill {
+    font-size: 11px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.18);
+    font-weight: 400;
+  }
+  .topbar-btn {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.08);
+    cursor: pointer;
+  }
+  .user-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 12px 4px 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.08);
+  }
+  .user-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: #fff;
+    color: var(--td-brand);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .layout { display: flex; height: calc(100vh - 56px); }
+  .sidebar {
+    width: 220px;
+    background: #fff;
+    border-right: 1px solid var(--td-border);
+    overflow-y: auto;
+    flex-shrink: 0;
+  }
+  .sidebar-nav { padding: 8px 0; }
+  .menu-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    height: 40px;
+    padding: 0 20px;
+    color: var(--td-text-secondary);
+    cursor: pointer;
+    user-select: none;
+    transition: all 0.15s;
+  }
+  .menu-item:hover { background: var(--td-brand-lighter); color: var(--td-text-primary); }
+  .menu-item.active {
+    background: var(--td-brand-light);
+    color: var(--td-brand);
+    font-weight: 600;
+  }
+  .menu-item.active::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 8px;
+    bottom: 8px;
+    width: 3px;
+    border-radius: 0 2px 2px 0;
+    background: var(--td-brand);
+  }
+  .submenu { background: #fafafa; }
+  .submenu .menu-item { padding-left: 46px; font-size: 13px; }
+  .menu-arrow { margin-left: auto; font-size: 11px; color: #9aa4af; }
+
+  .main {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px 24px;
+  }
+  .page-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+    margin-bottom: 12px;
+  }
+  .page-title { font-size: 18px; font-weight: 600; color: var(--td-text-primary); }
+  .page-subtitle {
+    margin-top: 4px;
+    color: var(--td-text-placeholder);
+    font-size: 12px;
+    line-height: 1.5;
+  }
+  .proto-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 5px 10px;
+    border-radius: 999px;
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+    color: var(--td-brand);
+    font-size: 12px;
+    white-space: nowrap;
+  }
+
+  .card {
+    background: var(--td-bg-card);
+    border-radius: var(--td-radius-card);
+    border: 1px solid var(--td-border-light);
+    box-shadow: var(--td-shadow);
+  }
+  .card-section {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--td-border-light);
+  }
+  .card-section:last-child { border-bottom: none; }
+
+  .filter-shell {
+    background: var(--td-bg-card);
+  }
+  .filter-row {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr)) auto;
+    gap: 12px 16px;
+    align-items: end;
+  }
+  .filter-shell > .card-section:first-child {
+    background: rgba(248, 250, 252, 0.7);
+  }
+  .filter-item label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--td-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .filter-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    justify-self: end;
+    padding-bottom: 1px;
+  }
+  .field,
+  .field-select,
+  .field-textarea {
+    width: 100%;
+    min-height: 32px;
+    border-radius: var(--td-radius-btn);
+    border: 1px solid var(--td-border);
+    background: #fff;
+    color: var(--td-text-primary);
+    padding: 0 12px;
+    outline: none;
+    transition: all 0.15s;
+  }
+  .field:focus,
+  .field-select:focus,
+  .field-textarea:focus {
+    border-color: var(--td-brand);
+    box-shadow: 0 0 0 3px rgba(0, 82, 217, 0.08);
+  }
+  .field,
+  .field-select { height: 32px; }
+  .field-textarea {
+    min-height: 88px;
+    padding: 10px 12px;
+    resize: vertical;
+  }
+  .field-inline {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .help-text {
+    margin-top: 6px;
+    font-size: 12px;
+    color: var(--td-text-placeholder);
+    line-height: 1.5;
+  }
+
+  .btn {
+    height: 32px;
+    min-width: 88px;
+    padding: 0 16px;
+    border-radius: var(--td-radius-btn);
+    border: 1px solid var(--td-border);
+    background: #fff;
+    color: var(--td-text-primary);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    cursor: pointer;
+    transition: all 0.15s;
+    white-space: nowrap;
+    box-shadow: none;
+  }
+  .btn:hover { border-color: var(--td-brand); color: var(--td-brand); }
+  .btn-primary {
+    background: var(--td-brand);
+    border-color: var(--td-brand);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    background: var(--td-brand-hover);
+    border-color: var(--td-brand-hover);
+    color: #fff;
+  }
+  .btn-outline { background: #fff; }
+  .btn-danger { color: var(--td-error); }
+  .btn-danger:hover { border-color: var(--td-error); color: var(--td-error); }
+  .btn:disabled,
+  .btn.disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    border-color: var(--td-border);
+    color: var(--td-text-placeholder);
+    background: #fff;
+  }
+  .btn-sm {
+    min-width: 64px;
+    height: 28px;
+    padding: 0 12px;
+    font-size: 12px;
+    border-radius: var(--td-radius-btn);
+  }
+  .btn-link {
+    border: none;
+    background: transparent;
+    color: var(--td-brand);
+    padding: 0;
+    height: auto;
+    cursor: pointer;
+    font-size: 12px;
+  }
+  .btn-link:hover { color: var(--td-brand-hover); }
+  .btn-link.disabled {
+    color: var(--td-text-placeholder);
+    cursor: not-allowed;
+  }
+
+  .toolbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .toolbar-left,
+  .toolbar-right {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .selection-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0 8px;
+    height: 24px;
+    border-radius: 2px;
+    background: var(--td-brand-lighter);
+    color: var(--td-brand);
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .toolbar-tip {
+    font-size: 12px;
+    color: var(--td-text-placeholder);
+  }
+
+  .table-card { margin-top: 12px; overflow: hidden; }
+  .table-scroll { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    min-width: 1400px;
+  }
+  thead th {
+    background: #fff;
+    color: var(--td-text-secondary);
+    font-weight: 600;
+    text-align: left;
+    font-size: 13px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--td-border-light);
+    white-space: nowrap;
+  }
+  tbody td {
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--td-border-light);
+    vertical-align: middle;
+    color: var(--td-text-primary);
+    font-size: 13px;
+  }
+  tbody tr:hover { background: #fcfcfc; }
+
+  .code-block {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-width: 170px;
+  }
+  .code-value {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--td-text-primary);
+  }
+  .code-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+  .status-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: var(--td-radius-tag);
+    font-size: 12px;
+    line-height: 18px;
+    white-space: nowrap;
+  }
+  .tag-primary { background: var(--td-brand-light); color: var(--td-brand); }
+  .tag-success { background: var(--td-success-light); color: var(--td-success); }
+  .tag-warning { background: var(--td-warning-light); color: var(--td-warning); }
+  .tag-danger { background: var(--td-error-light); color: var(--td-error); }
+  .tag-default { background: #f2f3f5; color: #5b6470; }
+
+  .user-block {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 160px;
+  }
+  .user-primary {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+  }
+  .user-name {
+    font-weight: 600;
+    color: var(--td-text-primary);
+  }
+  .user-sub {
+    color: var(--td-text-placeholder);
+    font-size: 12px;
+  }
+  .muted { color: var(--td-text-placeholder); }
+  .remark-cell {
+    max-width: 220px;
+    color: var(--td-text-secondary);
+    line-height: 1.6;
+  }
+
+  .row-actions {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 8px;
+    min-width: 250px;
+  }
+
+  .table-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 12px 16px;
+    font-size: 13px;
+    color: var(--td-text-secondary);
+    border-top: 1px solid var(--td-border-light);
+    background: #fff;
+  }
+  .page-actions {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .page-chip {
+    min-width: 28px;
+    height: 28px;
+    padding: 0 10px;
+    border-radius: 4px;
+    border: 1px solid var(--td-border);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    color: var(--td-text-secondary);
+  }
+  .page-chip.active {
+    background: var(--td-brand);
+    border-color: var(--td-brand);
+    color: #fff;
+  }
+
+  .empty-state {
+    padding: 72px 20px;
+    text-align: center;
+    color: var(--td-text-placeholder);
+  }
+  .empty-icon {
+    font-size: 40px;
+    margin-bottom: 12px;
+  }
+  .empty-title {
+    font-size: 16px;
+    color: var(--td-text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(15, 23, 42, 0.36);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1000;
+  }
+  .overlay.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  .drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 440px;
+    max-width: calc(100vw - 24px);
+    height: 100vh;
+    background: #fff;
+    box-shadow: var(--td-shadow-lg);
+    transform: translateX(100%);
+    transition: transform 0.22s ease;
+    z-index: 1001;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--td-border-light);
+  }
+  .drawer.show { transform: translateX(0); }
+  .drawer-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--td-border-light);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .drawer-title { font-size: 18px; font-weight: 600; }
+  .drawer-subtitle {
+    margin-top: 4px;
+    font-size: 12px;
+    color: var(--td-text-placeholder);
+    line-height: 1.6;
+  }
+  .drawer-close {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    border: 1px solid var(--td-border);
+    background: #fff;
+    cursor: pointer;
+  }
+  .drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 18px 20px 24px;
+    background: #fbfcfe;
+  }
+  .drawer-section {
+    background: #fff;
+    border: 1px solid var(--td-border-light);
+    border-radius: var(--td-radius-card);
+    padding: 16px;
+    box-shadow: var(--td-shadow);
+    margin-bottom: 14px;
+  }
+  .section-title {
+    margin-bottom: 12px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--td-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-title::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--td-border-light);
+  }
+  .meta-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px 16px;
+  }
+  .meta-item { min-width: 0; }
+  .meta-label {
+    font-size: 12px;
+    color: var(--td-text-placeholder);
+    margin-bottom: 6px;
+  }
+  .meta-value {
+    font-size: 13px;
+    color: var(--td-text-primary);
+    line-height: 1.6;
+    word-break: break-all;
+  }
+  .meta-value.code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700;
+  }
+  .empty-box {
+    border: 1px dashed #dbe4ee;
+    border-radius: 8px;
+    background: #fafcff;
+    padding: 24px 18px;
+    text-align: center;
+  }
+  .empty-box .empty-icon { font-size: 34px; margin-bottom: 10px; }
+  .empty-box .empty-title { margin-bottom: 4px; }
+
+  .modal {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s ease;
+    z-index: 1100;
+  }
+  .modal.show {
+    opacity: 1;
+    pointer-events: auto;
+  }
+  .modal-card {
+    width: 760px;
+    max-width: 100%;
+    max-height: calc(100vh - 48px);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    background: #fff;
+    border-radius: var(--td-radius-card);
+    box-shadow: var(--td-shadow-lg);
+    border: 1px solid var(--td-border-light);
+  }
+  .modal-card.modal-sm { width: 620px; }
+  .modal-header {
+    padding: 18px 20px;
+    border-bottom: 1px solid var(--td-border-light);
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .modal-title { font-size: 18px; font-weight: 600; }
+  .modal-subtitle {
+    margin-top: 4px;
+    color: var(--td-text-placeholder);
+    font-size: 12px;
+    line-height: 1.6;
+  }
+  .modal-body {
+    padding: 20px;
+    overflow-y: auto;
+    background: #fcfdff;
+  }
+  .modal-footer {
+    padding: 14px 20px;
+    border-top: 1px solid var(--td-border-light);
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 8px;
+    background: #fff;
+  }
+  .form-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 16px 18px;
+  }
+  .form-item { min-width: 0; }
+  .form-item.full { grid-column: 1 / -1; }
+  .form-item label {
+    display: block;
+    margin-bottom: 6px;
+    color: var(--td-text-secondary);
+    font-size: 13px;
+    font-weight: 500;
+  }
+  .switch-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    min-height: 32px;
+    color: var(--td-text-secondary);
+  }
+  .readonly-box {
+    min-height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--td-border-light);
+    background: #f7f9fc;
+    padding: 7px 12px;
+    color: var(--td-text-primary);
+    line-height: 1.4;
+  }
+  .result-shell {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .result-banner {
+    border: 1px solid #dbeafe;
+    background: #f8fbff;
+    color: var(--td-brand);
+    border-radius: var(--td-radius-card);
+    padding: 14px 16px;
+    line-height: 1.6;
+  }
+  .result-list {
+    border: 1px solid var(--td-border-light);
+    border-radius: var(--td-radius-card);
+    background: #fff;
+    overflow: hidden;
+  }
+  .result-item {
+    display: grid;
+    grid-template-columns: 180px 1fr auto;
+    gap: 12px;
+    align-items: center;
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--td-border-light);
+  }
+  .result-item:last-child { border-bottom: none; }
+  .result-code {
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+    font-weight: 700;
+  }
+  .prototype-note {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    background: #fff8e6;
+    border: 1px solid #ffe3a3;
+    color: #8b6400;
+    font-size: 12px;
+    line-height: 1.6;
+  }
+
+  .toast-wrap {
+    position: fixed;
+    top: 72px;
+    right: 20px;
+    z-index: 1200;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    pointer-events: none;
+  }
+  .toast {
+    min-width: 220px;
+    max-width: 320px;
+    padding: 12px 14px;
+    border-radius: 8px;
+    background: #fff;
+    border: 1px solid var(--td-border-light);
+    box-shadow: var(--td-shadow-lg);
+    color: var(--td-text-primary);
+    font-size: 13px;
+    line-height: 1.6;
+    animation: toast-slide 0.18s ease;
+  }
+  .toast.success { border-left: 4px solid var(--td-success); }
+  .toast.warning { border-left: 4px solid var(--td-warning); }
+  .toast.error { border-left: 4px solid var(--td-error); }
+  .toast.info { border-left: 4px solid var(--td-brand); }
+  @keyframes toast-slide {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-thumb { background: #d3d8df; border-radius: 999px; }
+  ::-webkit-scrollbar-thumb:hover { background: #c1c8d0; }
+
+  @media (max-width: 1200px) {
+    .filter-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .filter-actions { justify-self: start; }
+  }
+  @media (max-width: 900px) {
+    .sidebar { display: none; }
+    .main { padding: 12px; }
+    .filter-row,
+    .form-grid,
+    .meta-grid,
+    .field-inline,
+    .result-item {
+      grid-template-columns: 1fr;
+    }
+    .drawer { width: 100%; max-width: 100%; }
+    .page-header { flex-direction: column; align-items: flex-start; }
+    .toolbar { align-items: flex-start; }
+  }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="topbar-left">
+    <span style="font-size:18px;">‹</span>
+    <span>Niro Control</span>
+    <span class="topbar-pill">邀请码管理原型 V1</span>
+  </div>
+  <div class="topbar-right">
+    <div class="topbar-btn" title="刷新原型">↻</div>
+    <div class="user-chip">
+      <div class="user-avatar">Y</div>
+      <span>liyl</span>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+  <aside class="sidebar">
+    <nav class="sidebar-nav">
+      <div class="menu-item"><span>📊</span><span>工作台</span></div>
+      <div class="menu-item"><span>🔍</span><span>扫货</span></div>
+      <div class="menu-item"><span>📦</span><span>订单</span><span class="menu-arrow">▸</span></div>
+      <div class="menu-item"><span>🎁</span><span>开箱</span></div>
+      <div class="menu-item"><span>🗂</span><span>商品库</span></div>
+      <div class="menu-item active"><span>🎟️</span><span>邀请码管理</span></div>
+      <div class="submenu">
+        <div class="menu-item active"><span>邀请码列表</span></div>
+        <div class="menu-item"><span>角色与权限</span></div>
+        <div class="menu-item"><span>系统日志</span></div>
+      </div>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <section class="page-header">
+      <div>
+        <div class="page-title">邀请码管理</div>
+        <div class="page-subtitle">面向管理员的一次性邀请码管理页。重点处理创建、分发、停用，以及回看邀请码已绑定的注册账号信息。</div>
+      </div>
+      <div class="proto-badge">高保真 HTML 原型 · 数据为演示用</div>
+    </section>
+
+    <section class="card filter-shell">
+      <div class="card-section">
+        <div class="filter-row">
+          <div class="filter-item">
+            <label for="filterKeyword">邀请码关键词</label>
+            <input id="filterKeyword" class="field" placeholder="请输入邀请码 / 邮箱 / 昵称" />
+          </div>
+          <div class="filter-item">
+            <label for="filterStatus">状态</label>
+            <select id="filterStatus" class="field-select">
+              <option value="all">全部</option>
+              <option value="enabled">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label for="filterAvailability">可用性</label>
+            <select id="filterAvailability" class="field-select">
+              <option value="all">全部</option>
+              <option value="available">可用</option>
+              <option value="used">已使用</option>
+              <option value="expired">已过期</option>
+              <option value="disabled">已停用</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label for="filterCreator">创建人</label>
+            <select id="filterCreator" class="field-select">
+              <option value="all">全部</option>
+              <option value="liyl">liyl</option>
+              <option value="system">系统</option>
+              <option value="aurora">Aurora</option>
+            </select>
+          </div>
+          <div class="filter-item">
+            <label>创建时间</label>
+            <div class="field-inline">
+              <input id="filterStart" class="field" type="date" />
+              <input id="filterEnd" class="field" type="date" />
+            </div>
+          </div>
+          <div class="filter-actions">
+            <button class="btn btn-primary" id="queryBtn">查询</button>
+            <button class="btn" id="resetBtn">重置</button>
+          </div>
+        </div>
+      </div>
+      <div class="card-section">
+        <div class="toolbar">
+          <div class="toolbar-left">
+            <button class="btn btn-primary" id="openCreateBtn">＋ 新建邀请码</button>
+            <button class="btn btn-outline" id="openBatchBtn">批量生成</button>
+            <button class="btn btn-outline" id="batchDisableBtn" disabled>批量停用</button>
+          </div>
+          <div class="toolbar-right">
+            <span class="selection-chip" id="selectionChip">已选择 0 项</span>
+            <button class="btn btn-sm" id="clearSelectionBtn" disabled>清空勾选</button>
+            <span class="toolbar-tip">已使用的邀请码仅允许补充备注，不能再次启停或改有效期。</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card table-card">
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th style="width: 44px;"><input type="checkbox" id="selectAll" /></th>
+              <th>邀请码</th>
+              <th>状态</th>
+              <th>可用性</th>
+              <th>注册账号</th>
+              <th>注册邮箱</th>
+              <th>使用时间</th>
+              <th>创建人</th>
+              <th>备注</th>
+              <th>创建时间</th>
+              <th style="width: 280px;">操作</th>
+            </tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div id="emptyState" class="empty-state hidden">
+        <div class="empty-icon">🗂</div>
+        <div class="empty-title">暂无匹配的邀请码</div>
+        <div>调整筛选条件，或直接新建邀请码。</div>
+      </div>
+      <div class="table-footer">
+        <div id="tableCountText">共 0 条</div>
+        <div class="page-actions">
+          <div class="page-chip">10 / 页</div>
+          <div class="page-chip">‹</div>
+          <div class="page-chip active">1</div>
+          <div class="page-chip">›</div>
+        </div>
+      </div>
+    </section>
+
+    <div class="prototype-note">
+      原型重点演示：列表字段层级、一次性邀请码状态、注册信息抽屉、新建与批量生成弹窗，以及“已使用后只能改备注”的交互边界。真实项目中可直接映射到 Vue + TDesign 页面结构。
+    </div>
+  </main>
+</div>
+
+<div class="overlay" id="globalOverlay"></div>
+
+<aside class="drawer" id="detailDrawer">
+  <div class="drawer-header">
+    <div>
+      <div class="drawer-title">注册信息</div>
+      <div class="drawer-subtitle">当前页右侧抽屉查看邀请码基础信息与绑定结果，不打断列表上下文。</div>
+    </div>
+    <button class="drawer-close" id="drawerCloseBtn">✕</button>
+  </div>
+  <div class="drawer-body">
+    <section class="drawer-section">
+      <div class="section-title">邀请码基础信息</div>
+      <div class="meta-grid" id="drawerMetaGrid"></div>
+    </section>
+    <section class="drawer-section">
+      <div class="section-title">注册绑定信息</div>
+      <div id="drawerRegistration"></div>
+    </section>
+  </div>
+</aside>
+
+<div class="modal" id="createModal">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">新建邀请码</div>
+        <div class="modal-subtitle">创建单个邀请码，默认支持自动生成 code。一个邀请码只能被一个账号使用。</div>
+      </div>
+      <button class="drawer-close" data-close-modal="createModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-item full">
+          <label for="createCode">邀请码</label>
+          <input id="createCode" class="field" placeholder="留空则自动生成，例如 NIRO-8X2Q" />
+          <div class="help-text">原型中支持管理员手填，也支持系统自动生成。</div>
+        </div>
+        <div class="form-item">
+          <label for="createExpire">过期时间</label>
+          <input id="createExpire" class="field" type="datetime-local" />
+        </div>
+        <div class="form-item">
+          <label>永不过期</label>
+          <label class="switch-row"><input id="createForever" type="checkbox" /> <span>开启后忽略过期时间</span></label>
+        </div>
+        <div class="form-item full">
+          <label for="createRemark">备注</label>
+          <textarea id="createRemark" class="field-textarea" placeholder="例如：给首批种子用户 / 针对 C5 测试群"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" data-close-modal="createModal">取消</button>
+      <button class="btn btn-primary" id="createSubmitBtn">创建邀请码</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="batchModal">
+  <div class="modal-card">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">批量生成邀请码</div>
+        <div class="modal-subtitle">用于活动批量发码。生成成功后，直接在弹窗中展示结果并支持一键复制邀请码或注册链接。</div>
+      </div>
+      <button class="drawer-close" data-close-modal="batchModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div id="batchFormView">
+        <div class="form-grid">
+          <div class="form-item">
+            <label for="batchQuantity">生成数量</label>
+            <input id="batchQuantity" class="field" type="number" min="1" max="20" value="5" />
+          </div>
+          <div class="form-item">
+            <label for="batchPrefix">前缀（可选）</label>
+            <input id="batchPrefix" class="field" placeholder="例如 SPRING / C5 / BETA" />
+          </div>
+          <div class="form-item">
+            <label for="batchExpire">过期时间</label>
+            <input id="batchExpire" class="field" type="datetime-local" />
+          </div>
+          <div class="form-item">
+            <label>永不过期</label>
+            <label class="switch-row"><input id="batchForever" type="checkbox" /> <span>开启后统一按永久码生成</span></label>
+          </div>
+          <div class="form-item full">
+            <label for="batchRemark">备注</label>
+            <textarea id="batchRemark" class="field-textarea" placeholder="例如：4 月活动测试批次 / 仅面向内部灰度用户"></textarea>
+          </div>
+        </div>
+      </div>
+      <div id="batchResultView" class="hidden">
+        <div class="result-shell">
+          <div class="result-banner" id="batchResultBanner"></div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-primary" id="copyAllCodesBtn">复制全部邀请码</button>
+            <button class="btn" id="copyAllLinksBtn">复制全部注册链接</button>
+            <button class="btn" id="backToBatchFormBtn">返回重新生成</button>
+          </div>
+          <div class="result-list" id="batchResultList"></div>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer" id="batchFooter">
+      <button class="btn" data-close-modal="batchModal">取消</button>
+      <button class="btn btn-primary" id="batchGenerateBtn">开始生成</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal" id="editModal">
+  <div class="modal-card modal-sm">
+    <div class="modal-header">
+      <div>
+        <div class="modal-title">编辑邀请码</div>
+        <div class="modal-subtitle" id="editModalSubtitle">未使用的邀请码允许修改备注和过期时间；已使用的邀请码仅允许补充备注。</div>
+      </div>
+      <button class="drawer-close" data-close-modal="editModal">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-item full">
+          <label>邀请码</label>
+          <div class="readonly-box" id="editCodeReadonly"></div>
+        </div>
+        <div class="form-item">
+          <label>当前状态</label>
+          <div class="readonly-box" id="editStatusReadonly"></div>
+        </div>
+        <div class="form-item">
+          <label>可用性</label>
+          <div class="readonly-box" id="editAvailabilityReadonly"></div>
+        </div>
+        <div class="form-item" id="editExpireWrap">
+          <label for="editExpire">过期时间</label>
+          <input id="editExpire" class="field" type="datetime-local" />
+        </div>
+        <div class="form-item" id="editForeverWrap">
+          <label>永不过期</label>
+          <label class="switch-row"><input id="editForever" type="checkbox" /> <span>仅未使用邀请码可调整</span></label>
+        </div>
+        <div class="form-item full hidden" id="editRegistrationInfoWrap">
+          <label>注册信息（只读）</label>
+          <div class="readonly-box" id="editRegistrationReadonly"></div>
+        </div>
+        <div class="form-item full">
+          <label for="editRemark">备注</label>
+          <textarea id="editRemark" class="field-textarea" placeholder="补充对当前邀请码的说明"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" data-close-modal="editModal">取消</button>
+      <button class="btn btn-primary" id="editSaveBtn">保存</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast-wrap" id="toastWrap"></div>
+
+<script>
+  const inviteData = [
+    {
+      id: 1,
+      code: 'NIRO-7A9K',
+      adminStatus: 'enabled',
+      availability: 'available',
+      creator: 'liyl',
+      createdAt: '2026-04-20 10:12',
+      expireAt: '2026-05-20 23:59',
+      forever: false,
+      remark: '首批 C5 测试群投放，优先留给稳定活跃用户。',
+      registration: null,
+    },
+    {
+      id: 2,
+      code: 'NIRO-A2D8',
+      adminStatus: 'enabled',
+      availability: 'used',
+      creator: 'system',
+      createdAt: '2026-04-19 14:20',
+      expireAt: '永不过期',
+      forever: true,
+      remark: '核心测试账号已绑定，用于验证一次性邀请码链路。',
+      registration: {
+        userId: '10086',
+        nickname: 'Aurora',
+        email: 'aurora@niro.dev',
+        usedAt: '2026-04-19 18:04',
+        accountStatus: '正常',
+      },
+    },
+    {
+      id: 3,
+      code: 'C5-BETA-5P1X',
+      adminStatus: 'disabled',
+      availability: 'disabled',
+      creator: 'liyl',
+      createdAt: '2026-04-18 09:33',
+      expireAt: '2026-04-28 23:59',
+      forever: false,
+      remark: '原计划给群友发码，后续活动延后，先停用保留。',
+      registration: null,
+    },
+    {
+      id: 4,
+      code: 'SPRING-4M7Q',
+      adminStatus: 'enabled',
+      availability: 'expired',
+      creator: 'Aurora',
+      createdAt: '2026-04-15 16:08',
+      expireAt: '2026-04-18 23:59',
+      forever: false,
+      remark: '4 月春季灰度码，超过活动时间自动失效。',
+      registration: null,
+    },
+    {
+      id: 5,
+      code: 'MKT-9Z1B',
+      adminStatus: 'enabled',
+      availability: 'used',
+      creator: 'liyl',
+      createdAt: '2026-04-17 11:45',
+      expireAt: '2026-05-01 23:59',
+      forever: false,
+      remark: '市场验证渠道样本，绑定后用于留档。',
+      registration: {
+        userId: '10102',
+        nickname: 'Noctis',
+        email: 'noctis@demo.mail',
+        usedAt: '2026-04-17 19:21',
+        accountStatus: '禁用',
+      },
+    },
+  ];
+
+  const state = {
+    selectedIds: new Set(),
+    currentDetailId: null,
+    currentEditId: null,
+    batchResult: [],
+  };
+
+  const refs = {
+    tableBody: document.getElementById('tableBody'),
+    emptyState: document.getElementById('emptyState'),
+    tableCountText: document.getElementById('tableCountText'),
+    selectionChip: document.getElementById('selectionChip'),
+    clearSelectionBtn: document.getElementById('clearSelectionBtn'),
+    batchDisableBtn: document.getElementById('batchDisableBtn'),
+    selectAll: document.getElementById('selectAll'),
+    overlay: document.getElementById('globalOverlay'),
+    detailDrawer: document.getElementById('detailDrawer'),
+    drawerMetaGrid: document.getElementById('drawerMetaGrid'),
+    drawerRegistration: document.getElementById('drawerRegistration'),
+    toastWrap: document.getElementById('toastWrap'),
+    filters: {
+      keyword: document.getElementById('filterKeyword'),
+      status: document.getElementById('filterStatus'),
+      availability: document.getElementById('filterAvailability'),
+      creator: document.getElementById('filterCreator'),
+      start: document.getElementById('filterStart'),
+      end: document.getElementById('filterEnd'),
+    },
+    modals: {
+      create: document.getElementById('createModal'),
+      batch: document.getElementById('batchModal'),
+      edit: document.getElementById('editModal'),
+    },
+  };
+
+  const statusMap = {
+    enabled: { text: '启用', cls: 'tag-primary' },
+    disabled: { text: '停用', cls: 'tag-default' },
+  };
+  const availabilityMap = {
+    available: { text: '可用', cls: 'tag-success' },
+    used: { text: '已使用', cls: 'tag-primary' },
+    expired: { text: '已过期', cls: 'tag-warning' },
+    disabled: { text: '已停用', cls: 'tag-default' },
+  };
+
+  function escapeHtml(value) {
+    return String(value ?? '')
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
+  }
+
+  function slugToLocalDatetime(value) {
+    if (!value || value === '永不过期') return '';
+    return value.replace(' ', 'T');
+  }
+
+  function localDatetimeToDisplay(value) {
+    return value ? value.replace('T', ' ') : '';
+  }
+
+  function generateCode(prefix = 'NIRO') {
+    const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+    let body = '';
+    for (let i = 0; i < 4; i += 1) {
+      body += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return `${(prefix || 'NIRO').toUpperCase()}-${body}`;
+  }
+
+  function getNowText() {
+    const now = new Date();
+    const pad = (n) => String(n).padStart(2, '0');
+    return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())} ${pad(now.getHours())}:${pad(now.getMinutes())}`;
+  }
+
+  function getInviteLink(code) {
+    const url = new URL('/login', window.location.origin);
+    url.searchParams.set('mode', 'register');
+    url.searchParams.set('inviteCode', code);
+    return url.toString();
+  }
+
+  function showToast(message, type = 'info') {
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    toast.textContent = message;
+    refs.toastWrap.appendChild(toast);
+    setTimeout(() => {
+      toast.style.opacity = '0';
+      toast.style.transform = 'translateY(-4px)';
+      setTimeout(() => toast.remove(), 200);
+    }, 2200);
+  }
+
+  async function copyText(text, successMessage) {
+    try {
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        await navigator.clipboard.writeText(text);
+      } else {
+        const input = document.createElement('textarea');
+        input.value = text;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand('copy');
+        input.remove();
+      }
+      showToast(successMessage, 'success');
+    } catch (error) {
+      showToast('复制失败，请手动复制。', 'error');
+    }
+  }
+
+  function getFilteredRows() {
+    const keyword = refs.filters.keyword.value.trim().toLowerCase();
+    const status = refs.filters.status.value;
+    const availability = refs.filters.availability.value;
+    const creator = refs.filters.creator.value;
+    const start = refs.filters.start.value;
+    const end = refs.filters.end.value;
+
+    return inviteData.filter((item) => {
+      const keywordMatched = !keyword
+        || item.code.toLowerCase().includes(keyword)
+        || item.remark.toLowerCase().includes(keyword)
+        || item.creator.toLowerCase().includes(keyword)
+        || (item.registration?.nickname || '').toLowerCase().includes(keyword)
+        || (item.registration?.email || '').toLowerCase().includes(keyword);
+      const statusMatched = status === 'all' || item.adminStatus === status;
+      const availabilityMatched = availability === 'all' || item.availability === availability;
+      const creatorMatched = creator === 'all' || item.creator.toLowerCase() === creator.toLowerCase();
+      const dateText = item.createdAt.slice(0, 10);
+      const startMatched = !start || dateText >= start;
+      const endMatched = !end || dateText <= end;
+      return keywordMatched && statusMatched && availabilityMatched && creatorMatched && startMatched && endMatched;
+    });
+  }
+
+  function renderStatusTag(type, value) {
+    const map = type === 'status' ? statusMap : availabilityMap;
+    const meta = map[value];
+    return `<span class="tag ${meta.cls}">${meta.text}</span>`;
+  }
+
+  function renderTable() {
+    const rows = getFilteredRows();
+    refs.tableBody.innerHTML = rows.map((item) => {
+      const isSelected = state.selectedIds.has(item.id);
+      const registration = item.registration;
+      const canToggle = !registration && item.availability !== 'expired';
+      const toggleText = item.adminStatus === 'enabled' ? '停用' : '启用';
+      const toggleDisabledText = registration
+        ? '已使用后不可启停'
+        : item.availability === 'expired'
+          ? '已过期，请编辑有效期后恢复'
+          : '';
+      return `
+        <tr>
+          <td><input type="checkbox" class="row-checkbox" data-id="${item.id}" ${isSelected ? 'checked' : ''} /></td>
+          <td>
+            <div class="code-block">
+              <div class="code-value">${escapeHtml(item.code)}</div>
+              <div class="code-actions">
+                <button class="btn-link" data-action="copy-code" data-id="${item.id}">复制邀请码</button>
+                <button class="btn-link" data-action="copy-link" data-id="${item.id}">复制注册链接</button>
+              </div>
+            </div>
+          </td>
+          <td><div class="status-tags">${renderStatusTag('status', item.adminStatus)}</div></td>
+          <td><div class="status-tags">${renderStatusTag('availability', item.availability)}</div></td>
+          <td>
+            ${registration ? `
+              <div class="user-block">
+                <div class="user-primary">
+                  <span class="user-name">${escapeHtml(registration.nickname)}</span>
+                  <span class="tag ${registration.accountStatus === '正常' ? 'tag-success' : 'tag-danger'}">${escapeHtml(registration.accountStatus)}</span>
+                </div>
+                <div class="user-sub">用户 ID：${escapeHtml(registration.userId)}</div>
+              </div>
+            ` : '<span class="muted">-</span>'}
+          </td>
+          <td>${registration ? escapeHtml(registration.email) : '<span class="muted">-</span>'}</td>
+          <td>${registration ? escapeHtml(registration.usedAt) : '<span class="muted">-</span>'}</td>
+          <td>${escapeHtml(item.creator)}</td>
+          <td><div class="remark-cell" title="${escapeHtml(item.remark)}">${escapeHtml(item.remark)}</div></td>
+          <td>${escapeHtml(item.createdAt)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="btn btn-sm" data-action="detail" data-id="${item.id}">查看注册信息</button>
+              <button class="btn btn-sm" data-action="edit" data-id="${item.id}">编辑</button>
+              <button class="btn btn-sm ${canToggle ? '' : 'disabled'}" data-action="toggle" data-id="${item.id}" ${canToggle ? '' : 'disabled'} title="${escapeHtml(toggleDisabledText)}">${toggleText}</button>
+              <button class="btn btn-sm" data-action="copy-link" data-id="${item.id}">复制链接</button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }).join('');
+
+    refs.tableCountText.textContent = `共 ${rows.length} 条`;
+    refs.emptyState.classList.toggle('hidden', rows.length !== 0);
+    refs.tableBody.parentElement.parentElement.classList.toggle('hidden', rows.length === 0);
+    refs.selectAll.checked = rows.length > 0 && rows.every((item) => state.selectedIds.has(item.id));
+    bindRowEvents();
+    updateSelectionUi();
+  }
+
+  function bindRowEvents() {
+    document.querySelectorAll('.row-checkbox').forEach((checkbox) => {
+      checkbox.addEventListener('change', (event) => {
+        const id = Number(event.target.dataset.id);
+        if (event.target.checked) state.selectedIds.add(id);
+        else state.selectedIds.delete(id);
+        updateSelectionUi();
+        renderTable();
+      });
+    });
+
+    document.querySelectorAll('[data-action]').forEach((button) => {
+      button.addEventListener('click', () => {
+        const id = Number(button.dataset.id);
+        const action = button.dataset.action;
+        const row = inviteData.find((item) => item.id === id);
+        if (!row) return;
+
+        if (action === 'copy-code') {
+          copyText(row.code, '邀请码已复制');
+          return;
+        }
+        if (action === 'copy-link') {
+          copyText(getInviteLink(row.code), '注册链接已复制');
+          return;
+        }
+        if (action === 'detail') {
+          openDetailDrawer(id);
+          return;
+        }
+        if (action === 'edit') {
+          openEditModal(id);
+          return;
+        }
+        if (action === 'toggle') {
+          toggleInviteStatus(id);
+        }
+      });
+    });
+  }
+
+  function updateSelectionUi() {
+    const count = state.selectedIds.size;
+    refs.selectionChip.textContent = `已选择 ${count} 项`;
+    refs.clearSelectionBtn.disabled = count === 0;
+    refs.batchDisableBtn.disabled = count === 0;
+  }
+
+  function openOverlay() {
+    refs.overlay.classList.add('show');
+  }
+
+  function maybeCloseOverlay() {
+    const modalOpen = Object.values(refs.modals).some((modal) => modal.classList.contains('show'));
+    const drawerOpen = refs.detailDrawer.classList.contains('show');
+    refs.overlay.classList.toggle('show', modalOpen || drawerOpen);
+  }
+
+  function openModal(name) {
+    refs.modals[name].classList.add('show');
+    openOverlay();
+  }
+
+  function closeModal(name) {
+    refs.modals[name].classList.remove('show');
+    maybeCloseOverlay();
+  }
+
+  function openDetailDrawer(id) {
+    state.currentDetailId = id;
+    const row = inviteData.find((item) => item.id === id);
+    if (!row) return;
+    refs.drawerMetaGrid.innerHTML = `
+      <div class="meta-item"><div class="meta-label">邀请码</div><div class="meta-value code">${escapeHtml(row.code)}</div></div>
+      <div class="meta-item"><div class="meta-label">状态 / 可用性</div><div class="meta-value">${statusMap[row.adminStatus].text} · ${availabilityMap[row.availability].text}</div></div>
+      <div class="meta-item"><div class="meta-label">创建人</div><div class="meta-value">${escapeHtml(row.creator)}</div></div>
+      <div class="meta-item"><div class="meta-label">创建时间</div><div class="meta-value">${escapeHtml(row.createdAt)}</div></div>
+      <div class="meta-item"><div class="meta-label">有效期</div><div class="meta-value">${escapeHtml(row.expireAt)}</div></div>
+      <div class="meta-item"><div class="meta-label">备注</div><div class="meta-value">${escapeHtml(row.remark)}</div></div>
+    `;
+
+    if (row.registration) {
+      refs.drawerRegistration.innerHTML = `
+        <div class="meta-grid">
+          <div class="meta-item"><div class="meta-label">用户 ID</div><div class="meta-value">${escapeHtml(row.registration.userId)}</div></div>
+          <div class="meta-item"><div class="meta-label">昵称 / 账号</div><div class="meta-value">${escapeHtml(row.registration.nickname)}</div></div>
+          <div class="meta-item"><div class="meta-label">注册邮箱</div><div class="meta-value">${escapeHtml(row.registration.email)}</div></div>
+          <div class="meta-item"><div class="meta-label">注册时间</div><div class="meta-value">${escapeHtml(row.registration.usedAt)}</div></div>
+          <div class="meta-item"><div class="meta-label">账号状态</div><div class="meta-value">${escapeHtml(row.registration.accountStatus)}</div></div>
+          <div class="meta-item"><div class="meta-label">注册链接</div><div class="meta-value">${escapeHtml(getInviteLink(row.code))}</div></div>
+        </div>
+      `;
+    } else {
+      refs.drawerRegistration.innerHTML = `
+        <div class="empty-box">
+          <div class="empty-icon">🧾</div>
+          <div class="empty-title">该邀请码尚未被使用</div>
+          <div class="muted">当前没有绑定的注册账号信息。管理员可以继续复制链接分发，或在列表中停用该邀请码。</div>
+        </div>
+      `;
+    }
+
+    refs.detailDrawer.classList.add('show');
+    openOverlay();
+  }
+
+  function closeDetailDrawer() {
+    refs.detailDrawer.classList.remove('show');
+    maybeCloseOverlay();
+  }
+
+  function toggleInviteStatus(id) {
+    const row = inviteData.find((item) => item.id === id);
+    if (!row) return;
+    if (row.registration) {
+      showToast('已使用的邀请码不能再启停。', 'warning');
+      return;
+    }
+    if (row.availability === 'expired') {
+      showToast('已过期的邀请码需要先编辑有效期后再恢复。', 'warning');
+      return;
+    }
+    row.adminStatus = row.adminStatus === 'enabled' ? 'disabled' : 'enabled';
+    row.availability = row.adminStatus === 'enabled' ? 'available' : 'disabled';
+    renderTable();
+    showToast(`邀请码 ${row.code} 已${row.adminStatus === 'enabled' ? '启用' : '停用'}。`, 'success');
+  }
+
+  function resetCreateModal() {
+    document.getElementById('createCode').value = '';
+    document.getElementById('createExpire').value = '';
+    document.getElementById('createForever').checked = false;
+    document.getElementById('createRemark').value = '';
+  }
+
+  function submitCreate() {
+    const codeInput = document.getElementById('createCode').value.trim();
+    const expireInput = document.getElementById('createExpire').value;
+    const forever = document.getElementById('createForever').checked;
+    const remark = document.getElementById('createRemark').value.trim() || '管理员创建，待分发。';
+    const code = codeInput || generateCode('NIRO');
+    inviteData.unshift({
+      id: Date.now(),
+      code,
+      adminStatus: 'enabled',
+      availability: 'available',
+      creator: 'liyl',
+      createdAt: getNowText(),
+      expireAt: forever ? '永不过期' : (localDatetimeToDisplay(expireInput) || '2026-05-31 23:59'),
+      forever,
+      remark,
+      registration: null,
+    });
+    resetCreateModal();
+    closeModal('create');
+    renderTable();
+    showToast(`邀请码 ${code} 创建成功。`, 'success');
+  }
+
+  function resetBatchModal() {
+    document.getElementById('batchQuantity').value = 5;
+    document.getElementById('batchPrefix').value = '';
+    document.getElementById('batchExpire').value = '';
+    document.getElementById('batchForever').checked = false;
+    document.getElementById('batchRemark').value = '';
+    document.getElementById('batchFormView').classList.remove('hidden');
+    document.getElementById('batchResultView').classList.add('hidden');
+    document.getElementById('batchFooter').classList.remove('hidden');
+    state.batchResult = [];
+  }
+
+  function submitBatchGenerate() {
+    const quantity = Math.max(1, Math.min(20, Number(document.getElementById('batchQuantity').value || 1)));
+    const prefix = document.getElementById('batchPrefix').value.trim() || 'NIRO';
+    const expireInput = document.getElementById('batchExpire').value;
+    const forever = document.getElementById('batchForever').checked;
+    const remark = document.getElementById('batchRemark').value.trim() || '批量活动邀请码';
+    const createdAt = getNowText();
+
+    state.batchResult = Array.from({ length: quantity }).map(() => ({
+      id: Date.now() + Math.floor(Math.random() * 100000),
+      code: generateCode(prefix),
+      adminStatus: 'enabled',
+      availability: 'available',
+      creator: 'liyl',
+      createdAt,
+      expireAt: forever ? '永不过期' : (localDatetimeToDisplay(expireInput) || '2026-05-31 23:59'),
+      forever,
+      remark,
+      registration: null,
+    }));
+
+    state.batchResult.forEach((item) => inviteData.unshift(item));
+    document.getElementById('batchFormView').classList.add('hidden');
+    document.getElementById('batchResultView').classList.remove('hidden');
+    document.getElementById('batchFooter').classList.add('hidden');
+    document.getElementById('batchResultBanner').innerHTML = `已生成 <b>${quantity}</b> 个邀请码。当前结果直接保留在弹窗内，方便复制后立即发码。`;
+    document.getElementById('batchResultList').innerHTML = state.batchResult.map((item) => `
+      <div class="result-item">
+        <div class="result-code">${escapeHtml(item.code)}</div>
+        <div class="muted">${escapeHtml(getInviteLink(item.code))}</div>
+        <button class="btn btn-sm" data-batch-copy="${item.code}">复制</button>
+      </div>
+    `).join('');
+
+    document.querySelectorAll('[data-batch-copy]').forEach((btn) => {
+      btn.addEventListener('click', () => copyText(btn.dataset.batchCopy, '邀请码已复制'));
+    });
+
+    renderTable();
+    showToast(`已批量生成 ${quantity} 个邀请码。`, 'success');
+  }
+
+  function openEditModal(id) {
+    state.currentEditId = id;
+    const row = inviteData.find((item) => item.id === id);
+    if (!row) return;
+    document.getElementById('editCodeReadonly').textContent = row.code;
+    document.getElementById('editStatusReadonly').textContent = statusMap[row.adminStatus].text;
+    document.getElementById('editAvailabilityReadonly').textContent = availabilityMap[row.availability].text;
+    document.getElementById('editRemark').value = row.remark;
+    document.getElementById('editExpire').value = row.forever ? '' : slugToLocalDatetime(row.expireAt);
+    document.getElementById('editForever').checked = row.forever;
+
+    const expireWrap = document.getElementById('editExpireWrap');
+    const foreverWrap = document.getElementById('editForeverWrap');
+    const registrationWrap = document.getElementById('editRegistrationInfoWrap');
+    const registrationReadonly = document.getElementById('editRegistrationReadonly');
+    const editModalSubtitle = document.getElementById('editModalSubtitle');
+
+    if (row.registration) {
+      expireWrap.classList.add('hidden');
+      foreverWrap.classList.add('hidden');
+      registrationWrap.classList.remove('hidden');
+      registrationReadonly.innerHTML = `
+        已绑定账号：${escapeHtml(row.registration.nickname)}（ID：${escapeHtml(row.registration.userId)}）<br />
+        注册邮箱：${escapeHtml(row.registration.email)}<br />
+        注册时间：${escapeHtml(row.registration.usedAt)}<br />
+        账号状态：${escapeHtml(row.registration.accountStatus)}
+      `;
+      editModalSubtitle.textContent = '该邀请码已被使用，当前仅允许补充或修订备注。';
+    } else {
+      expireWrap.classList.remove('hidden');
+      foreverWrap.classList.remove('hidden');
+      registrationWrap.classList.add('hidden');
+      registrationReadonly.textContent = '';
+      editModalSubtitle.textContent = '未使用的邀请码允许修改备注和过期时间；码值保持只读。';
+    }
+
+    openModal('edit');
+  }
+
+  function saveEdit() {
+    const row = inviteData.find((item) => item.id === state.currentEditId);
+    if (!row) return;
+    row.remark = document.getElementById('editRemark').value.trim() || row.remark;
+
+    if (!row.registration) {
+      const forever = document.getElementById('editForever').checked;
+      const expireInput = document.getElementById('editExpire').value;
+      row.forever = forever;
+      row.expireAt = forever ? '永不过期' : (localDatetimeToDisplay(expireInput) || row.expireAt);
+      if (row.adminStatus === 'disabled') row.availability = 'disabled';
+      else row.availability = forever || row.expireAt > getNowText() ? 'available' : 'expired';
+    }
+
+    closeModal('edit');
+    renderTable();
+    showToast('邀请码信息已更新。', 'success');
+  }
+
+  function clearSelection() {
+    state.selectedIds.clear();
+    renderTable();
+  }
+
+  function batchDisableSelected() {
+    if (state.selectedIds.size === 0) return;
+    let changed = 0;
+    let skipped = 0;
+    inviteData.forEach((item) => {
+      if (!state.selectedIds.has(item.id)) return;
+      if (item.registration || item.availability === 'expired') {
+        skipped += 1;
+        return;
+      }
+      item.adminStatus = 'disabled';
+      item.availability = 'disabled';
+      changed += 1;
+    });
+    renderTable();
+    if (changed) showToast(`已停用 ${changed} 个邀请码。`, 'success');
+    if (skipped) showToast(`${skipped} 个邀请码因已使用或已过期而跳过。`, 'warning');
+  }
+
+  refs.selectAll.addEventListener('change', (event) => {
+    const rows = getFilteredRows();
+    if (event.target.checked) rows.forEach((item) => state.selectedIds.add(item.id));
+    else rows.forEach((item) => state.selectedIds.delete(item.id));
+    renderTable();
+  });
+
+  refs.clearSelectionBtn.addEventListener('click', clearSelection);
+  refs.batchDisableBtn.addEventListener('click', batchDisableSelected);
+  document.getElementById('queryBtn').addEventListener('click', renderTable);
+  document.getElementById('resetBtn').addEventListener('click', () => {
+    refs.filters.keyword.value = '';
+    refs.filters.status.value = 'all';
+    refs.filters.availability.value = 'all';
+    refs.filters.creator.value = 'all';
+    refs.filters.start.value = '';
+    refs.filters.end.value = '';
+    renderTable();
+  });
+  document.getElementById('openCreateBtn').addEventListener('click', () => openModal('create'));
+  document.getElementById('openBatchBtn').addEventListener('click', () => {
+    resetBatchModal();
+    openModal('batch');
+  });
+  document.getElementById('drawerCloseBtn').addEventListener('click', closeDetailDrawer);
+  refs.overlay.addEventListener('click', () => {
+    closeDetailDrawer();
+    Object.keys(refs.modals).forEach((key) => closeModal(key));
+  });
+
+  document.querySelectorAll('[data-close-modal]').forEach((btn) => {
+    btn.addEventListener('click', () => closeModal(btn.dataset.closeModal));
+  });
+
+  document.getElementById('createSubmitBtn').addEventListener('click', submitCreate);
+  document.getElementById('batchGenerateBtn').addEventListener('click', submitBatchGenerate);
+  document.getElementById('backToBatchFormBtn').addEventListener('click', () => {
+    document.getElementById('batchFormView').classList.remove('hidden');
+    document.getElementById('batchResultView').classList.add('hidden');
+    document.getElementById('batchFooter').classList.remove('hidden');
+  });
+  document.getElementById('copyAllCodesBtn').addEventListener('click', () => {
+    copyText(state.batchResult.map((item) => item.code).join('\n'), '全部邀请码已复制');
+  });
+  document.getElementById('copyAllLinksBtn').addEventListener('click', () => {
+    copyText(state.batchResult.map((item) => getInviteLink(item.code)).join('\n'), '全部注册链接已复制');
+  });
+  document.getElementById('editSaveBtn').addEventListener('click', saveEdit);
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') {
+      closeDetailDrawer();
+      Object.keys(refs.modals).forEach((key) => closeModal(key));
+    }
+    if (event.key === 'Enter' && document.activeElement === refs.filters.keyword) {
+      renderTable();
+    }
+  });
+
+  renderTable();
+</script>
+</body>
+</html>

@@ -1,6 +1,10 @@
-# CLAUDE.md
+---
+trigger: always_on
+---
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# GEMINI.md
+
+This file provides guidance to Gemini (claude.ai/code) when working with code in this repository.
 
 
 ## [启动协议]
@@ -61,22 +65,6 @@ priority / disclosure 的设计、alias 迁移、触发词维护、重复节点�
 #### 四、记忆更新准则
 - 当你遇到认为值得记忆的内容时，首先进行数据清洗，剔除无用的内容，然后将内容写入nocturne-memory中。
 - 如果内容是与项目绑定的则写入项目对应的记忆空间中。
-- 当出现新增需求、新增功能，且已经完成对应设计文档编写后，必须在 `core://niro/business/...` 下新增或更新一条对应的业务记忆。
-- 如果该需求使用单文件设计文档，则记忆至少记录：需求或功能主题、文档路径、核心目标、当前已确认边界、当前状态。
-- 如果该需求使用目录化设计文档，则记忆至少记录：需求或功能主题、主题目录路径、当前有效阅读入口（默认是 `索引.md`）、核心目标、当前已确认边界、当前状态、是否已完成。
-- 如果同主题业务记忆已存在，则优先更新，不重复新建；记忆只承担“从哪读、现在先读什么”的索引职责，不重复保存整份设计文档内容。
-
-#### 五、需求文档与目录化准则
-- 当出现新增需求、新增功能或修改既有功能时，开始写设计文档前必须先检查是否已经存在该功能相关的设计文档或主题目录，优先在 `docs/superpowers/specs/` 下检索已有内容。
-- 如果已存在相关设计文档或主题目录，则不得新增同主题平行文档，应优先复用原有主题继续演进。
-- 简单需求允许继续使用单文件，路径格式为 `docs/superpowers/specs/YYYY-MM-DD-中文主题设计.md`。
-- 复杂需求或长期演进需求应优先使用目录化结构，路径格式为 `docs/superpowers/specs/YYYY-MM-DD-中文主题/`，目录内至少包含 `索引.md` 与 `变更记录.md`，其他子文档按需创建。
-- 目录名、文件名和文档标题必须使用中文语义；复杂需求的日期只保留在目录层，子文档文件名不再额外带日期。
-- 对目录化需求，默认先读 `索引.md`；如果状态是“已完成”，则默认可跳过子文档，只有在需要追溯历史方案、旧约束或变更原因时，才回读 `变更记录.md` 或对应子文档。
-- `索引.md` 只保留当前有效结论、当前状态、文档清单、推荐阅读顺序和当前有效子文档入口，不承担完整历史堆积职责。
-- 后续新增改动时，应分别更新 `索引.md`、`变更记录.md` 与受影响的子文档，而不是把所有新增内容持续堆在一个主文档里。
-- 已经完成的部分必须显式标记为“已完成”、`[x]` 勾选状态或“本节已落地”，避免后续回顾时误判为待办。
-- 只有在确认是全新主题、无法复用现有文档或目录时，才创建新的设计文档或主题目录。
 
 ## 项目概述
 
@@ -167,11 +155,11 @@ niro/
 ## 更多信息
 
 
-## Claude Code 工作规范
+## Gemini  工作规范
 
 ### 核心原则
 
-1. **单代理闭环**：Claude Code 负责分析、规划、实现、验证和结果说明。
+1. **单代理闭环**：Gemini  负责分析、规划、实现、验证和结果说明。
 2. **先理解再修改**：先看项目说明、现有实现、相似代码和相关文档，避免凭印象动手。
 3. **小步快跑**：每次改动都要明确目标、范围、约束和验证方式。
 4. **自动执行有边界**：普通读写、检索、编译、测试可直接执行；高风险操作必须先确认。
@@ -188,7 +176,7 @@ niro/
 2. 优先考虑简化底层数据结构，而非在复杂的逻辑上打补丁
 3. 强调向后兼容性，确保新代码不会破坏现有系统稳定性
 
-### Claude Code 职责
+### Gemini  职责
 
 - 在现有结构内解决问题，除非现有设计明显错误
 - 改动保持聚焦，避免夹带无关重构
@@ -417,17 +405,6 @@ Verification: [准备如何验证]
 - **编写或修改SQL脚本时，必须使用`sql-database-workflow`技能。**
 - **禁止在本地执行SQL脚本，所有SQL脚本必须交由用户执行。**
 - 验证问题需时如果需要验证数据，使用`PostgreSQL`MCP。
-
-#### SQL 变更通过 Flyway 管理
-- **已执行/已合入的脚本视为历史，一律禁止修改**：包括 `docker/postgres/initdb/**` 下的全部初始化脚本，以及 `niro-server/niro-web/src/main/resources/db/migration/**` 下已合入 main 的任何 migration。Flyway 会对历史脚本做 checksum 校验，**改过的脚本会导致应用启动失败**。所有 bug 修复、结构调整、数据补偿都只能另开新 migration 文件。
-- **所有增量变更统一放在 `niro-server/niro-web/src/main/resources/db/migration/`**，由应用启动时的 Flyway 自动执行（Spring Boot 自动装配）。`docker/postgres/initdb/**` 只负责新容器首次启动的 schema baseline，不再承担增量职责。
-- **文件命名遵循 Flyway V 前缀规范**：`V{yyyy.MM.dd.NNN}__{snake_case 描述}.sql`。例如 `V2026.04.20.002__menu_redesign_v1.sql`。`NNN` 是同一天内的顺序号，从 `001` 开始。版本号必须单调递增，严禁倒灌。
-- **必须幂等**：同一 migration 在同一库上重复执行不得报错。DDL 用 `create ... if not exists` / `add column if not exists` / `drop ... if exists`；数据用 `on conflict` 或 `where not exists` 保护；`rename column` 等 PostgreSQL 不支持 `if exists` 的语句用 `do $$ if exists ... $$` 块包裹。
-- **整体用事务包裹**（`begin; ... commit;`）。`create index concurrently`、`alter type ... add value` 等 PostgreSQL 规定不能在事务里执行的语句，单独拆到同一文件尾部并标注清楚。
-- **改数据优先用稳定唯一键定位**（如 `name`、`path`、`permission`、`role_key`），禁止按自增 id 硬写 UPDATE/DELETE，避免不同环境 id 错位导致误伤。
-- **破坏性变更优先软删除 / 软弃用**（`del_flag=1`、`status=0`、`enabled=false`），便于回滚与审计；需要真正 `drop` 表/列时，先发软弃用 migration，观察一段时间后再发硬删除 migration。
-- **每个 migration 顶部必须写注释块**，至少包含：变更日期、目标、幂等策略、回滚思路；尾部可附复核 SELECT。
-- **Flyway 配置不改动**：`spring.flyway.clean-disabled=true`、`validate-on-migrate=true`、`out-of-order=false` 是生产安全基线，不得关闭。
 
 ### git提交准则
 - 提交信息必须使用中文且内容要简洁。

@@ -35,7 +35,7 @@
         "npx",
         "-y",
         "@modelcontextprotocol/server-postgres",
-        "postgresql://niro-admin:Lyl010430.@106.53.11.158:5432/niro"
+        "postgresql://niro-admin:Lyl010430.@106.53.11.158:5433/niro"
       ]
     },
     "redis": {
