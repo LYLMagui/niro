@@ -69,9 +69,12 @@ services:
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
     container_name: niro-ocr-test
     restart: always
+    environment:
+      OCR_LOG_PATH: /var/log/niro
     ports:
       - "5000:5000"
     volumes:
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/ocr:/var/log/niro
       - niro_ocr_paddlex_cache_test:/root/.paddlex
       - niro_ocr_paddleocr_cache_test:/root/.paddleocr
       - niro_ocr_paddle_cache_test:/root/.cache/paddle
@@ -112,8 +115,13 @@ services:
       - SPRING_DATA_REDIS_PORT=6379
       - SPRING_DATA_REDIS_PASSWORD=${REDIS_PASSWORD:-redis_niro_pwd}
       - NIRO_OCR_BASE_URL=http://niro-ocr-test:5000
+      - LOGGING_FILE_PATH=/var/log/niro
+      - HTTP_PROXY=${HTTP_PROXY:-}
+      - HTTPS_PROXY=${HTTPS_PROXY:-}
+      - ALL_PROXY=${ALL_PROXY:-}
+      - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     volumes:
-      - niro_shared_logs_test:/var/log/niro
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/web:/var/log/niro
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
       - "9999:9999"
@@ -140,11 +148,17 @@ services:
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     container_name: niro-client-test
     restart: always
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     depends_on:
       niro-web-test:
         condition: service_healthy
     volumes:
-      - /home/workspace/certificate:/etc/nginx/certs:ro
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/client:/var/log/niro
+      - ${NGINX_CERTIFICATE_PATH:-/home/workspace/certificate}:/etc/nginx/certs:ro
     ports:
       - "80:80"
       - "443:443"
@@ -161,8 +175,6 @@ volumes:
     name: niro_db_data_test
   niro_redis_data_test:
     name: niro_redis_data_test
-  niro_shared_logs_test:
-    name: niro_shared_logs_test
   niro_ocr_paddlex_cache_test:
     name: niro_ocr_paddlex_cache_test
   niro_ocr_paddleocr_cache_test:

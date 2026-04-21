@@ -1,15 +1,27 @@
 from __future__ import annotations
 
 import logging
+import os
+from pathlib import Path
 from time import perf_counter
 
 from flask import Flask, jsonify, request
 
 from service import InvalidImageError, ocr_service
 
-logging.basicConfig(level=logging.INFO)
+log_dir = Path(os.getenv("OCR_LOG_PATH", "/var/log/niro"))
+log_dir.mkdir(parents=True, exist_ok=True)
+logging.basicConfig(
+    level=logging.INFO,
+    handlers=[
+        logging.StreamHandler(),
+        logging.FileHandler(log_dir / "ocr.log", encoding="utf-8"),
+    ],
+)
 
 app = Flask(__name__)
+app.logger.handlers.clear()
+app.logger.propagate = True
 app.logger.setLevel(logging.INFO)
 
 

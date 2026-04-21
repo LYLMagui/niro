@@ -84,7 +84,7 @@ services:
       - elasticsearch
     volumes:
       - ./filebeat.yml:/usr/share/filebeat/filebeat.yml:ro
-      - niro_shared_logs_test:/var/log/niro:ro # 确保这里与 volumes 定义一致
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/web:/var/log/niro:ro
       - /var/run/docker.sock:/var/run/docker.sock:ro
     environment:
       - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
@@ -99,6 +99,3 @@ networks:
 volumes:
   es_data:
     name: es_data
-  niro_shared_logs_test:
-    name: niro_shared_logs_test
-    external: true # 引用主业务中的日志卷

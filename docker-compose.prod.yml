@@ -68,9 +68,12 @@ services:
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
     container_name: niro-ocr-prod
     restart: always
+    environment:
+      OCR_LOG_PATH: /var/log/niro
     ports:
       - "5000:5000"
     volumes:
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/ocr:/var/log/niro
       - niro_ocr_paddlex_cache_prod:/root/.paddlex
       - niro_ocr_paddleocr_cache_prod:/root/.paddleocr
       - niro_ocr_paddle_cache_prod:/root/.cache/paddle
@@ -120,8 +123,12 @@ services:
       ROCKETMQ_PRODUCER_GROUP: ${ROCKETMQ_PRODUCER_GROUP:-niro-producer-group}
       ROCKETMQ_CONSUMER_GROUP: ${ROCKETMQ_CONSUMER_GROUP:-niro-consumer-group}
       JWT_SECRET: ${JWT_SECRET:-prod_secret_key}
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     volumes:
-      - niro_shared_logs_prod:/var/log/niro
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/web:/var/log/niro
     ports:
       - "8080:8080"
       - "9999:9999"
@@ -147,11 +154,17 @@ services:
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     container_name: niro-client-prod
     restart: always
+    environment:
+      HTTP_PROXY: ${HTTP_PROXY:-}
+      HTTPS_PROXY: ${HTTPS_PROXY:-}
+      ALL_PROXY: ${ALL_PROXY:-}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     depends_on:
       niro-web-prod:
         condition: service_healthy
     volumes:
-      - /home/app/certificate:/etc/nginx/certs:ro
+      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/client:/var/log/niro
+      - ${NGINX_CERTIFICATE_PATH:-/home/workspace/certificate}:/etc/nginx/certs:ro
     ports:
       - "80:80"
       - "443:443"
@@ -168,8 +181,6 @@ volumes:
     name: niro_db_data_prod
   niro_redis_data_prod:
     name: niro_redis_data_prod
-  niro_shared_logs_prod:
-    name: niro_shared_logs_prod
   niro_ocr_paddlex_cache_prod:
     name: niro_ocr_paddlex_cache_prod
   niro_ocr_paddleocr_cache_prod:
