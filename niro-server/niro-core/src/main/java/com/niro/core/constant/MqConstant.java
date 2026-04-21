@@ -18,6 +18,16 @@ public final class MqConstant {
     public static final String TOPIC_C5_ORDER = "niro-c5-order";
 
     /**
+     * C5 手动同步 Tag
+     */
+    public static final String TAG_C5_ORDER_MANUAL_SYNC = "order-manual-sync";
+
+    /**
+     * C5 手动同步消费者组
+     */
+    public static final String CONSUMER_GROUP_C5_ORDER_MANUAL_SYNC = "niro-c5-order-manual-sync-consumer";
+
+    /**
      * C5 订单详情同步 Tag
      */
     public static final String TAG_C5_ORDER_DETAIL_SYNC = "order-detail-sync";

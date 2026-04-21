@@ -47,8 +47,8 @@ public class C5OrderSyncController {
         Long userId = StpUtil.getLoginIdAsLong();
         log.info("手动触发 C5 订单同步, userId={}, daysBefore={}", userId, daysBefore);
         try {
-            int syncedCount = c5OrderSyncService.syncOrders(userId, daysBefore);
-            return "C5 订单同步完成，本次新增 " + syncedCount + " 条";
+            c5OrderSyncService.submitSyncTask(userId, daysBefore);
+            return "C5 订单同步任务已提交，请稍后刷新查看";
         } catch (BusinessException e) {
             log.warn("手动触发 C5 订单同步被拒绝, userId={}, daysBefore={}, message={}", userId, daysBefore, e.getMessage());
             return e.getMessage();

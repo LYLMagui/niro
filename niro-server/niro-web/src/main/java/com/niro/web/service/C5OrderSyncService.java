@@ -11,10 +11,19 @@ package com.niro.web.service;
 public interface C5OrderSyncService {
 
     /**
+     * 提交 C5 订单同步任务
+     *
+     * @param userId 用户 ID
+     * @param daysBefore 查询几天前的订单，0 表示今天，-1 表示全部历史
+     */
+    void submitSyncTask(Long userId, Integer daysBefore);
+
+    /**
      * 同步 C5 订单
      * <p>
      * 拉取指定天数范围内的订单并同步到本地数据库
      *
+     * @param userId 用户 ID
      * @param daysBefore 查询几天前的订单，0 表示今天，-1 表示全部历史
      * @return 本次新增订单数量
      */

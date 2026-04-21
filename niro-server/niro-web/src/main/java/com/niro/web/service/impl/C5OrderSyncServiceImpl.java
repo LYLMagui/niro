@@ -14,6 +14,7 @@ import com.niro.sdk.c5.response.order.C5BuyerStatusResponse;
 import com.niro.sdk.c5.response.order.C5BuyerStatusResponse.OrderBuyDTO;
 import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.C5OrderDetailMessage;
+import com.niro.web.dto.C5OrderManualSyncMessage;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.TradeOrderRecord;
@@ -64,8 +65,10 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private static final String LIMITER_KEY = "niro:limiter:c5:api";
     private static final String USER_SYNC_LOCK_KEY_PREFIX = "niro:lock:c5:order-sync:user:";
     private static final String ALL_SYNC_LOCK_KEY_PREFIX = "niro:lock:c5:order-sync:all:";
+    private static final String USER_SYNC_SUBMIT_KEY_PREFIX = "niro:cooldown:c5:order-sync:user:";
     private static final long SYNC_LOCK_WAIT_SECONDS = 0L;
     private static final long SYNC_LOCK_LEASE_SECONDS = 300L;
+    private static final long SYNC_SUBMIT_COOLDOWN_SECONDS = 60L;
 
     private final TradeOrderRecordService tradeOrderRecordService;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
@@ -114,6 +117,10 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         return ALL_SYNC_LOCK_KEY_PREFIX + normalizeDaysBefore(daysBefore);
     }
 
+    private String buildUserSyncSubmitKey(Long userId, Integer daysBefore) {
+        return USER_SYNC_SUBMIT_KEY_PREFIX + userId + ":" + normalizeDaysBefore(daysBefore);
+    }
+
     private int normalizeDaysBefore(Integer daysBefore) {
         return daysBefore == null ? 1 : daysBefore;
     }
@@ -141,6 +148,19 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         }
     }
 
+    private void checkAndMarkSubmitCooldown(Long userId, Integer daysBefore) {
+        String submitKey = buildUserSyncSubmitKey(userId, daysBefore);
+        try {
+            boolean created = redissonClient.getBucket(submitKey)
+                    .trySet("1", SYNC_SUBMIT_COOLDOWN_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
+            Assert.isTrue(created, "60 秒内请勿重复提交同步任务");
+        } catch (BusinessException e) {
+            throw e;
+        } catch (Exception e) {
+            log.warn("写入 C5 同步提交冷却失败，降级继续提交, submitKey={}", submitKey, e);
+        }
+    }
+
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
 
     private C5ApiClient getC5Client(Long userId) {
@@ -154,6 +174,29 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
         });
+    }
+
+    @Override
+    public void submitSyncTask(Long userId, Integer daysBefore) {
+        Assert.notNull(userId, "用户ID不能为空");
+
+        Integer normalizedDaysBefore = normalizeDaysBefore(daysBefore);
+        String lockKey = buildUserSyncLockKey(userId, normalizedDaysBefore);
+        boolean running = redissonClient.getLock(lockKey).isLocked();
+        Assert.isTrue(!running, "同步任务正在执行，请勿重复触发");
+
+        checkAndMarkSubmitCooldown(userId, normalizedDaysBefore);
+
+        C5OrderManualSyncMessage message = C5OrderManualSyncMessage.builder()
+                .userId(userId)
+                .daysBefore(normalizedDaysBefore)
+                .timestamp(System.currentTimeMillis())
+                .build();
+
+        rocketMqHelper.topic(MqConstant.TOPIC_C5_ORDER, MqConstant.TAG_C5_ORDER_MANUAL_SYNC)
+                .key(userId + ":" + normalizedDaysBefore)
+                .timeout(5000L)
+                .send(message);
     }
 
     @Override

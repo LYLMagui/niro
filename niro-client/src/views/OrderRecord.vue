@@ -552,10 +552,10 @@ const isMobile = computed(() => width.value <= 640);
 const loading = ref(false);
 const c5SyncLoading = ref(false);
 const syncRangeOptions: SyncRangeOption[] = [
-  { label: "今天", value: 0, successText: "C5 订单同步完成（今天）" },
-  { label: "昨天", value: 1, successText: "C5 订单同步完成（昨天）" },
-  { label: "最近 3 天", value: 3, successText: "C5 订单同步完成（最近 3 天）" },
-  { label: "最近 7 天", value: 7, successText: "C5 订单同步完成（最近 7 天）" },
+  { label: "今天", value: 0, successText: "C5 订单同步任务已提交（今天）" },
+  { label: "昨天", value: 1, successText: "C5 订单同步任务已提交（昨天）" },
+  { label: "最近 3 天", value: 3, successText: "C5 订单同步任务已提交（最近 3 天）" },
+  { label: "最近 7 天", value: 7, successText: "C5 订单同步任务已提交（最近 7 天）" },
   { label: "全部", value: -1, successText: "C5 订单同步任务已提交（全部历史）", longRunning: true },
 ];
 const selectedSyncRange = ref<number>(1);
@@ -1023,7 +1023,11 @@ const triggerC5SyncRequest = async (currentRange: SyncRangeOption) => {
   try {
     const res = await orderApi.triggerC5Sync(currentRange.value);
     const message = typeof res === "string" ? res : currentRange.successText;
-    const isDuplicateTrigger = message.includes("请勿重复触发") || message.includes("正在执行");
+    const isDuplicateTrigger =
+      message.includes("请勿重复触发") ||
+      message.includes("正在执行") ||
+      message.includes("重复提交") ||
+      message.includes("60 秒内");
     MessagePlugin[isDuplicateTrigger ? "warning" : "success"](message);
     if (!isDuplicateTrigger && canViewOrderRecord.value) {
       fetchData();
