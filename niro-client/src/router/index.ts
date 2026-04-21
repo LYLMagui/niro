@@ -28,6 +28,19 @@ const constantRoutes: RouteRecordRaw[] = [
     meta: { title: "404", hidden: true },
   },
   {
+    path: "/invite-code",
+    component: Layout,
+    meta: { title: "邀请码管理", hidden: true },
+    children: [
+      {
+        path: "",
+        name: "InviteCode",
+        component: () => import("@/views/InviteCodeManage.vue"),
+        meta: { title: "邀请码管理", hidden: true },
+      },
+    ],
+  },
+  {
     path: "/:pathMatch(.*)*",
     name: "BootstrapAny",
     component: Layout,
@@ -44,8 +57,9 @@ const constantRoutes: RouteRecordRaw[] = [
 ];
 
 const bootstrapRoutes = getCachedAccessRoutes();
-if (bootstrapRoutes.length > 0) {
-  constantRoutes[4].children = bootstrapRoutes;
+const rootRoute = constantRoutes.find((route) => route.name === "Root");
+if (bootstrapRoutes.length > 0 && rootRoute) {
+  rootRoute.children = bootstrapRoutes;
 }
 
 const router: Router = createRouter({
@@ -105,7 +119,7 @@ function resetRouter() {
     const name = route.name;
     if (
       name &&
-      !["Login", "Forbidden", "NotFound", "BootstrapAny", "Root", "Any"].includes(name as string)
+      !["Login", "Forbidden", "NotFound", "InviteCode", "BootstrapAny", "Root", "Any"].includes(name as string)
     ) {
       router.removeRoute(name as string);
     }

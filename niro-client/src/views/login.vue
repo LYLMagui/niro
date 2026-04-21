@@ -89,7 +89,7 @@
           />
         </t-form-item>
 
-        <t-form-item name="emailCode">
+        <t-form-item name="emailCode" :show-error-message="false">
           <div class="flex w-full items-start gap-3">
             <div class="min-w-0 flex-1">
               <t-input
@@ -132,7 +132,7 @@
           />
         </t-form-item>
 
-        <t-form-item name="inviteCode">
+        <t-form-item name="inviteCode" :show-error-message="false">
           <t-input
             v-model="registerFormData.inviteCode"
             :status="inviteInputStatus"
@@ -379,7 +379,7 @@ function handleInviteCodeChange(value: string | number) {
 
 function handleRegisterEmailChange() {
   resetEmailCodeState();
-  registerFormRef.value?.clearValidate(["emailCode"]);
+  registerFormRef.value?.clearValidate(["email", "emailCode"]);
 }
 
 function syncRouteQuery(mode: AuthMode, inviteCode = "") {
@@ -427,16 +427,17 @@ async function handleInviteCodeBlur() {
 }
 
 async function handleSendRegisterEmailCode() {
-  const inviteValid =
-    inviteValidationState.value === "valid" ? true : await validateInviteCode();
-  if (!inviteValid) {
+  const email = registerFormData.email.trim();
+  if (!isEmailFormat(email)) {
+    emailCodeHint.value = "请输入正确的邮箱地址。";
+    emailCodeFeedbackState.value = "error";
     return;
   }
 
   sendEmailCodeLoading.value = true;
   try {
     await userApi.sendRegisterEmailCode({
-      email: registerFormData.email.trim(),
+      email,
     });
     emailCodeHint.value = "验证码已发送，请注意查收邮箱。";
     emailCodeFeedbackState.value = "success";

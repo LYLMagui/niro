@@ -8,6 +8,7 @@ public final class PermissionConstants {
     private PermissionConstants() {
     }
 
+    public static final String TASK_SCAN_LIST = "task:scan:list";
     public static final String TASK_BUFF_LIST = "task:buff:list";
     public static final String TASK_RECORD_LIST = "task:record:list";
     public static final String TASK_INVENTORY_VIEW = "task:inventory:view";
@@ -29,6 +30,7 @@ public final class PermissionConstants {
 
     public static final String SETTINGS_SAVE = "system:settings:save";
     public static final String SETTINGS_TEST_NOTIFY = "system:settings:test-notify";
+    public static final String INVITE_CODE_MANAGE = "system:invite-code:manage";
 
     public static final String NOTIFY_SEND = "system:notify:send";
 }

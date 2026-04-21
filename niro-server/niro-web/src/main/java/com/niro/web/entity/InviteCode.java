@@ -27,6 +27,10 @@ public class InviteCode {
 
     private Integer status;
 
+    private Long usedUserId;
+
+    private LocalDateTime usedAt;
+
     private LocalDateTime expireTime;
 
     private String remark;

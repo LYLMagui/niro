@@ -7,6 +7,8 @@ import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 
+import cn.hutool.core.util.StrUtil;
+
 /**
  * 邀请码数据访问管理器
  */
@@ -17,28 +19,34 @@ public class InviteCodeMapperManager extends ServiceImpl<InviteCodeMapper, Invit
      * 邀请码启用状态
      */
     public static final Integer STATUS_ENABLED = 1;
+    public static final Long UNUSED_USER_ID = 0L;
+    public static final Long HISTORICAL_USED_USER_ID = -1L;
+    public static final LocalDateTime UNUSED_AT = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
 
     /**
      * 根据邀请码查询
      */
     public InviteCode findByCode(String code) {
+        if (StrUtil.isBlank(code)) {
+            return null;
+        }
         return this.lambdaQuery()
-                .eq(InviteCode::getCode, code)
+                .eq(InviteCode::getCode, code.trim().toUpperCase())
                 .one();
     }
 
     /**
-     * 原子扣减邀请码使用次数；返回 true 表示成功消费一次。
-     * 并发安全由 UPDATE ... WHERE 条件保证：只有启用、未过期、额度未用尽的邀请码才会被扣减。
+     * 原子占用邀请码；返回 true 表示成功绑定到指定用户。
      */
-    public boolean tryConsume(String code) {
+    public boolean tryUse(String code, Long userId) {
         return this.lambdaUpdate()
-                .setSql("used_count = used_count + 1")
+                .set(InviteCode::getUsedUserId, userId)
+                .set(InviteCode::getUsedAt, LocalDateTime.now())
                 .setSql("updated_at = now()")
                 .eq(InviteCode::getCode, code)
                 .eq(InviteCode::getStatus, STATUS_ENABLED)
+                .eq(InviteCode::getUsedUserId, UNUSED_USER_ID)
                 .gt(InviteCode::getExpireTime, LocalDateTime.now())
-                .apply("used_count < max_use_count")
                 .update();
     }
 }
