@@ -208,10 +208,10 @@
         v-if="!isMobile"
         class="order-record-table-wrap relative flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
       >
-        <div class="min-h-0 flex-1 overflow-hidden">
+        <div ref="orderRecordTableViewportRef" class="min-h-0 flex-1 overflow-hidden">
           <t-table
+            ref="orderRecordTableRef"
             row-key="id"
-            height="100%"
             :data="dataList"
             :columns="columns"
             :loading="loading"
@@ -219,6 +219,7 @@
             :selected-row-keys="selectedRowKeys"
             select-on-row-click
             hover
+            :max-height="orderTableMaxHeight"
             :class="[
               'order-c5-table w-full bg-white',
               { 'niro-unified-table--empty': !loading && dataList.length === 0 },
@@ -493,14 +494,15 @@
 </template>
 
 <script setup lang="ts">
-import { computed, reactive, ref, watch } from "vue";
-import { useWindowSize } from "@vueuse/core";
+import { computed, nextTick, reactive, ref, watch } from "vue";
+import { useElementSize, useWindowSize } from "@vueuse/core";
 import dayjs from "dayjs";
 import {
   MessagePlugin,
   type DateRangeValue,
   type PrimaryTableCol,
   type SortInfo,
+  type TableInstanceFunctions,
   type TableSort,
   type TagProps,
 } from "tdesign-vue-next";
@@ -571,6 +573,9 @@ const orderRecordBodyRef = ref<HTMLElement | null>(null);
 const handleOrderRecordBodyRefChange = (element: HTMLElement | null) => {
   orderRecordBodyRef.value = element;
 };
+const orderRecordTableViewportRef = ref<HTMLElement | null>(null);
+const orderRecordTableRef = ref<TableInstanceFunctions<TradeOrderRecord> | null>(null);
+const { height: orderRecordTableViewportHeight } = useElementSize(orderRecordTableViewportRef);
 
 const queryParams = reactive<OrderQueryParam>({
   page: 1,
@@ -598,6 +603,16 @@ const toolbarFieldClass =
   "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const toolbarCompactFieldClass =
   "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+const ORDER_TABLE_MIN_HEIGHT = 320;
+const ORDER_TABLE_MAX_HEIGHT_OFFSET = 1;
+const orderTableMaxHeight = computed(() => {
+  const viewportHeight = orderRecordTableViewportHeight.value;
+  if (!viewportHeight) {
+    return ORDER_TABLE_MIN_HEIGHT;
+  }
+
+  return Math.max(Math.floor(viewportHeight - ORDER_TABLE_MAX_HEIGHT_OFFSET), ORDER_TABLE_MIN_HEIGHT);
+});
 
 const priceFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
@@ -798,15 +813,6 @@ const formatTime = (time?: string | number) => {
   return dayjs(time).format("YYYY-MM-DD HH:mm:ss");
 };
 
-const scrollOrderRecordToTop = () => {
-  const behavior: ScrollBehavior = "smooth";
-  if (orderRecordBodyRef.value) {
-    orderRecordBodyRef.value.scrollTo({ top: 0, behavior });
-    return;
-  }
-  window.scrollTo({ top: 0, behavior });
-};
-
 const fetchData = async () => {
   if (!canViewOrderRecord.value) {
     dataList.value = [];
@@ -890,14 +896,15 @@ const handleReset = () => {
   fetchData();
 };
 
-const onPageChange = (pageInfo: PaginationChangeContext) => {
+const onPageChange = async (pageInfo: PaginationChangeContext) => {
   queryParams.page = pageInfo.current;
   queryParams.pageSize = pageInfo.pageSize;
   pagination.current = pageInfo.current;
   pagination.pageSize = pageInfo.pageSize;
   selectedRowKeys.value = [];
-  scrollOrderRecordToTop();
-  fetchData();
+  await fetchData();
+  await nextTick();
+  orderRecordTableRef.value?.scrollToElement({ index: 0, top: 0, behavior: "auto" });
 };
 
 const onSortChange = (sort: TableSort) => {

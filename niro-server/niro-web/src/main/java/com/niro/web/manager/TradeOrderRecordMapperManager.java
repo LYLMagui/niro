@@ -1,7 +1,6 @@
 package com.niro.web.manager;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
-import com.niro.core.constant.GlobalConstant;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
@@ -15,6 +14,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
@@ -25,6 +25,12 @@ import java.util.stream.Collectors;
  */
 @Service
 public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordMapper, TradeOrderRecord> {
+
+    private static final Set<Integer> SUCCESS_STATUSES = Set.of(
+            OrderStatusEnum.SUCCESS.getCode(),
+            10,
+            200
+    );
 
     /**
      * 查询活跃的C5订单 (状态为 SUCCESS，且在指定时间之后创建)
@@ -40,7 +46,7 @@ public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordM
 
     public Long countSuccess(Long taskId) {
         return this.lambdaQuery().eq(TradeOrderRecord::getTaskId, taskId)
-                .eq(TradeOrderRecord::getStatus, GlobalConstant.YES)
+                .in(TradeOrderRecord::getStatus, SUCCESS_STATUSES)
                 .count();
     }
 
@@ -55,7 +61,7 @@ public class TradeOrderRecordMapperManager extends ServiceImpl<TradeOrderRecordM
         if (validTaskIds.isEmpty()) {
             return Collections.emptyMap();
         }
-        List<Map<String, Object>> rows = this.baseMapper.countSuccessByTaskIds(validTaskIds, OrderStatusEnum.SUCCESS.getCode());
+        List<Map<String, Object>> rows = this.baseMapper.countSuccessByTaskIds(validTaskIds, List.copyOf(SUCCESS_STATUSES));
         if (rows == null || rows.isEmpty()) {
             return Collections.emptyMap();
         }

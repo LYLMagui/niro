@@ -63,7 +63,7 @@ export function useTaskForm(emit: (event: "success") => void) {
     });
   };
 
-  const handleSubmit = async (context: any, uiState: any, c5Config: any) => {
+  const handleSubmit = async (context: any, uiState: any) => {
     const { validateResult, firstError } = context;
     if (validateResult !== true) {
       MessagePlugin.warning(firstError || "表单校验未通过");
@@ -88,16 +88,7 @@ export function useTaskForm(emit: (event: "success") => void) {
         taskType: formData.taskType,
         runMode: formData.runMode,
         platform: formData.platform,
-        safetyMargin: c5Config.safeMargin / 100,
-        ladderStep: c5Config.anchorTierIndex,
       };
-
-      if (formData.platform === PlatformEnum.C5) {
-        data.extraConfig = JSON.stringify({
-          ...c5Config,
-          safeMargin: c5Config.safeMargin / 100,
-        });
-      }
 
       if (uiState.isCronImmediate) data.cronExpression = "* * * * * ?";
       if (uiState.isDurationUnlimited && !uiState.isCycleMode) data.durationMinutes = 0;

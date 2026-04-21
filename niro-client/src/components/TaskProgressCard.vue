@@ -44,7 +44,7 @@
         </t-tag>
 
         <!-- 操作按钮 -->
-        <div v-permission="PermissionConstant.TASK_BUFF_LIST" class="flex items-center gap-1 pl-2">
+        <div v-permission="PermissionConstant.TASK_SCAN_LIST" class="flex items-center gap-1 pl-2">
           <t-button
             v-if="task.status === 0 || task.status === 3"
             theme="primary"

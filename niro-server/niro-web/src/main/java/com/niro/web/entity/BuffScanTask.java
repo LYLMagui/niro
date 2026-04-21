@@ -118,16 +118,6 @@ public class BuffScanTask {
     private BigDecimal minProfit;
 
     /**
-     * 安全边际 (用于价格锚定)
-     */
-    private BigDecimal safetyMargin;
-
-    /**
-     * 锚定阶梯 (价格调整步长)
-     */
-    private BigDecimal ladderStep;
-
-    /**
      * 关联的下单任务ID (仅 SCAN/BOTH 模式使用)
      */
     private Long targetTaskId;
@@ -141,11 +131,6 @@ public class BuffScanTask {
      * 更新时间
      */
     private LocalDateTime updateTime;
-
-    /**
-     * 平台特殊配置(JSON)
-     */
-    private String extraConfig;
 
     /**
      * 最近一次错误信息

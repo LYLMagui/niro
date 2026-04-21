@@ -21,12 +21,6 @@ export interface UiState {
   restUnit: "m" | "h" | "d";
 }
 
-export interface C5Config {
-  safeMargin: number;
-  anchorTierIndex: number;
-  minConcurrency: number;
-}
-
 /** 将存储值转换为最合适的 UI 显示值和单位 */
 export function convertToUi(value: number, factors: Record<string, number>) {
   if (!value) return { value: 0, unit: Object.keys(factors)[0] };
@@ -63,12 +57,6 @@ export function useUiState(formData: {
     isCycleMode: false,
     restValue: 5,
     restUnit: "m",
-  });
-
-  const c5Config = reactive<C5Config>({
-    safeMargin: 3,
-    anchorTierIndex: 2,
-    minConcurrency: 5,
   });
 
   const getMinInterval = () => {
@@ -213,7 +201,6 @@ export function useUiState(formData: {
 
   return {
     uiState,
-    c5Config,
     getMinInterval,
     handleIntervalUnitChange,
     handleIntervalMinBlur,

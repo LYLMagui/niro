@@ -463,6 +463,7 @@ const handleLogout = async () => {
   min-height: 40px;
   height: 40px;
   line-height: 40px;
+  font-size: 13px;
   padding-top: 0;
   padding-bottom: 0;
 }
@@ -531,7 +532,7 @@ const handleLogout = async () => {
 .erp-tab-label__text {
   display: block;
   min-width: 0;
-  font-size: 12px;
+  font-size: 13px;
   line-height: 1;
   text-align: center;
 }

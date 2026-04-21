@@ -177,17 +177,23 @@ const isMobile = computed(() => width.value <= 768);
 const dialogAttach = computed(() => (isMobile.value ? "body" : undefined));
 const showInAttachedElement = computed(() => !isMobile.value);
 const { hasPermission } = usePermission();
-const canViewGoods = computed(() => hasPermission(PermissionConstant.GOODS_LIST));
-const canManageTask = computed(() => hasPermission(PermissionConstant.TASK_C5_LIST));
+const canViewGoods = computed(() => hasPermission(PermissionConstant.TASK_SCAN_LIST));
+const canManageTask = computed(() =>
+  hasPermission([
+    PermissionConstant.TASK_SCAN_LIST,
+    PermissionConstant.TASK_BUFF_LIST,
+    PermissionConstant.TASK_C5_LIST,
+  ])
+);
 
 const goodsSelectPlaceholder = computed(() =>
-  canViewGoods.value ? "输入商品名称搜索" : "当前账号无商品管理权限"
+  canViewGoods.value ? "输入商品名称搜索" : "当前账号无任务商品查询权限"
 );
 
 const { formData, submitLoading, rules, resetForm, handleSubmit } = useTaskForm(emit);
 const dialogWidth = computed(() => "min(620px, calc(100vw - 32px))");
 
-const { uiState, c5Config, handleIntervalMinBlur, handleIntervalUnitChange, syncFromUiState } =
+const { uiState, handleIntervalMinBlur, handleIntervalUnitChange, syncFromUiState } =
   useUiState(formData);
 
 const { goodsLoading, goodsOptions, remoteSearchGoods, selectedGoods, isWearable } =
@@ -325,22 +331,6 @@ const handleEdit = (row: TaskItem, platform: string = PlatformEnum.C5) => {
   formData.runMode = row.runMode ?? "BOTH";
   formData.platform = platform;
 
-  if (platform === PlatformEnum.C5 && row.extraConfig) {
-    try {
-      const parsed = JSON.parse(row.extraConfig);
-      c5Config.safeMargin = (parsed.safeMargin ?? 0.03) * 100;
-      c5Config.anchorTierIndex =
-        parsed.anchorTierIndex !== undefined ? parsed.anchorTierIndex + 1 : 2;
-      c5Config.minConcurrency = parsed.minConcurrency ?? 5;
-    } catch (e) {
-      console.error("解析 C5 配置失败", e);
-    }
-  } else {
-    c5Config.safeMargin = (row.safetyMargin ?? 0.03) * 100;
-    c5Config.anchorTierIndex = row.ladderStep ?? 2;
-    c5Config.minConcurrency = 5;
-  }
-
   const duration = convertToUi(row.durationMinutes || 0, DURATION_FACTORS);
   uiState.durationValue = duration.value;
   uiState.durationUnit = duration.unit as "m" | "h" | "d";
@@ -380,7 +370,7 @@ const handleCopy = (row: TaskItem, platform: string = PlatformEnum.C5) => {
 };
 
 const onFormSubmit = async (context: any) => {
-  const success = await handleSubmit(context, uiState, c5Config);
+  const success = await handleSubmit(context, uiState);
   if (success) {
     closeDialog();
   }

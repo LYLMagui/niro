@@ -23,7 +23,10 @@ public interface TradeOrderRecordMapper extends BaseMapper<TradeOrderRecord> {
             SELECT task_id AS taskId, COUNT(*) AS successCount
             FROM trade_order_record
             WHERE is_deleted = 0
-              AND status = #{status}
+              AND status IN
+              <foreach item='status' collection='statuses' open='(' separator=',' close=')'>
+                #{status}
+              </foreach>
               AND task_id IN
               <foreach item='taskId' collection='taskIds' open='(' separator=',' close=')'>
                 #{taskId}
@@ -32,5 +35,5 @@ public interface TradeOrderRecordMapper extends BaseMapper<TradeOrderRecord> {
             </script>
             """)
     List<Map<String, Object>> countSuccessByTaskIds(@Param("taskIds") List<Long> taskIds,
-                                                    @Param("status") Integer status);
+                                                    @Param("statuses") List<Integer> statuses);
 }

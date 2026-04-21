@@ -77,7 +77,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     @Override
     public ValidateInviteCodeDTO validateInviteCode(ValidateInviteCodeParam param) {
-        String code = param.getInviteCode() == null ? "" : param.getInviteCode().trim();
+        String code = param.getInviteCode() == null ? "" : param.getInviteCode().trim().toUpperCase();
         if (code.isEmpty()) {
             return ValidateInviteCodeDTO.fail("邀请码不能为空");
         }
@@ -91,8 +91,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (record.getExpireTime() != null && record.getExpireTime().isBefore(LocalDateTime.now())) {
             return ValidateInviteCodeDTO.fail("邀请码已过期");
         }
-        if (record.getUsedCount() != null && record.getMaxUseCount() != null
-                && record.getUsedCount() >= record.getMaxUseCount()) {
+        if (record.getUsedUserId() != null
+                && !record.getUsedUserId().equals(InviteCodeMapperManager.UNUSED_USER_ID)) {
             return ValidateInviteCodeDTO.fail("邀请码已被使用");
         }
         return ValidateInviteCodeDTO.ok("邀请码可用");
@@ -130,7 +130,7 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
     @Transactional(rollbackFor = Exception.class)
     public void register(UserRegisterParam param) {
         String email = param.getEmail().trim().toLowerCase();
-        String inviteCode = param.getInviteCode().trim();
+        String inviteCode = param.getInviteCode().trim().toUpperCase();
         String emailCode = param.getEmailCode().trim();
 
         // 1. 邀请码可用性复检（前端已校验，此处防绕过）
@@ -172,8 +172,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         userRole.setRoleId(defaultRole.getRoleId());
         sysUserRoleService.save(userRole);
 
-        // 7. 原子扣减邀请码（并发安全兜底）
-        boolean consumed = inviteCodeMapperManager.tryConsume(inviteCode);
+        // 7. 原子占用邀请码（并发安全兜底）
+        boolean consumed = inviteCodeMapperManager.tryUse(inviteCode, user.getId());
         Assert.isTrue(consumed, "邀请码已被其他用户使用或已失效");
     }
 
@@ -182,8 +182,8 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         Assert.isTrue(InviteCodeMapperManager.STATUS_ENABLED.equals(record.getStatus()), "邀请码已停用");
         Assert.isTrue(record.getExpireTime() == null || record.getExpireTime().isAfter(LocalDateTime.now()),
                 "邀请码已过期");
-        Assert.isTrue(record.getUsedCount() == null || record.getMaxUseCount() == null
-                        || record.getUsedCount() < record.getMaxUseCount(),
+        Assert.isTrue(record.getUsedUserId() == null
+                        || record.getUsedUserId().equals(InviteCodeMapperManager.UNUSED_USER_ID),
                 "邀请码已被使用");
     }
 

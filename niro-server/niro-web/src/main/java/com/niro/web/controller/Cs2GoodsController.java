@@ -33,7 +33,7 @@ public class Cs2GoodsController {
     }
 
     @GetMapping("/c5-task-options")
-    @SaCheckPermission(PermissionConstants.TASK_BUFF_LIST)
+    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
     @Operation(summary = "获取 C5 任务商品选项")
     public List<Cs2GoodsOptionDTO> listC5TaskOptions(@RequestParam(name = "keyword", required = false) String keyword) {
         return cs2GoodsService.listC5TaskOptions(keyword);

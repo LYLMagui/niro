@@ -168,7 +168,7 @@
                 详情
               </t-button>
               <t-button
-                v-permission="PermissionConstant.TASK_BUFF_LIST"
+                v-permission="PermissionConstant.TASK_SCAN_LIST"
                 variant="outline"
                 size="small"
                 theme="warning"

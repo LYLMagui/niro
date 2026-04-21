@@ -2,6 +2,7 @@
  * 前端权限码常量
  */
 export const PermissionConstant = {
+  TASK_SCAN_LIST: "task:scan:list",
   TASK_BUFF_LIST: "task:buff:list",
   TASK_RECORD_LIST: "task:record:list",
   TASK_INVENTORY_VIEW: "task:inventory:view",

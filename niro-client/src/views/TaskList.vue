@@ -269,7 +269,7 @@
 
           <template #op="{ row }">
             <div
-              v-permission="PermissionConstant.TASK_C5_LIST"
+              v-permission="PermissionConstant.TASK_SCAN_LIST"
               class="task-c5-table__actions flex flex-wrap gap-1.5"
             >
               <t-button
@@ -435,7 +435,7 @@
               </div>
             </div>
 
-            <div v-permission="PermissionConstant.TASK_C5_LIST" class="task-mobile-card__actions">
+            <div v-permission="PermissionConstant.TASK_SCAN_LIST" class="task-mobile-card__actions">
               <t-button
                 variant="outline"
                 theme="primary"
@@ -516,7 +516,13 @@ import { usePermission } from "@/hooks/usePermission";
 
 const { hasPermission } = usePermission();
 
-const canViewTaskList = computed(() => hasPermission(PermissionConstant.TASK_C5_LIST));
+const canViewTaskList = computed(() =>
+  hasPermission([
+    PermissionConstant.TASK_SCAN_LIST,
+    PermissionConstant.TASK_BUFF_LIST,
+    PermissionConstant.TASK_C5_LIST,
+  ])
+);
 const currentPlatform = PlatformEnum.C5;
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);

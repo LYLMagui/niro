@@ -31,7 +31,7 @@
           <!-- 控制按钮 -->
           <t-button
             v-if="!isRunning"
-            v-permission="PermissionConstant.TASK_BUFF_LIST"
+            v-permission="PermissionConstant.TASK_SCAN_LIST"
             theme="primary"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStart"
@@ -40,7 +40,7 @@
           </t-button>
           <t-button
             v-else
-            v-permission="PermissionConstant.TASK_BUFF_LIST"
+            v-permission="PermissionConstant.TASK_SCAN_LIST"
             theme="danger"
             class="rounded-lg transition-all duration-300 hover:shadow active:shadow-none"
             @click="handleGlobalStop"
@@ -65,7 +65,7 @@
           运行中的任务
         </h3>
         <t-link
-          v-permission="PermissionConstant.TASK_BUFF_LIST"
+          v-permission="PermissionConstant.TASK_SCAN_LIST"
           theme="primary"
           @click="$router.push('/task/manager/buff')"
         >
@@ -145,7 +145,7 @@ const taskStore = useTaskStore();
 const { isRunning, runningTasks } = storeToRefs(taskStore); // 保持响应性
 const { fetchRunningTasks, startTask, stopTask } = taskStore;
 const { hasPermission } = usePermission();
-const canViewTaskDashboard = computed(() => hasPermission(PermissionConstant.TASK_BUFF_LIST));
+const canViewTaskDashboard = computed(() => hasPermission(PermissionConstant.TASK_SCAN_LIST));
 
 // 计算总发现次数 (仅监控模式命中)
 const totalDiscoveryCount = computed(() => {

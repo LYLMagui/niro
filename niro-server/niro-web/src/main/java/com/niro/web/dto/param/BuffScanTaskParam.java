@@ -69,18 +69,9 @@ public class BuffScanTaskParam {
     @Schema(description = "最小预期利润 (仅倒卖任务有效)")
     private BigDecimal minProfit;
 
-    @Schema(description = "安全边际 (用于价格锚定)")
-    private BigDecimal safetyMargin;
-
-    @Schema(description = "锚定阶梯 (价格调整步长)")
-    private BigDecimal ladderStep;
-
     @Schema(description = "关联的下单任务ID (仅 SCAN/BOTH 模式使用)")
     private Long targetTaskId;
 
     @Schema(description = "绑定的账号ID列表")
     private List<Long> accountIds;
-
-    @Schema(description = "平台特殊配置 (JSON)")
-    private String extraConfig;
 }

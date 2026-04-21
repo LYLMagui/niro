@@ -219,9 +219,6 @@ public class BuffScanTaskServiceImpl extends ServiceImpl<BuffScanTaskMapper, Buf
         task.setMinProfit(param.getMinProfit());
         task.setScanIntervalMin(param.getScanIntervalMin());
         task.setScanIntervalMax(param.getScanIntervalMax());
-        task.setSafetyMargin(param.getSafetyMargin());
-        task.setLadderStep(param.getLadderStep());
-        task.setExtraConfig(param.getExtraConfig());
 
         this.updateById(task);
 
