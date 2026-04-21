@@ -3,7 +3,6 @@ package com.niro.web.service.strategy.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.niro.core.constant.BuffConstant;
 import com.niro.core.util.RedisUtil;
@@ -40,8 +39,7 @@ import java.util.stream.Collectors;
 /**
  * C5 平台策略实现
  * <p>
- * 核心策略：Market Depth (市场深度) 锚点定价
- * 不依赖 Buff 参考价，仅根据 C5 实时在售列表的分布情况，动态计算安全买入价。
+ * 扫货过滤上限直接使用任务配置的 {@code maxPrice}，不再引入深度锚点算法。
  * </p>
  */
 @Slf4j
@@ -142,9 +140,9 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
     /**
      * 执行 C5 交易核心逻辑
      * <p>
-     * 1. 解析动态配置 (Anchor, SafeMargin)
-     * 2. 并行全量搜索 (不设价格上限)
-     * 3. 深度锚点算法计算 DynamicLimit
+     * 1. 校验任务状态与商品信息
+     * 2. 全量搜索 C5 在售商品
+     * 3. 按 {@code task.maxPrice} 与磨损区间筛选
      * 4. 批量下单 (Batch Buy)
      * </p>
      */
@@ -159,7 +157,7 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             }
         }
 
-        // 1. 准备参数与配置
+        // 1. 准备参数
         Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(task.getCs2GoodsId());
         if (goods == null || StrUtil.isBlank(goods.getMarketHashName())) {
             String errorMsg = goods == null ? "CS2商品不存在" : "商品 MarketHashName 为空";
@@ -169,7 +167,6 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return;
         }
         String marketHashName = goods.getMarketHashName();
-        C5StrategyConfig config = buildStrategyConfig(task);
 
         final C5ApiClient client = resolveClient(task.getUserId());
 
@@ -198,29 +195,19 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
                 .sorted(Comparator.comparing(C5ProductListResponse.ProductDTO::getPrice))
                 .collect(Collectors.toList());
 
-        // 4. 深度锚点算法 (Depth Anchor Algorithm)
-        BigDecimal dynamicMaxPrice = calculateDynamicLimit(task, sortedItems, config);
-
-        // 中断检查 (锚点计算后)
-        if (Thread.currentThread().isInterrupted()) {
-            log.warn("任务 [{}] 在计算锚点后被中断", task.getId());
-            return;
-        }
-
         final boolean finalIsNonWearable = isNonWearable;
 
-        // 5. 最终筛选
+        // 4. 最终筛选：价格不超过用户上限 + 磨损范围
         List<C5ProductListResponse.ProductDTO> qualifiedItems = sortedItems.stream()
-                .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0) // 硬上限
-                .filter(item -> item.getPrice().compareTo(dynamicMaxPrice) <= 0) // 动态上限
-                .filter(item -> checkWear(item, task, finalIsNonWearable)) // 磨损范围
+                .filter(item -> item.getPrice().compareTo(task.getMaxPrice()) <= 0)
+                .filter(item -> checkWear(item, task, finalIsNonWearable))
                 .collect(Collectors.toList());
 
         if (CollUtil.isEmpty(qualifiedItems)) {
             return;
         }
 
-        // 6. 批量下单
+        // 5. 批量下单
         int requested = task.getBuyCount() != null && task.getBuyCount() > 0
                 ? Math.min(qualifiedItems.size(), task.getBuyCount())
                 : 1;
@@ -278,75 +265,6 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             return false;
         }
         return true;
-    }
-
-    /**
-     * 计算动态上限 (Price Tier Anchoring)
-     */
-    private BigDecimal calculateDynamicLimit(BuffScanTask task, List<C5ProductListResponse.ProductDTO> sortedProducts,
-                                             C5StrategyConfig config) {
-        BigDecimal userMax = task.getMaxPrice();
-
-        // 深度不足，降级处理
-        if (sortedProducts.size() < config.getMinConcurrency()) {
-            log.warn("任务 [{}] 市场深度不足 (当前: {}, 阈值: {}), 降级使用用户限价: {}",
-                    task.getId(), sortedProducts.size(), config.getMinConcurrency(), userMax);
-            return userMax;
-        }
-
-        // 1. 提取价格阶梯 (去重 + 排序)
-        // Note: BigDecimal distinct() uses equals() which checks scale. Use compareTo
-        // for value equality.
-        List<BigDecimal> rawPrices = sortedProducts.stream()
-                .map(C5ProductListResponse.ProductDTO::getPrice)
-                .sorted()
-                .collect(Collectors.toList());
-
-        List<BigDecimal> priceTiers = new ArrayList<>();
-        for (BigDecimal price : rawPrices) {
-            if (priceTiers.isEmpty() || priceTiers.get(priceTiers.size() - 1).compareTo(price) != 0) {
-                priceTiers.add(price);
-            }
-        }
-
-        // 2. 确定锚点
-        BigDecimal anchorPrice;
-        double currentMargin = config.getSafeMargin();
-
-        if (priceTiers.size() > config.getAnchorTierIndex()) {
-            // 正常情况：取第 N 个阶梯 (例如 anchorTierIndex=1, 取第2个价格)
-            anchorPrice = priceTiers.get(config.getAnchorTierIndex());
-        } else {
-            // 阶梯不足 (例如只有一种价格): 取第1个价格，并扩大安全边际
-            anchorPrice = priceTiers.get(0);
-            currentMargin = config.getSafeMargin() * 1.5;
-            log.info("任务 [{}] 价格阶梯不足 ({}个), 启用保守模式 (Margin x1.5)", task.getId(), priceTiers.size());
-        }
-
-        // 3. 计算动态上限
-        BigDecimal dynamicLimit;
-        if (config.getAnchorTierIndex() == 0) {
-            // 如果锚定第1个阶梯 (ladderStep=1)，则不应用安全边际，直接以锚点价为上限
-            dynamicLimit = anchorPrice;
-        } else {
-            BigDecimal safeRatio = BigDecimal.ONE.subtract(BigDecimal.valueOf(currentMargin));
-            dynamicLimit = anchorPrice.multiply(safeRatio);
-        }
-
-        // 4. 阻断告警 (Fail Loudly)
-        if (CollUtil.isNotEmpty(priceTiers) && dynamicLimit.compareTo(priceTiers.get(0)) < 0) {
-            BigDecimal diff = priceTiers.get(0).subtract(dynamicLimit);
-            log.warn("任务 [{}] 动态上限过低警告! 动态上限: {}, 市场最低价: {}, 差值: {}. 因安全边际过高导致无法购买.",
-                    task.getId(), dynamicLimit, priceTiers.get(0), diff);
-        }
-
-        // 5. 日志
-        // 为了日志简洁，只打印前5个阶梯
-        String tierLog = priceTiers.stream().limit(5).map(String::valueOf).collect(Collectors.joining(", "));
-        log.info("任务 [{}] 价格阶梯: [{}], 锚定: {}, 动态上限: {} (Margin={}%), 用户上限={}",
-                task.getId(), tierLog, anchorPrice, dynamicLimit, String.format("%.2f", currentMargin * 100), userMax);
-
-        return dynamicLimit;
     }
 
     private void doBatchBuy(C5ApiClient client, BuffScanTask task, List<C5ProductListResponse.ProductDTO> items,
@@ -732,35 +650,6 @@ public class C5TradeStrategyImpl implements IPlatformStrategy {
             updateLastError(task, "搜索异常: " + e.getMessage());
             return Collections.emptyList();
         }
-    }
-
-    private C5StrategyConfig buildStrategyConfig(BuffScanTask task) {
-        C5StrategyConfig config = new C5StrategyConfig();
-
-        // 1. 先尝试解析 ExtraConfig (兼容旧数据)
-        if (StrUtil.isNotBlank(task.getExtraConfig())) {
-            try {
-                JSONObject json = JSONUtil.parseObj(task.getExtraConfig());
-                config.setAnchorTierIndex(json.getInt("anchorTierIndex", 1));
-                config.setSafeMargin(json.getDouble("safeMargin", 0.03));
-                config.setMinConcurrency(json.getInt("minConcurrency", 5));
-            } catch (Exception e) {
-                log.warn("解析 ExtraConfig 失败，使用默认值", e);
-            }
-        }
-
-        // 2. 优先使用独立字段 (如果存在)
-        if (task.getSafetyMargin() != null) {
-            config.setSafeMargin(task.getSafetyMargin().doubleValue());
-        }
-        if (task.getLadderStep() != null) {
-            // 新字段 ladderStep 是 1-based (1=Top1)，转换为 0-based index
-            // 如果 ladderStep=1 -> index=0
-            // 增加 Math.min 限制，防止配置的阶梯数超过实际搜索到的阶梯上限 (PageSize=20)
-            config.setAnchorTierIndex(Math.min(Math.max(0, task.getLadderStep().intValue() - 1), 19));
-        }
-
-        return config;
     }
 
 }

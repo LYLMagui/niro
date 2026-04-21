@@ -7,8 +7,6 @@ export interface TaskItem {
   marketHashName?: string;
   hasExterior?: boolean;
   itemType?: string;
-  safetyMargin?: number;
-  ladderStep?: number;
   maxPrice?: number;
   minPaintwear?: number;
   maxPaintwear?: number;
@@ -47,7 +45,6 @@ export interface TaskItem {
   finishTime?: string;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   platform?: string;
-  extraConfig?: string;
 }
 
 export interface TaskQueryParam {
@@ -77,7 +74,4 @@ export interface TaskSaveParam {
   minProfit?: number;
   runMode?: "SCAN" | "TRADE" | "BOTH";
   platform?: string;
-  safetyMargin?: number;
-  ladderStep?: number;
-  extraConfig?: string;
 }
