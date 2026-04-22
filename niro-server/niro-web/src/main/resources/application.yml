@@ -11,10 +11,12 @@ spring:
 
   config:
     import:
-      - optional:file:../.env[.properties]          # 加载父目录 .env 文件
-      - classpath:config/common/common.yml      # 公共通用配置
-      - classpath:config/common/database.yml    # 数据库通用配置
-      - optional:classpath:config/test/application-test.yml    # 测试环境配置  
+      - optional:file:/.env[.properties]            # 优先加载根目录 .env 文件
+      - optional:file:./.env[.properties]           # 加载当前工作目录 .env 文件
+      - optional:file:../.env[.properties]          # 兼容旧相对路径 .env 文件
+      - classpath:config/common/common.yml          # 公共通用配置
+      - classpath:config/common/database.yml        # 数据库通用配置
+      - optional:classpath:config/test/application-test.yml    # 测试环境配置
       - optional:classpath:config/prod/application-prod.yml    # 生产环境配置
 
 niro:
