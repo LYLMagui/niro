@@ -371,11 +371,10 @@ async function switchMode(mode: AuthMode) {
 }
 
 function handleInviteCodeChange(value: string | number) {
-  const nextInviteCode = String(value ?? "");
+  registerFormData.inviteCode = String(value ?? "");
   inviteSource.value = "manual";
-  registerFormData.inviteCode = nextInviteCode;
   resetInviteValidation();
-  syncRouteQuery("register", nextInviteCode.trim());
+  syncRouteQuery("register");
 }
 
 function handleRegisterEmailChange() {
