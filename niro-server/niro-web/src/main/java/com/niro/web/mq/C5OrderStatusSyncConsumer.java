@@ -12,6 +12,7 @@ import com.niro.web.dto.C5OrderStatusSyncMessage;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.service.BuffScanTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.common.message.MessageConst;
@@ -52,6 +53,7 @@ import java.util.concurrent.TimeUnit;
 public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatusSyncMessage> {
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
+    private final BuffScanTaskService buffScanTaskService;
     private final RedissonClient redissonClient;
 
     @Value("${c5.base-url:https://openapi.c5game.com}")
@@ -122,7 +124,7 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
     /**
      * 更新订单状态
      */
-    private void updateOrderStatus(C5OrderStatusSyncMessage message, 
+    private void updateOrderStatus(C5OrderStatusSyncMessage message,
                                    C5BuyerStatusResponse.OrderBuyDTO statusDTO) {
         TradeOrderRecord order = tradeOrderRecordMapperManager.getById(message.getRecordId());
         if (order == null) {
@@ -130,21 +132,40 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
             return;
         }
 
-        // C5 状态: 11 = 已取消
-        if (statusDTO.getStatus() != null && statusDTO.getStatus() == 11) {
-            if (!OrderStatusEnum.CANCELLED.getCode().equals(order.getStatus())) {
-                order.setStatus(OrderStatusEnum.CANCELLED.getCode());
-                order.setErrorMsg("C5平台自动取消");
-                order.setUpdateTime(LocalDateTime.now());
-                tradeOrderRecordMapperManager.updateById(order);
+        Integer c5Status = statusDTO.getStatus();
+        if (c5Status == null) {
+            return;
+        }
 
-                log.info("已将订单 {} ({}) 的状态更新为 已取消", 
-                        order.getOrderId(), order.getMarketHashName());
+        Integer nextStatus = null;
+        String nextErrorMsg = order.getErrorMsg();
+        if (c5Status == 11) {
+            nextStatus = OrderStatusEnum.CANCELLED.getCode();
+            nextErrorMsg = "C5平台自动取消";
+        } else if (c5Status == 10 || c5Status == 200) {
+            nextStatus = OrderStatusEnum.SUCCESS.getCode();
+            nextErrorMsg = null;
+        }
+
+        if (nextStatus == null || nextStatus.equals(order.getStatus())) {
+            return;
+        }
+
+        order.setStatus(nextStatus);
+        order.setErrorMsg(nextErrorMsg);
+        order.setUpdateTime(LocalDateTime.now());
+        tradeOrderRecordMapperManager.updateById(order);
+
+        if (OrderStatusEnum.SUCCESS.getCode().equals(nextStatus) && order.getTaskId() != null && order.getTaskId() > 0) {
+            try {
+                buffScanTaskService.syncTaskProgress(order.getTaskId());
+            } catch (Exception e) {
+                log.error("同步任务进度异常: taskId={}", order.getTaskId(), e);
             }
         }
 
-        // 也可以处理 '10 = 已完成' -> SUCCESS
-        // 如果需要支持更多状态，在这里扩展
+        log.info("已将订单 {} ({}) 的状态更新为 {}",
+                order.getOrderId(), order.getMarketHashName(), nextStatus);
     }
 
     /**
