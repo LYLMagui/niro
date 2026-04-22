@@ -3,11 +3,9 @@ package com.niro.web.controller;
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.annotation.SaCheckLogin;
 import com.niro.core.result.Result;
-import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.dto.param.UserPlatformSettingsParam;
 import com.niro.web.service.UserPlatformSettingsService;
-import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -40,7 +38,6 @@ public class UserPlatformSettingsController {
 
     @Operation(summary = "保存配置")
     @PostMapping
-    @SaCheckPermission(PermissionConstants.SETTINGS_SAVE)
     public Result<Void> saveSettings(@RequestBody @Valid UserPlatformSettingsParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         userPlatformSettingsService.saveOrUpdate(userId, param);
@@ -49,7 +46,6 @@ public class UserPlatformSettingsController {
 
     @Operation(summary = "发送测试通知")
     @PostMapping("/test-notify")
-    @SaCheckPermission(PermissionConstants.SETTINGS_TEST_NOTIFY)
     public Result<Void> sendTestNotify() {
         Long userId = StpUtil.getLoginIdAsLong();
         userPlatformSettingsService.sendTestNotify(userId);

@@ -495,7 +495,6 @@
             <div class="absolute top-[-28px] right-4">
               <t-button
                 v-if="wecomEnabled || formData.emailEnabled"
-                v-permission="PermissionConstant.SETTINGS_TEST_NOTIFY"
                 variant="text"
                 theme="primary"
                 :loading="testNotifyLoading"
@@ -506,7 +505,6 @@
               </t-button>
             </div>
             <t-button
-              v-permission="PermissionConstant.SETTINGS_SAVE"
               theme="primary"
               type="submit"
               block
