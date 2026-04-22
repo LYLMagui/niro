@@ -77,6 +77,7 @@
         :data="registerFormData"
         :rules="registerRules"
         :label-width="0"
+        prevent-submit-default
         @submit="handleRegister"
       >
         <t-form-item name="email">
@@ -102,6 +103,7 @@
               />
             </div>
             <t-button
+              type="button"
               class="w-[132px] shrink-0"
               variant="outline"
               size="large"
