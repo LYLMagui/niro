@@ -546,6 +546,10 @@ watch(
 
     if (mode === "register") {
       authMode.value = "register";
+      if (inviteSource.value === "link") {
+        inviteSource.value = registerFormData.inviteCode.trim() ? "manual" : "none";
+        resetInviteValidation();
+      }
       return;
     }
 
