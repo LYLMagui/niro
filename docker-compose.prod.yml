@@ -4,11 +4,6 @@ services:
     build:
       context: ./docker/postgres
       dockerfile: Dockerfile
-      args:
-        HTTP_PROXY: ${HTTP_PROXY:-}
-        HTTPS_PROXY: ${HTTPS_PROXY:-}
-        ALL_PROXY: ${ALL_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     container_name: niro-db-prod
     restart: always
     environment:
@@ -17,14 +12,6 @@ services:
       POSTGRES_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
       TZ: Asia/Shanghai
       PGDATA: /var/lib/postgresql/data/pgdata
-      http_proxy: ${HTTP_PROXY:-}
-      https_proxy: ${HTTPS_PROXY:-}
-      all_proxy: ${ALL_PROXY:-}
-      no_proxy: ${NO_PROXY:-localhost,127.0.0.1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
-      HTTP_PROXY: ${HTTP_PROXY:-}
-      HTTPS_PROXY: ${HTTPS_PROXY:-}
-      ALL_PROXY: ${ALL_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     volumes:
       - niro_db_data_prod:/var/lib/postgresql/data
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro

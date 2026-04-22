@@ -1,4 +1,5 @@
-# dataset	url
+# dataset	upstream_url
+# 本地目录需放置与 upstream_url 文件名一致的 JSON 文件，初始化时会复制为对应 dataset 的导入文件名
 skins_not_grouped	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/skins_not_grouped.json
 crates	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/crates.json
 keys	https://raw.githubusercontent.com/ByMykel/CSGO-API/main/public/api/zh-CN/keys.json

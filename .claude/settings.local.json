@@ -49,7 +49,8 @@
       "mcp__nocturne-memory__add_alias",
       "mcp__nocturne-memory__delete_memory",
       "mcp__nocturne-memory__update_memory",
-      "mcp__PostgreSQL__query"
+      "mcp__PostgreSQL__query",
+      "mcp__serena-niro-claude__write_memory"
     ]
   },
   "enableAllProjectMcpServers": true,
