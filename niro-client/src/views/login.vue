@@ -373,7 +373,6 @@ async function switchMode(mode: AuthMode) {
 function handleInviteCodeChange(value: string | number) {
   inviteSource.value = "manual";
   resetInviteValidation();
-  resetEmailCodeState();
   syncRouteQuery("register", String(value ?? "").trim());
 }
 
