@@ -92,7 +92,7 @@
             />
           </label>
 
-          <div class="jsh-filter-actions flex flex-wrap items-center gap-2 xl:justify-end">
+          <div class="jsh-filter-actions flex flex-wrap items-center gap-2">
             <t-button theme="primary" class="jsh-action-btn" @click="handleSearch">查询</t-button>
             <t-button variant="outline" theme="default" class="jsh-action-btn" @click="handleReset">
               重置

@@ -481,8 +481,7 @@
             <!-- 测试通知按钮 -->
             <div class="absolute top-[-28px] right-4">
               <t-button
-                v-if="wecomEnabled || formData.emailEnabled"
-                v-if="canTestNotify"
+                v-if="(wecomEnabled || formData.emailEnabled) && canTestNotify"
                 variant="text"
                 theme="primary"
                 :loading="testNotifyLoading"

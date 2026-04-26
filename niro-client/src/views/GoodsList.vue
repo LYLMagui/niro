@@ -11,42 +11,42 @@
           <t-icon name="shop" class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">商品列表</span>
         </div>
-        <t-form
-          ref="form"
-          :data="searchForm"
-          layout="inline"
-          @submit="handleSearch"
-          @reset="handleReset"
-        >
-          <t-form-item label="商品名称" name="goodsId">
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-4 xl:items-end">
+          <label class="flex flex-col gap-1.5">
+            <span class="text-sm font-medium text-slate-700">商品名称</span>
             <t-select
               v-model="searchForm.goodsId"
               :options="goodsOptions"
               filterable
               placeholder="请输入商品名称搜索"
               clearable
-              style="width: 260px"
+              class="w-full"
               :on-search="onRemoteSearch"
               :loading="searchLoading"
               reserve-keyword
+              @change="handleSearch"
             />
-          </t-form-item>
-          <t-form-item label="商品分类" name="categoryId">
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-sm font-medium text-slate-700">商品分类</span>
             <t-cascader
               v-model="searchForm.categoryId"
               :options="categoryOptions"
               placeholder="请选择分类"
               clearable
               check-strictly
-              style="width: 180px"
+              class="w-full"
+              @change="handleSearch"
             />
-          </t-form-item>
-          <t-form-item label="外观磨损" name="exterior">
+          </label>
+          <label class="flex flex-col gap-1.5">
+            <span class="text-sm font-medium text-slate-700">外观磨损</span>
             <t-select
               v-model="searchForm.exterior"
               placeholder="请选择外观"
               clearable
-              style="width: 140px"
+              class="w-full"
+              @change="handleSearch"
             >
               <t-option
                 v-for="item in ExteriorOptions"
@@ -55,29 +55,27 @@
                 :label="item.label"
               />
             </t-select>
-          </t-form-item>
-          <t-form-item>
-            <div v-permission="PermissionConstant.GOODS_LIST" class="flex gap-2">
-              <t-button theme="primary" type="submit">
-                <template #icon><search-icon /></template>
-                查询
-              </t-button>
-              <t-button theme="default" variant="base" type="reset">
-                <template #icon><refresh-icon /></template>
-                重置
-              </t-button>
-              <t-button
-                v-if="canSyncGoods"
-                theme="warning"
-                variant="base"
-                @click="syncDialogVisible = true"
-              >
-                <template #icon><cloud-download-icon /></template>
-                同步
-              </t-button>
-            </div>
-          </t-form-item>
-        </t-form>
+          </label>
+          <div class="flex items-center gap-2">
+            <t-button v-permission="PermissionConstant.GOODS_LIST" theme="primary" @click="handleSearch">
+              <template #icon><search-icon /></template>
+              查询
+            </t-button>
+            <t-button v-permission="PermissionConstant.GOODS_LIST" theme="default" variant="base" @click="handleReset">
+              <template #icon><refresh-icon /></template>
+              重置
+            </t-button>
+            <t-button
+              v-if="canSyncGoods"
+              theme="warning"
+              variant="base"
+              @click="syncDialogVisible = true"
+            >
+              <template #icon><cloud-download-icon /></template>
+              同步
+            </t-button>
+          </div>
+        </div>
       </div>
       <div class="relative min-h-0 flex-1">
         <t-table

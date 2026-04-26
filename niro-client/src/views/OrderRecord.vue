@@ -73,7 +73,6 @@
 
           <div
             class="jsh-filter-actions flex flex-wrap items-center gap-2"
-            :class="showAdvancedFilters ? 'xl:justify-end' : 'xl:justify-start'"
           >
             <t-button
               v-permission="PermissionConstant.TASK_RECORD_LIST"

@@ -64,7 +64,7 @@
               </t-option>
             </t-select>
           </label>
-          <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+          <div class="flex flex-wrap items-center gap-2">
             <t-button theme="primary" class="c5-sniping-v2-action-btn" @click="fetchData">
               查询
             </t-button>
@@ -432,7 +432,8 @@
               </div>
             </t-form-item>
 
-            <t-form-item
+            <!-- 停止模式选择已隐藏，默认按数量停止 -->
+            <!-- <t-form-item
               label="停止模式："
               name="stopMode"
               requiredMark
@@ -444,7 +445,7 @@
                 class="task-config-select"
                 @change="handleStopModeChange"
               />
-            </t-form-item>
+            </t-form-item> -->
             <t-form-item
               v-if="formData.stopMode === 'BUY_COUNT'"
               label="目标购买数："
@@ -921,7 +922,7 @@ const fillFormFromRow = (row: C5SnipingTaskV2Item, mode: FormMode) => {
     maxPrice: row.maxPrice,
     minPaintwear: row.minPaintwear ?? 0,
     maxPaintwear: row.maxPaintwear ?? 1,
-    stopMode: (row.stopMode || "BUY_COUNT") as C5SnipingTaskV2StopMode,
+    stopMode: "BUY_COUNT",
     targetBuyCount: row.targetBuyCount ?? 1,
     balanceGuardMode: (row.balanceGuardMode || "MAX_PRICE") as C5SnipingTaskV2BalanceGuardMode,
     reserveBalance: row.reserveBalance,

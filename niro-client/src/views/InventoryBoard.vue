@@ -122,54 +122,61 @@
                 >
                   <button
                     type="button"
-                    class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50/30 hover:text-blue-600"
+                    class="inline-flex h-10 items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-bold text-slate-600 shadow-sm transition-all duration-300 hover:scale-105 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 hover:shadow-md active:scale-95"
                   >
                     <span
-                      class="inline-flex h-2 w-2 rounded-full"
-                      :class="floatingTriggerToneClass"
-                    ></span>
+                      class="relative flex h-2.5 w-2.5"
+                    >
+                      <span
+                        class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
+                        :class="floatingTriggerToneClass"
+                      ></span>
+                      <span
+                        class="relative inline-flex h-2.5 w-2.5 rounded-full"
+                        :class="floatingTriggerToneClass"
+                      ></span>
+                    </span>
                     Steam 折扣
                   </button>
                   <template #content>
                     <section
-                      class="w-[300px] overflow-hidden bg-white"
+                      class="w-[360px] overflow-hidden bg-white"
                       aria-labelledby="steam-discount-title"
                       @click.stop
                     >
-                      <header class="flex items-start justify-between gap-3 border-b border-slate-50 px-4 py-3.5">
+                      <header class="flex items-start justify-between gap-3 border-b border-slate-50 px-5 py-4">
                         <div>
-                          <h2 id="steam-discount-title" class="text-[14px] font-bold text-slate-900">
+                          <h2 id="steam-discount-title" class="text-[16px] font-bold text-slate-900">
                             Steam 折扣测算
                           </h2>
-                          <p class="mt-0.5 text-[11px] text-slate-400">
+                          <p class="mt-1 text-[13px] text-slate-400">
                             按 Steam 到手价与平均买入价计算
                           </p>
                         </div>
                         <button
                           type="button"
-                          class="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                          class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                           @click="isSteamDialogVisible = false"
                         >
-                          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                           </svg>
                         </button>
                       </header>
 
-                      <div class="px-4 py-4">
-                        <div class="text-[11px] font-medium text-slate-400">当前商品</div>
-                        <div class="mt-0.5 text-[13px] font-bold text-slate-700">
+                      <div class="px-5 py-5">
+                        <div class="text-[12px] font-medium text-slate-400 uppercase tracking-wider">当前商品</div>
+                        <div class="mt-1 text-[15px] font-bold text-slate-700">
                           {{ selectedGoods }}
                         </div>
 
-                        <div class="mt-4">
-                          <div class="mb-1.5 text-[11px] font-medium text-slate-500">
+                        <div class="mt-5">
+                          <div class="mb-2 text-[13px] font-medium text-slate-500">
                             Steam 市场卖出单价 (含税)
                           </div>
                           <t-input
                             v-model="steamMarketPrice"
                             clearable
-                            size="small"
                             placeholder="输入 Steam 售价"
                             class="!rounded-lg"
                           >
@@ -177,30 +184,30 @@
                           </t-input>
                         </div>
 
-                        <div class="mt-4 grid grid-cols-2 gap-2">
-                          <div class="rounded-lg bg-slate-50/80 px-3 py-2.5">
-                            <div class="text-[10px] text-slate-400">库存总量</div>
-                            <div class="font-numeric mt-0.5 text-[14px] font-bold text-slate-700">
+                        <div class="mt-5 grid grid-cols-2 gap-3">
+                          <div class="rounded-xl bg-slate-50/80 px-4 py-3">
+                            <div class="text-[12px] text-slate-400">库存总量</div>
+                            <div class="font-numeric mt-1 text-[16px] font-bold text-slate-700">
                               {{ formatInteger(normalizedCurrentSummary.totalQuantity) }}
                             </div>
                           </div>
-                          <div class="rounded-lg bg-slate-50/80 px-3 py-2.5">
-                            <div class="text-[10px] text-slate-400">Steam 到手</div>
-                            <div class="font-numeric mt-0.5 text-[14px] font-bold text-slate-700">
+                          <div class="rounded-xl bg-slate-50/80 px-4 py-3">
+                            <div class="text-[12px] text-slate-400">Steam 到手</div>
+                            <div class="font-numeric mt-1 text-[16px] font-bold text-slate-700">
                               {{ steamTotalAmountText }}
                             </div>
                           </div>
                         </div>
 
-                        <div class="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/30 px-4 py-4 text-center">
-                          <div class="text-[10px] font-medium text-slate-400">计算折扣</div>
+                        <div class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 px-5 py-6 text-center">
+                          <div class="text-[12px] font-medium text-slate-400">计算折扣</div>
                           <div
-                            class="font-numeric mt-1 text-[32px] font-bold leading-none tracking-tight"
+                            class="font-numeric mt-2 text-[40px] font-bold leading-none tracking-tight"
                             :class="discountToneClass"
                           >
                             {{ discountText }}
                           </div>
-                          <div class="mt-2 text-[11px] text-slate-500">
+                          <div class="mt-3 text-[13px] text-slate-500">
                             {{ discountDescription }}
                           </div>
                         </div>
@@ -213,13 +220,6 @@
           </div>
         </div>
       </section>
-              <div :class="['mt-1.5 text-[#606266]', isMobile ? 'text-[10px]' : 'text-[12px]']">
-                {{ discountDescription }}
-              </div>
-            </div>
-          </div>
-        </section>
-      </div>
 
       <!-- 核心指标统计 -->
       <section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
