@@ -21,13 +21,10 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.niro.web.dto.report.BuffGoodsCategoryReportDTO;
 import com.niro.web.dto.report.BuffGoodsReportDTO;
-import com.niro.web.dto.report.BuffStickerReportDTO;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffGoodsCategory;
-import com.niro.web.entity.BuffSticker;
 import com.niro.web.service.BuffGoodsCategoryService;
 import com.niro.web.service.BuffGoodsService;
-import com.niro.web.service.BuffStickerService;
 
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
@@ -49,7 +46,6 @@ public class DataReportListener implements ApplicationRunner {
     private final StringRedisTemplate stringRedisTemplate;
     private final BuffGoodsService buffGoodsService;
     private final BuffGoodsCategoryService buffGoodsCategoryService;
-    private final BuffStickerService buffStickerService;
     private final ObjectMapper objectMapper;
 
     private static final String REDIS_KEY_DATA_REPORT = "niro:data:report";
@@ -100,8 +96,6 @@ public class DataReportListener implements ApplicationRunner {
                 handleGoodsList(dataNode, metaNode);
             } else if ("CATEGORY_LIST".equals(type)) {
                 handleCategoryList(dataNode);
-            } else if ("STICKER_LIST".equals(type)) {
-                handleStickerList(dataNode);
             } else {
                 log.warn("收到未知类型的上报数据: {}", type);
             }
@@ -196,43 +190,6 @@ public class DataReportListener implements ApplicationRunner {
         }
     }
 
-    private void handleStickerList(JsonNode dataNode) {
-        try {
-            List<BuffStickerReportDTO> dtoList = objectMapper.convertValue(dataNode, new TypeReference<List<BuffStickerReportDTO>>() {});
-            if (CollUtil.isEmpty(dtoList)) return;
-
-            List<BuffSticker> list = new ArrayList<>();
-            for (BuffStickerReportDTO dto : dtoList) {
-                list.add(BeanUtil.copyProperties(dto, BuffSticker.class));
-            }
-
-            if (CollUtil.isNotEmpty(list)) {
-                Set<Long> stickerIds = list.stream().map(BuffSticker::getStickerId).collect(Collectors.toSet());
-                
-                // 1. 批量查询存在的记录
-                List<BuffSticker> exists = buffStickerService.lambdaQuery()
-                        .in(BuffSticker::getStickerId, stickerIds)
-                        .select(BuffSticker::getId, BuffSticker::getStickerId)
-                        .list();
-                
-                Map<Long, Long> existMap = exists.stream()
-                        .collect(Collectors.toMap(BuffSticker::getStickerId, BuffSticker::getId));
-                
-                // 2. 填充 ID
-                for (BuffSticker sticker : list) {
-                    if (existMap.containsKey(sticker.getStickerId())) {
-                        sticker.setId(existMap.get(sticker.getStickerId()));
-                    }
-                }
-                
-                // 3. 批量保存
-                buffStickerService.saveOrUpdateBatch(list);
-                log.info("✅ 批量处理印花数据: {} 条", list.size());
-            }
-        } catch (Exception e) {
-            log.error("处理印花列表失败", e);
-        }
-    }
 
     // Spring 容器销毁时停止线程
     @PreDestroy

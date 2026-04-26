@@ -11,15 +11,15 @@ import type {
 
 export const unboxApi = {
   page(params?: { page?: number; pageSize?: number; startDate?: string; endDate?: string }) {
-    return request.get<UnboxRecordPageResult>('/unbox/record/page', { params });
+    return request.get<UnboxRecordPageResult>("/unbox/record/page", { params });
   },
 
   summary(params?: { startDate?: string; endDate?: string }) {
-    return request.get<UnboxRecordSummaryDTO>('/unbox/record/summary', { params });
+    return request.get<UnboxRecordSummaryDTO>("/unbox/record/summary", { params });
   },
 
   list(params?: { startDate?: string; endDate?: string }) {
-    return request.get<UnboxRecordDTO[]>('/unbox/record/list', { params });
+    return request.get<UnboxRecordDTO[]>("/unbox/record/list", { params });
   },
 
   getDetail(id: number) {
@@ -27,7 +27,7 @@ export const unboxApi = {
   },
 
   create(data: UnboxRecordSaveParam) {
-    return request.post<number>('/unbox/record', data);
+    return request.post<number>("/unbox/record", data);
   },
 
   update(id: number, data: UnboxRecordSaveParam) {

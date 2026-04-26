@@ -42,13 +42,14 @@ public class TradeOrderController {
             @RequestParam(defaultValue = "20") Integer pageSize,
             @RequestParam(required = false) Integer status,
             @RequestParam(required = false) String keyword,
+            @RequestParam(required = false) Long accountId,
             @RequestParam(required = false) String startDate,
             @RequestParam(required = false) String endDate,
             @RequestParam(required = false) String sortField,
             @RequestParam(required = false) String sortOrder) {
 
         Long userId = StpUtil.getLoginIdAsLong();
-        return tradeOrderRecordService.getOrderRecordPage(page, pageSize, status, userId, keyword, startDate, endDate, sortField, sortOrder);
+        return tradeOrderRecordService.getOrderRecordPage(page, pageSize, status, userId, keyword, accountId, startDate, endDate, sortField, sortOrder);
     }
 
     @Operation(summary = "删除订单记录")

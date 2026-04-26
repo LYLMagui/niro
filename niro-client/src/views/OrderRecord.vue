@@ -1,13 +1,14 @@
-﻿<template>
+<template>
   <PageFrame
     :is-mobile="isMobile"
     :on-body-ref-change="handleOrderRecordBodyRefChange"
     body-class="order-record-body"
     mobile-body-class="overflow-y-visible"
-    desktop-content-class="px-4 pt-3 pb-4"
+    desktop-outer-class="!p-0"
+    desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+    <section class="overflow-hidden bg-white">
       <t-tabs
         v-model="activeTab"
         class="jsh-tabs border-b border-slate-200 bg-white px-4"
@@ -19,12 +20,12 @@
         <t-tab-panel :value="3" label="取消" />
       </t-tabs>
 
-      <div class="flex flex-col gap-3 bg-slate-50/70 px-4 py-3">
+      <div class="flex flex-col gap-3 bg-white px-0 py-4">
         <div
           :class="[
             'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
             showAdvancedFilters
-              ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,320px)_auto]'
+              ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,220px)_minmax(0,320px)_auto]'
               : 'xl:grid-cols-[minmax(0,280px)_auto]',
           ]"
         >
@@ -41,10 +42,22 @@
             />
           </label>
 
-          <label
-            v-if="showAdvancedFilters"
-            class="jsh-filter-item flex min-w-0 flex-col gap-1.5"
-          >
+          <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+            <span class="jsh-label text-sm font-medium text-slate-700">账号</span>
+            <t-select
+              v-model="queryParams.accountId"
+              clearable
+              filterable
+              :loading="accountsLoading"
+              :options="accountSelectOptions"
+              placeholder="请选择 C5 账号"
+              class="jsh-filter-select"
+              :class="toolbarFieldClass"
+              @change="handleSearch"
+            />
+          </label>
+
+          <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
             <span class="jsh-label text-sm font-medium text-slate-700">订单日期</span>
             <t-date-range-picker
               v-model="dateRange"
@@ -101,19 +114,30 @@
           </div>
         </div>
 
-        <div
-          class="jsh-toolbar flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between"
-        >
+        <div class="jsh-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="order-toolbar-main flex min-w-0 flex-1 flex-wrap items-center gap-2">
             <div
               class="table-operator flex flex-wrap items-center gap-2"
               :class="{ 'table-operator--mobile': isMobile }"
             >
               <div
-                v-permission="PermissionConstant.TASK_C5_LIST"
+                v-if="canTriggerC5Sync"
                 class="order-sync-control flex items-center gap-2"
                 :class="{ 'order-sync-control--mobile': isMobile }"
               >
+                <span class="order-sync-control__label">同步账号</span>
+                <t-select
+                  v-model="selectedSyncAccountId"
+                  clearable
+                  filterable
+                  class="order-sync-control__account-select"
+                  :class="toolbarCompactFieldClass"
+                  :disabled="c5SyncLoading"
+                  :loading="accountsLoading"
+                  :options="accountSelectOptions"
+                  placeholder="请选择账号"
+                  aria-label="同步账号"
+                />
                 <span class="order-sync-control__label">同步范围</span>
                 <t-select
                   v-model="selectedSyncRange"
@@ -138,6 +162,7 @@
                     theme="default"
                     class="jsh-action-btn"
                     :loading="c5SyncLoading"
+                    :disabled="c5SyncLoading"
                     @click="handleC5Sync"
                   >
                     {{ isMobile ? "同步订单" : "同步 C5 订单" }}
@@ -146,7 +171,7 @@
               </div>
 
               <t-popconfirm
-                v-permission="PermissionConstant.ORDER_RECORD_DELETE"
+                v-if="canDeleteOrderRecord"
                 content="确认批量删除勾选订单吗？"
                 @confirm="handleBatchDelete"
               >
@@ -199,14 +224,11 @@
     </section>
 
     <div
-      :class="[
-        'order-record-main relative',
-        isMobile ? 'min-h-fit flex-none pt-3 pb-0' : 'min-h-0 flex-1 pt-3 pb-4',
-      ]"
+      :class="['order-record-main relative', isMobile ? 'min-h-fit flex-none' : 'min-h-0 flex-1']"
     >
       <div
         v-if="!isMobile"
-        class="order-record-table-wrap relative flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
+        class="order-record-table-wrap relative flex h-full min-h-0 flex-col overflow-hidden bg-white"
       >
         <div ref="orderRecordTableViewportRef" class="min-h-0 flex-1 overflow-hidden">
           <t-table
@@ -227,119 +249,118 @@
             @sort-change="onSortChange"
             @select-change="handleSelectChange"
           >
-          <template #empty>
-            <div class="jsh-ledger-empty">
-              <t-empty description="暂无订单记录" />
-            </div>
-          </template>
-
-          <template #goods="{ row }">
-            <div class="flex items-center gap-3">
-              <t-image
-                :src="row.goodsImg"
-                class="h-10 w-10 shrink-0 rounded border border-gray-100 bg-gray-50"
-                fit="contain"
-              />
-              <div class="flex min-w-0 flex-col">
-                <span class="truncate font-medium text-[#303133]" :title="row.goodsName">
-                  {{ row.goodsName }}
-                </span>
-                <span class="truncate text-xs text-[#909399]">
-                  磨损: {{ formatPaintwear(row.paintwear) }}
-                </span>
+            <template #empty>
+              <div class="jsh-ledger-empty">
+                <t-empty description="暂无订单记录" />
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #account="{ row }">
-            <div class="flex flex-col items-start gap-1">
-              <t-tag
-                :theme="row.platform === 'BUFF' ? 'warning' : 'primary'"
-                variant="light"
-                size="small"
+            <template #goods="{ row }">
+              <div class="flex items-center gap-3">
+                <t-image
+                  :src="row.goodsImg"
+                  class="h-10 w-10 shrink-0 rounded border border-gray-100 bg-gray-50"
+                  fit="contain"
+                />
+                <div class="flex min-w-0 flex-col">
+                  <t-tooltip :content="row.goodsName" placement="top-left">
+                    <span class="truncate font-medium text-[#303133]">
+                      {{ row.goodsName }}
+                    </span>
+                  </t-tooltip>
+                  <span class="truncate text-xs text-[#909399]">
+                    磨损: {{ formatPaintwear(row.paintwear) }}
+                  </span>
+                </div>
+              </div>
+            </template>
+
+            <template #account="{ row }">
+              <div class="flex flex-col items-start gap-1">
+                <t-tag
+                  :theme="row.platform === 'BUFF' ? 'warning' : 'primary'"
+                  variant="light"
+                  size="small"
+                >
+                  {{ row.platform }}
+                </t-tag>
+                <span class="text-sm text-[#606266]">{{ row.accountName || "-" }}</span>
+              </div>
+            </template>
+
+            <template #orderId="{ row }">
+              <button
+                v-if="row.orderId"
+                type="button"
+                class="font-mono-value cursor-pointer border-0 bg-transparent p-0 text-xs text-[#0052d9] transition-colors hover:text-[#366ef4]"
+                :aria-label="`复制 C5 订单号 ${row.orderId}`"
+                @click="handleCopyOrderId(row.orderId)"
               >
-                {{ row.platform }}
-              </t-tag>
-              <span class="text-sm text-[#606266]">{{ row.accountName || "-" }}</span>
-            </div>
-          </template>
+                {{ row.orderId }}
+              </button>
+              <span v-else class="text-xs text-[#b0b4bb]">未生成</span>
+            </template>
 
-          <template #orderId="{ row }">
-            <button
-              v-if="row.orderId"
-              type="button"
-              class="font-mono-value cursor-pointer border-0 bg-transparent p-0 text-xs text-[#0052d9] transition-colors hover:text-[#366ef4]"
-              :aria-label="`复制 C5 订单号 ${row.orderId}`"
-              @click="handleCopyOrderId(row.orderId)"
-            >
-              {{ row.orderId }}
-            </button>
-            <span v-else class="text-xs text-[#b0b4bb]">未生成</span>
-          </template>
+            <template #price="{ row }">
+              <span class="font-mono-value font-medium text-[#303133]">
+                {{ formatPrice(row.price) }}
+              </span>
+            </template>
 
-          <template #price="{ row }">
-            <span class="font-mono-value font-medium text-[#303133]">
-              {{ formatPrice(row.price) }}
-            </span>
-          </template>
-
-          <template #status="{ row }">
-            <div class="order-status-cell">
-              <t-tooltip
-                v-if="shouldShowErrorDetail(row.status)"
-                :content="getOrderErrorDetail(row)"
-                placement="top"
-              >
-                <t-tag theme="danger" variant="light" class="cursor-help">
-                  <template #icon><close-circle-icon /></template>
+            <template #status="{ row }">
+              <div class="order-status-cell">
+                <t-tooltip
+                  v-if="shouldShowErrorDetail(row.status)"
+                  :content="getOrderErrorDetail(row)"
+                  placement="top"
+                >
+                  <t-tag theme="danger" variant="light" class="cursor-help">
+                    <template #icon><close-circle-icon /></template>
+                    {{ getStatusMeta(row.status).label }}
+                  </t-tag>
+                </t-tooltip>
+                <t-tag v-else :theme="getStatusMeta(row.status).theme" variant="light">
+                  <template v-if="isSuccessStatus(row.status)" #icon>
+                    <check-circle-icon />
+                  </template>
                   {{ getStatusMeta(row.status).label }}
                 </t-tag>
-              </t-tooltip>
-              <t-tag v-else :theme="getStatusMeta(row.status).theme" variant="light">
-                <template v-if="isSuccessStatus(row.status)" #icon>
-                  <check-circle-icon />
-                </template>
-                {{ getStatusMeta(row.status).label }}
-              </t-tag>
-              <div v-if="shouldShowErrorDetail(row.status)" class="order-status-cell__error">
-                <span v-if="row.errorCode" class="order-status-cell__error-code">
-                  {{ row.errorCode }}
-                </span>
-                <span class="order-status-cell__error-text" :title="getErrorText(row.errorMsg)">
-                  {{ getErrorText(row.errorMsg) }}
-                </span>
+                <div v-if="shouldShowErrorDetail(row.status)" class="order-status-cell__error">
+                  <span v-if="row.errorCode" class="order-status-cell__error-code">
+                    {{ row.errorCode }}
+                  </span>
+                  <t-tooltip :content="getErrorText(row.errorMsg)" placement="top">
+                    <span class="order-status-cell__error-text">
+                      {{ getErrorText(row.errorMsg) }}
+                    </span>
+                  </t-tooltip>
+                </div>
               </div>
-            </div>
-          </template>
+            </template>
 
-          <template #time="{ row }">
-            <span class="text-[#606266]">{{ formatTime(row.createTime) }}</span>
-          </template>
+            <template #time="{ row }">
+              <span class="text-[#606266]">{{ formatTime(row.createTime) }}</span>
+            </template>
 
-          <template #operation="{ row }">
-            <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="niro-table-actions">
-              <t-popconfirm content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
-                <t-button
-                  v-permission="PermissionConstant.ORDER_RECORD_DELETE"
-                  variant="outline"
-                  size="small"
-                  theme="danger"
-                  class="niro-table-action-btn"
-                >
-                  删除
-                </t-button>
-              </t-popconfirm>
-            </div>
-          </template>
+            <template #operation="{ row }">
+              <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="niro-table-actions">
+                <t-popconfirm v-if="canDeleteOrderRecord" content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
+                  <t-button
+                    variant="outline"
+                    size="small"
+                    theme="danger"
+                    class="niro-table-action-btn"
+                  >
+                    删除
+                  </t-button>
+                </t-popconfirm>
+              </div>
+            </template>
           </t-table>
         </div>
 
-        <div
-          v-if="pagination.total > 0"
-          class="border-t border-slate-200 bg-white px-4 py-3"
-        >
+        <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
-            size="small"
             :current="pagination.current"
             :page-size="pagination.pageSize"
             :total="pagination.total"
@@ -461,9 +482,8 @@
               class="order-mobile-card__actions"
               @click.stop
             >
-              <t-popconfirm content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
+              <t-popconfirm v-if="canDeleteOrderRecord" content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
                 <t-button
-                  v-permission="PermissionConstant.ORDER_RECORD_DELETE"
                   variant="outline"
                   theme="danger"
                   class="order-mobile-card__delete-btn"
@@ -477,7 +497,6 @@
 
           <div v-if="!loading && pagination.total > 0" class="order-mobile__pagination">
             <t-pagination
-              size="small"
               theme="simple"
               :current="pagination.current"
               :page-size="pagination.pageSize"
@@ -494,7 +513,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, nextTick, reactive, ref, watch } from "vue";
+import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import dayjs from "dayjs";
 import {
@@ -508,10 +527,13 @@ import {
 } from "tdesign-vue-next";
 import { CheckCircleIcon, CloseCircleIcon } from "tdesign-icons-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { orderApi } from "@/api/order";
+import type { C5SnipingAccount } from "@/types/c5-sniping-account";
 import type { OrderQueryParam, TradeOrderRecord } from "@/types/order";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
+import useNewPermission from "@/hooks/useNewPermission";
 
 interface PaginationChangeContext {
   current: number;
@@ -532,6 +554,11 @@ interface SyncRangeOption {
   longRunning?: boolean;
 }
 
+interface AccountSelectOption {
+  label: string;
+  value: number;
+}
+
 interface MobileStatusOption {
   label: string;
   value: number;
@@ -542,15 +569,18 @@ const ERROR_DETAIL_STATUSES = new Set([2, 3, 11]);
 const SUCCESS_STATUSES = new Set([1, 10, 200]);
 
 const { hasPermission } = usePermission();
+const { hasButtonPermission } = useNewPermission();
 const { width } = useWindowSize();
 
 const canViewOrderRecord = computed(() => hasPermission(PermissionConstant.TASK_RECORD_LIST));
-const canTriggerC5Sync = computed(() => hasPermission(PermissionConstant.TASK_C5_LIST));
-const canDeleteOrderRecord = computed(() => hasPermission(PermissionConstant.ORDER_RECORD_DELETE));
+const canTriggerC5Sync = computed(() => hasButtonPermission(PermissionConstant.ORDER_C5_SYNC));
+const canDeleteOrderRecord = computed(() => hasButtonPermission(PermissionConstant.ORDER_RECORD_DELETE));
 const isMobile = computed(() => width.value <= 640);
 
 const loading = ref(false);
 const c5SyncLoading = ref(false);
+const accountsLoading = ref(false);
+const c5Accounts = ref<C5SnipingAccount[]>([]);
 const syncRangeOptions: SyncRangeOption[] = [
   { label: "今天", value: 0, successText: "C5 订单同步任务已提交（今天）" },
   { label: "昨天", value: 1, successText: "C5 订单同步任务已提交（昨天）" },
@@ -559,6 +589,7 @@ const syncRangeOptions: SyncRangeOption[] = [
   { label: "全部", value: -1, successText: "C5 订单同步任务已提交（全部历史）", longRunning: true },
 ];
 const selectedSyncRange = ref<number>(1);
+const selectedSyncAccountId = ref<number>();
 const mobileStatusOptions: MobileStatusOption[] = [
   { label: "全部", value: 0 },
   { label: "成功", value: 1 },
@@ -581,6 +612,7 @@ const queryParams = reactive<OrderQueryParam>({
   page: 1,
   pageSize: 20,
   status: undefined,
+  accountId: undefined,
   keyword: "",
   startDate: undefined,
   endDate: undefined,
@@ -600,9 +632,9 @@ const orderTableHeaderClass =
   "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
 const orderTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 const toolbarFieldClass =
-  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const toolbarCompactFieldClass =
-  "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const ORDER_TABLE_MIN_HEIGHT = 320;
 const ORDER_TABLE_MAX_HEIGHT_OFFSET = 1;
 const orderTableMaxHeight = computed(() => {
@@ -611,7 +643,10 @@ const orderTableMaxHeight = computed(() => {
     return ORDER_TABLE_MIN_HEIGHT;
   }
 
-  return Math.max(Math.floor(viewportHeight - ORDER_TABLE_MAX_HEIGHT_OFFSET), ORDER_TABLE_MIN_HEIGHT);
+  return Math.max(
+    Math.floor(viewportHeight - ORDER_TABLE_MAX_HEIGHT_OFFSET),
+    ORDER_TABLE_MIN_HEIGHT
+  );
 });
 
 const priceFormatter = new Intl.NumberFormat("zh-CN", {
@@ -704,8 +739,20 @@ const currentSyncRange = computed(
     syncRangeOptions.find((item) => item.value === selectedSyncRange.value) ?? syncRangeOptions[1]
 );
 
+const getAccountOptionLabel = (account: C5SnipingAccount) =>
+  `${account.accountName}${account.id ? `（${account.id}）` : ""}`;
+
+const accountSelectOptions = computed<AccountSelectOption[]>(() =>
+  c5Accounts.value
+    .filter((item): item is C5SnipingAccount & { id: number } => typeof item.id === "number")
+    .map((item) => ({
+      label: getAccountOptionLabel(item),
+      value: item.id,
+    }))
+);
+
 const shouldConfirmFullHistorySync = computed(
-  () => currentSyncRange.value.longRunning && !c5SyncLoading.value
+  () => currentSyncRange.value.longRunning && !c5SyncLoading.value && !!selectedSyncAccountId.value
 );
 const syncConfirmContent = "确认同步全部历史订单？会拉取完整历史订单，耗时可能较长。";
 const syncConfirmPopupProps = {
@@ -886,6 +933,7 @@ const handleReset = () => {
   dateRange.value = [];
   queryParams.keyword = "";
   queryParams.status = undefined;
+  queryParams.accountId = undefined;
   queryParams.startDate = undefined;
   queryParams.endDate = undefined;
   queryParams.sortField = undefined;
@@ -995,6 +1043,18 @@ const toggleAdvancedFilters = () => {
   showAdvancedFilters.value = !showAdvancedFilters.value;
 };
 
+const fetchAccounts = async () => {
+  accountsLoading.value = true;
+  try {
+    c5Accounts.value = await c5SnipingAccountApi.getAccounts();
+  } catch (error) {
+    console.error("C5 账号列表加载失败", error);
+    MessagePlugin.error("C5 账号列表加载失败");
+  } finally {
+    accountsLoading.value = false;
+  }
+};
+
 const handleBatchDelete = async () => {
   if (!canDeleteOrderRecord.value) {
     MessagePlugin.warning("当前账号没有订单删除权限");
@@ -1018,10 +1078,10 @@ const handleBatchDelete = async () => {
   }
 };
 
-const triggerC5SyncRequest = async (currentRange: SyncRangeOption) => {
+const triggerC5SyncRequest = async (currentRange: SyncRangeOption, accountId: number) => {
   c5SyncLoading.value = true;
   try {
-    const res = await orderApi.triggerC5Sync(currentRange.value);
+    const res = await orderApi.triggerC5Sync(accountId, currentRange.value);
     const message = typeof res === "string" ? res : currentRange.successText;
     const isDuplicateTrigger =
       message.includes("请勿重复触发") ||
@@ -1040,8 +1100,23 @@ const triggerC5SyncRequest = async (currentRange: SyncRangeOption) => {
   }
 };
 
+const getSelectedSyncAccountId = () => {
+  const accountId = selectedSyncAccountId.value;
+  return typeof accountId === "number" ? accountId : undefined;
+};
+
+const warnMissingSyncAccount = () => {
+  MessagePlugin.warning(accountSelectOptions.value.length > 0 ? "请选择同步账号" : "请先配置/选择 C5 账号");
+};
+
 const handleConfirmFullHistorySync = async () => {
-  await triggerC5SyncRequest(currentSyncRange.value);
+  const accountId = getSelectedSyncAccountId();
+  if (!accountId) {
+    warnMissingSyncAccount();
+    return;
+  }
+
+  await triggerC5SyncRequest(currentSyncRange.value, accountId);
 };
 
 const handleC5Sync = async () => {
@@ -1055,16 +1130,26 @@ const handleC5Sync = async () => {
     return;
   }
 
+  const accountId = getSelectedSyncAccountId();
+  if (!accountId) {
+    warnMissingSyncAccount();
+    return;
+  }
+
   const currentRange = currentSyncRange.value;
   if (currentRange.longRunning) {
     return;
   }
 
-  await triggerC5SyncRequest(currentRange);
+  await triggerC5SyncRequest(currentRange, accountId);
 };
 
 watch(isMobile, (mobile) => {
   showAdvancedFilters.value = !mobile;
+});
+
+onMounted(() => {
+  fetchAccounts();
 });
 
 watch(
@@ -1127,6 +1212,11 @@ watch(
   color: rgb(71 85 105);
   font-size: 13px;
   line-height: 1;
+}
+
+.order-sync-control__account-select {
+  width: 180px;
+  min-width: 180px;
 }
 
 .order-sync-control__select {
@@ -1248,7 +1338,6 @@ watch(
   flex: 1;
   min-height: 0;
 }
-
 
 .order-mobile {
   display: flex;
@@ -1568,7 +1657,7 @@ watch(
 
   .table-operator--mobile {
     display: grid;
-    grid-template-columns: 88px repeat(2, minmax(0, 1fr));
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     gap: 8px;
     align-items: center;
     width: 100%;
@@ -1587,12 +1676,20 @@ watch(
     grid-column: 1 / -1;
   }
 
-  .order-sync-control--mobile .order-sync-control__select {
-    grid-column: 1;
+  .order-sync-control--mobile .order-sync-control__account-select {
+    grid-column: 1 / -1;
     width: 100%;
     min-width: 0;
   }
 
+  .order-sync-control--mobile .order-sync-control__select {
+    grid-column: 1 / 2;
+    width: 100%;
+    min-width: 0;
+  }
+
+  .order-sync-control--mobile .order-sync-control__account-select :deep(.t-input),
+  .order-sync-control--mobile .order-sync-control__account-select :deep(.t-input__wrap),
   .order-sync-control--mobile .order-sync-control__select :deep(.t-input),
   .order-sync-control--mobile .order-sync-control__select :deep(.t-input__wrap) {
     min-height: 0;

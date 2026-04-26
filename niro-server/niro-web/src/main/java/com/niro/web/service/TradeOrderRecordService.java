@@ -35,13 +35,14 @@ public interface TradeOrderRecordService{
      * @param status    状态
      * @param userId    用户ID
      * @param keyword   搜索关键词
+     * @param accountId 账号 ID，为空时不过滤账号
      * @param startDate 开始日期
      * @param endDate   结束日期
      * @param sortField 排序字段
      * @param sortOrder 排序方式
      * @return 分页结果
      */
-    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, Integer status, Long userId, String keyword, String startDate, String endDate, String sortField, String sortOrder);
+    Page<TradeOrderRecordDTO> getOrderRecordPage(Integer pageNum, Integer pageSize, Integer status, Long userId, String keyword, Long accountId, String startDate, String endDate, String sortField, String sortOrder);
 
     /**
      * 删除订单记录

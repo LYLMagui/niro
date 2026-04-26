@@ -1,37 +1,194 @@
 <template>
   <PageFrame
     :is-mobile="isMobile"
-    desktop-content-class="px-4 pt-3 pb-4"
+    desktop-outer-class="!p-0"
+    desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-3"
   >
     <div
       ref="pageHostRef"
-      class="unbox-record-page relative flex min-h-0 flex-1 flex-col gap-4"
+      class="unbox-record-page relative flex min-h-0 flex-1 flex-col"
       :class="editorVisible ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'"
     >
-      <section class="grid grid-cols-1 gap-2 md:grid-cols-2 xl:grid-cols-4">
-        <article
-          v-for="card in pageSummaryCards"
-          :key="card.label"
-          class="rounded-lg border border-slate-200 bg-white px-3 py-2 shadow-sm"
-          :class="summaryLoading ? 'opacity-70' : ''"
+      <section class="grid grid-cols-1 gap-4 py-4 md:grid-cols-2 xl:grid-cols-4">
+        <!-- 开箱数量 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-blue-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
         >
-          <div class="truncate text-sm font-medium tracking-[0.03em] text-slate-500">
-            {{ card.label }}
+          <div class="absolute -top-4 -right-4 text-blue-50/40">
+            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M21 16.5c0 .38-.21.71-.53.88l-7.97 4.43c-.31.17-.69.17-1 0L3.53 17.38c-.32-.17-.53-.5-.53-.88V7.5c0-.38.21-.71.53-.88l7.97-4.43c.31-.17.69-.17 1 0l7.97 4.43c.32.17.53.5.53.88v9z"
+              />
+            </svg>
           </div>
+          <div class="relative z-10 flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-medium text-slate-500">开箱数量</span>
+            </div>
+            <div class="mt-1 flex items-baseline gap-1.5">
+              <span class="font-numeric text-2xl font-bold tracking-tight text-slate-900">
+                {{ pageSummary.totalBatches }}
+              </span>
+              <span class="text-xs text-slate-400">批次</span>
+            </div>
+            <p class="text-[11px] text-slate-400">当前筛选结果统计</p>
+          </div>
+        </div>
+
+        <!-- 购买总花费 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-indigo-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+        >
+          <div class="absolute -top-4 -right-4 text-indigo-50/40">
+            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.82v-1.91c-.08-.05-.16-.09-.23-.14-1.25-.8-1.57-1.74-1.59-2.81h1.79c.02.63.2 1.05.74 1.4.38.25.9.43 1.54.43.52 0 1.03-.13 1.37-.39.43-.32.55-.83.33-1.27-.15-.31-.46-.57-1.1-.81l-.99-.37c-1.34-.51-2.43-1.22-2.78-2.6-.18-.71-.12-1.48.25-2.09.34-.57.94-1.03 1.74-1.33V6h2.82v1.89c.14.07.28.16.42.25 1.01.66 1.4 1.54 1.45 2.5h-1.8c-.02-.45-.11-.84-.5-1.12-.35-.25-.85-.43-1.44-.43-.46 0-.89.1-1.18.3-.39.27-.47.74-.32 1.14.12.33.43.58 1.04.81l.99.37c1.39.52 2.37 1.3 2.76 2.61.16.53.18 1.09.06 1.63-.2.91-.77 1.64-1.63 2.03z"
+              />
+            </svg>
+          </div>
+          <div class="relative z-10 flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-medium text-slate-500">购买总花费</span>
+            </div>
+            <div class="mt-1 flex items-baseline gap-1 text-slate-900">
+              <span class="text-sm font-semibold">¥</span>
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatCurrency(pageSummary.totalPurchaseCost, { symbol: false }) }}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">实际购入价格口径汇总</p>
+          </div>
+        </div>
+
+        <!-- 总手续费 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-orange-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+        >
+          <div class="absolute -top-4 -right-4 text-orange-50/40">
+            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
+              />
+            </svg>
+          </div>
+          <div class="relative z-10 flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 text-orange-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-medium text-slate-500">总手续费</span>
+            </div>
+            <div class="mt-1 flex items-baseline gap-1 text-orange-600">
+              <span class="text-sm font-semibold">¥</span>
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatCurrency(pageSummary.totalFee, { symbol: false }) }}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">平台卖出价 1% 估算</p>
+          </div>
+        </div>
+
+        <!-- 总利润 -->
+        <div
+          class="relative overflow-hidden rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md"
+          :class="pageSummary.totalActualNetProfit >= 0 ? 'border-emerald-100' : 'border-red-100'"
+        >
           <div
-            class="font-numeric mt-1 text-[22px] leading-none font-semibold"
-            :class="card.valueClass"
+            class="absolute -top-4 -right-4 opacity-40"
+            :class="pageSummary.totalActualNetProfit >= 0 ? 'text-emerald-50' : 'text-red-50'"
           >
-            {{ card.value }}
+            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+              <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
+            </svg>
           </div>
-          <div class="mt-1 truncate text-sm leading-5 text-slate-400">{{ card.hint }}</div>
-        </article>
+          <div class="relative z-10 flex flex-col gap-1">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-lg"
+                :class="
+                  pageSummary.totalActualNetProfit >= 0
+                    ? 'bg-emerald-50 text-emerald-600'
+                    : 'bg-red-50 text-red-600'
+                "
+              >
+                <svg
+                  v-if="pageSummary.totalActualNetProfit >= 0"
+                  class="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                  />
+                </svg>
+                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-medium text-slate-500">预期总利润</span>
+            </div>
+            <div
+              class="mt-1 flex items-baseline gap-1"
+              :class="pageSummary.totalActualNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'"
+            >
+              <span class="text-sm font-semibold">¥</span>
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatCurrency(pageSummary.totalActualNetProfit, { symbol: false }) }}
+              </span>
+            </div>
+            <p class="text-[11px] text-slate-400">
+              {{ pageSummary.totalActualNetProfit >= 0 ? "盈利中" : "亏损中" }}
+            </p>
+          </div>
+        </div>
       </section>
 
-      <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
+      <section class="overflow-hidden bg-white">
         <div
-          class="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/70 px-4 py-3 lg:flex-row lg:items-center lg:justify-between"
+          class="flex flex-col gap-3 bg-white px-0 py-4 lg:flex-row lg:items-center lg:justify-between"
         >
           <div class="flex min-w-0 flex-1 flex-col gap-3">
             <div class="flex flex-wrap items-center gap-2" aria-label="周期快捷筛选">
@@ -71,7 +228,7 @@
           </div>
 
           <div class="flex shrink-0 items-center justify-end gap-2">
-            <t-button theme="primary" class="touch-manipulation" @click="openCreateEditor">
+            <t-button v-if="canCreateUnboxRecord" theme="primary" class="touch-manipulation" @click="openCreateEditor">
               新增开箱记录
             </t-button>
           </div>
@@ -79,10 +236,10 @@
 
         <div class="overflow-x-auto">
           <t-table
+            v-model:sort="batchSummarySort"
             row-key="key"
             :data="pagedBatchSummaryRows"
             :columns="batchColumns"
-            v-model:sort="batchSummarySort"
             table-layout="fixed"
             hover
             class="unbox-summary-table w-full bg-white"
@@ -92,38 +249,50 @@
             </template>
 
             <template #date="{ row }">
-              <span class="text-slate-600">{{ formatDateText(row.batch.date) }}</span>
+              <t-tooltip :content="formatDateText(row.batch.date)" placement="top-left">
+                <span class="truncate text-slate-600">{{ formatDateText(row.batch.date) }}</span>
+              </t-tooltip>
             </template>
 
             <template #totalCount="{ row }">
-              <span class="font-numeric text-slate-700">{{ row.summary.totalCount }}</span>
+              <t-tooltip :content="String(row.summary.totalCount)" placement="top">
+                <span class="truncate font-numeric text-slate-700">{{ row.summary.totalCount }}</span>
+              </t-tooltip>
             </template>
 
             <template #purchaseCost="{ row }">
-              <span class="font-numeric text-slate-700">
-                {{ formatCurrency(row.summary.totalPurchaseCost) }}
-              </span>
+              <t-tooltip :content="formatCurrency(row.summary.totalPurchaseCost)" placement="top">
+                <span class="truncate font-numeric text-slate-700">
+                  {{ formatCurrency(row.summary.totalPurchaseCost) }}
+                </span>
+              </t-tooltip>
             </template>
 
             <template #totalFee="{ row }">
-              <span class="font-numeric text-amber-600">
-                {{ formatCurrency(row.summary.totalActualFee) }}
-              </span>
+              <t-tooltip :content="formatCurrency(row.summary.totalActualFee)" placement="top">
+                <span class="truncate font-numeric text-amber-600">
+                  {{ formatCurrency(row.summary.totalActualFee) }}
+                </span>
+              </t-tooltip>
             </template>
 
             <template #actualNetProfit="{ row }">
-              <span class="font-numeric" :class="profitClass(row.summary.totalActualNetProfit)">
-                {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
-              </span>
+              <t-tooltip :content="formatSignedCurrency(row.summary.totalActualNetProfit)" placement="top">
+                <span class="truncate font-numeric" :class="profitClass(row.summary.totalActualNetProfit)">
+                  {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
+                </span>
+              </t-tooltip>
             </template>
 
             <template #actualProfitRate="{ row }">
-              <span
-                class="font-numeric"
-                :class="profitClass(row.summary.totalActualProfitRate ?? 0)"
-              >
-                {{ formatPercent(row.summary.totalActualProfitRate) }}
-              </span>
+              <t-tooltip :content="formatPercent(row.summary.totalActualProfitRate)" placement="top">
+                <span
+                  class="truncate font-numeric"
+                  :class="profitClass(row.summary.totalActualProfitRate ?? 0)"
+                >
+                  {{ formatPercent(row.summary.totalActualProfitRate) }}
+                </span>
+              </t-tooltip>
             </template>
 
             <template #status="{ row }">
@@ -134,8 +303,16 @@
 
             <template #operation="{ row }">
               <div class="flex flex-wrap gap-1.5">
-                <t-button variant="outline" :loading="detailLoading && loadingDetailBatchId === row.batch.id" @click="openEditEditor(row.batch.id)">编辑</t-button>
+                <t-button
+                  v-if="canUpdateUnboxRecord"
+                  variant="outline"
+                  :loading="detailLoading && loadingDetailBatchId === row.batch.id"
+                  @click="openEditEditor(row.batch.id)"
+                >
+                  编辑
+                </t-button>
                 <t-popconfirm
+                  v-if="canDeleteUnboxRecord"
                   content="确认删除该批次吗？"
                   theme="danger"
                   :popup-props="{ attach: 'body' }"
@@ -199,7 +376,7 @@
                 {{ isEditorFullscreen ? "缩小" : "全屏" }}
               </t-button>
               <t-button variant="outline" @click="editorVisible = false">取消</t-button>
-              <t-button theme="primary" :loading="savingBatch" @click="saveDraftBatch">
+              <t-button theme="primary" :loading="savingBatch" :disabled="!canEditUnboxDraft" @click="saveDraftBatch">
                 {{ savingBatch ? "保存中..." : "保存批次" }}
               </t-button>
               <button
@@ -234,7 +411,7 @@
           <div class="flex h-full min-h-0 flex-col gap-3">
             <section
               ref="batchInfoSectionRef"
-              class="shrink-0 overflow-hidden rounded-[10px] border border-slate-200/80 bg-white px-3 py-2.5 shadow-sm"
+              class="shrink-0 overflow-hidden rounded border border-slate-200/80 bg-white px-3 py-2.5"
             >
               <div class="flex items-start justify-between gap-3">
                 <div class="min-w-0 space-y-1">
@@ -355,7 +532,7 @@
             </section>
 
             <section
-              class="flex min-h-0 flex-col overflow-hidden rounded-[10px] border border-slate-200/80 bg-white shadow-sm"
+              class="flex min-h-0 flex-col overflow-hidden rounded border border-slate-200/80 bg-white"
             >
               <div class="shrink-0 border-b border-slate-200/80 px-3 py-2">
                 <div class="space-y-2">
@@ -370,11 +547,11 @@
 
                     <div class="overflow-x-auto">
                       <div class="inline-flex min-w-max items-center gap-1.5 pb-0.5">
-                        <t-button theme="primary" variant="outline" @click="handleAddRow()">
+                        <t-button theme="primary" variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleAddRow()">
                           +1
                         </t-button>
-                        <t-button variant="outline" @click="handleBulkAdd(10)">+10</t-button>
-                        <t-button variant="outline" @click="handleBulkAdd(50)">+50</t-button>
+                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleBulkAdd(10)">+10</t-button>
+                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleBulkAdd(50)">+50</t-button>
                         <div
                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1"
                         >
@@ -392,6 +569,7 @@
                           <t-button
                             variant="text"
                             class="!px-2"
+                            :disabled="!canEditUnboxDraft || !canAddUnboxDetail"
                             @click="handleBulkAdd(bulkAddCount)"
                           >
                             添加
@@ -412,10 +590,10 @@
                             theme="normal"
                           />
                         </div>
-                        <t-button variant="outline" @click="applyToolbarBoxPurchasePriceToAllRows">
+                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canApplyUnboxPrice" @click="applyToolbarBoxPurchasePriceToAllRows">
                           应用箱子购入价到全部
                         </t-button>
-                        <t-button variant="outline" @click="applyDefaultsToEmptyRows">
+                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canApplyUnboxDefaults" @click="applyDefaultsToEmptyRows">
                           应用到未填写行
                         </t-button>
                       </div>
@@ -430,12 +608,12 @@
                   :style="draftTableViewportStyle"
                 >
                   <t-table
+                    v-model:sort="draftTableSort"
                     row-key="row.id"
                     :data="draftRowEntries"
                     :columns="draftTableColumns"
                     :foot-data="draftFooterRows"
                     :max-height="draftTableMaxHeight"
-                    v-model:sort="draftTableSort"
                     table-layout="fixed"
                     vertical-align="middle"
                     hover
@@ -501,9 +679,13 @@
                           attach="body"
                           overlay-inner-class-name="unbox-ocr-popup__inner"
                           :disabled="
-                            !isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'
+                            !canRunUnboxOcr ||
+                            !isRowEditable(entry.row) ||
+                            getRowOcrState(entry.row.id).status === 'uploading'
                           "
-                          @visible-change="(visible) => handleRowOcrPopupVisibleChange(entry.row.id, visible)"
+                          @visible-change="
+                            (visible) => handleRowOcrPopupVisibleChange(entry.row.id, visible)
+                          "
                         >
                           <template #content>
                             <div class="grid min-w-[148px] grid-cols-2 gap-2">
@@ -527,9 +709,10 @@
                           </template>
                           <button
                             type="button"
-                            class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                            class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
                             :disabled="
-                              !isRowEditable(entry.row) || getRowOcrState(entry.row.id).status === 'uploading'
+                              !isRowEditable(entry.row) ||
+                              getRowOcrState(entry.row.id).status === 'uploading'
                             "
                             :aria-label="getRowOcrTooltip(entry.row.id)"
                           >
@@ -608,9 +791,11 @@
 
                     <template #purchaseCost="{ row: entry }">
                       <div class="text-right leading-4">
-                        <div class="font-numeric text-sm font-semibold text-[#303133]">
-                          {{ formatPendingCurrency(entry.metrics.purchaseCost) }}
-                        </div>
+                        <t-tooltip :content="formatPendingCurrency(entry.metrics.purchaseCost)" placement="top-right">
+                          <div class="truncate font-numeric text-sm font-semibold text-[#303133]">
+                            {{ formatPendingCurrency(entry.metrics.purchaseCost) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
@@ -635,27 +820,34 @@
                             show-arrow
                             attach="body"
                             overlay-inner-class-name="unbox-c5-popup__inner"
-                            :disabled="!isRowEditable(entry.row) || !entry.row.weaponName.trim()"
-                            @visible-change="(visible) => handleRowC5PopupVisibleChange(entry.row, visible)"
+                            :disabled="!canQueryUnboxC5 || !isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                            @visible-change="
+                              (visible) => handleRowC5PopupVisibleChange(entry.row, visible)
+                            "
                           >
                             <template #content>
                               <div class="flex w-[320px] flex-col gap-2">
                                 <div class="flex items-start justify-between gap-3 px-1 pt-2">
                                   <div class="min-w-0">
-                                    <div class="text-sm font-semibold text-slate-700">C5 在售挂单</div>
+                                    <div class="text-sm font-semibold text-slate-700">
+                                      C5 在售挂单
+                                    </div>
                                     <div class="mt-1 text-xs text-slate-500">
                                       {{ getRowC5TriggerTooltip(entry.row) }}
                                     </div>
                                     <div class="mt-1 text-xs text-slate-500">
                                       {{ getRowC5QuerySummary(entry.row) }}
                                     </div>
-                                    <div v-if="getRowC5WearHint(entry.row)" class="mt-1 text-xs text-slate-400">
+                                    <div
+                                      v-if="getRowC5WearHint(entry.row)"
+                                      class="mt-1 text-xs text-slate-400"
+                                    >
                                       {{ getRowC5WearHint(entry.row) }}
                                     </div>
                                   </div>
                                   <button
                                     type="button"
-                                    class="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
+                                    class="inline-flex shrink-0 items-center rounded border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
                                     @click.stop="runRowC5Query(entry.row, { force: true })"
                                   >
                                     刷新
@@ -669,7 +861,13 @@
                                     size="small"
                                     @change="(value) => handleRowC5RangeChange(entry.row, value)"
                                   />
-                                  <div v-if="getRowC5State(entry.row.id).selectedRangeKey === C5_WEAR_RANGE_CUSTOM_KEY" class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2">
+                                  <div
+                                    v-if="
+                                      getRowC5State(entry.row.id).selectedRangeKey ===
+                                      C5_WEAR_RANGE_CUSTOM_KEY
+                                    "
+                                    class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2"
+                                  >
                                     <div class="grid grid-cols-2 gap-2">
                                       <t-input-number
                                         :value="getRowC5State(entry.row.id).customWearMin ?? ''"
@@ -678,7 +876,10 @@
                                         :step="0.0001"
                                         align="right"
                                         placeholder="最小磨损"
-                                        @change="(value) => handleRowC5CustomWearMinChange(entry.row, value)"
+                                        @change="
+                                          (value) =>
+                                            handleRowC5CustomWearMinChange(entry.row, value)
+                                        "
                                       />
                                       <t-input-number
                                         :value="getRowC5State(entry.row.id).customWearMax ?? ''"
@@ -687,25 +888,37 @@
                                         :step="0.0001"
                                         align="right"
                                         placeholder="最大磨损"
-                                        @change="(value) => handleRowC5CustomWearMaxChange(entry.row, value)"
+                                        @change="
+                                          (value) =>
+                                            handleRowC5CustomWearMaxChange(entry.row, value)
+                                        "
                                       />
                                     </div>
                                     <div class="text-xs text-slate-500">
                                       {{ getRowC5CustomRangeHint(entry.row) }}
                                     </div>
                                   </div>
-                                  <div v-if="getRowC5PresetMissHint(entry.row)" class="text-xs text-amber-600">
+                                  <div
+                                    v-if="getRowC5PresetMissHint(entry.row)"
+                                    class="text-xs text-amber-600"
+                                  >
                                     {{ getRowC5PresetMissHint(entry.row) }}
                                   </div>
                                   <div class="flex justify-end">
-                                    <t-button size="small" theme="primary" @click="runRowC5Query(entry.row, { force: true })">
+                                    <t-button
+                                      size="small"
+                                      theme="primary"
+                                      @click="runRowC5Query(entry.row, { force: true })"
+                                    >
                                       查询
                                     </t-button>
                                   </div>
                                 </div>
                                 <div
                                   class="max-h-[360px] overflow-y-auto pr-1"
-                                  @scroll.passive="(event) => handleRowC5ListScroll(entry.row, event)"
+                                  @scroll.passive="
+                                    (event) => handleRowC5ListScroll(entry.row, event)
+                                  "
                                 >
                                   <div
                                     v-if="getRowC5State(entry.row.id).status === 'loading'"
@@ -714,13 +927,21 @@
                                     加载中...
                                   </div>
                                   <div
-                                    v-else-if="getRowC5State(entry.row.id).status === 'error' && !getRowC5Listings(entry.row).length"
+                                    v-else-if="
+                                      getRowC5State(entry.row.id).status === 'error' &&
+                                      !getRowC5Listings(entry.row).length
+                                    "
                                     class="space-y-2 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-3 text-sm text-rose-600"
                                   >
-                                    <div>{{ getRowC5State(entry.row.id).errorMessage || '获取 C5 在售列表失败' }}</div>
+                                    <div>
+                                      {{
+                                        getRowC5State(entry.row.id).errorMessage ||
+                                        "获取 C5 在售列表失败"
+                                      }}
+                                    </div>
                                     <button
                                       type="button"
-                                      class="inline-flex items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                                      class="inline-flex items-center rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
                                       @click.stop="runRowC5Query(entry.row, { force: true })"
                                     >
                                       重试
@@ -730,7 +951,11 @@
                                     v-else-if="!getRowC5Listings(entry.row).length"
                                     class="py-8 text-center text-sm text-slate-500"
                                   >
-                                    {{ getRowC5State(entry.row.id).appliedWearMin === null ? '暂无在售挂单' : '当前磨损区间暂无在售挂单' }}
+                                    {{
+                                      getRowC5State(entry.row.id).appliedWearMin === null
+                                        ? "暂无在售挂单"
+                                        : "当前磨损区间暂无在售挂单"
+                                    }}
                                   </div>
                                   <div v-else class="space-y-2 px-1">
                                     <button
@@ -741,27 +966,44 @@
                                       @click.stop="applyC5Listing(entry.row, listing)"
                                     >
                                       <div class="min-w-0">
-                                        <div class="font-numeric text-sm font-semibold text-slate-800">
+                                        <div
+                                          class="font-numeric text-sm font-semibold text-slate-800"
+                                        >
                                           {{ formatCurrency(listing.price) }}
                                         </div>
                                         <div class="mt-1 truncate text-xs text-slate-500">
-                                          {{ listing.sellerName || listing.sellerUid || '卖家未知' }}
+                                          {{
+                                            listing.sellerName || listing.sellerUid || "卖家未知"
+                                          }}
                                         </div>
                                       </div>
                                       <div class="text-right text-xs text-slate-500">
                                         <div>
                                           磨损
-                                          {{ listing.wear === null ? '--' : formatWearDisplay(listing.wear) }}
+                                          {{
+                                            listing.wear === null
+                                              ? "--"
+                                              : formatWearDisplay(listing.wear)
+                                          }}
                                         </div>
                                       </div>
                                     </button>
-                                    <div v-if="getRowC5State(entry.row.id).loadingMore" class="py-2 text-center text-xs text-slate-500">
+                                    <div
+                                      v-if="getRowC5State(entry.row.id).loadingMore"
+                                      class="py-2 text-center text-xs text-slate-500"
+                                    >
                                       加载中...
                                     </div>
-                                    <div v-else-if="getRowC5State(entry.row.id).errorMessage" class="py-2 text-center text-xs text-rose-500">
+                                    <div
+                                      v-else-if="getRowC5State(entry.row.id).errorMessage"
+                                      class="py-2 text-center text-xs text-rose-500"
+                                    >
                                       {{ getRowC5State(entry.row.id).errorMessage }}
                                     </div>
-                                    <div v-else-if="!getRowC5State(entry.row.id).hasMore" class="py-2 text-center text-xs text-slate-400">
+                                    <div
+                                      v-else-if="!getRowC5State(entry.row.id).hasMore"
+                                      class="py-2 text-center text-xs text-slate-400"
+                                    >
                                       已加载全部挂单
                                     </div>
                                   </div>
@@ -770,8 +1012,8 @@
                             </template>
                             <button
                               type="button"
-                              class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                              :disabled="!isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                              class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                              :disabled="!canQueryUnboxC5 || !isRowEditable(entry.row) || !entry.row.weaponName.trim()"
                               :aria-label="getRowC5TriggerTooltip(entry.row)"
                             >
                               <svg
@@ -779,7 +1021,9 @@
                                 aria-hidden="true"
                                 :class="[
                                   'h-4 w-4 text-slate-400 transition-all group-hover:text-sky-500',
-                                  activeC5PopupRowId === entry.row.id ? 'rotate-180 text-sky-500' : '',
+                                  activeC5PopupRowId === entry.row.id
+                                    ? 'rotate-180 text-sky-500'
+                                    : '',
                                 ]"
                               >
                                 <path
@@ -795,38 +1039,46 @@
 
                     <template #actualNetProfit="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <div
-                          class="font-numeric text-sm font-semibold"
-                          :class="profitClass(entry.metrics.actualNetProfit ?? 0)"
+                        <t-tooltip :content="formatActualProfit(entry.metrics.actualNetProfit)" placement="top-left">
+                          <div
+                            class="truncate font-numeric text-sm font-semibold"
+                            :class="profitClass(entry.metrics.actualNetProfit ?? 0)"
+                          >
+                            {{ formatActualProfit(entry.metrics.actualNetProfit) }}
+                          </div>
+                        </t-tooltip>
+                        <t-tooltip
+                          v-if="entry.metrics.actualNetIncome !== null"
+                          :content="`到账 ${formatCurrency(entry.metrics.actualNetIncome)}`"
+                          placement="top-left"
                         >
-                          {{ formatActualProfit(entry.metrics.actualNetProfit) }}
-                        </div>
-                        <div class="mt-1 text-[14px] font-medium text-slate-500">
-                          {{
-                            entry.metrics.actualNetIncome === null
-                              ? ""
-                              : `到账 ${formatCurrency(entry.metrics.actualNetIncome)}`
-                          }}
-                        </div>
+                          <div class="mt-1 truncate text-[14px] font-medium text-slate-500">
+                            {{ `到账 ${formatCurrency(entry.metrics.actualNetIncome)}` }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #actualProfitRate="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <div
-                          class="font-numeric text-sm font-semibold"
-                          :class="profitClass(entry.metrics.actualProfitRate ?? 0)"
-                        >
-                          {{ formatPercent(entry.metrics.actualProfitRate) }}
-                        </div>
+                        <t-tooltip :content="formatPercent(entry.metrics.actualProfitRate)" placement="top-left">
+                          <div
+                            class="truncate font-numeric text-sm font-semibold"
+                            :class="profitClass(entry.metrics.actualProfitRate ?? 0)"
+                          >
+                            {{ formatPercent(entry.metrics.actualProfitRate) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #actualFee="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <div class="font-numeric text-sm font-semibold text-amber-600">
-                          {{ formatPendingCurrency(entry.metrics.actualFee) }}
-                        </div>
+                        <t-tooltip :content="formatPendingCurrency(entry.metrics.actualFee)" placement="top-left">
+                          <div class="truncate font-numeric text-sm font-semibold text-amber-600">
+                            {{ formatPendingCurrency(entry.metrics.actualFee) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
@@ -858,18 +1110,22 @@
                     <template #footerBoxPurchasePrice>
                       <div :class="draftTableFooterClass">
                         <div>明细数</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
-                          {{ draftSummary.totalCount }} 条
-                        </div>
+                        <t-tooltip :content="`${draftSummary.totalCount} 条`" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                            {{ draftSummary.totalCount }} 条
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #footerPurchaseState>
                       <div :class="draftTableFooterClass">
                         <div>已购买数量</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-emerald-600">
-                          {{ draftSummary.boughtCount }} 条
-                        </div>
+                        <t-tooltip :content="`${draftSummary.boughtCount} 条`" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-emerald-600">
+                            {{ draftSummary.boughtCount }} 条
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
@@ -882,9 +1138,11 @@
                     <template #footerInGamePrice>
                       <div :class="draftTableFooterClass">
                         <div>购买总价</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
-                          {{ formatCurrency(draftSummary.totalInGamePrice) }}
-                        </div>
+                        <t-tooltip :content="formatCurrency(draftSummary.totalInGamePrice)" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                            {{ formatCurrency(draftSummary.totalInGamePrice) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
@@ -897,51 +1155,61 @@
                     <template #footerPurchaseCost>
                       <div :class="draftTableFooterClass">
                         <div>实际购入价</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
-                          {{ formatCurrency(draftSummary.totalPurchaseCost) }}
-                        </div>
+                        <t-tooltip :content="formatCurrency(draftSummary.totalPurchaseCost)" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                            {{ formatCurrency(draftSummary.totalPurchaseCost) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #footerActualSellPrice>
                       <div :class="draftTableFooterClass">
                         <div>总手续费</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-amber-600">
-                          {{ formatCurrency(draftSummary.totalActualFee) }}
-                        </div>
+                        <t-tooltip :content="formatCurrency(draftSummary.totalActualFee)" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-amber-600">
+                            {{ formatCurrency(draftSummary.totalActualFee) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #footerActualFee>
                       <div :class="draftTableFooterClass">
                         <div>到账汇总</div>
-                        <div class="font-numeric mt-1 text-sm font-semibold text-slate-700">
-                          {{ formatCurrency(draftSummary.totalActualNetIncome) }}
-                        </div>
+                        <t-tooltip :content="formatCurrency(draftSummary.totalActualNetIncome)" placement="top-left">
+                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                            {{ formatCurrency(draftSummary.totalActualNetIncome) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #footerActualNetProfit>
                       <div :class="draftTableFooterFixedClass">
                         <div>净利润</div>
-                        <div
-                          class="font-numeric mt-1 text-sm font-semibold"
-                          :class="profitClass(draftSummary.totalActualNetProfit)"
-                        >
-                          {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
-                        </div>
+                        <t-tooltip :content="formatSignedCurrency(draftSummary.totalActualNetProfit)" placement="top-left">
+                          <div
+                            class="truncate font-numeric mt-1 text-sm font-semibold"
+                            :class="profitClass(draftSummary.totalActualNetProfit)"
+                          >
+                            {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
                     <template #footerActualProfitRate>
                       <div :class="draftTableFooterFixedClass">
                         <div>总利润率</div>
-                        <div
-                          class="font-numeric mt-1 text-sm font-semibold"
-                          :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
-                        >
-                          {{ formatPercent(draftSummary.totalActualProfitRate) }}
-                        </div>
+                        <t-tooltip :content="formatPercent(draftSummary.totalActualProfitRate)" placement="top-left">
+                          <div
+                            class="truncate font-numeric mt-1 text-sm font-semibold"
+                            :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
+                          >
+                            {{ formatPercent(draftSummary.totalActualProfitRate) }}
+                          </div>
+                        </t-tooltip>
                       </div>
                     </template>
 
@@ -960,7 +1228,7 @@
                     { row, metrics, stage, stageTheme, stageDescription }, index
                   ) in draftRowEntries"
                   :key="row.id"
-                  class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+                  class="overflow-hidden rounded border border-slate-200 bg-white"
                 >
                   <div
                     class="flex items-start justify-between gap-3 border-b border-slate-100 bg-white px-4 py-3"
@@ -1022,8 +1290,12 @@
                               show-arrow
                               attach="body"
                               overlay-inner-class-name="unbox-ocr-popup__inner"
-                              :disabled="!isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'"
-                              @visible-change="(visible) => handleRowOcrPopupVisibleChange(row.id, visible)"
+                              :disabled="
+                                !canRunUnboxOcr || !isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'
+                              "
+                              @visible-change="
+                                (visible) => handleRowOcrPopupVisibleChange(row.id, visible)
+                              "
                             >
                               <template #content>
                                 <div class="grid min-w-[148px] grid-cols-2 gap-2">
@@ -1047,8 +1319,11 @@
                               </template>
                               <button
                                 type="button"
-                                class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="!isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'"
+                                class="group inline-flex h-10 w-10 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-slate-300 hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="
+                                  !isRowEditable(row) ||
+                                  getRowOcrState(row.id).status === 'uploading'
+                                "
                                 :aria-label="getRowOcrTooltip(row.id)"
                               >
                                 <component
@@ -1154,27 +1429,34 @@
                               show-arrow
                               attach="body"
                               overlay-inner-class-name="unbox-c5-popup__inner"
-                              :disabled="!isRowEditable(row) || !row.weaponName.trim()"
-                              @visible-change="(visible) => handleRowC5PopupVisibleChange(row, visible)"
+                              :disabled="!canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()"
+                              @visible-change="
+                                (visible) => handleRowC5PopupVisibleChange(row, visible)
+                              "
                             >
                               <template #content>
                                 <div class="flex w-[320px] flex-col gap-2">
                                   <div class="flex items-start justify-between gap-3 px-1 pt-2">
                                     <div class="min-w-0">
-                                      <div class="text-sm font-semibold text-slate-700">C5 在售挂单</div>
+                                      <div class="text-sm font-semibold text-slate-700">
+                                        C5 在售挂单
+                                      </div>
                                       <div class="mt-1 text-xs text-slate-500">
                                         {{ getRowC5TriggerTooltip(row) }}
                                       </div>
                                       <div class="mt-1 text-xs text-slate-500">
                                         {{ getRowC5QuerySummary(row) }}
                                       </div>
-                                      <div v-if="getRowC5WearHint(row)" class="mt-1 text-xs text-slate-400">
+                                      <div
+                                        v-if="getRowC5WearHint(row)"
+                                        class="mt-1 text-xs text-slate-400"
+                                      >
                                         {{ getRowC5WearHint(row) }}
                                       </div>
                                     </div>
                                     <button
                                       type="button"
-                                      class="inline-flex shrink-0 items-center rounded-md border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
+                                      class="inline-flex shrink-0 items-center rounded border border-slate-200 bg-white px-2 py-1 text-xs font-medium text-slate-600 transition-colors hover:border-sky-300 hover:bg-sky-50 hover:text-sky-600"
                                       @click.stop="runRowC5Query(row, { force: true })"
                                     >
                                       刷新
@@ -1188,7 +1470,13 @@
                                       size="small"
                                       @change="(value) => handleRowC5RangeChange(row, value)"
                                     />
-                                    <div v-if="getRowC5State(row.id).selectedRangeKey === C5_WEAR_RANGE_CUSTOM_KEY" class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2">
+                                    <div
+                                      v-if="
+                                        getRowC5State(row.id).selectedRangeKey ===
+                                        C5_WEAR_RANGE_CUSTOM_KEY
+                                      "
+                                      class="space-y-2 rounded-lg border border-slate-200 bg-slate-50/70 px-2 py-2"
+                                    >
                                       <div class="grid grid-cols-2 gap-2">
                                         <t-input-number
                                           :value="getRowC5State(row.id).customWearMin ?? ''"
@@ -1197,7 +1485,9 @@
                                           :step="0.0001"
                                           align="right"
                                           placeholder="最小磨损"
-                                          @change="(value) => handleRowC5CustomWearMinChange(row, value)"
+                                          @change="
+                                            (value) => handleRowC5CustomWearMinChange(row, value)
+                                          "
                                         />
                                         <t-input-number
                                           :value="getRowC5State(row.id).customWearMax ?? ''"
@@ -1206,18 +1496,27 @@
                                           :step="0.0001"
                                           align="right"
                                           placeholder="最大磨损"
-                                          @change="(value) => handleRowC5CustomWearMaxChange(row, value)"
+                                          @change="
+                                            (value) => handleRowC5CustomWearMaxChange(row, value)
+                                          "
                                         />
                                       </div>
                                       <div class="text-xs text-slate-500">
                                         {{ getRowC5CustomRangeHint(row) }}
                                       </div>
                                     </div>
-                                    <div v-if="getRowC5PresetMissHint(row)" class="text-xs text-amber-600">
+                                    <div
+                                      v-if="getRowC5PresetMissHint(row)"
+                                      class="text-xs text-amber-600"
+                                    >
                                       {{ getRowC5PresetMissHint(row) }}
                                     </div>
                                     <div class="flex justify-end">
-                                      <t-button size="small" theme="primary" @click="runRowC5Query(row, { force: true })">
+                                      <t-button
+                                        size="small"
+                                        theme="primary"
+                                        @click="runRowC5Query(row, { force: true })"
+                                      >
                                         查询
                                       </t-button>
                                     </div>
@@ -1233,13 +1532,21 @@
                                       加载中...
                                     </div>
                                     <div
-                                      v-else-if="getRowC5State(row.id).status === 'error' && !getRowC5Listings(row).length"
+                                      v-else-if="
+                                        getRowC5State(row.id).status === 'error' &&
+                                        !getRowC5Listings(row).length
+                                      "
                                       class="space-y-2 rounded-lg border border-rose-200 bg-rose-50/70 px-3 py-3 text-sm text-rose-600"
                                     >
-                                      <div>{{ getRowC5State(row.id).errorMessage || '获取 C5 在售列表失败' }}</div>
+                                      <div>
+                                        {{
+                                          getRowC5State(row.id).errorMessage ||
+                                          "获取 C5 在售列表失败"
+                                        }}
+                                      </div>
                                       <button
                                         type="button"
-                                        class="inline-flex items-center rounded-md border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
+                                        class="inline-flex items-center rounded border border-rose-200 bg-white px-2 py-1 text-xs font-medium text-rose-600 transition-colors hover:bg-rose-50"
                                         @click.stop="runRowC5Query(row, { force: true })"
                                       >
                                         重试
@@ -1249,7 +1556,11 @@
                                       v-else-if="!getRowC5Listings(row).length"
                                       class="py-8 text-center text-sm text-slate-500"
                                     >
-                                      {{ getRowC5State(row.id).appliedWearMin === null ? '暂无在售挂单' : '当前磨损区间暂无在售挂单' }}
+                                      {{
+                                        getRowC5State(row.id).appliedWearMin === null
+                                          ? "暂无在售挂单"
+                                          : "当前磨损区间暂无在售挂单"
+                                      }}
                                     </div>
                                     <div v-else class="space-y-2 px-1">
                                       <button
@@ -1260,27 +1571,44 @@
                                         @click.stop="applyC5Listing(row, listing)"
                                       >
                                         <div class="min-w-0">
-                                          <div class="font-numeric text-sm font-semibold text-slate-800">
+                                          <div
+                                            class="font-numeric text-sm font-semibold text-slate-800"
+                                          >
                                             {{ formatCurrency(listing.price) }}
                                           </div>
                                           <div class="mt-1 truncate text-xs text-slate-500">
-                                            {{ listing.sellerName || listing.sellerUid || '卖家未知' }}
+                                            {{
+                                              listing.sellerName || listing.sellerUid || "卖家未知"
+                                            }}
                                           </div>
                                         </div>
                                         <div class="text-right text-xs text-slate-500">
                                           <div>
                                             磨损
-                                            {{ listing.wear === null ? '--' : formatWearDisplay(listing.wear) }}
+                                            {{
+                                              listing.wear === null
+                                                ? "--"
+                                                : formatWearDisplay(listing.wear)
+                                            }}
                                           </div>
                                         </div>
                                       </button>
-                                      <div v-if="getRowC5State(row.id).loadingMore" class="py-2 text-center text-xs text-slate-500">
+                                      <div
+                                        v-if="getRowC5State(row.id).loadingMore"
+                                        class="py-2 text-center text-xs text-slate-500"
+                                      >
                                         加载中...
                                       </div>
-                                      <div v-else-if="getRowC5State(row.id).errorMessage" class="py-2 text-center text-xs text-rose-500">
+                                      <div
+                                        v-else-if="getRowC5State(row.id).errorMessage"
+                                        class="py-2 text-center text-xs text-rose-500"
+                                      >
                                         {{ getRowC5State(row.id).errorMessage }}
                                       </div>
-                                      <div v-else-if="!getRowC5State(row.id).hasMore" class="py-2 text-center text-xs text-slate-400">
+                                      <div
+                                        v-else-if="!getRowC5State(row.id).hasMore"
+                                        class="py-2 text-center text-xs text-slate-400"
+                                      >
                                         已加载全部挂单
                                       </div>
                                     </div>
@@ -1289,8 +1617,8 @@
                               </template>
                               <button
                                 type="button"
-                                class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="!isRowEditable(row) || !row.weaponName.trim()"
+                                class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
+                                :disabled="!canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()"
                                 :aria-label="getRowC5TriggerTooltip(row)"
                               >
                                 <svg
@@ -1359,13 +1687,14 @@
                     </div>
 
                     <div class="mt-4 flex gap-2">
-                      <t-button variant="outline" class="flex-1" @click="handleAddRow(index + 1)">
+                      <t-button variant="outline" class="flex-1" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleAddRow(index + 1)">
                         下方新增
                       </t-button>
                       <t-button
                         theme="danger"
                         variant="outline"
                         class="flex-1"
+                        :disabled="!canEditUnboxDraft || !canDeleteUnboxDetail"
                         @click="handleRemoveRow(row.id)"
                       >
                         删除
@@ -1404,6 +1733,8 @@ import type {
   TableSort,
 } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import useNewPermission from "@/hooks/useNewPermission";
 import { cs2GoodsApi } from "@/api/cs2-goods";
 import { unboxApi } from "@/api/unbox";
 import type { Cs2GoodsOption } from "@/types/cs2-goods";
@@ -1486,13 +1817,6 @@ interface BatchSummary {
   totalActualFee: number;
   totalActualNetProfit: number;
   totalActualProfitRate: number | null;
-}
-
-interface SummaryCard {
-  label: string;
-  value: string;
-  hint: string;
-  valueClass: string;
 }
 
 type PeriodFilter = "week" | "month" | "year";
@@ -1666,6 +1990,20 @@ const batchInfoSectionRef = ref<HTMLElement | null>(null);
 const { height: editorContentHeight } = useElementSize(editorContentRef);
 const { height: batchInfoSectionHeight } = useElementSize(batchInfoSectionRef);
 
+const { hasButtonPermission } = useNewPermission();
+const canCreateUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_CREATE));
+const canUpdateUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_UPDATE));
+const canDeleteUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DELETE));
+const canRunUnboxOcr = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_OCR));
+const canQueryUnboxC5 = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_QUERY_C5));
+const canAddUnboxDetail = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_ADD));
+const canDeleteUnboxDetail = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_DELETE));
+const canApplyUnboxPrice = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_PRICE));
+const canApplyUnboxDefaults = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_DEFAULTS));
+const canEditUnboxDraft = computed(() =>
+  editingBatchId.value ? canUpdateUnboxRecord.value : canCreateUnboxRecord.value
+);
+
 const editorVisible = ref(false);
 const isEditorFullscreen = ref(false);
 const editingBatchId = ref<number | null>(null);
@@ -1742,19 +2080,23 @@ const round = (value: number, digits = 2) => {
 
 const formatWearDisplay = (
   value?: number | string | null,
-  context?: { fixedNumber?: number | string },
+  context?: { fixedNumber?: number | string }
 ) => {
   const normalizedValue = context?.fixedNumber ?? value;
   if (normalizedValue === undefined || normalizedValue === null || normalizedValue === "") {
     return "";
   }
 
-  const numericValue = typeof normalizedValue === "string" ? Number(normalizedValue) : normalizedValue;
+  const numericValue =
+    typeof normalizedValue === "string" ? Number(normalizedValue) : normalizedValue;
   if (!Number.isFinite(numericValue)) {
     return "";
   }
 
-  return numericValue.toFixed(9).replace(/\.0+$/, "").replace(/\.?0+$/, "");
+  return numericValue
+    .toFixed(9)
+    .replace(/\.0+$/, "")
+    .replace(/\.?0+$/, "");
 };
 
 const LISTING_FEE_RATE = 0.01;
@@ -1981,9 +2323,7 @@ function resetRowStates(rows: UnboxRow[]) {
   rowOcrStateMap.value = Object.fromEntries(
     rows.map((row) => [row.id, createDefaultRowOcrState()])
   );
-  rowC5StateMap.value = Object.fromEntries(
-    rows.map((row) => [row.id, createDefaultRowC5State()])
-  );
+  rowC5StateMap.value = Object.fromEntries(rows.map((row) => [row.id, createDefaultRowC5State()]));
   activeOcrRowId.value = null;
   activeOcrPopupRowId.value = null;
   activeC5PopupRowId.value = null;
@@ -2085,11 +2425,19 @@ function validateOcrImage(file: File, rowId: string) {
 }
 
 function handleRowOcrPopupVisibleChange(rowId: string, visible: boolean) {
-  activeOcrPopupRowId.value = visible ? rowId : activeOcrPopupRowId.value === rowId ? null : activeOcrPopupRowId.value;
+  activeOcrPopupRowId.value = visible
+    ? rowId
+    : activeOcrPopupRowId.value === rowId
+      ? null
+      : activeOcrPopupRowId.value;
 }
 
 function handleRowC5PopupVisibleChange(row: UnboxRow, visible: boolean) {
-  activeC5PopupRowId.value = visible ? row.id : activeC5PopupRowId.value === row.id ? null : activeC5PopupRowId.value;
+  activeC5PopupRowId.value = visible
+    ? row.id
+    : activeC5PopupRowId.value === row.id
+      ? null
+      : activeC5PopupRowId.value;
   if (visible) {
     initializeRowC5State(row);
     void runRowC5Query(row);
@@ -2183,7 +2531,11 @@ function getDefaultRowC5RangeKey(row: UnboxRow) {
   }
   const options = getRowC5RangeOptions(row);
   const presetOption = options.find(
-    (item) => item.mode === "preset" && item.wearMin !== undefined && item.wearMax !== undefined && isWearInRange(wear, item.wearMin, item.wearMax)
+    (item) =>
+      item.mode === "preset" &&
+      item.wearMin !== undefined &&
+      item.wearMax !== undefined &&
+      isWearInRange(wear, item.wearMin, item.wearMax)
   );
   if (presetOption) {
     return presetOption.value;
@@ -2243,7 +2595,9 @@ function getRowC5QuerySummary(row: UnboxRow) {
     return "当前区间：不筛磨损（按价格）";
   }
   if (state.appliedRangeKey !== C5_WEAR_RANGE_CUSTOM_KEY) {
-    const appliedOption = getRowC5RangeOptions(row).find((item) => item.value === state.appliedRangeKey);
+    const appliedOption = getRowC5RangeOptions(row).find(
+      (item) => item.value === state.appliedRangeKey
+    );
     return `当前区间：${appliedOption?.label ?? option?.label ?? "未选择"}`;
   }
   if (state.appliedWearMin !== null && state.appliedWearMax !== null) {
@@ -2414,6 +2768,9 @@ async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
 }
 
 async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
+  if (!canQueryUnboxC5.value || !isRowEditable(row)) {
+    return;
+  }
   const state = getRowC5State(row.id);
   const resolvedGoodsId = await resolveRowCs2GoodsId(row);
   if (!resolvedGoodsId) {
@@ -2449,6 +2806,9 @@ async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
 }
 
 async function loadMoreRowC5Listings(row: UnboxRow) {
+  if (!canQueryUnboxC5.value || !isRowEditable(row)) {
+    return;
+  }
   const state = getRowC5State(row.id);
   if (state.status !== "success" || state.loadingMore || !state.hasMore) {
     return;
@@ -2529,13 +2889,16 @@ function getRowC5TriggerTooltip(row: UnboxRow) {
 }
 
 function applyC5Listing(row: UnboxRow, listing: UnboxRecordC5Listing) {
+  if (!canQueryUnboxC5.value || !isRowEditable(row)) {
+    return;
+  }
   row.actualSellPrice = round(Number(listing.price ?? 0));
   activeC5PopupRowId.value = null;
   MessagePlugin.success(`已回填平台卖出价 ${formatCurrency(row.actualSellPrice)}`);
 }
 
 function triggerRowOcrFileSelect(row: UnboxRow) {
-  if (!isRowEditable(row)) return;
+  if (!canRunUnboxOcr.value || !isRowEditable(row)) return;
   const state = getRowOcrState(row.id);
   if (state.status === "uploading") return;
   activeOcrPopupRowId.value = null;
@@ -2544,7 +2907,7 @@ function triggerRowOcrFileSelect(row: UnboxRow) {
 }
 
 async function handlePasteRowOcrImage(row: UnboxRow) {
-  if (!isRowEditable(row)) return;
+  if (!canRunUnboxOcr.value || !isRowEditable(row)) return;
   const state = getRowOcrState(row.id);
   if (state.status === "uploading") return;
   if (!navigator.clipboard?.read) {
@@ -2586,6 +2949,9 @@ function normalizeOcrResult(result: UnboxRecordOcrResult) {
 }
 
 async function uploadRowOcrFile(rowId: string, file: File) {
+  if (!canRunUnboxOcr.value) {
+    return;
+  }
   if (!validateOcrImage(file, rowId)) {
     return;
   }
@@ -2832,7 +3198,7 @@ onMounted(() => {
 });
 
 function isRowEditable(row: UnboxRow) {
-  return row.handlingStatus !== "discarded";
+  return canEditUnboxDraft.value && row.handlingStatus !== "discarded";
 }
 
 function shouldIncludeRowInSummary(row: UnboxRow) {
@@ -2919,7 +3285,9 @@ function buildBatchSummary(
   };
 }
 
-const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(() => currentPageBatchSummaryRows.value);
+const filteredBatchSummaryRows = computed<BatchSummaryRow[]>(
+  () => currentPageBatchSummaryRows.value
+);
 
 function sortableNumber(value: number | null | undefined) {
   return Number.isFinite(value) ? Number(value) : 0;
@@ -2928,7 +3296,7 @@ function sortableNumber(value: number | null | undefined) {
 const summaryTableHeaderClass =
   "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
 const summaryToolbarFieldClass =
-  "[&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "[&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const summaryTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 const fieldBaseClass =
   "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded-[0.9rem] [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-400 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
@@ -2940,7 +3308,7 @@ const draftSelectFieldClass = `min-w-0 max-w-full ${fieldBaseClass}`;
 const draftNumberFieldClass = `min-w-0 max-w-full ${numberFieldBaseClass}`;
 const draftNumberFieldPrimaryClass = `min-w-0 max-w-full ${numberFieldPrimaryClass}`;
 const draftStatusButtonBaseClass =
-  "inline-flex min-w-0 shrink-0 items-center justify-center rounded-md border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none";
+  "inline-flex min-w-0 shrink-0 items-center justify-center rounded border border-slate-200 bg-white px-2 text-sm font-medium whitespace-nowrap text-slate-500 transition-colors hover:bg-slate-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none";
 const draftCellControlClass = "min-w-0 max-w-full";
 
 const batchColumns = computed<PrimaryTableCol[]>(() => [
@@ -3037,33 +3405,6 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
 
 const pageSummary = computed(() => summaryState.value);
 
-const pageSummaryCards = computed<SummaryCard[]>(() => [
-  {
-    label: "开箱数量",
-    value: `${pageSummary.value.totalBatches}`,
-    hint: `当前筛选结果共 ${pageSummary.value.totalBatches} 批`,
-    valueClass: "text-[#303133]",
-  },
-  {
-    label: "购买总花费",
-    value: formatCurrency(pageSummary.value.totalPurchaseCost),
-    hint: "按当前筛选结果中的实际购入价口径汇总",
-    valueClass: "text-[#303133]",
-  },
-  {
-    label: "总手续费",
-    value: formatCurrency(pageSummary.value.totalFee),
-    hint: "按平台卖出价 × 1% 计算",
-    valueClass: "text-amber-600",
-  },
-  {
-    label: "总利润",
-    value: formatSignedCurrency(pageSummary.value.totalActualNetProfit),
-    hint: "卖出价 - 箱子购入价 - 实际购入价 - 手续费",
-    valueClass: profitClass(pageSummary.value.totalActualNetProfit),
-  },
-]);
-
 const sortedBatchSummaryRows = computed(() => {
   const currentSort = Array.isArray(batchSummarySort.value)
     ? batchSummarySort.value[0]
@@ -3112,9 +3453,15 @@ watch(
 );
 
 watch(
-  () => draftBatch.value.rows.map((row) => ({ id: row.id, invalidationKey: getRowC5InvalidationKey(row) })),
+  () =>
+    draftBatch.value.rows.map((row) => ({
+      id: row.id,
+      invalidationKey: getRowC5InvalidationKey(row),
+    })),
   (rows, previousRows) => {
-    const previousRowsById = new Map((previousRows ?? []).map((row) => [row.id, row.invalidationKey]));
+    const previousRowsById = new Map(
+      (previousRows ?? []).map((row) => [row.id, row.invalidationKey])
+    );
     draftBatch.value.rows.forEach((row) => {
       const previousInvalidationKey = previousRowsById.get(row.id);
       if (!previousInvalidationKey) {
@@ -3554,6 +3901,9 @@ function toggleBatchInfoCollapsed() {
 }
 
 function openCreateEditor() {
+  if (!canCreateUnboxRecord.value) {
+    return;
+  }
   editingBatchId.value = null;
   loadingDetailBatchId.value = null;
   draftBatch.value = createBlankBatch();
@@ -3565,7 +3915,7 @@ function openCreateEditor() {
 }
 
 async function openEditEditor(batchId: number) {
-  if (!batchId || detailLoading.value) {
+  if (!canUpdateUnboxRecord.value || !batchId || detailLoading.value) {
     return;
   }
   detailLoading.value = true;
@@ -3590,7 +3940,7 @@ async function openEditEditor(batchId: number) {
 }
 
 async function saveDraftBatch() {
-  if (savingBatch.value) return;
+  if (!canEditUnboxDraft.value || savingBatch.value) return;
   if (!draftBatch.value.boxGoodsId) {
     MessagePlugin.warning("请选择箱子商品");
     return;
@@ -3626,6 +3976,9 @@ async function saveDraftBatch() {
 }
 
 async function removeBatch(batchId: number) {
+  if (!canDeleteUnboxRecord.value) {
+    return;
+  }
   try {
     await unboxApi.delete(batchId);
     await refreshCurrentBatchPageAndSummary();
@@ -3641,6 +3994,9 @@ function createToolbarDefaultRow(boxPurchasePrice = round(toolbarBoxPurchasePric
 }
 
 function handleAddRow(index?: number) {
+  if (!canEditUnboxDraft.value || !canAddUnboxDetail.value) {
+    return;
+  }
   const nextRow = createToolbarDefaultRow();
   if (typeof index === "number") {
     draftBatch.value.rows.splice(index, 0, nextRow);
@@ -3650,6 +4006,9 @@ function handleAddRow(index?: number) {
 }
 
 function handleBulkAdd(count: number) {
+  if (!canEditUnboxDraft.value || !canAddUnboxDetail.value) {
+    return;
+  }
   const normalizedCount = Math.max(1, Math.min(200, Math.floor(Number(count) || 0)));
   const nextBoxPurchasePrice = round(toolbarBoxPurchasePrice.value);
   const newRows = Array.from({ length: normalizedCount }, () =>
@@ -3660,6 +4019,9 @@ function handleBulkAdd(count: number) {
 }
 
 function applyToolbarBoxPurchasePriceToAllRows() {
+  if (!canEditUnboxDraft.value || !canApplyUnboxPrice.value) {
+    return;
+  }
   if (!draftBatch.value.rows.length) {
     MessagePlugin.info("当前没有可应用的明细");
     return;
@@ -3679,6 +4041,9 @@ function applyToolbarBoxPurchasePriceToAllRows() {
 }
 
 function applyDefaultsToEmptyRows() {
+  if (!canEditUnboxDraft.value || !canApplyUnboxDefaults.value) {
+    return;
+  }
   if (!hasDiscountValue(draftBatch.value.defaultDiscount)) {
     MessagePlugin.warning("请先填写默认折扣");
     return;
@@ -3702,6 +4067,9 @@ function applyDefaultsToEmptyRows() {
 }
 
 function handleRemoveRow(id: string) {
+  if (!canEditUnboxDraft.value || !canDeleteUnboxDetail.value) {
+    return;
+  }
   draftBatch.value.rows = draftBatch.value.rows.filter((item) => item.id !== id);
 }
 </script>

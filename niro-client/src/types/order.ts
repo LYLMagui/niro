@@ -25,6 +25,7 @@ export interface OrderQueryParam {
   page: number;
   pageSize: number;
   status?: number;
+  accountId?: number;
   keyword?: string;
   startDate?: string;
   endDate?: string;

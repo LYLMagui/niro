@@ -80,9 +80,9 @@ export const orderApi = {
   /**
    * 手动触发 C5 订单同步
    */
-  triggerC5Sync(daysBefore = 1) {
+  triggerC5Sync(accountId: number, daysBefore = 1) {
     return request.post<string>("/api/c5/order-sync/trigger", null, {
-      params: { daysBefore },
+      params: { accountId, daysBefore },
     });
   },
 };

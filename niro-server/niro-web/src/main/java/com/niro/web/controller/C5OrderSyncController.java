@@ -33,24 +33,28 @@ public class C5OrderSyncController {
     private final C5OrderSyncService c5OrderSyncService;
 
     /**
-     * 手动触发 C5 订单同步
+     * 手动触发指定 C5 账号订单同步。
      *
+     * @param accountId C5 扫货独立账号 ID
      * @param daysBefore 查询几天前的订单，0 表示今天，1 表示昨天，-1 表示全部历史，默认为 1
      * @return 同步结果
      */
     @PostMapping("/trigger")
-    @SaCheckPermission(PermissionConstants.TASK_C5_LIST)
-    @Operation(summary = "手动同步 C5 订单", description = "手动触发 C5 平台订单同步任务")
+    @SaCheckPermission(PermissionConstants.ORDER_C5_SYNC)
+    @Operation(summary = "手动同步 C5 订单", description = "手动触发指定 C5 账号订单同步任务")
     public String triggerSync(
+            @Parameter(description = "C5 扫货独立账号 ID")
+            @RequestParam Long accountId,
             @Parameter(description = "查询几天前的订单，0=今天，1=昨天，-1=全部历史，默认1")
             @RequestParam(defaultValue = "1") Integer daysBefore) {
         Long userId = StpUtil.getLoginIdAsLong();
-        log.info("手动触发 C5 订单同步, userId={}, daysBefore={}", userId, daysBefore);
+        log.info("手动触发 C5 订单同步, userId={}, accountId={}, daysBefore={}", userId, accountId, daysBefore);
         try {
-            c5OrderSyncService.submitSyncTask(userId, daysBefore);
+            c5OrderSyncService.submitSyncTask(userId, accountId, daysBefore);
             return "C5 订单同步任务已提交，请稍后刷新查看";
         } catch (BusinessException e) {
-            log.warn("手动触发 C5 订单同步被拒绝, userId={}, daysBefore={}, message={}", userId, daysBefore, e.getMessage());
+            log.warn("手动触发 C5 订单同步被拒绝, userId={}, accountId={}, daysBefore={}, message={}",
+                    userId, accountId, daysBefore, e.getMessage());
             return e.getMessage();
         } catch (Exception e) {
             log.error("手动触发 C5 订单同步失败", e);

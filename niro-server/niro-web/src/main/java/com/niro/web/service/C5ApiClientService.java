@@ -35,6 +35,7 @@ public class C5ApiClientService {
 
     // 客户端缓存 (UserId -> Client)
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
+    private final Map<String, C5ApiClient> appKeyClientCache = new ConcurrentHashMap<>();
 
     /**
      * 获取当前登录用户的 C5 API 客户端
@@ -87,6 +88,24 @@ public class C5ApiClientService {
     }
 
     /**
+     * 按指定 AppKey 获取 C5 API 客户端。
+     *
+     * @param appKey C5 AppKey
+     * @return C5ApiClient 实例
+     */
+    public C5ApiClient getClientByAppKey(String appKey) {
+        if (StrUtil.isBlank(appKey)) {
+            throw new BusinessException("C5 App Key 未配置");
+        }
+        return appKeyClientCache.computeIfAbsent(appKey, key -> {
+            C5Config config = new C5Config()
+                    .setAppKey(key)
+                    .setBaseUrl(c5BaseUrl);
+            return new C5ApiClient(config);
+        });
+    }
+
+    /**
      * 移除指定用户的客户端缓存
      * <p>当用户更新 C5 配置时调用，强制下次重新创建客户端</p>
      *
@@ -107,8 +126,10 @@ public class C5ApiClientService {
      */
     public void clearCache() {
         int size = clientCache.size();
+        int appKeySize = appKeyClientCache.size();
         clientCache.clear();
-        log.info("清空 C5ApiClient 缓存，共清理 {} 个客户端", size);
+        appKeyClientCache.clear();
+        log.info("清空 C5ApiClient 缓存，共清理 {} 个用户客户端、{} 个AppKey客户端", size, appKeySize);
     }
 
     /**

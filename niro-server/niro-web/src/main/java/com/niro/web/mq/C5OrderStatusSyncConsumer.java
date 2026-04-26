@@ -12,7 +12,6 @@ import com.niro.web.dto.C5OrderStatusSyncMessage;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
-import com.niro.web.service.BuffScanTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.common.message.MessageConst;
@@ -53,7 +52,6 @@ import java.util.concurrent.TimeUnit;
 public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatusSyncMessage> {
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
-    private final BuffScanTaskService buffScanTaskService;
     private final RedissonClient redissonClient;
 
     @Value("${c5.base-url:https://openapi.c5game.com}")
@@ -156,13 +154,6 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
         order.setUpdateTime(LocalDateTime.now());
         tradeOrderRecordMapperManager.updateById(order);
 
-        if (OrderStatusEnum.SUCCESS.getCode().equals(nextStatus) && order.getTaskId() != null && order.getTaskId() > 0) {
-            try {
-                buffScanTaskService.syncTaskProgress(order.getTaskId());
-            } catch (Exception e) {
-                log.error("同步任务进度异常: taskId={}", order.getTaskId(), e);
-            }
-        }
 
         log.info("已将订单 {} ({}) 的状态更新为 {}",
                 order.getOrderId(), order.getMarketHashName(), nextStatus);

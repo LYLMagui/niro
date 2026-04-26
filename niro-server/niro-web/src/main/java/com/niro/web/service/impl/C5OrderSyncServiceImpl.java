@@ -17,10 +17,12 @@ import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.dto.C5OrderManualSyncMessage;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffGoods;
+import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
+import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.C5OrderSyncService;
@@ -74,6 +76,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final BuffGoodsService buffGoodsService;
+    private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
     private final RedissonClient redissonClient;
     private final RocketMqHelper rocketMqHelper;
 
@@ -109,16 +112,16 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         }
     }
 
-    private String buildUserSyncLockKey(Long userId, Integer daysBefore) {
-        return USER_SYNC_LOCK_KEY_PREFIX + userId + ":" + normalizeDaysBefore(daysBefore);
+    private String buildUserSyncLockKey(Long userId, Long accountId, Integer daysBefore) {
+        return USER_SYNC_LOCK_KEY_PREFIX + userId + ":" + accountId + ":" + normalizeDaysBefore(daysBefore);
     }
 
     private String buildAllSyncLockKey(Integer daysBefore) {
         return ALL_SYNC_LOCK_KEY_PREFIX + normalizeDaysBefore(daysBefore);
     }
 
-    private String buildUserSyncSubmitKey(Long userId, Integer daysBefore) {
-        return USER_SYNC_SUBMIT_KEY_PREFIX + userId + ":" + normalizeDaysBefore(daysBefore);
+    private String buildUserSyncSubmitKey(Long userId, Long accountId, Integer daysBefore) {
+        return USER_SYNC_SUBMIT_KEY_PREFIX + userId + ":" + accountId + ":" + normalizeDaysBefore(daysBefore);
     }
 
     private int normalizeDaysBefore(Integer daysBefore) {
@@ -148,8 +151,8 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         }
     }
 
-    private void checkAndMarkSubmitCooldown(Long userId, Integer daysBefore) {
-        String submitKey = buildUserSyncSubmitKey(userId, daysBefore);
+    private void checkAndMarkSubmitCooldown(Long userId, Long accountId, Integer daysBefore) {
+        String submitKey = buildUserSyncSubmitKey(userId, accountId, daysBefore);
         try {
             boolean created = redissonClient.getBucket(submitKey)
                     .trySet("1", SYNC_SUBMIT_COOLDOWN_SECONDS, java.util.concurrent.TimeUnit.SECONDS);
@@ -176,45 +179,59 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         });
     }
 
-    @Override
-    public void submitSyncTask(Long userId, Integer daysBefore) {
+    private C5ApiClient buildC5Client(String appKey) {
+        C5Config config = new C5Config()
+                .setAppKey(appKey)
+                .setBaseUrl(c5BaseUrl);
+        return new C5ApiClient(config);
+    }
+
+    private C5SnipingAccount getSyncAccount(Long userId, Long accountId) {
         Assert.notNull(userId, "用户ID不能为空");
+        Assert.notNull(accountId, "C5账号ID不能为空");
+        C5SnipingAccount account = c5SnipingAccountMapperManager.getByUserIdAndId(userId, accountId);
+        Assert.notNull(account, "C5账号不存在或无权访问");
+        // 订单同步只依赖 AppKey，不要求账号必须处于任务可用状态。
+        Assert.notBlank(account.getC5AppKey(), "C5 App Key 未配置");
+        return account;
+    }
+
+    @Override
+    public void submitSyncTask(Long userId, Long accountId, Integer daysBefore) {
+        C5SnipingAccount account = getSyncAccount(userId, accountId);
 
         Integer normalizedDaysBefore = normalizeDaysBefore(daysBefore);
-        String lockKey = buildUserSyncLockKey(userId, normalizedDaysBefore);
+        String lockKey = buildUserSyncLockKey(userId, account.getId(), normalizedDaysBefore);
         boolean running = redissonClient.getLock(lockKey).isLocked();
         Assert.isTrue(!running, "同步任务正在执行，请勿重复触发");
 
-        checkAndMarkSubmitCooldown(userId, normalizedDaysBefore);
+        checkAndMarkSubmitCooldown(userId, account.getId(), normalizedDaysBefore);
 
         C5OrderManualSyncMessage message = C5OrderManualSyncMessage.builder()
                 .userId(userId)
+                .accountId(account.getId())
                 .daysBefore(normalizedDaysBefore)
                 .timestamp(System.currentTimeMillis())
                 .build();
 
         rocketMqHelper.topic(MqConstant.TOPIC_C5_ORDER, MqConstant.TAG_C5_ORDER_MANUAL_SYNC)
-                .key(userId + ":" + normalizedDaysBefore)
+                .key(userId + ":" + account.getId() + ":" + normalizedDaysBefore)
                 .timeout(5000L)
                 .send(message);
     }
 
     @Override
     @Transactional(rollbackFor = Exception.class)
-    public int syncOrders(Long userId, Integer daysBefore) {
-        log.info("开始同步 C5 订单, userId={}, daysBefore={}", userId, daysBefore);
-        Assert.notNull(userId, "用户ID不能为空");
+    public int syncOrders(Long userId, Long accountId, Integer daysBefore) {
+        log.info("开始同步 C5 订单, userId={}, accountId={}, daysBefore={}", userId, accountId, daysBefore);
+        C5SnipingAccount account = getSyncAccount(userId, accountId);
 
-        String lockKey = buildUserSyncLockKey(userId, daysBefore);
+        String lockKey = buildUserSyncLockKey(userId, account.getId(), daysBefore);
         RLock lock = acquireSyncLock(lockKey);
         try {
             LocalDateTime startTime = buildStartTime(daysBefore);
-            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(userId);
-            Assert.notNull(settings, "用户配置不存在");
-            Assert.notBlank(settings.getC5AppKey(), "C5 App Key 未配置");
-
-            int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
-            log.info("用户 [{}] C5 订单同步完成，新增订单: {}", userId, synced);
+            int synced = syncUserOrders(userId, account.getId(), account.getC5AppKey(), startTime);
+            log.info("用户 [{}] C5 账号 [{}] 订单同步完成，新增订单: {}", userId, account.getId(), synced);
             return synced;
         } finally {
             unlockSyncLock(lock, lockKey);
@@ -246,7 +263,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
             for (UserPlatformSettings settings : settingsList) {
                 Long userId = settings.getUserId();
                 try {
-                    int synced = syncUserOrders(userId, settings.getC5AppKey(), startTime);
+                    int synced = syncUserOrders(userId, null, settings.getC5AppKey(), startTime);
                     totalSynced += synced;
                     log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
                 } catch (C5ApiException e) {
@@ -273,8 +290,8 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         return LocalDateTime.now().minusDays(daysBefore).withHour(0).withMinute(0).withSecond(0);
     }
 
-    private int syncUserOrders(Long userId, String appKey, LocalDateTime startTime) {
-        C5ApiClient client = getC5Client(userId);
+    private int syncUserOrders(Long userId, Long accountId, String appKey, LocalDateTime startTime) {
+        C5ApiClient client = StrUtil.isNotBlank(appKey) ? buildC5Client(appKey) : getC5Client(userId);
         int totalSynced = 0;
         int pageNum = 1;
         int totalPages = 1;
@@ -313,7 +330,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                 }
             }
 
-            int synced = processOrders(userId, appKey, orders);
+            int synced = processOrders(userId, accountId, appKey, orders);
             totalSynced += synced;
 
             log.debug("用户 [{}] 第 {}/{} 页处理完成，新增: {}", userId, pageNum, totalPages, synced);
@@ -324,7 +341,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         return totalSynced;
     }
 
-    private int processOrders(Long userId, String appKey, List<OrderBuyDTO> orders) {
+    private int processOrders(Long userId, Long accountId, String appKey, List<OrderBuyDTO> orders) {
         if (orders.isEmpty()) {
             return 0;
         }
@@ -351,7 +368,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         // 转换为实体并保存
         List<TradeOrderRecord> records = new ArrayList<>();
         for (OrderBuyDTO order : newOrders) {
-            TradeOrderRecord record = convertToRecord(userId, order);
+            TradeOrderRecord record = convertToRecord(userId, accountId, appKey, order);
             records.add(record);
         }
 
@@ -368,9 +385,10 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         return records.size();
     }
 
-    private TradeOrderRecord convertToRecord(Long userId, OrderBuyDTO order) {
+    private TradeOrderRecord convertToRecord(Long userId, Long accountId, String appKey, OrderBuyDTO order) {
         TradeOrderRecord record = new TradeOrderRecord();
         record.setUserId(userId);
+        record.setAccountId(accountId);
         record.setPlatform(PlatformEnum.C5.getCode());
         record.setOrderId(order.getOrderId());
         record.setOutTradeNo(order.getOutTradeNo());
@@ -380,11 +398,11 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         // 使用枚举映射状态
         record.setStatus(C5OrderStatusEnum.mapToInternalStatus(order.getStatus()).getCode());
 
-        fillGoodsInfo(record, order);
+        fillGoodsInfo(record, appKey, order);
         return record;
     }
 
-    private void fillGoodsInfo(TradeOrderRecord record, OrderBuyDTO order) {
+    private void fillGoodsInfo(TradeOrderRecord record, String appKey, OrderBuyDTO order) {
         if (StrUtil.isBlank(order.getOrderId())) {
             return;
         }
@@ -393,7 +411,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
                 .setOrderId(order.getOrderId());
 
         try {
-            C5OrderDetailResponse detail = getC5Client(record.getUserId()).getTrade().getOrderDetail(request);
+            C5OrderDetailResponse detail = buildC5Client(appKey).getTrade().getOrderDetail(request);
             if (detail == null || detail.getOpenItemInfo() == null) {
                 return;
             }

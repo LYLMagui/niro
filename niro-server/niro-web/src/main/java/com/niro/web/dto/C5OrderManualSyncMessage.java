@@ -27,6 +27,11 @@ public class C5OrderManualSyncMessage implements Serializable {
     private Long userId;
 
     /**
+     * C5 扫货独立账号 ID
+     */
+    private Long accountId;
+
+    /**
      * 查询几天前的订单，0 表示今天，-1 表示全部历史
      */
     private Integer daysBefore;

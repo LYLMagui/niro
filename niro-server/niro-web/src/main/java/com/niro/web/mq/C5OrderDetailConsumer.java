@@ -12,7 +12,6 @@ import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
-import com.niro.web.service.BuffScanTaskService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
@@ -55,7 +54,6 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
     private static final int ACQUIRE_TIMEOUT_SECONDS = 5;
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
-    private final BuffScanTaskService buffScanTaskService;
     private final RedissonClient redissonClient;
 
     private RRateLimiter c5ApiLimiter;
@@ -160,8 +158,6 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
      * @param detail C5 订单详情
      */
     private void updateOrderRecord(TradeOrderRecord record, C5OrderDetailResponse detail) {
-        Integer previousStatus = record.getStatus();
-
         // 更新价格（如果 C5 返回的价格与本地不同）
         if (detail.getPrice() != null &&
             (record.getPrice() == null || record.getPrice().compareTo(detail.getPrice()) != 0)) {
@@ -209,16 +205,6 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
         boolean updated = tradeOrderRecordMapperManager.updateById(record);
         Assert.isTrue(updated, "更新订单记录失败");
 
-        if (OrderStatusEnum.SUCCESS.getCode().equals(record.getStatus())
-                && !OrderStatusEnum.SUCCESS.getCode().equals(previousStatus)
-                && record.getTaskId() != null
-                && record.getTaskId() > 0) {
-            try {
-                buffScanTaskService.syncTaskProgress(record.getTaskId());
-            } catch (Exception e) {
-                log.error("同步任务进度异常: taskId={}", record.getTaskId(), e);
-            }
-        }
 
         log.debug("订单记录更新成功, id={}, orderId={}", record.getId(), record.getOrderId());
     }

@@ -31,17 +31,23 @@ public class C5OrderManualSyncConsumer implements RocketMQListener<C5OrderManual
 
     @Override
     public void onMessage(C5OrderManualSyncMessage message) {
-        Assert.notNull(message.getUserId(), "用户ID不能为空");
-
-        log.info("【C5手动同步消费者】收到消息, userId={}, daysBefore={}", message.getUserId(), message.getDaysBefore());
-
         try {
-            int syncedCount = c5OrderSyncService.syncOrders(message.getUserId(), message.getDaysBefore());
-            log.info("【C5手动同步消费者】处理完成, userId={}, daysBefore={}, syncedCount={}",
-                    message.getUserId(), message.getDaysBefore(), syncedCount);
+            Assert.notNull(message.getUserId(), "用户ID不能为空");
+            if (message.getAccountId() == null) {
+                log.warn("【C5手动同步消费者】旧版本 C5 手动同步消息缺少账号，已丢弃, userId={}, daysBefore={}",
+                        message.getUserId(), message.getDaysBefore());
+                return;
+            }
+
+            log.info("【C5手动同步消费者】收到消息, userId={}, accountId={}, daysBefore={}",
+                    message.getUserId(), message.getAccountId(), message.getDaysBefore());
+
+            int syncedCount = c5OrderSyncService.syncOrders(message.getUserId(), message.getAccountId(), message.getDaysBefore());
+            log.info("【C5手动同步消费者】处理完成, userId={}, accountId={}, daysBefore={}, syncedCount={}",
+                    message.getUserId(), message.getAccountId(), message.getDaysBefore(), syncedCount);
         } catch (Exception e) {
-            log.error("【C5手动同步消费者】处理失败, userId={}, daysBefore={}",
-                    message.getUserId(), message.getDaysBefore(), e);
+            log.error("【C5手动同步消费者】处理失败, userId={}, accountId={}, daysBefore={}",
+                    message.getUserId(), message.getAccountId(), message.getDaysBefore(), e);
             throw new RuntimeException("C5 手动同步失败: " + e.getMessage(), e);
         }
     }
