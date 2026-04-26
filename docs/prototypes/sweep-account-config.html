@@ -1,0 +1,360 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>扫货账号配置 - Niro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#0052D9',
+                        'primary-hover': '#003CAB',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .modal { transition: opacity 0.25s ease; }
+        body.modal-active { overflow: hidden; }
+        
+        /* 模拟 TDesign 组件样式 */
+        .t-button {
+            display: inline-flex; justify-content: center; align-items: center;
+            border-radius: 3px; font-size: 14px; padding: 0 16px; height: 32px;
+            transition: all .2s linear; cursor: pointer; border: 1px solid transparent;
+        }
+        .t-button--primary { background-color: var(--td-brand-color, #0052d9); color: #fff; }
+        .t-button--primary:hover { background-color: var(--td-brand-color-hover, #003cab); }
+        .t-button--outline { border-color: #dcdcdc; color: #333; background: #fff; }
+        .t-button--outline:hover { border-color: #0052d9; color: #0052d9; background: #fff; }
+        .t-button--danger-outline { border-color: #dcdcdc; color: #d54941; background: #fff; }
+        .t-button--danger-outline:hover { border-color: #d54941; background: #ffeceb; }
+        
+        .t-input {
+            width: 100%; box-sizing: border-box; margin: 0; padding: 0; list-style: none;
+            position: relative; display: inline-flex; align-items: center;
+            border: 1px solid #dcdcdc; border-radius: 3px; background-color: #fff;
+            height: 32px; font-size: 14px; color: #333; padding: 0 12px;
+            transition: border-color .2s cubic-bezier(.38,0,.24,1),box-shadow .2s cubic-bezier(.38,0,.24,1);
+        }
+        .t-input:focus { border-color: #0052d9; box-shadow: 0 0 0 2px rgba(0,82,217,.2); outline: none; }
+        
+        .t-tag {
+            display: inline-flex; align-items: center; justify-content: center;
+            font-size: 12px; padding: 0 8px; height: 24px; border-radius: 3px;
+        }
+        .t-tag--success-light { color: #2ba471; background-color: #e3f9e9; }
+    </style>
+</head>
+<body class="bg-white font-sans leading-normal tracking-normal flex h-screen overflow-hidden">
+
+    <!-- 侧边栏和顶部导航 (模拟 PageFrame 的外壳) -->
+    <div class="bg-slate-50 w-64 border-r border-slate-200 h-full flex flex-col hidden md:flex z-20 relative shrink-0">
+        <div class="h-16 flex items-center px-6 border-b border-slate-200">
+            <span class="text-xl font-bold text-slate-800">Niro Platform</span>
+        </div>
+        <div class="flex-1 overflow-y-auto py-4">
+            <ul class="space-y-1">
+                <li>
+                    <div class="px-6 py-3 flex items-center text-slate-800 bg-white border-r-4 border-primary shadow-sm">
+                        <i class="fas fa-shopping-cart w-5 text-primary"></i>
+                        <span class="ml-3 font-medium text-primary">扫货</span>
+                    </div>
+                    <ul class="py-1">
+                        <li><a href="#" class="block px-14 py-2 text-sm text-slate-600 hover:text-primary">扫货 2.0 任务大厅</a></li>
+                        <li><a href="#" class="block px-14 py-2 text-sm font-medium text-primary">扫货账号配置</a></li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+    </div>
+
+    <div class="flex-1 flex flex-col h-full overflow-hidden relative z-10 bg-white">
+        <!-- 头部 -->
+        <header class="h-16 flex items-center justify-between px-6 shrink-0 border-b border-slate-200">
+            <div class="flex items-center text-sm font-medium text-slate-800">
+                扫货账号配置
+            </div>
+            <div class="flex items-center space-x-4 text-slate-500">
+                <i class="fas fa-bell"></i>
+                <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center text-xs">A</div>
+            </div>
+        </header>
+
+        <!-- 内容区 -->
+        <main class="flex-1 overflow-x-hidden overflow-y-auto px-6 py-4 flex flex-col min-h-0">
+            
+            <!-- 顶部操作栏区块 (扁平化，无卡片边框) -->
+            <section class="shrink-0 pb-4">
+                <div class="flex flex-col gap-4">
+                    <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_auto] xl:items-end">
+                        <label class="flex min-w-0 flex-col gap-1.5">
+                            <span class="text-sm text-slate-600">账号名称</span>
+                            <input type="text" class="t-input w-full" placeholder="搜索账号名称">
+                        </label>
+                        <label class="flex min-w-0 flex-col gap-1.5">
+                            <span class="text-sm text-slate-600">状态</span>
+                            <select class="t-input w-full bg-white">
+                                <option value="">全部状态</option>
+                                <option value="active">正常</option>
+                            </select>
+                        </label>
+                        <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+                            <button class="t-button t-button--primary">查询</button>
+                            <button class="t-button t-button--outline">重置</button>
+                        </div>
+                    </div>
+
+                    <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between pt-2">
+                        <div class="flex flex-wrap items-center gap-2">
+                            <button class="t-button t-button--primary" onclick="openModal('editModal')">
+                                <i class="fas fa-plus mr-1.5"></i> 新增扫货账号
+                            </button>
+                        </div>
+                        <div class="text-xs text-slate-500 flex items-center space-x-2">
+                            <i class="fas fa-info-circle"></i>
+                            <span>系统会自动调度状态正常的扫货账号</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 表格区块 (扁平化无阴影边框，仅有下划线分隔) -->
+            <div class="relative min-h-0 flex-1 flex flex-col border-t border-slate-200 pt-2">
+                <div class="relative flex h-full min-h-0 flex-col overflow-hidden">
+                    <div class="min-h-0 flex-1 overflow-auto">
+                        <table class="w-full text-left border-collapse min-w-[800px]">
+                            <thead class="sticky top-0 z-10 bg-white">
+                                <tr>
+                                    <th class="px-2 py-3 bg-white text-slate-500 text-sm font-semibold whitespace-nowrap border-b border-slate-200">账号名称</th>
+                                    <th class="px-2 py-3 bg-white text-slate-500 text-sm font-semibold whitespace-nowrap border-b border-slate-200">AppKey</th>
+                                    <th class="px-2 py-3 bg-white text-slate-500 text-sm font-semibold whitespace-nowrap border-b border-slate-200">Steam 交易链接</th>
+                                    <th class="px-2 py-3 bg-white text-slate-500 text-sm font-semibold whitespace-nowrap border-b border-slate-200 w-24">状态</th>
+                                    <th class="px-2 py-3 bg-white text-slate-500 text-sm font-semibold whitespace-nowrap border-b border-slate-200 text-right w-40">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody class="divide-y divide-slate-100" id="accountTableBody">
+                                <!-- JS 动态渲染数据 -->
+                            </tbody>
+                        </table>
+                    </div>
+                    
+                    <!-- 分页 -->
+                    <div class="py-4 flex items-center justify-end shrink-0 mt-2">
+                        <div class="text-sm text-slate-600 flex items-center space-x-2">
+                            <span id="totalCount">共 0 条</span>
+                            <div class="flex items-center space-x-1 ml-4">
+                                <button class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded text-slate-400 cursor-not-allowed"><i class="fas fa-chevron-left text-xs"></i></button>
+                                <button class="w-8 h-8 flex items-center justify-center border border-primary rounded bg-primary text-white text-sm">1</button>
+                                <button class="w-8 h-8 flex items-center justify-center border border-slate-200 rounded text-slate-400 cursor-not-allowed"><i class="fas fa-chevron-right text-xs"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+        </main>
+    </div>
+
+    <!-- 新增/编辑弹窗 -->
+    <div id="editModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-[100]">
+        <div class="absolute w-full h-full bg-slate-900/40 transition-opacity" onclick="closeModal('editModal')"></div>
+        <div class="bg-white w-[520px] rounded shadow-xl z-10 relative flex flex-col transform transition-all scale-95 translate-y-4">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center shrink-0">
+                <div class="text-base font-semibold text-slate-800" id="modalTitle">新增扫货账号</div>
+                <button class="text-slate-400 hover:text-slate-600 transition p-1" onclick="closeModal('editModal')">
+                    <i class="fas fa-times"></i>
+                </button>
+            </div>
+            <div class="px-6 py-6 overflow-y-auto">
+                <form id="accountForm" class="space-y-5">
+                    <input type="hidden" id="accountId">
+                    <div class="flex items-center">
+                        <label class="w-28 text-right pr-4 text-sm font-medium text-slate-700 shrink-0">
+                            账号名称 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex-1">
+                            <input type="text" id="accountName" class="t-input" placeholder="例如：主号、小号1" required>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <label class="w-28 text-right pr-4 text-sm font-medium text-slate-700 shrink-0">
+                            AppKey <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex-1">
+                            <input type="text" id="appKey" class="t-input font-mono" placeholder="请输入平台分配的 AppKey" required>
+                        </div>
+                    </div>
+                    <div class="flex items-start">
+                        <label class="w-28 text-right pr-4 pt-1.5 text-sm font-medium text-slate-700 shrink-0">
+                            Steam 链接 <span class="text-red-500">*</span>
+                        </label>
+                        <div class="flex-1">
+                            <input type="url" id="steamUrl" class="t-input font-mono" placeholder="https://steamcommunity.com/tradeoffer/new/..." required>
+                            <div class="text-xs text-slate-400 mt-1.5 leading-relaxed">用于自动接收报价和发货</div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+            <div class="px-6 py-4 flex justify-end gap-2 shrink-0">
+                <button class="t-button t-button--outline" onclick="closeModal('editModal')">取消</button>
+                <button class="t-button t-button--primary" onclick="saveAccount()">提交</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 删除确认弹窗 -->
+    <div id="deleteModal" class="modal opacity-0 pointer-events-none fixed w-full h-full top-0 left-0 flex items-center justify-center z-[100]">
+        <div class="absolute w-full h-full bg-slate-900/40 transition-opacity" onclick="closeModal('deleteModal')"></div>
+        <div class="bg-white w-[420px] rounded shadow-xl z-10 relative transform transition-all scale-95 translate-y-4">
+            <div class="p-6">
+                <div class="flex items-start gap-3">
+                    <i class="fas fa-exclamation-circle text-orange-500 text-xl mt-0.5"></i>
+                    <div>
+                        <div class="text-base font-semibold text-slate-800">确认删除任务吗？</div>
+                        <div class="mt-2 text-sm text-slate-500 leading-relaxed">
+                            确定要删除账号 <span id="deleteAccountName" class="font-medium text-slate-700"></span> 吗？
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="px-6 py-4 flex justify-end gap-2">
+                <button class="t-button t-button--outline" onclick="closeModal('deleteModal')">取消</button>
+                <button class="t-button t-button--primary" style="background-color: #d54941;" onclick="confirmDelete()">确认</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let accounts = [
+            { id: 1, name: '扫货主账号', appKey: 'ak_1a2b3c4d5e6f7g8h9i0j', steamUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=12345678&token=ABCDEFGH', status: 'active' },
+            { id: 2, name: '扫货小号A', appKey: 'ak_0j9i8h7g6f5e4d3c2b1a', steamUrl: 'https://steamcommunity.com/tradeoffer/new/?partner=87654321&token=HGFEDCBA', status: 'active' }
+        ];
+        let deleteTargetId = null;
+
+        function renderTable() {
+            const tbody = document.getElementById('accountTableBody');
+            tbody.innerHTML = '';
+            document.getElementById('totalCount').innerText = `共 ${accounts.length} 条`;
+            
+            if(accounts.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="5" class="py-12 text-center text-slate-400 text-sm">暂无数据</td></tr>`;
+                return;
+            }
+
+            accounts.forEach(acc => {
+                const tr = document.createElement('tr');
+                tr.className = 'hover:bg-slate-50/50 transition-colors group';
+                tr.innerHTML = `
+                    <td class="px-2 py-3 align-middle">
+                        <div class="font-medium text-slate-800 text-sm">${acc.name}</div>
+                    </td>
+                    <td class="px-2 py-3 align-middle">
+                        <div class="text-slate-600 font-mono text-xs bg-slate-100 px-2 py-0.5 rounded inline-block border border-slate-200/60">${acc.appKey}</div>
+                    </td>
+                    <td class="px-2 py-3 align-middle">
+                        <div class="text-slate-500 text-xs font-mono truncate max-w-[200px] xl:max-w-sm" title="${acc.steamUrl}">${acc.steamUrl}</div>
+                    </td>
+                    <td class="px-2 py-3 align-middle">
+                        <span class="t-tag t-tag--success-light">正常</span>
+                    </td>
+                    <td class="px-2 py-3 align-middle text-right">
+                        <div class="flex flex-wrap gap-2 justify-end">
+                            <button onclick="editAccount(${acc.id})" class="text-primary hover:text-primary-hover text-sm px-2">
+                                编辑
+                            </button>
+                            <button onclick="deleteAccount(${acc.id})" class="text-red-500 hover:text-red-600 text-sm px-2">
+                                删除
+                            </button>
+                        </div>
+                    </td>
+                `;
+                tbody.appendChild(tr);
+            });
+        }
+
+        function openModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.remove('opacity-0', 'pointer-events-none');
+            const dialog = modal.querySelector('.bg-white');
+            dialog.classList.remove('scale-95', 'translate-y-4');
+            document.body.classList.add('modal-active');
+        }
+
+        function closeModal(modalId) {
+            const modal = document.getElementById(modalId);
+            modal.classList.add('opacity-0', 'pointer-events-none');
+            const dialog = modal.querySelector('.bg-white');
+            dialog.classList.add('scale-95', 'translate-y-4');
+            document.body.classList.remove('modal-active');
+            
+            if(modalId === 'editModal') {
+                setTimeout(() => {
+                    document.getElementById('accountForm').reset();
+                    document.getElementById('accountId').value = '';
+                    document.getElementById('modalTitle').innerText = '新增扫货账号';
+                }, 200);
+            }
+        }
+
+        function saveAccount() {
+            const id = document.getElementById('accountId').value;
+            const name = document.getElementById('accountName').value.trim();
+            const appKey = document.getElementById('appKey').value.trim();
+            const steamUrl = document.getElementById('steamUrl').value.trim();
+
+            if(!name || !appKey || !steamUrl) {
+                alert('请填写完整带星号的必填信息！');
+                return;
+            }
+
+            if(id) {
+                const index = accounts.findIndex(a => a.id == id);
+                if(index > -1) accounts[index] = { ...accounts[index], name, appKey, steamUrl };
+            } else {
+                const newId = accounts.length > 0 ? Math.max(...accounts.map(a => a.id)) + 1 : 1;
+                accounts.push({ id: newId, name, appKey, steamUrl, status: 'active' });
+            }
+            closeModal('editModal');
+            renderTable();
+        }
+
+        function editAccount(id) {
+            const acc = accounts.find(a => a.id == id);
+            if(acc) {
+                document.getElementById('accountId').value = acc.id;
+                document.getElementById('accountName').value = acc.name;
+                document.getElementById('appKey').value = acc.appKey;
+                document.getElementById('steamUrl').value = acc.steamUrl;
+                document.getElementById('modalTitle').innerText = '编辑扫货账号';
+                openModal('editModal');
+            }
+        }
+
+        function deleteAccount(id) {
+            const acc = accounts.find(a => a.id == id);
+            if(acc) {
+                deleteTargetId = id;
+                document.getElementById('deleteAccountName').innerText = acc.name;
+                openModal('deleteModal');
+            }
+        }
+
+        function confirmDelete() {
+            if(deleteTargetId) {
+                accounts = accounts.filter(a => a.id != deleteTargetId);
+                deleteTargetId = null;
+                closeModal('deleteModal');
+                renderTable();
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', renderTable);
+    </script>
+</body>
+</html>
