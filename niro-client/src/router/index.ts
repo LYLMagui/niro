@@ -127,15 +127,15 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
-  if (!token) {
-    MessagePlugin.warning("请先登录");
-    next(`/login?redirect=${to.path}`);
+  if (whiteList.includes(to.path)) {
+    next();
     NProgress.done();
     return;
   }
 
-  if (whiteList.includes(to.path)) {
-    next();
+  if (!token) {
+    MessagePlugin.warning("请先登录");
+    next(`/login?redirect=${to.path}`);
     NProgress.done();
     return;
   }

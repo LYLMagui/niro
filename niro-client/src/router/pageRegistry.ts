@@ -89,6 +89,18 @@ const pageRegistry: Record<string, NewPageRegistryItem> = {
       breadcrumb: true,
     },
   },
+  InventoryManagement: {
+    pageKey: "InventoryManagement",
+    path: "inventory-management",
+    routeName: "InventoryManagement",
+    component: () => import("@/views/InventoryManagement.vue"),
+    meta: {
+      title: "库存管理",
+      icon: "view-module",
+      noCache: false,
+      breadcrumb: true,
+    },
+  },
   UnboxRecord: {
     pageKey: "UnboxRecord",
     path: "unbox-record",

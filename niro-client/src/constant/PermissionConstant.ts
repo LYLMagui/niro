@@ -9,6 +9,8 @@ export const PermissionConstant = {
   TASK_RECORD_LIST: "task:record:list",
   TASK_INVENTORY_VIEW: "task:inventory:view",
   TASK_C5_LIST: "task:c5:list",
+  C5_INVENTORY_LIST: "c5:inventory:list",
+  C5_INVENTORY_REFRESH: "c5:inventory:refresh",
   TASK_C5_SNIPING_V2_LIST: "task:scan:list",
   C5_SNIPING_TASK_CREATE: "c5:sniping-task:create",
   C5_SNIPING_TASK_UPDATE: "c5:sniping-task:update",

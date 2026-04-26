@@ -23,6 +23,8 @@ const componentMap: Record<string, () => Promise<Component>> = {
   rbac: () => import("@/views/PermissionManageNew.vue"),
   rbacmanage: () => import("@/views/PermissionManageNew.vue"),
   inventory: () => import("@/views/InventoryBoard.vue"),
+  inventorymanagement: () => import("@/views/InventoryManagement.vue"),
+  "inventory-management": () => import("@/views/InventoryManagement.vue"),
   unboxrecord: () => import("@/views/UnboxRecord.vue"),
   invitecode: () => import("@/views/InviteCodeManage.vue"),
   "invite-code": () => import("@/views/InviteCodeManage.vue"),

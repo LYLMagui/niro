@@ -206,9 +206,7 @@ const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefi
   return undefined;
 };
 
-const sidebarMenus = computed((): MenuConfig[] => {
-  return transformRoutesToMenus(newPermissionStore.routes as any);
-});
+const sidebarMenus = computed((): MenuConfig[] => transformRoutesToMenus(newPermissionStore.routes as any));
 
 const activeValue = computed(() => {
   const matchedValue = findMenuValueByPath(sidebarMenus.value, route.path);

@@ -13,6 +13,8 @@ public final class PermissionConstants {
     public static final String TASK_RECORD_LIST = "task:record:list";
     public static final String TASK_INVENTORY_VIEW = "task:inventory:view";
     public static final String TASK_C5_LIST = "task:c5:list";
+    public static final String C5_INVENTORY_LIST = "c5:inventory:list";
+    public static final String C5_INVENTORY_REFRESH = "c5:inventory:refresh";
 
     public static final String LOG_LIST = "system:logs:list";
     public static final String ACCOUNT_LIST = "system:account:list";
