@@ -1,7 +1,7 @@
 <template>
   <div class="flex min-h-screen w-full flex-col items-center justify-center bg-[#f0f2f5] px-4">
     <div
-      class="w-full max-w-[480px] rounded-lg bg-white p-8 shadow-[0_8px_24px_rgba(0,0,0,0.16)] transition-all duration-500 ease-in-out hover:shadow-[0_16px_48px_rgba(0,0,0,0.22)] sm:p-10"
+      class="w-full max-w-[480px] rounded border border-slate-200 bg-white p-8 transition-all duration-500 ease-in-out sm:p-10"
     >
       <div class="mb-8 flex flex-col items-center justify-center text-center">
         <h1 class="text-3xl font-bold text-gray-800">Niro</h1>
@@ -12,14 +12,14 @@
 
       <div
         v-if="!isRegisterMode && loginNotice"
-        class="mb-6 rounded-md border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-600"
+        class="mb-6 rounded border border-green-100 bg-green-50 px-4 py-3 text-sm text-green-600"
       >
         {{ loginNotice }}
       </div>
 
       <div
         v-if="isRegisterMode && registerBanner"
-        class="mb-6 rounded-md border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-600"
+        class="mb-6 rounded border border-blue-100 bg-blue-50 px-4 py-3 text-sm text-blue-600"
       >
         {{ registerBanner }}
       </div>
@@ -65,9 +65,7 @@
         </div>
 
         <t-form-item class="pt-2">
-          <t-button theme="primary" type="submit" block :loading="loginLoading">
-            登录
-          </t-button>
+          <t-button theme="primary" type="submit" block :loading="loginLoading">登录</t-button>
         </t-form-item>
       </t-form>
 
@@ -166,7 +164,17 @@
       </t-form>
     </div>
 
-    <div class="mt-8 text-sm text-gray-400">Copyright @ 2024 Niro Control</div>
+    <div class="mt-8 flex flex-col items-center gap-1 text-sm text-gray-400">
+      <div>Copyright © 2024 - 2026 Niro Control</div>
+      <a
+        href="https://beian.miit.gov.cn/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="transition-colors hover:text-gray-600"
+      >
+        闽ICP备2025101529号-2
+      </a>
+    </div>
   </div>
 </template>
 
@@ -178,7 +186,6 @@ import { UserIcon, LockOnIcon } from "tdesign-icons-vue-next";
 import { userApi } from "@/api/user";
 import { useRequest } from "@/composables/useRequest";
 import { useUserStore } from "@/store/user";
-import { usePermissionStore } from "@/store/permission";
 import { encrypt, decrypt } from "@/utils/crypto";
 
 type AuthMode = "login" | "register";
@@ -269,7 +276,11 @@ const sendEmailCodeButtonText = computed(() => {
   return "发送验证码";
 });
 const sendEmailCodeDisabled = computed(() => {
-  return sendEmailCodeLoading.value || sendEmailCodeCountdown.value > 0 || !isEmailFormat(registerFormData.email);
+  return (
+    sendEmailCodeLoading.value ||
+    sendEmailCodeCountdown.value > 0 ||
+    !isEmailFormat(registerFormData.email)
+  );
 });
 
 const accountRules: FormRules<AccountFormData> = {
@@ -463,11 +474,6 @@ const { loading: loginLoading, run: handleAccountLogin } = useRequest(
       if (!loginSuccess) {
         return;
       }
-
-      sessionStorage.removeItem("niro-dynamic-routes-raw");
-
-      const permissionStore = usePermissionStore();
-      permissionStore.isRoutesLoaded = false;
 
       if (rememberMe.value) {
         const encryptedPassword = encrypt(accountFormData.password);

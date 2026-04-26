@@ -103,6 +103,7 @@ import {
   ShareIcon,
   BulletpointIcon,
   ViewListIcon,
+  ViewModuleIcon,
   OrderAscendingIcon,
   HistoryIcon,
   ShopIcon,
@@ -160,6 +161,7 @@ export type IconName =
   | "format-painter"
   | "friend"
   | "gif"
+  | "gift"
   | "goods"
   | "grid"
   | "help"
@@ -278,6 +280,7 @@ export type IconName =
   | "video"
   | "video-camera"
   | "view-list"
+  | "view-module"
   | "voice"
   | "wallet"
   | "warning-circle"
@@ -335,6 +338,7 @@ const iconMap: Record<IconName, Component> = {
   "format-painter": TipsIcon,
   friend: GiftIcon,
   gif: GiftIcon,
+  gift: GiftIcon,
   grid: FolderIcon,
   help: HelpIcon,
   history: HistoryIcon,
@@ -454,6 +458,7 @@ const iconMap: Record<IconName, Component> = {
   video: VideoIcon,
   "video-camera": VideoCameraIcon,
   "view-list": ViewListIcon,
+  "view-module": ViewModuleIcon,
   voice: SoundIcon,
   wallet: WalletIcon,
   "warning-circle": NotificationIcon,

@@ -3,6 +3,7 @@ import { createPinia } from "pinia";
 import TDesign from "tdesign-vue-next";
 import App from "./App.vue";
 import router from "./router";
+import AppDialog from "@/components/AppDialog.vue";
 
 // 引入组件库全局样式资源
 import "tdesign-vue-next/es/style/index.css";
@@ -21,6 +22,8 @@ app.use(createPinia());
 app.use(router);
 // 注册 TDesign 组件库
 app.use(TDesign);
+// 注册全局通用组件
+app.component("AppDialog", AppDialog);
 // 注册权限指令
 registerPermissionDirective(app);
 

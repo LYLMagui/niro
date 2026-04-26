@@ -50,9 +50,6 @@ function normalizeLegacyTabPath(path: string) {
   if (path === "/dashboard") {
     return "/";
   }
-  if (path === "/tasks") {
-    return "/task/manager/buff";
-  }
   return path;
 }
 
@@ -86,7 +83,7 @@ function readTabsFromStorage(): PageTab[] {
       .map((item) => {
         const path = normalizeLegacyTabPath(item.path);
         const fullPath = normalizeLegacyTabPath(item.fullPath);
-        const key = item.key === "/dashboard" ? "/" : item.key === "/tasks" ? "/task/manager/buff" : item.key;
+        const key = item.key === "/dashboard" ? "/" : item.key;
 
         return {
           ...item,

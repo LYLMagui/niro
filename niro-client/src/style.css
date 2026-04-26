@@ -4,13 +4,18 @@
 /* 引入 Tailwind CSS v4 */
 @import "tailwindcss";
 
-/*
-  Tailwind v4 默认包含了 reset 样式。
-  如果需要自定义主题，可以使用 @theme 块，例如：
-  @theme {
-    --color-brand: rgb(24, 144, 255);
-  }
-*/
+@theme {
+  --color-primary-50: var(--td-brand-color-1);
+  --color-primary-100: var(--td-brand-color-2);
+  --color-primary-200: var(--td-brand-color-3);
+  --color-primary-300: var(--td-brand-color-4);
+  --color-primary-400: var(--td-brand-color-5);
+  --color-primary-500: var(--td-brand-color-6);
+  --color-primary-600: var(--td-brand-color-7);
+  --color-primary-700: var(--td-brand-color-8);
+  --color-primary-800: var(--td-brand-color-9);
+  --color-primary-900: var(--td-brand-color-10);
+}
 
 :root {
   /* TDesign 品牌色变量 */
@@ -36,7 +41,7 @@
 
 body {
   margin: 0;
-  background: #cccccc;
+  background: #ffffff;
   /* 设置全局字体栈 - 使用更柔和的现代字体系统 */
   font-family:
     "Inter",
@@ -57,7 +62,7 @@ body {
 
 #app {
   min-height: 100vh;
-  background: #cccccc;
+  background: #ffffff;
 }
 
 @media (max-width: 640px) {
@@ -118,7 +123,7 @@ body {
   overflow: hidden !important;
   background: #fff !important;
   border: 1px solid #e8e8e8 !important;
-  border-radius: 0px !important;
+  border-radius: 4px !important;
   box-shadow: none !important;
 }
 
@@ -127,39 +132,52 @@ body {
   display: none !important;
 }
 
+/* TDesign 卡片全局样式 - 减少卡片感 */
+.t-card {
+  border: 0 !important;
+  border-radius: 4px !important;
+  box-shadow: none !important;
+  background: #fff !important;
+}
+
+.t-card:hover {
+  box-shadow: none !important;
+}
+
 .t-table__content {
   background: #fff !important;
-  border-radius: 5px !important;
+  border-radius: 4px !important;
 }
 
 .t-table .t-table__header th {
-  padding: 11px 10px !important;
+  padding: 10px 10px !important;
   font-size: 13px !important;
-  font-weight: 500 !important;
-  color: #616660 !important;
-  background: #fafafa !important;
-  border-bottom: 1px solid #e8e8e8 !important;
+  font-weight: 600 !important;
+  color: #64748b !important; /* slate-500 */
+  background: #f8fafc !important; /* slate-50 */
+  border-bottom: 1px solid #e2e8f0 !important; /* slate-200 */
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .t-table .t-table__body td {
-  padding-top: 15px !important;
+  padding-top: 12px !important;
   padding-right: 10px !important;
-  padding-bottom: 15px !important;
+  padding-bottom: 12px !important;
   padding-left: 10px !important;
   font-size: 13px !important;
-  color: #303133 !important;
-  border-bottom: 1px solid #f0f0f0 !important;
+  color: #334155 !important; /* slate-700 */
+  border-bottom: 1px solid #f1f5f9 !important; /* slate-100 */
 }
 
 .t-table .t-table__row--hover td {
-  background: #fcfcfc !important;
+  background: #f8fafc !important; /* slate-50 */
   box-shadow: none !important;
 }
 
 .t-table .t-table__empty {
   background: #fff !important;
 }
-
 
 /* TDesign Dialog 全局样式 */
 .t-dialog {

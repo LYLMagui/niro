@@ -61,13 +61,13 @@ const props = withDefaults(defineProps<Props>(), {
   shellClass: undefined,
   bodyClass: undefined,
   contentClass: undefined,
-  desktopOuterClass: "px-1 pt-1 pb-2",
-  mobileOuterClass: "px-0 pt-0 pb-0",
+  desktopOuterClass: "!p-0",
+  mobileOuterClass: "!p-0",
   desktopShellClass: "overflow-hidden rounded-[1px]",
   mobileShellClass: "overflow-visible rounded-none",
   desktopBodyClass: "overflow-hidden",
   mobileBodyClass: "overflow-y-auto",
-  desktopContentClass: "px-4 pt-3 pb-4",
+  desktopContentClass: "px-4 pt-0 pb-0",
   mobileContentClass: "px-3 pt-3 pb-0",
 });
 

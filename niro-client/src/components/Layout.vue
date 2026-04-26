@@ -93,6 +93,24 @@
             />
           </t-menu>
         </div>
+
+        <!-- 侧边栏底部备案信息 -->
+        <div class="mt-auto border-t border-[#f0f0f0] py-3 text-center transition-all duration-200">
+          <a
+            v-if="!collapsed"
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="text-[11px] whitespace-nowrap text-[#909399] transition-colors hover:text-[#1890ff]"
+          >
+            闽ICP备2025101529号-2
+          </a>
+          <t-tooltip v-else content="闽ICP备2025101529号-2" placement="right">
+            <div class="flex cursor-help justify-center text-[#909399]">
+              <t-icon name="info-circle" size="14px" />
+            </div>
+          </t-tooltip>
+        </div>
       </t-aside>
 
       <t-layout class="min-w-0 flex-1 overflow-hidden">
@@ -108,6 +126,7 @@
               :key="tab.key"
               :value="tab.key"
               :label="tab.title"
+              :destroy-on-hide="false"
             >
               <template #label>
                 <div class="erp-tab-label flex items-center">
@@ -138,9 +157,9 @@
           class="erp-main-content min-h-0 flex-1"
           :class="activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto'"
         >
-          <router-view v-slot="{ Component }">
+          <router-view v-slot="{ Component, route: viewRoute }">
             <keep-alive include="Logs">
-              <component :is="Component" />
+              <component :is="Component" v-if="Component" :key="viewRoute.fullPath" />
             </keep-alive>
           </router-view>
         </t-content>
@@ -154,7 +173,7 @@ import { computed, ref, watch } from "vue";
 import { useWindowSize } from "@vueuse/core";
 import { useRoute, useRouter } from "vue-router";
 import { CloseIcon, PoweroffIcon, UserCircleIcon } from "tdesign-icons-vue-next";
-import { usePermissionStore } from "@/store/permission";
+import { useNewPermissionStore } from "@/store/new-permission";
 import { HOME_TAB, useTabsStore, type PageTab } from "@/store/tabs";
 import { useUserStore } from "@/store/user";
 import { transformRoutesToMenus, type MenuConfig } from "@/utils/menu";
@@ -164,7 +183,7 @@ const route = useRoute();
 const router = useRouter();
 
 const userStore = useUserStore();
-const permissionStore = usePermissionStore();
+const newPermissionStore = useNewPermissionStore();
 const tabsStore = useTabsStore();
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);
@@ -188,8 +207,7 @@ const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefi
 };
 
 const sidebarMenus = computed((): MenuConfig[] => {
-  const routes = permissionStore.topbarRouters;
-  return transformRoutesToMenus(routes as any);
+  return transformRoutesToMenus(newPermissionStore.routes as any);
 });
 
 const activeValue = computed(() => {
@@ -224,6 +242,9 @@ watch(
   () => route.fullPath,
   () => {
     tabsStore.syncRoute(route as any);
+    if (route.meta?.isNewPermission) {
+      void newPermissionStore.loadButtonPermissions();
+    }
     if (isMobile.value) {
       collapsed.value = true;
     }
