@@ -2,7 +2,8 @@ package com.niro.web.config;
 
 import cn.dev33.satoken.stp.StpInterface;
 import cn.hutool.core.convert.Convert;
-import com.niro.web.service.SysMenuService;
+import com.niro.web.constant.UserConstants;
+import com.niro.web.service.NewPermissionService;
 import com.niro.web.service.SysRoleService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
@@ -18,12 +19,15 @@ import java.util.List;
 public class NiroStpInterface implements StpInterface {
 
     private final SysRoleService sysRoleService;
-    private final SysMenuService sysMenuService;
+    private final NewPermissionService newPermissionService;
 
     @Override
     public List<String> getPermissionList(Object loginId, String loginType) {
         Long userId = Convert.toLong(loginId);
-        return new ArrayList<>(sysMenuService.selectPermsByUserId(userId));
+        if (UserConstants.ADMIN_ID.equals(userId)) {
+            return List.of("*");
+        }
+        return new ArrayList<>(newPermissionService.listPublishedButtonPermissionsByUserId(userId));
     }
 
     @Override

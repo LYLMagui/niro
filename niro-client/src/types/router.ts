@@ -40,6 +40,31 @@ export interface RouterVo {
   children?: RouterVo[];
 }
 
+export type NewPermissionResourceType = "PAGE" | "MENU" | "BUTTON";
+
+export interface NewPermissionResource {
+  id: number;
+  resourceKey: string;
+  resourceType: NewPermissionResourceType;
+  parentResourceId: number;
+  pageKey: string;
+  title: string;
+  icon?: string;
+  sortOrder: number;
+  hidden: boolean;
+  permissionCode: string;
+  buttonGroup: string;
+  remark: string;
+  status: number;
+  children?: NewPermissionResource[];
+}
+
+export interface NewPermissionNavigation {
+  configVersion: string;
+  publishedAt: string;
+  menus: NewPermissionResource[];
+}
+
 /**
  * 前端路由记录（扩展 RouteRecordRaw）
  */
@@ -56,12 +81,16 @@ export type AppRouteRecordRaw = RouteRecordRaw & {
     hidden?: boolean;
     /** 是否缓存 */
     noCache?: boolean;
+    /** 是否总是显示根菜单 */
+    alwaysShow?: boolean;
     /** 内链地址 */
     link?: string;
     /** Breadcrumb 面包屑中是否显示 */
     breadcrumb?: boolean;
     /** 激活菜单高亮 */
     activeMenu?: string;
+    /** 是否属于新权限链路 */
+    isNewPermission?: boolean;
     /** 权限标识 */
     roles?: string[];
     /** 权限校验 */

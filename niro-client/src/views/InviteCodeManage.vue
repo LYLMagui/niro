@@ -3,11 +3,12 @@
     :is-mobile="isMobile"
     :on-body-ref-change="handleBodyRefChange"
     body-class="invite-code-body"
-    desktop-content-class="px-4 pt-3 pb-4"
+    desktop-outer-class="!p-0"
+    desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
-    <section class="overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm">
-      <div class="flex flex-col gap-3 bg-slate-50/70 px-4 py-3">
+    <section class="overflow-hidden bg-white">
+      <div class="flex flex-col gap-3 bg-white px-0 py-4">
         <div
           :class="[
             'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
@@ -38,7 +39,12 @@
               class="jsh-filter-select"
               :class="toolbarFieldClass"
             >
-              <t-option v-for="item in statusOptions" :key="item.value" :label="item.label" :value="item.value" />
+              <t-option
+                v-for="item in statusOptions"
+                :key="item.value"
+                :label="item.label"
+                :value="item.value"
+              />
             </t-select>
           </label>
 
@@ -88,22 +94,39 @@
 
           <div class="jsh-filter-actions flex flex-wrap items-center gap-2 xl:justify-end">
             <t-button theme="primary" class="jsh-action-btn" @click="handleSearch">查询</t-button>
-            <t-button variant="outline" theme="default" class="jsh-action-btn" @click="handleReset">重置</t-button>
+            <t-button variant="outline" theme="default" class="jsh-action-btn" @click="handleReset">
+              重置
+            </t-button>
             <button type="button" class="jsh-expand-link" @click="toggleAdvancedFilters">
-              {{ showAdvancedFilters ? '收起' : '展开' }}
+              {{ showAdvancedFilters ? "收起" : "展开" }}
             </button>
           </div>
         </div>
 
-        <div class="jsh-toolbar flex flex-col gap-3 border-t border-slate-200 pt-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="table-operator flex flex-wrap items-center gap-2" :class="{ 'table-operator--mobile': isMobile }">
-            <t-button theme="primary" class="jsh-action-btn jsh-action-btn--primary" @click="openCreateDialog">
+        <div class="jsh-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+          <div
+            v-if="canCreateInviteCode || canBatchCreateInviteCode || canDisableInviteCode"
+            class="table-operator flex flex-wrap items-center gap-2"
+            :class="{ 'table-operator--mobile': isMobile }"
+          >
+            <t-button
+              v-if="canCreateInviteCode"
+              theme="primary"
+              class="jsh-action-btn jsh-action-btn--primary"
+              @click="openCreateDialog"
+            >
               新建邀请码
             </t-button>
-            <t-button variant="outline" theme="default" class="jsh-action-btn" @click="openBatchDialog">
+            <t-button
+              v-if="canBatchCreateInviteCode"
+              variant="outline"
+              theme="default"
+              class="jsh-action-btn"
+              @click="openBatchDialog"
+            >
               批量生成
             </t-button>
-            <t-popconfirm content="确认批量停用选中的邀请码吗？" @confirm="handleBatchDisable">
+            <t-popconfirm v-if="canDisableInviteCode" content="确认批量停用选中的邀请码吗？" @confirm="handleBatchDisable">
               <t-button
                 variant="outline"
                 theme="default"
@@ -115,7 +138,11 @@
             </t-popconfirm>
           </div>
 
-          <div class="text-xs text-slate-500" :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'">
+          <div
+            v-if="canDisableInviteCode"
+            class="text-xs text-slate-500"
+            :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'"
+          >
             <t-tag theme="primary" variant="light" class="rounded-[2px]">
               已选择 {{ selectedRowKeys.length }} 项
             </t-tag>
@@ -133,11 +160,9 @@
       </div>
     </section>
 
-    <div :class="['relative min-h-0 flex-1 pt-3', isMobile ? 'pb-0' : 'pb-4']">
-      <div
-        v-if="!isMobile"
-        class="relative flex h-full min-h-0 flex-col overflow-hidden rounded-md border border-slate-200 bg-white shadow-sm"
-      >
+    <div class="relative min-h-0 flex-1">
+      <div v-if="!isMobile" class="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
+        >
         <div class="min-h-0 flex-1 overflow-hidden">
           <t-table
             row-key="id"
@@ -145,8 +170,8 @@
             :columns="columns"
             :loading="loading"
             :pagination="undefined"
-            :selected-row-keys="selectedRowKeys"
-            select-on-row-click
+            :selected-row-keys="canManageInviteCodes ? selectedRowKeys : []"
+            :select-on-row-click="canManageInviteCodes"
             hover
             class="invite-code-table w-full bg-white"
             @select-change="handleSelectChange"
@@ -162,9 +187,13 @@
                 <div class="font-mono text-[13px] font-semibold tracking-[0.04em] text-slate-800">
                   {{ row.code }}
                 </div>
-                <div class="flex flex-wrap items-center gap-3 text-xs">
-                  <button type="button" class="invite-link-btn" @click="copyInviteCode(row)">复制邀请码</button>
-                  <button type="button" class="invite-link-btn" @click="copyInviteLink(row)">复制链接</button>
+                <div v-if="canCopyInviteCode" class="flex flex-wrap items-center gap-3 text-xs">
+                  <button type="button" class="invite-link-btn" @click="copyInviteCode(row)">
+                    复制邀请码
+                  </button>
+                  <button type="button" class="invite-link-btn" @click="copyInviteLink(row)">
+                    复制链接
+                  </button>
                 </div>
               </div>
             </template>
@@ -184,8 +213,16 @@
             <template #account="{ row }">
               <div v-if="row.registration" class="flex min-w-0 flex-col gap-1">
                 <div class="flex min-w-0 items-center gap-2">
-                  <span class="truncate font-medium text-slate-700">{{ row.registration.nickname }}</span>
-                  <t-tag :theme="row.registration.accountStatus === '正常' ? 'success' : 'danger'" variant="light" size="small">
+                  <t-tooltip :content="row.registration.nickname" placement="top-left">
+                    <span class="truncate font-medium text-slate-700">
+                      {{ row.registration.nickname }}
+                    </span>
+                  </t-tooltip>
+                  <t-tag
+                    :theme="row.registration.accountStatus === '正常' ? 'success' : 'danger'"
+                    variant="light"
+                    size="small"
+                  >
                     {{ row.registration.accountStatus }}
                   </t-tag>
                 </div>
@@ -195,12 +232,16 @@
             </template>
 
             <template #email="{ row }">
-              <span v-if="row.registration" class="text-sm text-slate-700">{{ row.registration.email }}</span>
+              <span v-if="row.registration" class="text-sm text-slate-700">
+                {{ row.registration.email }}
+              </span>
               <span v-else class="text-slate-400">-</span>
             </template>
 
             <template #usedAt="{ row }">
-              <span v-if="row.registration" class="text-sm text-slate-700">{{ formatDateTime(row.registration.usedAt) }}</span>
+              <span v-if="row.registration" class="text-sm text-slate-700">
+                {{ formatDateTime(row.registration.usedAt) }}
+              </span>
               <span v-else class="text-slate-400">-</span>
             </template>
 
@@ -220,16 +261,29 @@
             </template>
 
             <template #operation="{ row }">
-              <div class="invite-code-table__actions flex flex-wrap gap-1.5">
-                <t-button variant="outline" class="invite-code-table__action-btn" @click="openDetailDrawer(row)">
+              <div
+                v-if="hasVisibleOperation(row)"
+                class="invite-code-table__actions flex flex-wrap gap-1.5"
+              >
+                <t-button
+                  variant="outline"
+                  class="invite-code-table__action-btn"
+                  @click="openDetailDrawer(row)"
+                >
                   查看注册信息
                 </t-button>
-                <t-button variant="outline" class="invite-code-table__action-btn" @click="openEditDialog(row)">
+                <t-button
+                  variant="outline"
+                  class="invite-code-table__action-btn"
+                  @click="openEditDialog(row)"
+                >
                   编辑
                 </t-button>
                 <t-popconfirm
                   v-if="canToggleStatus(row)"
-                  :content="row.adminStatus === 'enabled' ? '确认停用该邀请码吗？' : '确认启用该邀请码吗？'"
+                  :content="
+                    row.adminStatus === 'enabled' ? '确认停用该邀请码吗？' : '确认启用该邀请码吗？'
+                  "
                   @confirm="toggleStatus(row)"
                 >
                   <t-button
@@ -237,7 +291,7 @@
                     :theme="row.adminStatus === 'enabled' ? 'warning' : 'success'"
                     class="invite-code-table__action-btn"
                   >
-                    {{ row.adminStatus === 'enabled' ? '停用' : '启用' }}
+                    {{ row.adminStatus === "enabled" ? "停用" : "启用" }}
                   </t-button>
                 </t-popconfirm>
                 <t-button
@@ -247,9 +301,15 @@
                   disabled
                   class="invite-code-table__action-btn"
                 >
-                  {{ row.adminStatus === 'enabled' ? '停用' : '启用' }}
+                  {{ row.adminStatus === "enabled" ? "停用" : "启用" }}
                 </t-button>
-                <t-button variant="outline" theme="default" class="invite-code-table__action-btn" @click="copyInviteLink(row)">
+                <t-button
+                  variant="outline"
+                  theme="default"
+                  class="invite-code-table__action-btn"
+                  v-if="canCopyInviteCode"
+                  @click="copyInviteLink(row)"
+                >
                   复制链接
                 </t-button>
               </div>
@@ -257,7 +317,7 @@
           </t-table>
         </div>
 
-        <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
+        <div v-if="pagination.total > 0" class="bg-white px-4 py-3">
           <t-pagination
             :current="pagination.current"
             :page-size="pagination.pageSize"
@@ -276,14 +336,30 @@
           <div v-for="row in pagedRecords" :key="row.id" class="invite-mobile-card">
             <div class="invite-mobile-card__header">
               <div class="flex min-w-0 items-start gap-3">
-                <t-checkbox :checked="selectedRowKeys.includes(row.id)" @change="(checked) => handleMobileSelectChange(row.id, checked)" />
+                <t-checkbox
+                  v-if="canDisableInviteCode"
+                  :checked="selectedRowKeys.includes(row.id)"
+                  @change="(checked) => handleMobileSelectChange(row.id, checked)"
+                />
                 <div class="min-w-0 flex-1">
-                  <div class="truncate font-mono text-sm font-semibold text-slate-800">{{ row.code }}</div>
+                  <t-tooltip :content="row.code" placement="top-left">
+                    <div class="truncate font-mono text-sm font-semibold text-slate-800">
+                      {{ row.code }}
+                    </div>
+                  </t-tooltip>
                   <div class="mt-1 flex flex-wrap gap-1.5">
-                    <t-tag :theme="getStatusMeta(row.adminStatus).theme" variant="light" size="small">
+                    <t-tag
+                      :theme="getStatusMeta(row.adminStatus).theme"
+                      variant="light"
+                      size="small"
+                    >
                       {{ getStatusMeta(row.adminStatus).label }}
                     </t-tag>
-                    <t-tag :theme="getAvailabilityMeta(getAvailability(row)).theme" variant="light" size="small">
+                    <t-tag
+                      :theme="getAvailabilityMeta(getAvailability(row)).theme"
+                      variant="light"
+                      size="small"
+                    >
                       {{ getAvailabilityMeta(getAvailability(row)).label }}
                     </t-tag>
                   </div>
@@ -303,37 +379,50 @@
               <div class="invite-mobile-card__meta-item">
                 <span class="invite-mobile-card__meta-label">注册账号：</span>
                 <span class="invite-mobile-card__meta-value">
-                  {{ row.registration ? `${row.registration.nickname}（${row.registration.userId}）` : '-' }}
+                  {{
+                    row.registration
+                      ? `${row.registration.nickname}（${row.registration.userId}）`
+                      : "-"
+                  }}
                 </span>
               </div>
               <div class="invite-mobile-card__meta-item">
                 <span class="invite-mobile-card__meta-label">注册邮箱：</span>
-                <span class="invite-mobile-card__meta-value">{{ row.registration?.email || '-' }}</span>
+                <span class="invite-mobile-card__meta-value">
+                  {{ row.registration?.email || "-" }}
+                </span>
               </div>
               <div class="invite-mobile-card__meta-item">
                 <span class="invite-mobile-card__meta-label">使用时间：</span>
                 <span class="invite-mobile-card__meta-value">
-                  {{ row.registration ? formatDateTime(row.registration.usedAt) : '-' }}
+                  {{ row.registration ? formatDateTime(row.registration.usedAt) : "-" }}
                 </span>
               </div>
               <div class="invite-mobile-card__meta-item invite-mobile-card__meta-item--full">
                 <span class="invite-mobile-card__meta-label">备注：</span>
-                <span class="invite-mobile-card__meta-value">{{ row.remark || '-' }}</span>
+                <span class="invite-mobile-card__meta-value">{{ row.remark || "-" }}</span>
               </div>
             </div>
 
-            <div class="invite-mobile-card__actions">
-              <t-button variant="outline" theme="default" @click="openDetailDrawer(row)">详情</t-button>
-              <t-button variant="outline" theme="default" @click="openEditDialog(row)">编辑</t-button>
-              <t-button variant="outline" theme="default" @click="copyInviteCode(row)">复制码</t-button>
-              <t-button variant="outline" theme="default" @click="copyInviteLink(row)">复制链接</t-button>
+            <div v-if="hasVisibleOperation(row)" class="invite-mobile-card__actions">
+              <t-button variant="outline" theme="default" @click="openDetailDrawer(row)">
+                详情
+              </t-button>
+              <t-button v-if="canUpdateInviteCode" variant="outline" theme="default" @click="openEditDialog(row)">
+                编辑
+              </t-button>
+              <t-button v-if="canCopyInviteCode" variant="outline" theme="default" @click="copyInviteCode(row)">
+                复制码
+              </t-button>
+              <t-button v-if="canCopyInviteCode" variant="outline" theme="default" @click="copyInviteLink(row)">
+                复制链接
+              </t-button>
             </div>
           </div>
         </div>
 
         <div v-if="!loading && pagination.total > 0" class="invite-mobile__pagination">
           <t-pagination
-            size="small"
             theme="simple"
             :current="pagination.current"
             :page-size="pagination.pageSize"
@@ -346,7 +435,13 @@
       </div>
     </div>
 
-    <t-drawer v-model:visible="detailDrawerVisible" size="440px" header="注册信息" :footer="false" :close-btn="true">
+    <t-drawer
+      v-model:visible="detailDrawerVisible"
+      size="440px"
+      header="注册信息"
+      :footer="false"
+      :close-btn="true"
+    >
       <template v-if="currentDetailRecord">
         <div class="flex flex-col gap-4 p-1">
           <section class="invite-drawer-section">
@@ -354,12 +449,15 @@
             <div class="invite-drawer-grid">
               <div class="invite-drawer-item">
                 <div class="invite-drawer-item__label">邀请码</div>
-                <div class="invite-drawer-item__value font-mono font-semibold">{{ currentDetailRecord.code }}</div>
+                <div class="invite-drawer-item__value font-mono font-semibold">
+                  {{ currentDetailRecord.code }}
+                </div>
               </div>
               <div class="invite-drawer-item">
                 <div class="invite-drawer-item__label">状态 / 可用性</div>
                 <div class="invite-drawer-item__value">
-                  {{ getStatusMeta(currentDetailRecord.adminStatus).label }} / {{ getAvailabilityMeta(getAvailability(currentDetailRecord)).label }}
+                  {{ getStatusMeta(currentDetailRecord.adminStatus).label }} /
+                  {{ getAvailabilityMeta(getAvailability(currentDetailRecord)).label }}
                 </div>
               </div>
               <div class="invite-drawer-item">
@@ -368,15 +466,19 @@
               </div>
               <div class="invite-drawer-item">
                 <div class="invite-drawer-item__label">创建时间</div>
-                <div class="invite-drawer-item__value">{{ formatDateTime(currentDetailRecord.createdAt) }}</div>
+                <div class="invite-drawer-item__value">
+                  {{ formatDateTime(currentDetailRecord.createdAt) }}
+                </div>
               </div>
               <div class="invite-drawer-item">
                 <div class="invite-drawer-item__label">有效期</div>
-                <div class="invite-drawer-item__value">{{ formatExpireAt(currentDetailRecord) }}</div>
+                <div class="invite-drawer-item__value">
+                  {{ formatExpireAt(currentDetailRecord) }}
+                </div>
               </div>
               <div class="invite-drawer-item">
                 <div class="invite-drawer-item__label">备注</div>
-                <div class="invite-drawer-item__value">{{ currentDetailRecord.remark || '-' }}</div>
+                <div class="invite-drawer-item__value">{{ currentDetailRecord.remark || "-" }}</div>
               </div>
             </div>
           </section>
@@ -387,27 +489,39 @@
               <div class="invite-drawer-grid">
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">用户 ID</div>
-                  <div class="invite-drawer-item__value">{{ currentDetailRecord.registration.userId }}</div>
+                  <div class="invite-drawer-item__value">
+                    {{ currentDetailRecord.registration.userId }}
+                  </div>
                 </div>
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">昵称 / 账号</div>
-                  <div class="invite-drawer-item__value">{{ currentDetailRecord.registration.nickname }}</div>
+                  <div class="invite-drawer-item__value">
+                    {{ currentDetailRecord.registration.nickname }}
+                  </div>
                 </div>
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">注册邮箱</div>
-                  <div class="invite-drawer-item__value">{{ currentDetailRecord.registration.email }}</div>
+                  <div class="invite-drawer-item__value">
+                    {{ currentDetailRecord.registration.email }}
+                  </div>
                 </div>
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">注册时间</div>
-                  <div class="invite-drawer-item__value">{{ formatDateTime(currentDetailRecord.registration.usedAt) }}</div>
+                  <div class="invite-drawer-item__value">
+                    {{ formatDateTime(currentDetailRecord.registration.usedAt) }}
+                  </div>
                 </div>
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">账号状态</div>
-                  <div class="invite-drawer-item__value">{{ currentDetailRecord.registration.accountStatus }}</div>
+                  <div class="invite-drawer-item__value">
+                    {{ currentDetailRecord.registration.accountStatus }}
+                  </div>
                 </div>
                 <div class="invite-drawer-item">
                   <div class="invite-drawer-item__label">注册链接</div>
-                  <div class="invite-drawer-item__value break-all">{{ buildInviteLink(currentDetailRecord.code) }}</div>
+                  <div class="invite-drawer-item__value break-all">
+                    {{ buildInviteLink(currentDetailRecord.code) }}
+                  </div>
                 </div>
               </div>
             </template>
@@ -419,7 +533,12 @@
       </template>
     </t-drawer>
 
-    <t-dialog v-model:visible="createDialogVisible" header="新建邀请码" width="620px" :footer="false">
+    <t-dialog
+      v-model:visible="createDialogVisible"
+      header="新建邀请码"
+      width="620px"
+      :footer="false"
+    >
       <t-form :data="createForm" label-align="top" class="overflow-x-hidden p-1">
         <div class="grid grid-cols-2 gap-4">
           <t-form-item label="邀请码" class="col-span-2">
@@ -440,22 +559,35 @@
             </div>
           </t-form-item>
           <t-form-item label="备注" class="col-span-2">
-            <t-textarea v-model="createForm.remark" :autosize="{ minRows: 3, maxRows: 5 }" placeholder="例如：给首批种子用户" />
+            <t-textarea
+              v-model="createForm.remark"
+              :autosize="{ minRows: 3, maxRows: 5 }"
+              placeholder="例如：给首批种子用户"
+            />
           </t-form-item>
         </div>
         <div class="mt-6 flex justify-end gap-3">
           <t-button variant="outline" @click="createDialogVisible = false">取消</t-button>
-          <t-button theme="primary" @click="submitCreate">创建邀请码</t-button>
+          <t-button theme="primary" :disabled="!canCreateInviteCode" @click="submitCreate">创建邀请码</t-button>
         </div>
       </t-form>
     </t-dialog>
 
-    <t-dialog v-model:visible="batchDialogVisible" header="批量生成邀请码" width="760px" :footer="false">
+    <t-dialog
+      v-model:visible="batchDialogVisible"
+      header="批量生成邀请码"
+      width="760px"
+      :footer="false"
+    >
       <template v-if="!batchResultMode">
         <t-form :data="batchForm" label-align="top" class="overflow-x-hidden p-1">
           <div class="grid grid-cols-2 gap-4">
             <t-form-item label="生成数量">
-              <t-input v-model="batchForm.quantity" type="number" placeholder="请输入 1-20 之间的数量" />
+              <t-input
+                v-model="batchForm.quantity"
+                type="number"
+                placeholder="请输入 1-20 之间的数量"
+              />
             </t-form-item>
             <t-form-item label="前缀（可选）">
               <t-input v-model="batchForm.prefix" placeholder="例如 SPRING / C5 / BETA" />
@@ -475,25 +607,33 @@
               </div>
             </t-form-item>
             <t-form-item label="备注" class="col-span-2">
-              <t-textarea v-model="batchForm.remark" :autosize="{ minRows: 3, maxRows: 5 }" placeholder="例如：4 月活动测试批次" />
+              <t-textarea
+                v-model="batchForm.remark"
+                :autosize="{ minRows: 3, maxRows: 5 }"
+                placeholder="例如：4 月活动测试批次"
+              />
             </t-form-item>
           </div>
           <div class="mt-6 flex justify-end gap-3">
             <t-button variant="outline" @click="batchDialogVisible = false">取消</t-button>
-            <t-button theme="primary" @click="submitBatchGenerate">开始生成</t-button>
+            <t-button theme="primary" :disabled="!canBatchCreateInviteCode" @click="submitBatchGenerate">开始生成</t-button>
           </div>
         </t-form>
       </template>
       <div v-else class="flex flex-col gap-4 p-1">
-        <div class="rounded-md border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">
+        <div class="rounded border border-sky-100 bg-sky-50 px-4 py-3 text-sm text-sky-700">
           已生成 {{ batchResult.length }} 个邀请码。当前结果保留在弹窗中，方便直接复制并发码。
         </div>
         <div class="flex flex-wrap gap-2">
           <t-button theme="primary" @click="copyAllCodes">复制全部邀请码</t-button>
-          <t-button variant="outline" theme="default" @click="copyAllLinks">复制全部注册链接</t-button>
-          <t-button variant="outline" theme="default" @click="resetBatchDialog">返回重新生成</t-button>
+          <t-button variant="outline" theme="default" @click="copyAllLinks">
+            复制全部注册链接
+          </t-button>
+          <t-button variant="outline" theme="default" @click="resetBatchDialog">
+            返回重新生成
+          </t-button>
         </div>
-        <div class="overflow-hidden rounded-md border border-slate-200 bg-white">
+        <div class="overflow-hidden rounded border border-slate-200 bg-white">
           <div
             v-for="item in batchResult"
             :key="item.id"
@@ -511,14 +651,20 @@
       <t-form :data="editForm" label-align="top" class="overflow-x-hidden p-1">
         <div class="grid grid-cols-2 gap-4">
           <t-form-item label="邀请码" class="col-span-2">
-            <div class="invite-dialog-readonly">{{ editForm.code || '-' }}</div>
+            <div class="invite-dialog-readonly">{{ editForm.code || "-" }}</div>
           </t-form-item>
           <t-form-item label="当前状态">
-            <div class="invite-dialog-readonly">{{ currentEditRecord ? getStatusMeta(currentEditRecord.adminStatus).label : '-' }}</div>
+            <div class="invite-dialog-readonly">
+              {{ currentEditRecord ? getStatusMeta(currentEditRecord.adminStatus).label : "-" }}
+            </div>
           </t-form-item>
           <t-form-item label="可用性">
             <div class="invite-dialog-readonly">
-              {{ currentEditRecord ? getAvailabilityMeta(getAvailability(currentEditRecord)).label : '-' }}
+              {{
+                currentEditRecord
+                  ? getAvailabilityMeta(getAvailability(currentEditRecord)).label
+                  : "-"
+              }}
             </div>
           </t-form-item>
           <template v-if="currentEditRecord && !currentEditRecord.registration">
@@ -540,15 +686,24 @@
           <t-form-item v-else label="注册信息" class="col-span-2">
             <div class="invite-dialog-readonly leading-6">
               <template v-if="currentEditRecord?.registration">
-                已绑定账号：{{ currentEditRecord.registration.nickname }}（ID：{{ currentEditRecord.registration.userId }}）<br />
-                注册邮箱：{{ currentEditRecord.registration.email }}<br />
-                注册时间：{{ formatDateTime(currentEditRecord.registration.usedAt) }}<br />
+                已绑定账号：{{ currentEditRecord.registration.nickname }}（ID：{{
+                  currentEditRecord.registration.userId
+                }}）
+                <br />
+                注册邮箱：{{ currentEditRecord.registration.email }}
+                <br />
+                注册时间：{{ formatDateTime(currentEditRecord.registration.usedAt) }}
+                <br />
                 账号状态：{{ currentEditRecord.registration.accountStatus }}
               </template>
             </div>
           </t-form-item>
           <t-form-item label="备注" class="col-span-2">
-            <t-textarea v-model="editForm.remark" :autosize="{ minRows: 3, maxRows: 5 }" placeholder="补充对当前邀请码的说明" />
+            <t-textarea
+              v-model="editForm.remark"
+              :autosize="{ minRows: 3, maxRows: 5 }"
+              placeholder="补充对当前邀请码的说明"
+            />
           </t-form-item>
         </div>
         <div class="mt-6 flex justify-end gap-3">
@@ -573,6 +728,10 @@ import {
 } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
 import { inviteCodeApi } from "@/api/invite-code";
+import { PermissionConstant } from "@/constant/PermissionConstant";
+import useNewPermission from "@/hooks/useNewPermission";
+import usePermission from "@/hooks/usePermission";
+import { useNewPermissionStore } from "@/store/new-permission";
 import type {
   InviteCodeBatchCreateResult,
   InviteCodeDetail,
@@ -648,6 +807,18 @@ interface EditInviteForm {
   remark: string;
 }
 
+type PermissionMode = "legacy" | "new";
+
+interface Props {
+  permissionMode?: PermissionMode;
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  permissionMode: "legacy",
+});
+
+const INVITE_CODE_MANAGE_PERMISSION_CODE = PermissionConstant.INVITE_CODE_MANAGE;
+
 const mapAdminStatus = (status: number): AdminStatus => (status === 1 ? "enabled" : "disabled");
 
 const mapAccountStatus = (status?: string | null): AccountStatus => {
@@ -691,9 +862,33 @@ const availabilityOptions: InviteAvailabilityOption[] = [
 ];
 
 const toolbarFieldClass =
-  "w-full [&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded-md [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
-const inviteTableHeaderClass = "!bg-white !text-slate-500 !text-sm !font-semibold whitespace-nowrap";
+  "w-full [&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+const inviteTableHeaderClass =
+  "!bg-white !text-slate-500 !text-sm !font-semibold whitespace-nowrap";
 const inviteTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
+
+const { hasPermission } = usePermission();
+const { hasButtonPermission } = useNewPermission();
+const newPermissionStore = useNewPermissionStore();
+
+const canManageInviteCodes = computed(() =>
+  props.permissionMode === "new"
+    ? hasButtonPermission(INVITE_CODE_MANAGE_PERMISSION_CODE)
+    : hasPermission(INVITE_CODE_MANAGE_PERMISSION_CODE)
+);
+const hasInviteCodeAction = (permissionCode: string) =>
+  props.permissionMode === "new" ? hasButtonPermission(permissionCode) : canManageInviteCodes.value;
+const canCreateInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_CREATE));
+const canBatchCreateInviteCode = computed(() =>
+  hasInviteCodeAction(PermissionConstant.INVITE_CODE_BATCH_CREATE)
+);
+const canUpdateInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_UPDATE));
+const canEnableInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_ENABLE));
+const canDisableInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_DISABLE));
+const canCopyInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_COPY));
+
+const hasVisibleOperation = (record: InviteCodeRecord) =>
+  canUpdateInviteCode.value || canCopyInviteCode.value || canToggleStatus(record);
 
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);
@@ -750,7 +945,9 @@ const editForm = reactive<EditInviteForm>({
   remark: "",
 });
 
-const creatorOptions = computed(() => Array.from(new Set(inviteRecords.value.map((item) => item.creator))));
+const creatorOptions = computed(() =>
+  Array.from(new Set(inviteRecords.value.map((item) => item.creator)))
+);
 
 const creatorIdMap = computed<Record<string, number>>(() => {
   const map: Record<string, number> = {};
@@ -762,6 +959,8 @@ const creatorIdMap = computed<Record<string, number>>(() => {
   return map;
 });
 
+const normalizeDateValue = (value: unknown) => (typeof value === "string" ? value : undefined);
+
 const loadInviteCodes = async () => {
   loading.value = true;
   try {
@@ -770,11 +969,12 @@ const loadInviteCodes = async () => {
       page: pagination.current,
       pageSize: pagination.pageSize,
       keyword: queryParams.keyword || undefined,
-      status: queryParams.status === undefined ? undefined : queryParams.status === "enabled" ? 1 : 0,
+      status:
+        queryParams.status === undefined ? undefined : queryParams.status === "enabled" ? 1 : 0,
       availability: queryParams.availability,
       issuerUserId: queryParams.creator ? creatorIdMap.value[queryParams.creator] : undefined,
-      startDate: startDate || undefined,
-      endDate: endDate || undefined,
+      startDate: normalizeDateValue(startDate),
+      endDate: normalizeDateValue(endDate),
     });
     inviteRecords.value = data.records.map(mapRecord);
     pagination.total = data.total;
@@ -798,7 +998,9 @@ const getAvailability = (record: InviteCodeRecord): RuntimeAvailability => {
   return "available";
 };
 
-const getStatusMeta = (status: AdminStatus): { label: string; theme: NonNullable<TagProps["theme"]> } => {
+const getStatusMeta = (
+  status: AdminStatus
+): { label: string; theme: NonNullable<TagProps["theme"]> } => {
   if (status === "enabled") {
     return { label: "启用", theme: "primary" };
   }
@@ -820,122 +1022,142 @@ const getAvailabilityMeta = (
   return { label: "已停用", theme: "default" };
 };
 
-const formatDateTime = (value?: string | null) => (value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "-");
-const formatExpireAt = (record: InviteCodeRecord) => (record.forever ? "永不过期" : formatDateTime(record.expireAt));
+const formatDateTime = (value?: string | null) =>
+  value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "-";
+const formatExpireAt = (record: InviteCodeRecord) =>
+  record.forever ? "永不过期" : formatDateTime(record.expireAt);
 const buildInviteLink = (code: string) => {
   const url = new URL("/login", window.location.origin);
   url.searchParams.set("mode", "register");
   url.searchParams.set("inviteCode", code);
   return url.toString();
 };
-const defaultExpireAt = () => dayjs().add(30, "day").endOf("day").format("YYYY-MM-DD HH:mm:ss");
-
 onMounted(() => {
+  if (props.permissionMode === "new") {
+    void newPermissionStore.loadButtonPermissions();
+  }
   void loadInviteCodes();
 });
 
-const filteredRecords = computed(() => inviteRecords.value);
-
 const pagedRecords = computed(() => inviteRecords.value);
+const shouldShowOperationColumn = computed(() => {
+  if (!canManageInviteCodes.value) {
+    return false;
+  }
+  if (props.permissionMode !== "new") {
+    return true;
+  }
+  return pagedRecords.value.some((record) => hasVisibleOperation(record));
+});
 
-const columns = computed<PrimaryTableCol[]>(() => [
-  {
-    colKey: "row-select",
-    type: "multiple",
-    width: 56,
-    fixed: "left",
-    className: `${inviteTableBodyClass} !bg-white`,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "code",
-    title: "邀请码",
-    width: 220,
-    cell: "code",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "status",
-    title: "状态",
-    width: 110,
-    cell: "status",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "availability",
-    title: "可用性",
-    width: 110,
-    cell: "availability",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "account",
-    title: "注册账号",
-    width: 190,
-    cell: "account",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "email",
-    title: "注册邮箱",
-    width: 220,
-    cell: "email",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "usedAt",
-    title: "使用时间",
-    width: 180,
-    cell: "usedAt",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "creator",
-    title: "创建人",
-    width: 120,
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "expireAt",
-    title: "有效期",
-    width: 180,
-    cell: "expireAt",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "remark",
-    title: "备注",
-    width: 220,
-    cell: "remark",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "createdAt",
-    title: "创建时间",
-    width: 180,
-    cell: "createdAt",
-    className: inviteTableBodyClass,
-    thClassName: inviteTableHeaderClass,
-  },
-  {
-    colKey: "operation",
-    title: "操作",
-    width: 260,
-    fixed: "right",
-    cell: "operation",
-    className: `${inviteTableBodyClass} !bg-white`,
-    thClassName: inviteTableHeaderClass,
-  },
-]);
+const columns = computed<PrimaryTableCol[]>(() => {
+  const baseColumns: PrimaryTableCol[] = [
+    {
+      colKey: "code",
+      title: "邀请码",
+      width: 220,
+      cell: "code",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "status",
+      title: "状态",
+      width: 110,
+      cell: "status",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "availability",
+      title: "可用性",
+      width: 110,
+      cell: "availability",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "account",
+      title: "注册账号",
+      width: 190,
+      cell: "account",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "email",
+      title: "注册邮箱",
+      width: 220,
+      cell: "email",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "usedAt",
+      title: "使用时间",
+      width: 180,
+      cell: "usedAt",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "creator",
+      title: "创建人",
+      width: 120,
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "expireAt",
+      title: "有效期",
+      width: 180,
+      cell: "expireAt",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "remark",
+      title: "备注",
+      width: 220,
+      cell: "remark",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+    {
+      colKey: "createdAt",
+      title: "创建时间",
+      width: 180,
+      cell: "createdAt",
+      className: inviteTableBodyClass,
+      thClassName: inviteTableHeaderClass,
+    },
+  ];
+
+  if (canManageInviteCodes.value) {
+    baseColumns.unshift({
+      colKey: "row-select",
+      type: "multiple",
+      width: 56,
+      fixed: "left",
+      className: `${inviteTableBodyClass} !bg-white`,
+      thClassName: inviteTableHeaderClass,
+    });
+
+    if (shouldShowOperationColumn.value) {
+      baseColumns.push({
+        colKey: "operation",
+        title: "操作",
+        width: 260,
+        fixed: "right",
+        cell: "operation",
+        className: `${inviteTableBodyClass} !bg-white`,
+        thClassName: inviteTableHeaderClass,
+      });
+    }
+  }
+
+  return baseColumns;
+});
 
 const selectedRecords = computed(() => {
   const selectedSet = new Set(selectedRowKeys.value.map((item) => Number(item)));
@@ -1030,12 +1252,21 @@ const copyText = async (text: string, successMessage: string) => {
 };
 
 const copyInviteCode = (record: InviteCodeRecord) => copyText(record.code, "邀请码已复制");
-const copyInviteLink = (record: InviteCodeRecord) => copyText(buildInviteLink(record.code), "注册链接已复制");
-const copyAllCodes = () => copyText(batchResult.value.map((item) => item.code).join("\n"), "全部邀请码已复制");
+const copyInviteLink = (record: InviteCodeRecord) =>
+  copyText(buildInviteLink(record.code), "注册链接已复制");
+const copyAllCodes = () =>
+  copyText(batchResult.value.map((item) => item.code).join("\n"), "全部邀请码已复制");
 const copyAllLinks = () =>
-  copyText(batchResult.value.map((item) => buildInviteLink(item.code)).join("\n"), "全部注册链接已复制");
+  copyText(
+    batchResult.value.map((item) => buildInviteLink(item.code)).join("\n"),
+    "全部注册链接已复制"
+  );
 
-const canToggleStatus = (record: InviteCodeRecord) => !record.registration && getAvailability(record) !== "expired";
+const canToggleStatus = (record: InviteCodeRecord) => {
+  const statusPermission =
+    record.adminStatus === "enabled" ? canDisableInviteCode.value : canEnableInviteCode.value;
+  return statusPermission && !record.registration && getAvailability(record) !== "expired";
+};
 
 const toggleStatus = async (record: InviteCodeRecord) => {
   if (!canToggleStatus(record)) {
@@ -1049,11 +1280,16 @@ const toggleStatus = async (record: InviteCodeRecord) => {
 };
 
 const handleBatchDisable = async () => {
+  if (!canDisableInviteCode.value) {
+    return;
+  }
   if (selectedRecords.value.length === 0) {
     MessagePlugin.warning("请先选择邀请码");
     return;
   }
-  const ids = selectedRecords.value.filter((record) => canToggleStatus(record)).map((record) => record.id);
+  const ids = selectedRecords.value
+    .filter((record) => canToggleStatus(record))
+    .map((record) => record.id);
   const skippedCount = selectedRecords.value.length - ids.length;
   if (ids.length > 0) {
     await inviteCodeApi.batchDisable(ids);
@@ -1074,17 +1310,17 @@ const resetCreateForm = () => {
 };
 
 const openCreateDialog = () => {
+  if (!canCreateInviteCode.value) {
+    return;
+  }
   resetCreateForm();
   createDialogVisible.value = true;
 };
 
-const generateInviteCode = (prefix = "NIRO") => {
-  const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-  const body = Array.from({ length: 4 }, () => chars[Math.floor(Math.random() * chars.length)]).join("");
-  return `${prefix.toUpperCase()}-${body}`;
-};
-
 const submitCreate = async () => {
+  if (!canCreateInviteCode.value) {
+    return;
+  }
   if (!createForm.forever && !createForm.expireAt) {
     MessagePlugin.warning("请选择过期时间，或开启永不过期");
     return;
@@ -1116,11 +1352,17 @@ const resetBatchDialog = () => {
 };
 
 const openBatchDialog = () => {
+  if (!canBatchCreateInviteCode.value) {
+    return;
+  }
   resetBatchDialog();
   batchDialogVisible.value = true;
 };
 
 const submitBatchGenerate = async () => {
+  if (!canBatchCreateInviteCode.value) {
+    return;
+  }
   const quantity = Number(batchForm.quantity);
   if (!Number.isInteger(quantity) || quantity < 1 || quantity > 100) {
     MessagePlugin.warning("生成数量需为 1-100 之间的整数");
@@ -1161,6 +1403,9 @@ const openDetailDrawer = async (record: InviteCodeRecord) => {
 };
 
 const openEditDialog = async (record: InviteCodeRecord) => {
+  if (!canUpdateInviteCode.value) {
+    return;
+  }
   const detail = await inviteCodeApi.getDetail(record.id);
   const mapped = mapRecord(detail);
   currentEditRecordId.value = mapped.id;
@@ -1172,6 +1417,9 @@ const openEditDialog = async (record: InviteCodeRecord) => {
 };
 
 const submitEdit = async () => {
+  if (!canUpdateInviteCode.value) {
+    return;
+  }
   if (!currentEditRecord.value) {
     return;
   }

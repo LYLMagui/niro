@@ -1,19 +1,11 @@
 import { computed, type Ref } from "vue";
+import { storeToRefs } from "pinia";
 import { useUserStore } from "@/store/user";
+import { useNewPermissionStore } from "@/store/new-permission";
 
-/**
- * 权限类型定义
- */
 export type PermissionType = string | string[];
-
-/**
- * 角色类型定义
- */
 export type RoleType = string | string[];
 
-/**
- * 返回结构
- */
 interface UsePermissionReturn {
   permissions: Readonly<Ref<string[]>>;
   roles: Readonly<Ref<string[]>>;
@@ -22,86 +14,39 @@ interface UsePermissionReturn {
   isAdmin: Readonly<Ref<boolean>>;
 }
 
-/**
- * 权限 Hook
- *
- * 提供权限和角色的检查方法
- *
- * 使用示例：
- * ```ts
- * const { hasPermission, hasRole } = usePermission()
- *
- * // 单个权限检查
- * if (hasPermission('task:create')) { ... }
- *
- * // 多权限检查（满足一个即可）
- * if (hasPermission(['task:edit', 'task:delete'])) { ... }
- *
- * // 角色检查
- * if (hasRole('admin')) { ... }
- * ```
- */
 export function usePermission(): UsePermissionReturn {
   const userStore = useUserStore();
+  const newPermissionStore = useNewPermissionStore();
+  const { buttonPermissions } = storeToRefs(newPermissionStore);
 
-  /**
-   * 用户权限列表
-   */
-  const permissions = computed(() => userStore.userInfo.permissions || []);
-
-  /**
-   * 用户角色列表
-   */
+  const permissions = computed(() => buttonPermissions.value || []);
   const roles = computed(() => userStore.userInfo.roles || []);
+  const isAdmin = computed(() => roles.value.includes("admin"));
 
-  /**
-   * 是否是管理员
-   */
-  const isAdmin = computed(() => {
-    const perms = permissions.value;
-    return perms.includes("*:*:*") || perms.includes("admin") || roles.value.includes("admin");
-  });
-
-  /**
-   * 检查是否有指定权限
-   * @param permission 权限字符串或权限数组
-   */
   function hasPermission(permission: PermissionType): boolean {
-    const userPermissions = permissions.value;
-
-    // admin 拥有所有权限
-    if (userPermissions.includes("*:*:*") || userPermissions.includes("admin")) {
+    if (isAdmin.value) {
       return true;
     }
 
-    // 单个权限字符串
+    const userPermissions = permissions.value;
     if (typeof permission === "string") {
       return userPermissions.includes(permission);
     }
 
-    // 权限数组：满足一个即可
     return permission.some((perm) => userPermissions.includes(perm));
   }
 
-  /**
-   * 检查是否有指定角色
-   * @param role 角色字符串或角色数组
-   */
   function hasRole(role: RoleType): boolean {
     const userRoles = roles.value;
-
-    // admin 角色拥有所有角色权限
     if (userRoles.includes("admin")) {
       return true;
     }
 
-    // 单个角色
     if (typeof role === "string") {
       return userRoles.includes(role);
     }
 
-    // 角色数组：满足一个即可
-    return role.some((r) => userRoles.includes(r));
+    return role.some((item) => userRoles.includes(item));
   }
 
   return {

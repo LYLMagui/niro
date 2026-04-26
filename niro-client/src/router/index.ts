@@ -3,7 +3,7 @@ import "nprogress/nprogress.css";
 import { MessagePlugin } from "tdesign-vue-next";
 import { createRouter, createWebHistory, type RouteRecordRaw, type Router } from "vue-router";
 import { useUserStore } from "@/store/user";
-import { getCachedAccessRoutes, usePermissionStore } from "@/store/permission";
+import { useNewPermissionStore } from "@/store/new-permission";
 import Layout from "@/components/Layout.vue";
 
 NProgress.configure({ showSpinner: false });
@@ -28,26 +28,6 @@ const constantRoutes: RouteRecordRaw[] = [
     meta: { title: "404", hidden: true },
   },
   {
-    path: "/invite-code",
-    component: Layout,
-    meta: { title: "邀请码管理", hidden: true },
-    children: [
-      {
-        path: "",
-        name: "InviteCode",
-        component: () => import("@/views/InviteCodeManage.vue"),
-        meta: { title: "邀请码管理", hidden: true },
-      },
-    ],
-  },
-  {
-    path: "/:pathMatch(.*)*",
-    name: "BootstrapAny",
-    component: Layout,
-    meta: { hidden: true },
-    children: [],
-  },
-  {
     path: "/",
     name: "Root",
     component: Layout,
@@ -55,12 +35,6 @@ const constantRoutes: RouteRecordRaw[] = [
     children: [],
   },
 ];
-
-const bootstrapRoutes = getCachedAccessRoutes();
-const rootRoute = constantRoutes.find((route) => route.name === "Root");
-if (bootstrapRoutes.length > 0 && rootRoute) {
-  rootRoute.children = bootstrapRoutes;
-}
 
 const router: Router = createRouter({
   history: createWebHistory(),
@@ -117,24 +91,19 @@ function hasMatchingRoute(routes: RouteRecordRaw[], targetPath: string, parentPa
 function resetRouter() {
   router.getRoutes().forEach((route) => {
     const name = route.name;
-    if (
-      name &&
-      !["Login", "Forbidden", "NotFound", "InviteCode", "BootstrapAny", "Root", "Any"].includes(name as string)
-    ) {
+    if (name && !["Login", "Forbidden", "NotFound", "Root"].includes(name as string)) {
       router.removeRoute(name as string);
     }
   });
-  const permissionStore = usePermissionStore();
-  permissionStore.clearRoutes();
+  const newPermissionStore = useNewPermissionStore();
+  newPermissionStore.clear();
 }
 
 const whiteList = ["/403", "/404"];
-
-// 路由加载失败防护机制
 let routeLoadFailCount = 0;
 let lastRouteLoadFailTime = 0;
 const MAX_RETRY_COUNT = 3;
-const RETRY_COOLDOWN_MS = 5000; // 5秒冷却期
+const RETRY_COOLDOWN_MS = 5000;
 
 router.beforeEach(async (to, _from, next) => {
   NProgress.start();
@@ -144,9 +113,7 @@ router.beforeEach(async (to, _from, next) => {
   }
 
   const userStore = useUserStore();
-  const permissionStore = usePermissionStore();
-
-  // 优先使用 localStorage 中的 token，避免内存与存储不一致
+  const newPermissionStore = useNewPermissionStore();
   const token = localStorage.getItem("niro-web-token") || userStore.token;
 
   if (to.path === "/login") {
@@ -173,27 +140,80 @@ router.beforeEach(async (to, _from, next) => {
     return;
   }
 
-  if (permissionStore.isRoutesLoaded) {
+  const areNewRoutesMounted = newPermissionStore.routes.some((route) =>
+    router.hasRoute(String(route.name))
+  );
+  if (
+    newPermissionStore.isNavigationLoaded &&
+    newPermissionStore.routes.length > 0 &&
+    areNewRoutesMounted
+  ) {
+    const hasTargetRoute =
+      hasMatchingRoute(newPermissionStore.routes as RouteRecordRaw[], to.path) ||
+      hasMatchingRoute(newPermissionStore.routes as RouteRecordRaw[], to.fullPath);
+
+    if (to.path === "/") {
+      next({ path: resolveHomePath(newPermissionStore.routes as RouteRecordRaw[]), replace: true });
+      NProgress.done();
+      return;
+    }
+
+    if (!hasTargetRoute) {
+      next({ path: resolveHomePath(newPermissionStore.routes as RouteRecordRaw[]), replace: true });
+      NProgress.done();
+      return;
+    }
+
     next();
-  } else {
-    await loadRoutes(to, next);
+    NProgress.done();
+    return;
   }
+
+  await loadRoutes(to, next);
 });
+
+async function mountNewPermissionRoutes(force = false) {
+  const newPermissionStore = useNewPermissionStore();
+  const previousRouteNames = new Set(newPermissionStore.routes.map((route) => String(route.name)));
+  const previousVersion = newPermissionStore.configVersion;
+  const newRoutes = await newPermissionStore.loadNavigation(force);
+  const latestVersion = newPermissionStore.configVersion;
+  const latestRouteNames = new Set(newRoutes.map((route) => String(route.name)));
+  const routeNamesUnchanged =
+    previousRouteNames.size === latestRouteNames.size &&
+    Array.from(previousRouteNames).every((routeName) => latestRouteNames.has(routeName));
+  const latestRoutesMounted =
+    latestRouteNames.size > 0 &&
+    Array.from(latestRouteNames).every((routeName) => router.hasRoute(routeName));
+
+  if (latestRoutesMounted && routeNamesUnchanged && previousVersion === latestVersion && !force) {
+    return newRoutes;
+  }
+
+  const staleRouteNames = new Set([...previousRouteNames, ...latestRouteNames]);
+  staleRouteNames.forEach((routeName) => {
+    if (router.hasRoute(routeName)) {
+      router.removeRoute(routeName);
+    }
+  });
+
+  newRoutes.forEach((route) => {
+    router.addRoute("Root", route as RouteRecordRaw);
+  });
+  return newRoutes;
+}
 
 async function loadRoutes(to: any, next: (to?: any) => void) {
   const userStore = useUserStore();
-  const permissionStore = usePermissionStore();
 
-  // 检查重试限制
   const now = Date.now();
   if (now - lastRouteLoadFailTime > RETRY_COOLDOWN_MS) {
-    routeLoadFailCount = 0; // 冷却期过后重置计数
+    routeLoadFailCount = 0;
   }
 
   if (routeLoadFailCount >= MAX_RETRY_COUNT) {
     console.error("路由加载失败次数过多，停止重试");
     MessagePlugin.error("网络连接异常，请检查后端服务");
-    // 清理所有状态
     userStore.clearToken();
     resetRouter();
     next("/login");
@@ -201,53 +221,42 @@ async function loadRoutes(to: any, next: (to?: any) => void) {
   }
 
   try {
-    // 1. 获取用户信息（角色、权限）
     await userStore.getInfo();
+    const newRoutes = await mountNewPermissionRoutes();
+    const newPermissionStore = useNewPermissionStore();
+    await newPermissionStore.loadButtonPermissions();
 
-    // 2. 根据角色生成可访问路由
-    const accessRoutes = await permissionStore.generateRoutes(userStore.userInfo.roles);
+    if (!router.hasRoute("Any")) {
+      router.addRoute({
+        path: "/:pathMatch(.*)*",
+        redirect: "/404",
+        name: "Any",
+        meta: { hidden: true },
+      });
+    }
 
-    // 3. 动态挂载路由
-    // 将动态路由作为 Root 路由的子路由，确保在 Layout 中渲染
-    accessRoutes.forEach((route) => {
-      router.addRoute("Root", route as RouteRecordRaw);
-    });
-
-    // 4. 添加 404 兜底路由（必须在动态路由之后添加）
-    router.addRoute({
-      path: "/:pathMatch(.*)*",
-      redirect: "/404",
-      name: "Any",
-      meta: { hidden: true },
-    });
-
-    // 5. 标记已加载
-    permissionStore.isRoutesLoaded = true;
-
-    // 6. 重置失败计数
     routeLoadFailCount = 0;
 
-    // 7. 确保目标路由存在后跳转
     const isShellRoute = ["Root", "BootstrapAny"].includes(String(to.name || ""));
     const hasTargetRoute =
       (!isShellRoute && router.hasRoute(String(to.name || ""))) ||
-      hasMatchingRoute(accessRoutes as RouteRecordRaw[], to.path) ||
-      hasMatchingRoute(accessRoutes as RouteRecordRaw[], to.fullPath);
+      hasMatchingRoute(newRoutes as RouteRecordRaw[], to.path) ||
+      hasMatchingRoute(newRoutes as RouteRecordRaw[], to.fullPath);
 
-    if (to.path === "/") {
-      next({ path: resolveHomePath(accessRoutes as RouteRecordRaw[]), replace: true });
+    const homePath = resolveHomePath(newRoutes as RouteRecordRaw[]);
+    if (to.path === "/" && homePath === "/") {
+      next({ path: "/403", replace: true });
+    } else if (to.path === "/") {
+      next({ path: homePath, replace: true });
     } else if (hasTargetRoute) {
-      next({ ...to, replace: true });
+      next({ path: to.fullPath, replace: true });
     } else {
-      next({ path: resolveHomePath(accessRoutes as RouteRecordRaw[]), replace: true });
+      next({ path: homePath === "/" ? "/403" : homePath, replace: true });
     }
   } catch (error) {
     console.error("加载路由失败:", error);
-    // 增加失败计数
     routeLoadFailCount++;
     lastRouteLoadFailTime = Date.now();
-
-    // 失败则清空所有 token 状态（内存 + localStorage）并跳转登录
     userStore.clearToken();
     resetRouter();
     next(`/login?redirect=${to.path}`);
@@ -259,7 +268,6 @@ router.afterEach(() => {
 });
 
 export function clearRouteCache() {
-  sessionStorage.removeItem("niro-dynamic-routes-raw");
   resetRouter();
 }
 

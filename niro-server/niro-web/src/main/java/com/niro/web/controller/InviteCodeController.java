@@ -50,7 +50,7 @@ public class InviteCodeController {
 
     @PostMapping("/create")
     @SaCheckLogin
-    @SaCheckPermission(PermissionConstants.INVITE_CODE_MANAGE)
+    @SaCheckPermission(PermissionConstants.INVITE_CODE_CREATE)
     @Operation(summary = "新建邀请码")
     public InviteCodeDetailDTO createInviteCode(@RequestBody @Valid InviteCodeCreateParam param) {
         return inviteCodeService.createInviteCode(StpUtil.getLoginIdAsLong(), param);
@@ -58,7 +58,7 @@ public class InviteCodeController {
 
     @PostMapping("/batch-create")
     @SaCheckLogin
-    @SaCheckPermission(PermissionConstants.INVITE_CODE_MANAGE)
+    @SaCheckPermission(PermissionConstants.INVITE_CODE_BATCH_CREATE)
     @Operation(summary = "批量生成邀请码")
     public InviteCodeBatchCreateResultDTO batchCreateInviteCodes(@RequestBody @Valid InviteCodeBatchCreateParam param) {
         return inviteCodeService.batchCreateInviteCodes(StpUtil.getLoginIdAsLong(), param);
@@ -66,7 +66,7 @@ public class InviteCodeController {
 
     @PutMapping("/update")
     @SaCheckLogin
-    @SaCheckPermission(PermissionConstants.INVITE_CODE_MANAGE)
+    @SaCheckPermission(PermissionConstants.INVITE_CODE_UPDATE)
     @Operation(summary = "更新邀请码")
     public InviteCodeDetailDTO updateInviteCode(@RequestBody @Valid InviteCodeUpdateParam param) {
         return inviteCodeService.updateInviteCode(StpUtil.getLoginIdAsLong(), param);
@@ -74,15 +74,17 @@ public class InviteCodeController {
 
     @PostMapping("/status/{id}/{status}")
     @SaCheckLogin
-    @SaCheckPermission(PermissionConstants.INVITE_CODE_MANAGE)
     @Operation(summary = "更新邀请码状态")
     public void updateStatus(@PathVariable("id") Long id, @PathVariable("status") Integer status) {
+        StpUtil.checkPermission(status != null && status == 1
+                ? PermissionConstants.INVITE_CODE_ENABLE
+                : PermissionConstants.INVITE_CODE_DISABLE);
         inviteCodeService.updateStatus(id, status);
     }
 
     @PostMapping("/batch-disable")
     @SaCheckLogin
-    @SaCheckPermission(PermissionConstants.INVITE_CODE_MANAGE)
+    @SaCheckPermission(PermissionConstants.INVITE_CODE_DISABLE)
     @Operation(summary = "批量停用邀请码")
     public void batchDisable(@RequestBody List<Long> ids) {
         inviteCodeService.batchDisable(ids);

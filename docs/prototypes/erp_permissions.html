@@ -1,0 +1,341 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ERP 角色与权限管理 - 扁平化风格</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        primary: {
+                            50: '#eff6ff',
+                            100: '#dbeafe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                        },
+                        slate: {
+                            850: '#151e2e',
+                            900: '#0f172a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 细微的滚动条设计 */
+        ::-webkit-scrollbar {
+            width: 4px;
+            height: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: transparent;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 2px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+        /* 去除浏览器默认轮廓线，改为自定义 */
+        *:focus-visible {
+            outline: 2px solid #2563eb;
+            outline-offset: -1px;
+        }
+    </style>
+</head>
+<body class="bg-white text-slate-800 font-sans h-screen flex overflow-hidden selection:bg-primary-100 selection:text-primary-700">
+
+    <!-- 侧边栏 (Sidebar) - 保持极简 -->
+    <aside class="w-60 bg-slate-900 text-slate-300 flex flex-col transition-all duration-300 shrink-0">
+        <div class="h-14 flex items-center px-5 border-b border-slate-800 shrink-0">
+            <div class="w-7 h-7 bg-primary-600 rounded flex items-center justify-center mr-3">
+                <i class="fa-solid fa-cube text-white text-sm"></i>
+            </div>
+            <span class="text-white font-semibold text-base tracking-wide">Nexus ERP</span>
+        </div>
+
+        <nav class="flex-1 overflow-y-auto py-3 px-2 space-y-0.5">
+            <a href="#" class="flex items-center px-3 py-2 rounded hover:bg-slate-800 hover:text-white transition-colors group">
+                <i class="fa-solid fa-chart-line w-5 text-slate-400 group-hover:text-primary-500 transition-colors text-sm"></i>
+                <span class="ml-2 text-sm font-medium">仪表盘</span>
+            </a>
+            <a href="#" class="flex items-center px-3 py-2 rounded hover:bg-slate-800 hover:text-white transition-colors group">
+                <i class="fa-solid fa-users w-5 text-slate-400 group-hover:text-primary-500 transition-colors text-sm"></i>
+                <span class="ml-2 text-sm font-medium">员工管理</span>
+            </a>
+            
+            <div class="pt-4 pb-1 px-3">
+                <p class="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">系统设置</p>
+            </div>
+            
+            <a href="#" class="flex items-center px-3 py-2 rounded bg-slate-800 text-white transition-colors group relative">
+                <div class="absolute left-0 top-1.5 bottom-1.5 w-1 bg-primary-500 rounded-r"></div>
+                <i class="fa-solid fa-shield-halved w-5 text-primary-400 text-sm"></i>
+                <span class="ml-2 text-sm font-medium">权限管理</span>
+            </a>
+            <a href="#" class="flex items-center px-3 py-2 rounded hover:bg-slate-800 hover:text-white transition-colors group">
+                <i class="fa-solid fa-building w-5 text-slate-400 group-hover:text-primary-500 transition-colors text-sm"></i>
+                <span class="ml-2 text-sm font-medium">组织架构</span>
+            </a>
+            <a href="#" class="flex items-center px-3 py-2 rounded hover:bg-slate-800 hover:text-white transition-colors group">
+                <i class="fa-solid fa-gear w-5 text-slate-400 group-hover:text-primary-500 transition-colors text-sm"></i>
+                <span class="ml-2 text-sm font-medium">全局配置</span>
+            </a>
+        </nav>
+
+        <div class="p-4 border-t border-slate-800 shrink-0">
+            <div class="flex items-center">
+                <img src="https://i.pravatar.cc/150?img=11" alt="User Avatar" class="w-8 h-8 rounded-full border border-slate-700">
+                <div class="ml-3">
+                    <p class="text-sm font-medium text-white leading-none">李明</p>
+                    <p class="text-[11px] text-slate-400 mt-1 leading-none">超级管理员</p>
+                </div>
+            </div>
+        </div>
+    </aside>
+
+    <!-- 主内容区 (Main Content) - 全局扁平化 -->
+    <main class="flex-1 flex flex-col h-screen overflow-hidden bg-white">
+        <!-- 顶部导航 (Header) - 极简白底单线 -->
+        <header class="h-14 bg-white border-b border-slate-200 flex items-center justify-between px-6 shrink-0 z-10">
+            <h1 class="text-lg font-medium text-slate-800">权限与角色管理</h1>
+            
+            <div class="flex items-center space-x-4">
+                <div class="relative cursor-pointer group flex items-center justify-center w-8 h-8 hover:bg-slate-50 rounded">
+                    <i class="fa-regular fa-bell text-slate-500 group-hover:text-slate-700 transition-colors"></i>
+                    <span class="absolute top-1.5 right-1.5 w-1.5 h-1.5 bg-red-500 rounded-full border border-white"></span>
+                </div>
+                <div class="h-4 w-px bg-slate-200"></div>
+                <button class="flex items-center text-sm text-slate-600 hover:text-slate-900 transition-colors px-2 py-1 rounded hover:bg-slate-50">
+                    <i class="fa-regular fa-circle-question mr-1.5"></i> 帮助文档
+                </button>
+            </div>
+        </header>
+
+        <!-- 内容主体 - 通栏双列分割，没有间隙和卡片背景 -->
+        <div class="flex-1 flex overflow-hidden w-full h-full">
+            
+            <!-- 左侧：角色列表 (List Pane) -->
+            <div class="w-80 flex flex-col border-r border-slate-200 bg-slate-50/50 shrink-0">
+                
+                <!-- 列表头部工具栏 -->
+                <div class="p-4 border-b border-slate-200 bg-white shrink-0">
+                    <div class="flex justify-between items-center mb-3">
+                        <h2 class="font-medium text-slate-700 text-sm">系统角色 (12)</h2>
+                        <button class="text-primary-600 hover:text-primary-700 text-sm font-medium flex items-center transition-colors">
+                            <i class="fa-solid fa-plus mr-1"></i> 新增
+                        </button>
+                    </div>
+                    <div class="relative">
+                        <i class="fa-solid fa-search absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400 text-xs"></i>
+                        <input type="text" placeholder="搜索角色名称..." class="w-full pl-8 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded text-sm focus:outline-none focus:border-primary-500 focus:bg-white transition-colors placeholder:text-slate-400">
+                    </div>
+                </div>
+                
+                <!-- 列表项 (无圆角，通栏贯穿，依靠选中态区分) -->
+                <div class="flex-1 overflow-y-auto">
+                    <!-- 选中的角色 -->
+                    <div class="px-4 py-3 bg-primary-50/60 border-l-2 border-l-primary-600 border-b border-slate-100 cursor-pointer">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-medium text-primary-700 text-sm">财务总监</h3>
+                            <span class="text-[10px] text-slate-500">8 成员</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-1">拥有所有财务模块的查看与审批权限</p>
+                    </div>
+
+                    <!-- 普通角色 -->
+                    <div class="px-4 py-3 border-l-2 border-l-transparent border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-medium text-slate-700 text-sm group-hover:text-primary-600 transition-colors">销售经理</h3>
+                            <span class="text-[10px] text-slate-400">24 成员</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-1">客户管理、订单审批、业绩查看</p>
+                    </div>
+
+                    <div class="px-4 py-3 border-l-2 border-l-transparent border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-medium text-slate-700 text-sm group-hover:text-primary-600 transition-colors">仓储管理员</h3>
+                            <span class="text-[10px] text-slate-400">15 成员</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-1">出入库操作、库存盘点、物流追踪</p>
+                    </div>
+                    
+                    <div class="px-4 py-3 border-l-2 border-l-transparent border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-medium text-slate-700 text-sm group-hover:text-primary-600 transition-colors">人事专员</h3>
+                            <span class="text-[10px] text-slate-400">4 成员</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-1">员工档案、考勤管理、薪酬核算基础权限</p>
+                    </div>
+
+                    <div class="px-4 py-3 border-l-2 border-l-transparent border-b border-slate-100 hover:bg-slate-50 cursor-pointer transition-colors group">
+                        <div class="flex justify-between items-center mb-1">
+                            <h3 class="font-medium text-slate-700 text-sm flex items-center group-hover:text-primary-600 transition-colors">
+                                超级管理员
+                                <span class="ml-2 text-[10px] text-slate-400 border border-slate-200 px-1 rounded-sm">系统</span>
+                            </h3>
+                            <span class="text-[10px] text-slate-400">2 成员</span>
+                        </div>
+                        <p class="text-xs text-slate-500 line-clamp-1">系统所有最高权限，不可删除</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 右侧：权限配置明细 (Detail Pane) -->
+            <div class="flex-1 flex flex-col bg-white overflow-hidden relative">
+                
+                <!-- 详情头部 (信息+操作) -->
+                <div class="px-8 py-6 border-b border-slate-200 shrink-0 flex justify-between items-start bg-white">
+                    <div>
+                        <div class="flex items-center gap-3 mb-1.5">
+                            <h2 class="text-xl font-semibold text-slate-800">财务总监</h2>
+                            <span class="bg-green-50 text-green-700 text-xs px-2 py-0.5 rounded border border-green-200 font-medium">启用中</span>
+                        </div>
+                        <p class="text-sm text-slate-500 max-w-2xl leading-relaxed">该角色主要针对财务部门负责人，拥有公司所有账务、凭证、报表的查看与最终审批权限。</p>
+                    </div>
+                    <div class="flex gap-2">
+                        <button class="px-3 py-1.5 text-sm font-medium text-slate-600 bg-white border border-slate-200 rounded hover:bg-slate-50 hover:border-slate-300 transition-colors">复制角色</button>
+                        <button class="px-3 py-1.5 text-sm font-medium text-red-600 bg-white border border-slate-200 rounded hover:bg-red-50 hover:border-red-200 transition-colors">删除</button>
+                    </div>
+                </div>
+
+                <!-- 权限配置区域 (扁平化表单) -->
+                <div class="flex-1 overflow-y-auto px-8 py-6">
+                    <div class="max-w-4xl">
+                        
+                        <!-- 扁平模块：财务管理 -->
+                        <div class="mb-10">
+                            <!-- 模块大标题 -->
+                            <div class="flex justify-between items-center pb-2 mb-4 border-b-2 border-slate-100">
+                                <h3 class="text-base font-semibold text-slate-800 flex items-center">
+                                    财务管理模块
+                                </h3>
+                                <label class="flex items-center cursor-pointer group">
+                                    <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                    <span class="ml-2 text-xs text-slate-500 group-hover:text-slate-700">全选本模块</span>
+                                </label>
+                            </div>
+
+                            <!-- 权限明细行 (极简无框) -->
+                            <div class="space-y-0">
+                                <!-- 一行权限 -->
+                                <div class="grid grid-cols-12 gap-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 -mx-2 rounded">
+                                    <div class="col-span-3 text-sm font-medium text-slate-700 flex items-center">总账管理</div>
+                                    <div class="col-span-9 flex flex-wrap gap-6 items-center">
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">查看</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">新增/编辑</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" class="w-4 h-4 text-slate-400 rounded-sm border-slate-300 focus:ring-primary-500 checked:text-primary-600">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">删除</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">审批</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <!-- 另一行权限 -->
+                                <div class="grid grid-cols-12 gap-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 -mx-2 rounded">
+                                    <div class="col-span-3 text-sm font-medium text-slate-700 flex items-center">发票管理</div>
+                                    <div class="col-span-9 flex flex-wrap gap-6 items-center">
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">查看</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">开票/作废</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">导出</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- 扁平模块：销售管理 -->
+                        <div class="mb-10">
+                            <!-- 模块大标题 -->
+                            <div class="flex justify-between items-center pb-2 mb-4 border-b-2 border-slate-100">
+                                <h3 class="text-base font-semibold text-slate-800 flex items-center">
+                                    销售管理模块
+                                </h3>
+                                <label class="flex items-center cursor-pointer group">
+                                    <input type="checkbox" class="w-4 h-4 text-slate-400 rounded-sm border-slate-300 focus:ring-primary-500 checked:text-primary-600">
+                                    <span class="ml-2 text-xs text-slate-500 group-hover:text-slate-700">全选本模块</span>
+                                </label>
+                            </div>
+
+                            <div class="space-y-0">
+                                <div class="grid grid-cols-12 gap-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 -mx-2 rounded">
+                                    <div class="col-span-3 text-sm font-medium text-slate-700 flex items-center">销售订单</div>
+                                    <div class="col-span-9 flex flex-wrap gap-6 items-center">
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">查看 (全部)</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-not-allowed group opacity-50">
+                                            <input type="checkbox" disabled class="w-4 h-4 text-slate-400 rounded-sm border-slate-200 bg-slate-100">
+                                            <span class="text-sm text-slate-500">创建订单</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" checked class="w-4 h-4 text-primary-600 rounded-sm border-slate-300 focus:ring-primary-500">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">财务终审</span>
+                                        </label>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-12 gap-4 py-3 border-b border-slate-100 hover:bg-slate-50/50 transition-colors px-2 -mx-2 rounded">
+                                    <div class="col-span-3 text-sm font-medium text-slate-700 flex items-center">客户档案</div>
+                                    <div class="col-span-9 flex flex-wrap gap-6 items-center">
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" class="w-4 h-4 text-slate-400 rounded-sm border-slate-300 focus:ring-primary-500 checked:text-primary-600">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">查看</span>
+                                        </label>
+                                        <label class="flex items-center gap-2 cursor-pointer group">
+                                            <input type="checkbox" class="w-4 h-4 text-slate-400 rounded-sm border-slate-300 focus:ring-primary-500 checked:text-primary-600">
+                                            <span class="text-sm text-slate-600 group-hover:text-slate-900">编辑</span>
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+
+                <!-- 底部保存操作区 (极简固定底栏) -->
+                <div class="px-8 py-4 border-t border-slate-200 bg-white shrink-0 flex justify-between items-center">
+                    <span class="text-sm text-slate-500 flex items-center">
+                        <i class="fa-solid fa-circle-info text-slate-400 mr-1.5"></i> 
+                        修改权限后，该角色下属成员需重新登录生效
+                    </span>
+                    <div class="flex gap-3">
+                        <button class="px-5 py-2 text-sm font-medium text-slate-600 bg-white border border-slate-300 rounded hover:bg-slate-50 transition-colors">取消修改</button>
+                        <!-- 使用纯色无阴影的按钮 -->
+                        <button class="px-5 py-2 text-sm font-medium text-white bg-slate-800 rounded hover:bg-slate-900 transition-colors">
+                            保存配置
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+</body>
+</html>

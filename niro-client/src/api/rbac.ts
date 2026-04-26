@@ -17,45 +17,12 @@ export interface RbacRole {
   remark?: string;
 }
 
-export interface RbacMenu {
-  id: number;
-  parentId: number;
-  title: string;
-  name?: string;
-  path?: string;
-  component?: string;
-  icon?: string;
-  sortOrder?: number;
-  type: number;
-  permission?: string;
-  status?: number;
-  hidden?: boolean;
-  keepAlive?: boolean;
-  redirect?: string;
-}
-
 export interface RoleMutationParam {
   roleName: string;
   roleKey: string;
   roleSort: number;
   status: number;
   remark?: string;
-}
-
-export interface MenuMutationParam {
-  parentId?: number;
-  title: string;
-  name?: string;
-  path?: string;
-  component?: string;
-  icon?: string;
-  sortOrder?: number;
-  type: number;
-  permission?: string;
-  status: number;
-  hidden?: boolean;
-  keepAlive?: boolean;
-  redirect?: string;
 }
 
 export const rbacApi = {
@@ -79,35 +46,11 @@ export const rbacApi = {
     return request.delete<unknown>(`/api/rbac/roles/${roleId}`);
   },
 
-  listMenus(params?: { type?: number; status?: number }) {
-    return request.get<RbacMenu[]>("/api/rbac/menus", { params });
-  },
-
-  createMenu(data: MenuMutationParam) {
-    return request.post<unknown>("/api/rbac/menus", data);
-  },
-
-  updateMenu(menuId: number, data: MenuMutationParam) {
-    return request.put<unknown>(`/api/rbac/menus/${menuId}`, data);
-  },
-
-  deleteMenu(menuId: number) {
-    return request.delete<unknown>(`/api/rbac/menus/${menuId}`);
-  },
-
-  getRoleMenuIds(roleId: number) {
-    return request.get<number[]>(`/api/rbac/roles/${roleId}/menus`);
-  },
-
   assignUserRoles(userId: number, roleIds: number[]) {
     return request.put<unknown>(`/api/rbac/users/${userId}/roles`, { roleIds });
   },
 
   batchAppendUserRoles(userIds: number[], roleIds: number[]) {
     return request.post<unknown>("/api/rbac/users/roles/batch-append", { userIds, roleIds });
-  },
-
-  assignRoleMenus(roleId: number, menuIds: number[]) {
-    return request.put<unknown>(`/api/rbac/roles/${roleId}/menus`, { menuIds });
   },
 };

@@ -23,6 +23,11 @@ public class StatusCode {
     public static int UNAUTHORIZED_CODE = 401;
     
     /**
+     * 权限不足
+     */
+    public static int FORBIDDEN_CODE = 403;
+
+    /**
      * 资源未找到
      */
     public static int NOT_FOUND_CODE = 404;

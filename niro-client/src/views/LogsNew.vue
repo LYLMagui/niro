@@ -1,5 +1,5 @@
 <template>
-  <PageFrame desktop-outer-class="!p-0">
+  <PageFrame :is-mobile="false" desktop-outer-class="!p-0" desktop-content-class="px-4 pt-0 pb-0">
     <div class="flex h-full flex-col overflow-hidden">
       <t-card :bordered="false" class="embedded-card flex flex-1 flex-col overflow-hidden">
         <template #title>
@@ -21,8 +21,7 @@
           </div>
         </template>
 
-        <!-- 搜索栏/工具栏 -->
-        <div class="border-b border-gray-100 p-6">
+        <div class="border-b border-gray-100 p-3">
           <t-row :gutter="16">
             <t-col :span="4">
               <t-tag-input
@@ -38,7 +37,7 @@
             <t-col :span="3">
               <div class="flex gap-4">
                 <t-button
-                  v-permission="PermissionConstant.LOG_LIST"
+                  v-if="canOperateLogs"
                   :theme="isConnected ? 'danger' : 'primary'"
                   class="rounded transition-all duration-300"
                   @click="toggleConnection"
@@ -49,7 +48,7 @@
                   {{ isConnected ? "断开" : "连接" }}
                 </t-button>
                 <t-button
-                  v-permission="PermissionConstant.LOG_LIST"
+                  v-if="canOperateLogs"
                   theme="default"
                   variant="base"
                   class="rounded transition-all duration-300"
@@ -76,7 +75,7 @@
                 </div>
 
                 <t-button
-                  v-permission="PermissionConstant.LOG_LIST"
+                  v-if="canOperateLogs"
                   variant="outline"
                   :theme="onlyErrors ? 'danger' : 'default'"
                   class="rounded transition-all duration-300"
@@ -90,7 +89,7 @@
                 </t-button>
 
                 <t-button
-                  v-permission="PermissionConstant.LOG_LIST"
+                  v-if="canOperateLogs"
                   variant="base"
                   class="hidden rounded transition-all duration-300 xl:inline-flex"
                   :theme="showErrorWindow ? 'primary' : 'default'"
@@ -104,9 +103,7 @@
           </t-row>
         </div>
 
-        <!-- 主体内容：分屏模式支持 -->
         <div class="relative flex min-h-0 flex-1 gap-2 overflow-hidden bg-white">
-          <!-- 左侧/主体：终端日志窗口 -->
           <div class="flex min-h-0 flex-1 flex-col overflow-hidden bg-gray-900">
             <div
               ref="logContainerRef"
@@ -129,18 +126,13 @@
                 :key="index"
                 class="log-line group relative border-l-2 border-transparent py-0.5 pl-3 transition-all hover:bg-white/5"
                 :class="{
-                  'border-blue-500 bg-blue-500/5':
-                    log.traceId &&
-                    Array.isArray(filterKeywords) &&
-                    filterKeywords.includes(log.traceId),
+                  'border-blue-500 bg-blue-500/5': hasHighlightedTrace(log),
                   'border-green-500 bg-green-500/5': isSuccessLog(log.message),
                   'discovery-outline border-amber-500 bg-amber-500/5': log._isDiscovery,
                 }"
               >
-                <!-- 时间戳 -->
                 <span class="mr-3 text-gray-600 select-none">{{ formatTime(log.timestamp) }}</span>
 
-                <!-- 日志级别 -->
                 <span
                   :class="getLevelClass(log.level)"
                   class="inline-block w-14 font-bold uppercase select-none"
@@ -148,7 +140,6 @@
                   {{ log.level }}
                 </span>
 
-                <!-- IP & TraceId & Account 标签 -->
                 <span v-if="log.ip" class="mr-2 inline-flex items-center">
                   <span
                     class="cursor-pointer rounded border border-emerald-500/20 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-medium text-emerald-400/90 transition-colors hover:bg-emerald-500/20 hover:text-emerald-300"
@@ -174,7 +165,6 @@
                   </span>
                 </span>
 
-                <!-- 内容解析渲染 -->
                 <span
                   :class="[
                     getMessageClass(log),
@@ -217,13 +207,11 @@
             </div>
           </div>
 
-          <!-- 右侧：侧边栏看板 (分屏模式) -->
           <transition name="slide-right">
             <div
               v-if="showErrorWindow"
               class="hidden w-80 flex-col overflow-hidden border-l border-gray-800 bg-gray-900 xl:flex"
             >
-              <!-- 今日发现次数看板 -->
               <div class="border-b border-blue-900/30 bg-blue-900/10 px-4 py-4">
                 <div class="mb-3 flex items-center justify-between">
                   <span
@@ -252,7 +240,6 @@
                 </div>
               </div>
 
-              <!-- 实时异常监控 -->
               <div class="flex flex-1 flex-col overflow-hidden">
                 <div
                   class="flex items-center justify-between border-b border-red-900/30 bg-red-900/20 px-3 py-2"
@@ -295,14 +282,8 @@
   </PageFrame>
 </template>
 
-<script lang="ts">
-export default {
-  name: "Logs",
-};
-</script>
-
 <script setup lang="ts">
-import { ref, onUnmounted, nextTick, computed, watch } from "vue";
+import { ref, onMounted, onUnmounted, nextTick, computed, watch } from "vue";
 import {
   ClearIcon,
   RefreshIcon,
@@ -314,23 +295,65 @@ import {
   ErrorCircleFilledIcon,
   BulletpointIcon,
 } from "tdesign-icons-vue-next";
-import PageFrame from "@/components/PageFrame.vue";
 import { type LogItem } from "../api/log";
 import dayjs from "dayjs";
-import { PermissionConstant } from "@/constant/PermissionConstant";
-import { usePermission } from "@/hooks/usePermission";
+import useNewPermission from "@/hooks/useNewPermission";
+import { useNewPermissionStore } from "@/store/new-permission";
 
-const { hasPermission } = usePermission();
-const canViewLogs = computed(() => hasPermission(PermissionConstant.LOG_LIST));
+defineOptions({
+  name: "LogsNew",
+});
+
+const LOG_LIST_PERMISSION_CODE = "system:logs:list";
+
+type AudioContextConstructor = typeof AudioContext;
+
+type ParsedLog = Omit<LogItem, "_account"> & {
+  _account: string | null;
+  _traceId: string | null;
+  _ip?: string;
+  _isDiscovery: boolean;
+};
+
+function asString(value: unknown): string {
+  return typeof value === "string" ? value : "";
+}
+
+function asNullableString(value: unknown): string | null {
+  return typeof value === "string" && value.length > 0 ? value : null;
+}
+
+function isTrue(value: unknown): boolean {
+  return value === true;
+}
+
+function upper(value: unknown): string {
+  return asString(value).toUpperCase();
+}
+
+type MessagePart = {
+  text: string;
+  highlight: boolean;
+  type?: "account" | "keyword" | "traceId" | "ip";
+};
+
+const newPermissionStore = useNewPermissionStore();
+const { hasButtonPermission } = useNewPermission();
+const canOperateLogs = computed(() => hasButtonPermission(LOG_LIST_PERMISSION_CODE));
 const sseLogs = ref<LogItem[]>([]);
 const searchedLogs = ref<LogItem[]>([]);
-const discoveryCount = ref(0); // 发现次数统计
+const discoveryCount = ref(0);
 
-// 提示音逻辑
 const playBeep = () => {
   if (document.visibilityState !== "visible") return;
   try {
-    const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+    const AudioContextClass =
+      window.AudioContext ||
+      (window as Window & { webkitAudioContext?: AudioContextConstructor }).webkitAudioContext;
+    if (!AudioContextClass) {
+      return;
+    }
+    const audioCtx = new AudioContextClass();
     const oscillator = audioCtx.createOscillator();
     const gainNode = audioCtx.createGain();
 
@@ -344,8 +367,8 @@ const playBeep = () => {
 
     oscillator.start();
     oscillator.stop(audioCtx.currentTime + 0.1);
-  } catch (e) {
-    console.warn("播放提示音失败", e);
+  } catch {
+    return;
   }
 };
 
@@ -358,40 +381,41 @@ const showErrorWindow = ref(true);
 const logContainerRef = ref<HTMLElement | null>(null);
 let eventSource: EventSource | null = null;
 
-// 解析日志行 (仅做数据转换，无副作用)
-const parseLog = (log: LogItem) => {
-  const msg = log.message || "";
-  const accMatch = msg.match(/\[账号:\s*([^\s[\]：:]+)\]/);
-  const traceMatch = msg.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
-
-  // 识别“发现捡漏机会”标识
-  const isDiscovery = msg.includes("🔍") || msg.includes("发现捡漏机会");
+const parseLog = (log: LogItem): ParsedLog => {
+  const message = asString(log.message);
+  const accMatch = message.match(/\[账号:\s*([^\s[\]：:]+)\]/);
+  const traceMatch = message.match(/traceId:\s*([a-zA-Z0-9_-]{7,32})/i);
+  const ipMatch = message.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i);
 
   return {
     ...log,
-    _account: log.accountName || (accMatch ? accMatch[1] : null),
-    _traceId: log.traceId || (traceMatch ? traceMatch[1] : null),
-    _ip: log.ip || msg.match(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/i)?.[1],
-    _isDiscovery: isDiscovery,
+    message,
+    level: asString(log.level),
+    timestamp: asString(log.timestamp),
+    traceId: asString(log.traceId),
+    ip: asString(log.ip),
+    accountName: asString(log.accountName),
+    _account: asNullableString(log.accountName) || (accMatch ? accMatch[1] : null),
+    _traceId: asNullableString(log.traceId) || (traceMatch ? traceMatch[1] : null),
+    _ip: asString(log.ip) || ipMatch?.[1] || "",
+    _isDiscovery: message.includes("🔍") || message.includes("发现捡漏机会"),
   };
 };
 
-const displayLogs = computed(() => {
+const displayLogs = computed<ParsedLog[]>(() => {
   const baseLogs = searchedLogs.value.length > 0 ? searchedLogs.value : sseLogs.value;
   return baseLogs.map(parseLog);
 });
 
-// 错误日志抽离
-const errorLogs = computed(() => {
-  return displayLogs.value.filter((log) => log.level?.toUpperCase() === "ERROR");
+const errorLogs = computed<ParsedLog[]>(() => {
+  return displayLogs.value.filter((log) => upper(log.level) === "ERROR");
 });
 
-// 实时过滤逻辑
-const filteredLogs = computed(() => {
+const filteredLogs = computed<ParsedLog[]>(() => {
   let logs = displayLogs.value;
 
   if (onlyErrors.value) {
-    logs = logs.filter((log) => log.level?.toUpperCase() === "ERROR");
+    logs = logs.filter((log) => upper(log.level) === "ERROR");
   }
 
   const kws = Array.isArray(filterKeywords.value) ? [...filterKeywords.value] : [];
@@ -409,7 +433,6 @@ const filteredLogs = computed(() => {
         (log._ip || "")
       ).toLowerCase();
 
-      // 所有关键字都必须包含 (AND 逻辑)
       return kws.every((kw) => kw && content.includes(kw.toLowerCase()));
     });
   }
@@ -417,14 +440,12 @@ const filteredLogs = computed(() => {
   return logs;
 });
 
-// 格式化消息内容，提取账号和关键字
-const formatMessage = (message: string) => {
-  if (!message) return [];
+const formatMessage = (message: unknown): MessagePart[] => {
+  const text = asString(message);
+  if (!text) return [];
 
-  let cleanMessage = message
-    // 再次加固：移除可能残余的类似 spiders.async_buff_spider:_trade_task_loop:436 - 的冗余信息
+  const cleanMessage = text
     .replace(/^[a-zA-Z0-9_.]+:([a-zA-Z0-9_]+):(\d+)\s*-\s*/, "")
-    // 移除可能残余的 traceId/ip 标记格式（如果 messageContent 已经处理过，这里通常不会生效）
     .replace(/traceId:\s*([a-zA-Z0-9_-]{7,32})/gi, "[TraceId: $1]")
     .replace(/ip:\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi, "[IP: $1]");
 
@@ -434,16 +455,10 @@ const formatMessage = (message: string) => {
     kws.push(input);
   }
 
-  // 过滤掉太短的关键字
   const activeKws = kws.filter((k) => k && typeof k === "string" && k.length >= 2);
 
-  const parts: {
-    text: string;
-    highlight: boolean;
-    type?: "account" | "keyword" | "traceId" | "ip";
-  }[] = [];
+  const parts: MessagePart[] = [];
 
-  // 1. 按账号、TraceId 和 IP 正则切分
   const combinedRegex =
     /(\[账号:\s*[^\s[\]：:]+\]|\[TraceId:\s*[a-zA-Z0-9_-]{7,32}\]|\[IP:\s*\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\])/gi;
   let lastIndex = 0;
@@ -468,7 +483,6 @@ const formatMessage = (message: string) => {
     rawParts.push({ text: cleanMessage.substring(lastIndex), type: "text" });
   }
 
-  // 2. 处理关键字高亮 (支持多个)
   for (const part of rawParts) {
     if (part.type === "account") {
       parts.push({ text: part.text, highlight: true, type: "account" });
@@ -482,7 +496,6 @@ const formatMessage = (message: string) => {
         continue;
       }
 
-      // 构建合并正则
       const pattern = activeKws.map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")).join("|");
       const kwRegex = new RegExp(`(${pattern})`, "gi");
 
@@ -501,30 +514,34 @@ const formatMessage = (message: string) => {
     }
   }
 
-  return parts.length > 0 ? parts : [{ text: message, highlight: false }];
+  return parts.length > 0 ? parts : [{ text, highlight: false }];
 };
 
-const filterByKeyword = (val: string | null) => {
-  if (!val) return;
+const hasHighlightedTrace = (log: ParsedLog) => {
+  const traceId = asString(log.traceId);
+  return Boolean(traceId) && filterKeywords.value.includes(traceId);
+};
 
-  // 提取 [账号: 123]、[TraceId: abc] 或 [IP: 1.1.1.1] 中的值
-  const match = val.match(/\[(?:账号|TraceId|IP):\s*([^\s[\]：:]+)\]/i);
-  const target = match ? match[1] : val;
+const filterByKeyword = (val: unknown) => {
+  const source = asString(val);
+  if (!source) return;
+
+  const match = source.match(/\[(?:账号|TraceId|IP):\s*([^\s[\]：:]+)\]/i);
+  const target = match ? match[1] : source;
 
   if (!filterKeywords.value.includes(target)) {
     filterKeywords.value.push(target);
   }
 };
 
-// 格式化时间
-const formatTime = (ts: string) => {
-  if (!ts) return "";
-  return dayjs(ts).format("YYYY-MM-DD HH:mm:ss.SSS");
+const formatTime = (ts: unknown) => {
+  const value = asString(ts);
+  if (!value) return "";
+  return dayjs(value).format("YYYY-MM-DD HH:mm:ss.SSS");
 };
 
-// 级别样式
-const getLevelClass = (level: string) => {
-  switch (level?.toUpperCase()) {
+const getLevelClass = (level: unknown) => {
+  switch (upper(level)) {
     case "ERROR":
       return "text-red-500 font-black scale-110 origin-left";
     case "WARN":
@@ -539,19 +556,17 @@ const getLevelClass = (level: string) => {
   }
 };
 
-const isSuccessLog = (message: string) => {
-  return (
-    message &&
-    (message.includes("下单成功") || message.includes("购买成功") || message.includes("✅"))
-  );
+const isSuccessLog = (message: unknown) => {
+  const text = asString(message);
+  return text.includes("下单成功") || text.includes("购买成功") || text.includes("✅");
 };
 
-const isOrderStep = (message: string) => {
-  return message && /步骤\s*\d+\/\d+/.test(message);
+const isOrderStep = (message: unknown) => {
+  return /步骤\s*\d+\/\d+/.test(asString(message));
 };
 
-const getMessageClass = (log: any) => {
-  if (log._isDiscovery) return "text-amber-400 font-bold not-italic";
+const getMessageClass = (log: ParsedLog) => {
+  if (isTrue(log._isDiscovery)) return "text-amber-400 font-bold not-italic";
   if (isSuccessLog(log.message)) return "text-green-400 font-medium";
   if (isOrderStep(log.message)) return "text-blue-300 font-bold";
   return "text-gray-300";
@@ -568,7 +583,6 @@ const scrollToBottom = async () => {
   await nextTick();
   if (logContainerRef.value) {
     const container = logContainerRef.value;
-    // 使用 requestAnimationFrame 确保在 DOM 完全渲染后执行
     requestAnimationFrame(() => {
       container.scrollTop = container.scrollHeight;
     });
@@ -582,7 +596,7 @@ watch(
 );
 
 const connect = () => {
-  if (!canViewLogs.value) {
+  if (!canOperateLogs.value) {
     isConnected.value = false;
     isConnecting.value = false;
     eventSource?.close();
@@ -606,11 +620,8 @@ const connect = () => {
 
     if (!rawData) return;
 
-    // 尝试解析文本行格式
-    // 1. 标准 6 段式 (Spider 日志): 时间 | 级别 | IP | TraceId | Account | Message
     const standardPattern =
       /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*([^|]*)\s*\|\s*(.*)$/;
-    // 2. 简易 3 段式 (系统或 Java 日志): 时间 | 级别 | Message
     const simplePattern =
       /^(\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}:\d{2}\.\d{3})\s*\|\s*(\w+)\s*\|\s*(.*)$/;
 
@@ -625,7 +636,6 @@ const connect = () => {
         level: level.trim().toUpperCase(),
         ip: ip.trim(),
         traceId: traceId.trim() === "-" || !traceId.trim() ? "" : traceId.trim(),
-        // 允许显示 System，但过滤掉空的和只有横杠的
         accountName: trimmedAccount === "-" || !trimmedAccount ? "" : trimmedAccount,
         message: message.trim(),
       };
@@ -640,7 +650,6 @@ const connect = () => {
         accountName: "",
       };
     } else {
-      // 降级：如果不是标准格式，按纯文本处理
       logData = {
         timestamp: new Date().toLocaleTimeString(),
         level: "INFO",
@@ -651,7 +660,6 @@ const connect = () => {
       };
     }
 
-    // 检查是否为“发现捡漏机会”
     const msg = logData.message || "";
     if (msg.includes("🔍") || msg.includes("发现捡漏机会")) {
       discoveryCount.value++;
@@ -671,7 +679,7 @@ const connect = () => {
 };
 
 const toggleConnection = () => {
-  if (!canViewLogs.value) {
+  if (!canOperateLogs.value) {
     return;
   }
   if (isConnected.value) {
@@ -684,7 +692,7 @@ const toggleConnection = () => {
 };
 
 watch(
-  canViewLogs,
+  canOperateLogs,
   (allowed) => {
     if (allowed) {
       connect();
@@ -697,6 +705,11 @@ watch(
   },
   { immediate: true }
 );
+
+onMounted(() => {
+  void newPermissionStore.loadButtonPermissions();
+});
+
 onUnmounted(() => eventSource?.close());
 </script>
 
@@ -749,7 +762,6 @@ onUnmounted(() => eventSource?.close());
   }
 }
 
-/* 动画：分屏滑入 */
 .slide-right-enter-active,
 .slide-right-leave-active {
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -760,7 +772,6 @@ onUnmounted(() => eventSource?.close());
   transform: translateX(100%);
 }
 
-/* 覆盖 TDesign 样式微调 */
 :deep(.t-card) {
   border-radius: 8px;
 }

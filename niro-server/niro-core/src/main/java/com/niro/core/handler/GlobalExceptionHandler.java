@@ -20,6 +20,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
 
 import cn.dev33.satoken.exception.NotLoginException;
+import cn.dev33.satoken.exception.NotPermissionException;
 
 /**
  * 全局异常处理器
@@ -38,6 +39,13 @@ public class GlobalExceptionHandler {
         // 设置 HTTP 状态码为 401，确保前端 Axios 拦截器能捕获到 Error
         response.setStatus(401);
         return Result.failure(StatusCode.UNAUTHORIZED_CODE, "未登录或登录过期，请重新登录");
+    }
+
+    @ExceptionHandler(NotPermissionException.class)
+    public Result<Void> handlerNotPermissionException(NotPermissionException ex, HttpServletRequest request, HttpServletResponse response) {
+        log.warn("权限校验失败 | URI: {} | Permission: {} | Msg: {}", request.getRequestURI(), ex.getPermission(), ex.getMessage());
+        response.setStatus(403);
+        return Result.failure(StatusCode.FORBIDDEN_CODE, ex.getMessage());
     }
 
     @ExceptionHandler(BusinessException.class)

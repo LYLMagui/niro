@@ -1,6 +1,7 @@
 import { defineStore } from "pinia";
 import { ref } from "vue";
 import { MessagePlugin } from "tdesign-vue-next";
+import { clearNewPermissionCache } from "@/store/new-permission";
 import { userApi } from "@/api/user";
 import type { UserLoginParam } from "@/types/user";
 
@@ -59,6 +60,7 @@ export const useUserStore = defineStore("user", () => {
     try {
       const res = await userApi.login(loginParams);
       if (res && res.token) {
+        clearNewPermissionCache();
         token.value = res.token;
         localStorage.setItem("niro-web-token", res.token);
         MessagePlugin.success("登录成功");
@@ -124,6 +126,7 @@ export const useUserStore = defineStore("user", () => {
       roles: [],
       permissions: [],
     };
+    clearNewPermissionCache();
     localStorage.removeItem("niro-web-token");
   }
 
