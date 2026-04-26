@@ -7,7 +7,6 @@ import com.niro.web.dto.BuffGoodsSimpleDTO;
 import com.niro.web.dto.param.GoodsQueryParam;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.service.BuffGoodsService;
-import com.niro.web.service.BuffScanTaskService;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -32,15 +31,7 @@ import java.util.List;
 public class BuffGoodsController {
 
     private final BuffGoodsService buffGoodsService;
-    private final BuffScanTaskService buffScanTaskService;
 
-    @PostMapping("/sync-category/{categoryId}")
-    @SaCheckPermission(PermissionConstants.GOODS_LIST)
-    @Operation(summary = "触发指定分类的商品同步")
-    public void syncCategoryGoods(@PathVariable("categoryId") Long categoryId) {
-        buffScanTaskService.syncCategoryGoods(categoryId);
-    }
-    
 
     @GetMapping("/page")
     @SaCheckPermission(PermissionConstants.GOODS_LIST)

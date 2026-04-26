@@ -35,7 +35,10 @@ export function useCs2GoodsSearch(
     goodsLoading.value = true;
     searchTimer = setTimeout(async () => {
       try {
-        const api = options?.scene === "unbox" ? cs2GoodsApi.getUnboxCaseOptions : cs2GoodsApi.getC5TaskOptions;
+        const api =
+          options?.scene === "unbox"
+            ? cs2GoodsApi.getUnboxCaseOptions
+            : cs2GoodsApi.getC5TaskOptions;
         const result = await api(normalizedKeyword);
         if (searchToken === currentSearchToken) {
           goodsOptions.value = result;

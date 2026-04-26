@@ -1,15 +1,12 @@
 package com.niro.web.mapper;
 
-import org.apache.ibatis.annotations.Mapper;
-
 import com.baomidou.mybatisplus.core.mapper.BaseMapper;
 import com.niro.web.entity.BuffScanTask;
+import org.apache.ibatis.annotations.Mapper;
 
 /**
- * 扫货任务 Mapper 接口
- *
- * @author liyl
- * @since 2025-12-24
+ * BUFF 历史扫货任务 Mapper。
  */
+@Mapper
 public interface BuffScanTaskMapper extends BaseMapper<BuffScanTask> {
 }

@@ -4,6 +4,7 @@ import java.util.List;
 
 import com.niro.web.dto.BuffAccountDTO;
 import com.niro.web.enums.BuffAccountStatusEnum;
+import com.niro.web.enums.PlatformEnum;
 
 /**
  * BUFF 账号配置 Service 接口
@@ -20,6 +21,15 @@ public interface BuffAccountService {
      * @return 账号列表
      */
     List<BuffAccountDTO> listByUserId(Long userId);
+
+    /**
+     * 获取用户指定平台的账号。
+     *
+     * @param userId 用户ID
+     * @param platform 平台
+     * @return 账号列表
+     */
+    List<BuffAccountDTO> listByUserIdAndPlatform(Long userId, PlatformEnum platform);
 
     /**
      * 保存或更新BUFF账号

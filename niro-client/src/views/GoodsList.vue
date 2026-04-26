@@ -1,16 +1,16 @@
 <template>
-  <div class="p-6">
-    <!-- 合并后的商品列表卡片 -->
-    <t-card :bordered="false" class="embedded-card shadow-sm">
-      <template #title>
+  <PageFrame
+    :is-mobile="false"
+    desktop-outer-class="!p-0"
+    desktop-content-class="px-4 pt-0 pb-0"
+    mobile-content-class="px-3 pt-3 pb-3"
+  >
+    <section class="overflow-hidden bg-white">
+      <div class="flex flex-col gap-3 px-0 py-4">
         <div class="flex items-center">
           <t-icon name="shop" class="mr-2 text-blue-600" />
           <span class="text-lg font-bold text-gray-800">商品列表</span>
         </div>
-      </template>
-
-      <!-- 搜索栏 -->
-      <div class="border-b border-gray-100 p-6">
         <t-form
           ref="form"
           :data="searchForm"
@@ -67,7 +67,7 @@
                 重置
               </t-button>
               <t-button
-                v-permission="PermissionConstant.GOODS_LIST"
+                v-if="canSyncGoods"
                 theme="warning"
                 variant="base"
                 @click="syncDialogVisible = true"
@@ -79,9 +79,7 @@
           </t-form-item>
         </t-form>
       </div>
-
-      <!-- 数据表格 -->
-      <div class="p-0">
+      <div class="relative min-h-0 flex-1">
         <t-table
           row-key="id"
           :data="dataList"
@@ -114,9 +112,13 @@
 
           <!-- 商品名称列自定义渲染 -->
           <template #name="{ row }">
-            <div class="flex flex-col">
-              <span class="font-medium text-gray-900">{{ row.name }}</span>
-              <span class="text-xs text-gray-500">{{ row.marketHashName }}</span>
+            <div class="flex flex-col min-w-0">
+              <t-tooltip :content="row.name" placement="top-left">
+                <span class="truncate font-medium text-gray-900">{{ row.name }}</span>
+              </t-tooltip>
+              <t-tooltip :content="row.marketHashName" placement="top-left">
+                <span class="truncate text-xs text-gray-500">{{ row.marketHashName }}</span>
+              </t-tooltip>
             </div>
           </template>
 
@@ -168,7 +170,7 @@
                 详情
               </t-button>
               <t-button
-                v-permission="PermissionConstant.TASK_SCAN_LIST"
+                v-if="canCreateScanTask"
                 variant="outline"
                 size="small"
                 theme="warning"
@@ -182,49 +184,50 @@
           </template>
         </t-table>
       </div>
-    </t-card>
-    <!-- 分类同步弹窗 -->
-    <t-dialog
-      v-model:visible="syncDialogVisible"
-      header="分类商品同步"
-      :confirm-btn="syncLoading ? { content: '同步中...', loading: true } : '开始同步'"
-      :on-confirm="handleSync"
-      width="450px"
-    >
-      <div class="py-4">
-        <div class="mb-4 text-sm text-gray-500">
-          请选择一个二级分类进行商品数据同步。系统将创建一个一次性同步任务，并在后台由爬虫执行。
-        </div>
-        <t-form :data="syncForm" label-align="top">
-          <t-form-item label="选择二级分类" name="categoryId">
-            <t-cascader
-              v-model="syncForm.categoryId"
-              :options="categoryOptions"
-              placeholder="请选择具体分类 (如: 自动步枪 -> AK-47)"
-              filterable
-              clearable
-              class="w-full"
-            />
-          </t-form-item>
-        </t-form>
+    </section>
+  </PageFrame>
+  <!-- 分类同步弹窗 -->
+  <t-dialog
+    v-model:visible="syncDialogVisible"
+    header="分类商品同步"
+    :confirm-btn="syncLoading ? { content: '同步中...', loading: true } : '开始同步'"
+    :on-confirm="handleSync"
+    width="450px"
+  >
+    <div class="py-4">
+      <div class="mb-4 text-sm text-gray-500">
+        请选择一个二级分类进行商品数据同步。系统将创建一个一次性同步任务，并在后台由爬虫执行。
       </div>
-    </t-dialog>
+      <t-form :data="syncForm" label-align="top">
+        <t-form-item label="选择二级分类" name="categoryId">
+          <t-cascader
+            v-model="syncForm.categoryId"
+            :options="categoryOptions"
+            placeholder="请选择具体分类 (如: 自动步枪 -> AK-47)"
+            filterable
+            clearable
+            class="w-full"
+          />
+        </t-form-item>
+      </t-form>
+    </div>
+  </t-dialog>
 
-    <!-- 图片预览组件 (移回主容器内，防止干扰布局) -->
-    <t-image-viewer
-      :images="[previewImage]"
-      :visible="visible"
-      mode="modal"
-      :close-on-overlay="true"
-      @close="visible = false"
-    />
-  </div>
+  <!-- 图片预览组件 (移回主容器内，防止干扰布局) -->
+  <t-image-viewer
+    :images="[previewImage]"
+    :visible="visible"
+    mode="modal"
+    :close-on-overlay="true"
+    @close="visible = false"
+  />
 </template>
 
 <script setup lang="ts">
 import { categoryApi, type CategoryNode } from "@/api/category";
 import { goodsApi } from "@/api/goods";
 import { usePermission } from "@/hooks/usePermission";
+import useNewPermission from "@/hooks/useNewPermission";
 import type { Goods, GoodsPageQuery, GoodsSimple, PageResult } from "@/types/goods";
 import {
   CloudDownloadIcon,
@@ -243,7 +246,10 @@ import { RarityColorMap, RarityMap } from "@/enums/RarityEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 
 const { hasPermission } = usePermission();
+const { hasButtonPermission } = useNewPermission();
 const canViewGoods = computed(() => hasPermission(PermissionConstant.GOODS_LIST));
+const canSyncGoods = computed(() => hasButtonPermission(PermissionConstant.GOODS_SYNC));
+const canCreateScanTask = computed(() => hasButtonPermission(PermissionConstant.TASK_SCAN_CREATE));
 
 // 图片预览状态
 const visible = ref(false);

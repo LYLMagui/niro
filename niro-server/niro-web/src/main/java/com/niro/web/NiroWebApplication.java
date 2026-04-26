@@ -8,12 +8,14 @@ import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.core.env.Environment;
+import org.springframework.scheduling.annotation.EnableAsync;
 import org.springframework.scheduling.annotation.EnableScheduling;
 
 import jakarta.annotation.PostConstruct;
 import jakarta.annotation.Resource;
 
 @SpringBootApplication
+@EnableAsync
 @EnableScheduling
 @MapperScan(basePackages = {"com.niro.web.**.mapper"})
 @ComponentScan(basePackages = {"com.niro"})

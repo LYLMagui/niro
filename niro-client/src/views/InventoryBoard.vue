@@ -1,262 +1,218 @@
 <template>
   <PageFrame
     :is-mobile="isMobile"
+    desktop-outer-class="!p-0"
     desktop-body-class="overflow-y-auto"
-    desktop-content-class="px-4 pt-3 pb-4"
+    desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-3"
   >
-    <div ref="floatingContainerRef" class="relative flex flex-col gap-3 bg-[#f5f7fa]">
-      <section class="rounded-[6px] border border-[#ebeef5] bg-white p-4">
-        <div class="flex flex-wrap items-start justify-between gap-4">
-          <div class="order-2 flex min-w-0 flex-1 flex-col gap-3 sm:order-none">
-            <h1 class="text-[18px] font-semibold text-[#303133]">订单统计看板</h1>
-
-            <section aria-labelledby="inventory-time-filter-title">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <h2
-                  id="inventory-time-filter-title"
-                  class="shrink-0 text-[13px] font-medium text-[#606266] sm:w-[92px]"
-                >
-                  时间快捷筛选：
-                </h2>
-                <div class="flex min-w-0 flex-1 flex-col gap-2">
-                  <div class="flex flex-wrap items-center gap-1.5">
-                    <button
-                      v-for="option in timeOptions"
-                      :key="option.value"
-                      type="button"
-                      class="inline-flex items-center px-2 py-1 text-[12px] leading-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--td-brand-color)] focus-visible:ring-offset-2 focus-visible:outline-none"
-                      :class="getFilterButtonClass(isTimePresetActive(option.value))"
-                      :aria-pressed="isTimePresetActive(option.value)"
-                      @click="toggleTimePreset(option.value)"
-                    >
-                      {{ option.label }}
-                    </button>
-                    <t-date-picker
-                      multiple
-                      clearable
-                      format="YYYY-MM-DD"
-                      value-type="YYYY-MM-DD"
-                      placeholder="自定义日期"
-                      class="inventory-board-date-picker"
-                      :value="customDates"
-                      :input-props="{ readonly: true }"
-                      @change="handleCustomDatesChange"
-                    />
-                  </div>
-                  <div v-if="hasCustomDates" class="flex flex-wrap items-center gap-1.5">
-                    <t-tag
-                      v-for="date in customDates"
-                      :key="date"
-                      variant="light"
-                      size="small"
-                      class="inventory-date-token"
-                      closable
-                      @close="removeCustomDate(date)"
-                    >
-                      {{ dayjs(date).format("MM-DD") }}
-                    </t-tag>
-                  </div>
-                  <span class="text-[12px] leading-6 text-[#909399] sm:whitespace-nowrap">
-                    {{ dateFilterHintText }}
-                  </span>
-                </div>
-              </div>
-            </section>
-
-            <section aria-labelledby="inventory-goods-filter-title">
-              <div class="flex flex-col gap-2 sm:flex-row sm:items-center">
-                <h2
-                  id="inventory-goods-filter-title"
-                  class="shrink-0 text-[13px] font-medium text-[#606266] sm:w-[92px]"
-                >
-                  商品快捷筛选：
-                </h2>
-                <div class="flex min-w-0 flex-1 flex-wrap items-center gap-2">
-                  <button
-                    type="button"
-                    class="inline-flex items-center px-2 py-1 text-[12px] leading-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--td-brand-color)] focus-visible:ring-offset-2 focus-visible:outline-none"
-                    :class="getFilterButtonClass(selectedGoods === 'all')"
-                    :aria-pressed="selectedGoods === 'all'"
-                    @click="selectGoods('all')"
-                  >
-                    全部商品
-                  </button>
-                  <button
-                    v-for="goods in goodsOptions"
-                    :key="goods"
-                    type="button"
-                    class="inline-flex items-center px-2 py-1 text-[12px] leading-none transition-colors duration-200 focus-visible:ring-2 focus-visible:ring-[var(--td-brand-color)] focus-visible:ring-offset-2 focus-visible:outline-none"
-                    :class="getFilterButtonClass(selectedGoods === goods)"
-                    :aria-pressed="selectedGoods === goods"
-                    @click="selectGoods(goods)"
-                  >
-                    {{ goods }}
-                  </button>
-                </div>
-              </div>
-            </section>
-          </div>
-
+    <div
+      class="inventory-board-page relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-slate-50/30 p-4"
+    >
+      <!-- 页面标题 -->
+      <div class="mb-4 flex items-center justify-between">
+        <div class="flex items-center gap-3">
           <div
-            class="order-1 grid w-full grid-cols-2 gap-2 sm:order-none sm:flex sm:w-[220px] sm:max-w-[220px] sm:flex-col"
+            class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-100"
           >
-            <div
-              class="flex items-center justify-between rounded-[10px] border border-[#e5e7eb] bg-[#fafbfc] px-3 py-2"
-            >
-              <span class="text-[11px] text-[#909399]">全部总金额</span>
-              <span class="font-numeric text-[13px] font-semibold text-[#111827]">
-                {{ formatCurrency(normalizedGlobalSummary.totalAmount) }}
-              </span>
+            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+              />
+            </svg>
+          </div>
+          <h1 class="text-lg font-bold tracking-tight text-slate-900">订单统计看板</h1>
+        </div>
+        <div class="flex items-center gap-4">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-400">全部总额</span>
+            <span class="font-numeric text-base font-bold text-slate-900">
+              {{ formatCurrency(normalizedGlobalSummary.totalAmount) }}
+            </span>
+          </div>
+          <div class="h-4 w-[1px] bg-slate-200"></div>
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-medium text-slate-400">全部总量</span>
+            <span class="font-numeric text-base font-bold text-slate-900">
+              {{ formatInteger(normalizedGlobalSummary.totalQuantity) }}
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <!-- 筛选区域 -->
+      <section class="mb-4 space-y-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+        <div class="flex flex-col gap-3">
+          <!-- 时间筛选 -->
+          <div class="flex flex-col gap-2 xl:flex-row xl:items-center">
+            <span class="w-24 shrink-0 text-[13px] font-bold text-slate-600">时间快捷筛选:</span>
+            <div class="flex flex-wrap items-center gap-2">
+              <button
+                v-for="option in timeOptions"
+                :key="option.value"
+                type="button"
+                class="inline-flex items-center px-3 py-1.5 text-[13px] transition-all"
+                :class="getFilterButtonClass(selectedTimePresets.includes(option.value))"
+                @click="toggleTimePreset(option.value)"
+              >
+                {{ option.label }}
+              </button>
+              <t-date-picker
+                multiple
+                clearable
+                format="YYYY-MM-DD"
+                value-type="YYYY-MM-DD"
+                placeholder="自定义日期"
+                class="inventory-board-date-picker !w-[180px]"
+                :value="customDates"
+                :input-props="{ readonly: true }"
+                @change="handleCustomDatesChange"
+              />
             </div>
-            <div
-              ref="totalQuantityCardRef"
-              class="flex items-center justify-between rounded-[10px] border border-[#e5e7eb] bg-[#fafbfc] px-3 py-2"
+          </div>
+          <!-- 自定义日期展示 -->
+          <div v-if="hasCustomDates" class="flex items-center gap-2 pl-24">
+            <t-tag
+              v-for="date in customDates"
+              :key="date"
+              variant="light"
+              size="small"
+              class="inventory-date-token"
+              closable
             >
-              <span class="text-[11px] text-[#909399]">全部总数量</span>
-              <span class="font-numeric text-[13px] font-semibold text-[#111827]">
-                {{ formatInteger(normalizedGlobalSummary.totalQuantity) }}
-              </span>
+              {{ dayjs(date).format("MM-DD") }}
+            </t-tag>
+          </div>
+          <!-- 商品筛选 -->
+          <div class="flex flex-col gap-2 xl:flex-row xl:items-center">
+            <span class="w-24 shrink-0 text-[13px] font-bold text-slate-600">商品快捷筛选:</span>
+            <div class="flex flex-1 flex-wrap items-center justify-between gap-2">
+              <div class="flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="inline-flex items-center px-3 py-1.5 text-[13px] transition-all"
+                  :class="getFilterButtonClass(selectedGoods === 'all')"
+                  @click="selectGoods('all')"
+                >
+                  全部商品
+                </button>
+                <button
+                  v-for="goods in goodsOptions"
+                  :key="goods"
+                  type="button"
+                  class="inline-flex items-center px-3 py-1.5 text-[13px] transition-all"
+                  :class="getFilterButtonClass(selectedGoods === goods)"
+                  @click="selectGoods(goods)"
+                >
+                  {{ goods }}
+                </button>
+              </div>
+
+              <!-- Steam 折扣测算 -->
+              <div v-if="selectedGoods !== 'all'" class="flex items-center">
+                <t-popup
+                  v-model:visible="isSteamDialogVisible"
+                  trigger="click"
+                  placement="bottom-right"
+                  :overlay-inner-style="{ padding: 0, borderRadius: '12px', border: 'none', boxShadow: '0 20px 50px rgba(15,23,42,0.15)' }"
+                  destroy-on-close
+                >
+                  <button
+                    type="button"
+                    class="inline-flex h-8 items-center gap-2 rounded border border-slate-200 bg-white px-3 text-[12px] font-medium text-slate-600 transition-all hover:border-blue-200 hover:bg-blue-50/30 hover:text-blue-600"
+                  >
+                    <span
+                      class="inline-flex h-2 w-2 rounded-full"
+                      :class="floatingTriggerToneClass"
+                    ></span>
+                    Steam 折扣
+                  </button>
+                  <template #content>
+                    <section
+                      class="w-[300px] overflow-hidden bg-white"
+                      aria-labelledby="steam-discount-title"
+                      @click.stop
+                    >
+                      <header class="flex items-start justify-between gap-3 border-b border-slate-50 px-4 py-3.5">
+                        <div>
+                          <h2 id="steam-discount-title" class="text-[14px] font-bold text-slate-900">
+                            Steam 折扣测算
+                          </h2>
+                          <p class="mt-0.5 text-[11px] text-slate-400">
+                            按 Steam 到手价与平均买入价计算
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          class="inline-flex h-6 w-6 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
+                          @click="isSteamDialogVisible = false"
+                        >
+                          <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </header>
+
+                      <div class="px-4 py-4">
+                        <div class="text-[11px] font-medium text-slate-400">当前商品</div>
+                        <div class="mt-0.5 text-[13px] font-bold text-slate-700">
+                          {{ selectedGoods }}
+                        </div>
+
+                        <div class="mt-4">
+                          <div class="mb-1.5 text-[11px] font-medium text-slate-500">
+                            Steam 市场卖出单价 (含税)
+                          </div>
+                          <t-input
+                            v-model="steamMarketPrice"
+                            clearable
+                            size="small"
+                            placeholder="输入 Steam 售价"
+                            class="!rounded-lg"
+                          >
+                            <template #suffix>¥</template>
+                          </t-input>
+                        </div>
+
+                        <div class="mt-4 grid grid-cols-2 gap-2">
+                          <div class="rounded-lg bg-slate-50/80 px-3 py-2.5">
+                            <div class="text-[10px] text-slate-400">库存总量</div>
+                            <div class="font-numeric mt-0.5 text-[14px] font-bold text-slate-700">
+                              {{ formatInteger(normalizedCurrentSummary.totalQuantity) }}
+                            </div>
+                          </div>
+                          <div class="rounded-lg bg-slate-50/80 px-3 py-2.5">
+                            <div class="text-[10px] text-slate-400">Steam 到手</div>
+                            <div class="font-numeric mt-0.5 text-[14px] font-bold text-slate-700">
+                              {{ steamTotalAmountText }}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div class="mt-4 rounded-xl border border-dashed border-slate-200 bg-slate-50/30 px-4 py-4 text-center">
+                          <div class="text-[10px] font-medium text-slate-400">计算折扣</div>
+                          <div
+                            class="font-numeric mt-1 text-[32px] font-bold leading-none tracking-tight"
+                            :class="discountToneClass"
+                          >
+                            {{ discountText }}
+                          </div>
+                          <div class="mt-2 text-[11px] text-slate-500">
+                            {{ discountDescription }}
+                          </div>
+                        </div>
+                      </div>
+                    </section>
+                  </template>
+                </t-popup>
+              </div>
             </div>
           </div>
         </div>
       </section>
-
-      <div
-        v-show="selectedGoods !== 'all'"
-        ref="floatingAnchorRef"
-        :class="isMobile ? 'pointer-events-none fixed top-[156px] right-3 z-30' : 'absolute z-30'"
-        :style="isMobile ? undefined : floatingAnchorStyle"
-      >
-        <div class="flex items-center">
-          <button
-            type="button"
-            class="pointer-events-auto inline-flex h-10 cursor-move touch-manipulation items-center gap-2 rounded-lg border border-[#dcdfe6] bg-white px-3.5 text-[13px] font-medium text-[#111827] shadow-[0_10px_24px_rgba(15,23,42,0.10)] transition-all duration-300 hover:border-[#cfd4dc] hover:shadow focus-visible:ring-2 focus-visible:ring-[var(--td-brand-color)] focus-visible:ring-offset-2 focus-visible:outline-none active:shadow-none"
-            :class="isMobile ? 'max-w-[calc(100vw-24px)]' : ''"
-            @pointerdown.stop="handleTriggerPointerDown"
-          >
-            <span
-              class="inline-flex h-2.5 w-2.5 rounded-full"
-              :class="floatingTriggerToneClass"
-            ></span>
-            Steam 折扣
-          </button>
-        </div>
-
-        <section
-          v-show="isSteamDialogVisible"
-          :class="
-            isMobile
-              ? 'pointer-events-auto absolute top-[calc(100%+8px)] right-0 w-[306px] max-w-[calc(100vw-24px)] rounded-[16px] border border-[#dcdfe6] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]'
-              : 'absolute top-[calc(100%+12px)] right-0 w-[320px] max-w-[calc(100vw-24px)] rounded-[14px] border border-[#dcdfe6] bg-white shadow-[0_24px_60px_rgba(15,23,42,0.18)]'
-          "
-          aria-labelledby="steam-discount-title"
-          @click.stop
-        >
-          <header
-            :class="[
-              'flex items-start justify-between gap-3 border-b border-[#eef2f7]',
-              isMobile ? 'px-5 py-4' : 'px-4 py-3',
-            ]"
-          >
-            <div>
-              <h2
-                id="steam-discount-title"
-                :class="['font-semibold text-[#111827]', isMobile ? 'text-[14px]' : 'text-[14px]']"
-              >
-                Steam 折扣测算
-              </h2>
-              <p :class="['mt-1 text-[#909399]', isMobile ? 'text-[11px]' : 'text-[12px]']">
-                按 Steam 到手价与平均买入价计算
-              </p>
-            </div>
-            <button
-              type="button"
-              :class="[
-                'inline-flex items-center justify-center rounded-full leading-none text-[#909399] transition hover:bg-[#f5f7fa] hover:text-[#303133] focus-visible:ring-2 focus-visible:ring-[var(--td-brand-color)] focus-visible:ring-offset-2 focus-visible:outline-none',
-                isMobile ? 'h-8 w-8 text-[18px]' : 'h-7 w-7 text-[16px]',
-              ]"
-              aria-label="关闭 Steam 折扣弹窗"
-              @click="closeSteamDialog"
-            >
-              ×
-            </button>
-          </header>
-
-          <div :class="isMobile ? 'px-5 py-5' : 'px-4 py-4'">
-            <div :class="['text-[#606266]', isMobile ? 'text-[11px]' : 'text-[12px]']">
-              当前商品
-            </div>
-            <div
-              :class="['mt-1 font-medium text-[#111827]', isMobile ? 'text-[14px]' : 'text-[14px]']"
-            >
-              {{ selectedGoods }}
-            </div>
-
-            <div class="mt-4">
-              <div :class="['mb-1 text-[#606266]', isMobile ? 'text-[11px]' : 'text-[12px]']">
-                Steam 市场卖出单价
-              </div>
-              <t-input
-                v-model="steamMarketPrice"
-                clearable
-                name="steamMarketPrice"
-                aria-label="Steam 市场卖出单价"
-                autocomplete="off"
-                placeholder="输入 Steam 单价…"
-              >
-                <template #suffix>¥</template>
-              </t-input>
-            </div>
-
-            <div
-              :class="[
-                'mt-4 grid grid-cols-2 text-[#606266]',
-                isMobile ? 'gap-3 text-[10px]' : 'gap-2 text-[11px]',
-              ]"
-            >
-              <div :class="['rounded-[10px] bg-[#f8fafc]', isMobile ? 'px-4 py-4' : 'px-3 py-3']">
-                <div class="text-[#909399]">当前数量</div>
-                <div
-                  :class="[
-                    'font-numeric mt-1 font-semibold text-[#111827]',
-                    isMobile ? 'text-[16px]' : 'text-[15px]',
-                  ]"
-                >
-                  {{ formatInteger(normalizedCurrentSummary.totalQuantity) }}
-                </div>
-              </div>
-              <div :class="['rounded-[10px] bg-[#f8fafc]', isMobile ? 'px-4 py-4' : 'px-3 py-3']">
-                <div class="text-[#909399]">Steam 到手总额</div>
-                <div
-                  :class="[
-                    'font-numeric mt-1 font-semibold text-[#111827]',
-                    isMobile ? 'text-[16px]' : 'text-[15px]',
-                  ]"
-                >
-                  {{ steamTotalAmountText }}
-                </div>
-              </div>
-            </div>
-
-            <div
-              :class="[
-                'mt-4 rounded-[12px] border border-dashed border-[#d8dee8] bg-[#fcfcfd] text-center',
-                isMobile ? 'px-4 py-[14px]' : 'px-4 py-5',
-              ]"
-            >
-              <div :class="['text-[#909399]', isMobile ? 'text-[10px]' : 'text-[11px]']">
-                当前折扣
-              </div>
-              <div
-                :class="[
-                  'font-numeric mt-1.5 leading-none font-semibold',
-                  isMobile ? 'text-[32px]' : 'text-[38px]',
-                  discountToneClass,
-                ]"
-              >
-                {{ discountText }}
-              </div>
               <div :class="['mt-1.5 text-[#606266]', isMobile ? 'text-[10px]' : 'text-[12px]']">
                 {{ discountDescription }}
               </div>
@@ -265,71 +221,154 @@
         </section>
       </div>
 
-      <section class="grid gap-3 md:grid-cols-4">
-        <article
-          v-for="item in summaryCards"
-          :key="item.label"
-          class="rounded-[6px] border border-[#ebeef5] bg-white px-3 py-3"
+      <!-- 核心指标统计 -->
+      <section class="mb-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+        <!-- 总购买数量 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-blue-100 bg-white p-3.5 shadow-sm transition-all hover:shadow-md"
         >
-          <div class="text-[11px] text-[#909399]">{{ item.label }}</div>
-          <div class="font-numeric mt-1 text-[20px] font-semibold text-[#111827]">
-            {{ item.value }}
+          <div class="absolute -top-3 -right-3 text-blue-50/30">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M7 18c-1.1 0-1.99.9-1.99 2S5.9 22 7 22s2-.9 2-2-.9-2-2-2zM1 2v2h2l3.6 7.59-1.35 2.45c-.16.28-.25.61-.25.96 0 1.1.9 2 2 2h12v-2H7.42c-.14 0-.25-.11-.25-.25l.03-.12.9-1.63h7.45c.75 0 1.41-.41 1.75-1.03l3.58-6.49c.08-.14.12-.31.12-.48 0-.55-.45-1-1-1H5.21l-.94-2H1zm16 16c-1.1 0-1.99.9-1.99 2s.89 2 1.99 2 2-.9 2-2-.9-2-2-2z"
+              />
+            </svg>
           </div>
-          <div class="mt-1 text-[11px] text-[#b0b4bb]">{{ item.hint }}</div>
-        </article>
-      </section>
-
-      <section class="rounded-[6px] border border-[#ebeef5] bg-white p-3">
-        <div class="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <div class="text-[13px] font-medium text-[#303133]">统计汇总</div>
-            <div class="mt-1 text-[12px] text-[#606266]">{{ scopeLabel }}</div>
-          </div>
-          <div class="flex flex-wrap gap-2">
-            <t-tag
-              v-for="tag in activeTimeLabels"
-              :key="tag"
-              variant="light"
-              size="small"
-              class="inventory-scope-tag"
-            >
-              {{ tag }}
-            </t-tag>
-            <t-tag
-              variant="light"
-              size="small"
-              color="#f8fafc"
-              class="border border-[#dbe5f1] text-[#475569]"
-            >
-              {{ selectedGoods === "all" ? "全部商品" : selectedGoods }}
-            </t-tag>
+          <div class="relative z-10 flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-blue-50 text-blue-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M3 3h2l.4 2M7 13h10l4-8H5.4M7 13L5.4 5M7 13l-2.293 2.293c-.63.63-.184 1.707.707 1.707H17m0 0a2 2 0 100 4 2 2 0 000-4zm-8 2a2 2 0 11-4 0 2 2 0 014 0z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-bold text-slate-500">总购买数量</span>
+            </div>
+            <div class="mt-1 flex items-baseline gap-1 text-slate-900">
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatInteger(normalizedCurrentSummary.totalQuantity) }}
+              </span>
+              <span class="text-[10px] font-medium text-slate-400">件</span>
+            </div>
           </div>
         </div>
 
-        <div class="mt-3 grid gap-2 md:grid-cols-3">
-          <div class="rounded-[10px] border border-[#ebeef5] bg-[#f8fafc] px-3 py-3">
-            <div class="text-[11px] text-[#909399]">合并购买数量</div>
-            <div class="font-numeric mt-1 text-[18px] font-semibold text-[#111827]">
-              {{ formatInteger(normalizedCurrentSummary.totalQuantity) }}
-            </div>
-            <div class="mt-1 text-[11px] text-[#909399]">选中范围内所有订单数量之和</div>
+        <!-- 总购买金额 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-indigo-100 bg-white p-3.5 shadow-sm transition-all hover:shadow-md"
+        >
+          <div class="absolute -top-3 -right-3 text-indigo-50/30">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.82v-1.91c-.08-.05-.16-.09-.23-.14-1.25-.8-1.57-1.74-1.59-2.81h1.79c.02.63.2 1.05.74 1.4.38.25.9.43 1.54.43.52 0 1.03-.13 1.37-.39.43-.32.55-.83.33-1.27-.15-.31-.46-.57-1.1-.81l-.99-.37c-1.34-.51-2.43-1.22-2.78-2.6-.18-.71-.12-1.48.25-2.09.34-.57.94-1.03 1.74-1.33V6h2.82v1.89c.14.07.28.16.42.25 1.01.66 1.4 1.54 1.45 2.5h-1.8c-.02-.45-.11-.84-.5-1.12-.35-.25-.85-.43-1.44-.43-.46 0-.89.1-1.18.3-.39.27-.47.74-.32 1.14.12.33.43.58 1.04.81l.99.37c1.39.52 2.37 1.3 2.76 2.61.16.53.18 1.09.06 1.63-.2.91-.77 1.64-1.63 2.03z"
+              />
+            </svg>
           </div>
-          <div class="rounded-[10px] border border-[#ebeef5] bg-[#f8fafc] px-3 py-3">
-            <div class="text-[11px] text-[#909399]">合并购买总额</div>
-            <div class="font-numeric mt-1 text-[18px] font-semibold text-[#111827]">
-              {{ formatCurrency(normalizedCurrentSummary.totalAmount) }}
+          <div class="relative z-10 flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-indigo-50 text-indigo-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-bold text-slate-500">总购买金额</span>
             </div>
-            <div class="mt-1 text-[11px] text-[#909399]">选中范围内所有订单金额总和</div>
+            <div class="mt-1 flex items-baseline gap-0.5 text-slate-900">
+              <span class="text-sm font-bold">¥</span>
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatCurrency(normalizedCurrentSummary.totalAmount, { symbol: false }) }}
+              </span>
+            </div>
           </div>
-          <div class="rounded-[10px] border border-[#ebeef5] bg-[#f8fafc] px-3 py-3">
-            <div class="text-[11px] text-[#909399]">合并平均买入价</div>
-            <div class="font-numeric mt-1 text-[18px] font-semibold text-[#111827]">
-              {{ formatCurrency(normalizedCurrentSummary.averagePrice) }}
+        </div>
+
+        <!-- 平均买入价 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-amber-100 bg-white p-3.5 shadow-sm transition-all hover:shadow-md"
+        >
+          <div class="absolute -top-3 -right-3 text-amber-50/30">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zM9 17H7v-7h2v7zm4 0h-2V7h2v10zm4 0h-2v-4h2v4z"
+              />
+            </svg>
+          </div>
+          <div class="relative z-10 flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-amber-50 text-amber-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-bold text-slate-500">平均买入价</span>
             </div>
-            <div class="mt-1 text-[11px] text-[#909399]">总额 ÷ 总数量</div>
+            <div class="mt-1 flex items-baseline gap-0.5 text-amber-600">
+              <span class="text-sm font-bold">¥</span>
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatCurrency(normalizedCurrentSummary.averagePrice, { symbol: false }) }}
+              </span>
+            </div>
+          </div>
+        </div>
+
+        <!-- 商品数 -->
+        <div
+          class="relative overflow-hidden rounded-xl border border-emerald-100 bg-white p-3.5 shadow-sm transition-all hover:shadow-md"
+        >
+          <div class="absolute -top-3 -right-3 text-emerald-50/30">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
+              <path
+                d="M12 2l-5.5 9h11L12 2zm0 3.84L13.93 9h-3.87L12 5.84zM17.5 13c-2.49 0-4.5 2.01-4.5 4.5s2.01 4.5 4.5 4.5 4.5-2.01 4.5-4.5-2.01-4.5-4.5-4.5zm0 7c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5zM3 21.5h8v-8H3v8zm2-6h4v4H5v-4z"
+              />
+            </svg>
+          </div>
+          <div class="relative z-10 flex flex-col gap-0.5">
+            <div class="flex items-center gap-2">
+              <div
+                class="flex h-7 w-7 items-center justify-center rounded-md bg-emerald-50 text-emerald-600"
+              >
+                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    stroke-width="2"
+                    d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"
+                  />
+                </svg>
+              </div>
+              <span class="text-xs font-bold text-slate-500">商品数</span>
+            </div>
+            <div class="mt-1 flex items-baseline gap-1 text-slate-900">
+              <span class="font-numeric text-2xl font-bold tracking-tight">
+                {{ formatInteger(normalizedCurrentSummary.goodsCount) }}
+              </span>
+              <span class="text-[10px] font-medium text-slate-400">种</span>
+            </div>
           </div>
         </div>
       </section>
+
+      <!-- 统计汇总 (移除) -->
 
       <section class="rounded-[6px] border border-[#ebeef5] bg-white p-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
@@ -358,7 +397,7 @@
           </div>
         </div>
 
-        <div v-if="!isMobile" class="mt-3 overflow-hidden rounded-md border border-[#ebeef5]">
+        <div v-if="!isMobile" class="mt-3 overflow-hidden">
           <t-table
             row-key="key"
             size="small"
@@ -377,9 +416,11 @@
 
             <template #goodsName="{ row }">
               <div class="min-w-0">
-                <div class="truncate font-medium text-[#303133]" :title="row.goodsName">
+              <t-tooltip :content="row.goodsName" placement="top-left">
+                <div class="truncate font-medium text-[#303133]">
                   {{ row.goodsName }}
                 </div>
+              </t-tooltip>
               </div>
             </template>
 
@@ -414,7 +455,7 @@
             <article
               v-for="row in tableData"
               :key="row.key"
-              class="rounded-[12px] border border-[#e5e7eb] bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
+              class="bg-white px-3 py-3 shadow-[0_1px_2px_rgba(15,23,42,0.04)]"
             >
               <div class="flex items-start gap-3">
                 <div
@@ -435,12 +476,11 @@
                 <div class="min-w-0 flex-1">
                   <div class="flex items-start justify-between gap-3">
                     <div class="min-w-0 flex-1">
-                      <div
-                        class="truncate text-[14px] leading-6 font-medium text-[#303133]"
-                        :title="row.goodsName"
-                      >
-                        {{ row.goodsName }}
-                      </div>
+                      <t-tooltip :content="row.goodsName" placement="top-left">
+                        <div class="truncate text-[14px] leading-6 font-medium text-[#303133]">
+                          {{ row.goodsName }}
+                        </div>
+                      </t-tooltip>
                     </div>
                     <t-tag
                       v-if="'dateLabel' in row"
@@ -484,7 +524,7 @@
             </article>
           </div>
 
-          <div v-else class="overflow-hidden rounded-md border border-[#ebeef5] bg-white">
+          <div v-else class="overflow-hidden rounded border border-[#ebeef5] bg-white">
             <div class="flex min-h-[180px] items-center justify-center">
               <t-empty description="当前筛选条件下暂无数据" />
             </div>
@@ -516,12 +556,6 @@ type ViewMode = "aggregate" | "split";
 interface TimeOption {
   value: TimePreset;
   label: string;
-}
-
-interface SummaryCard {
-  label: string;
-  value: string;
-  hint: string;
 }
 
 interface AggregateRow {
@@ -557,10 +591,6 @@ const selectedGoods = ref<string>("all");
 const steamMarketPrice = ref("");
 const viewMode = ref<ViewMode>("aggregate");
 const isSteamDialogVisible = ref(false);
-const floatingTriggerPosition = ref({ x: 0, y: 0 });
-const floatingContainerRef: Ref<HTMLElement | null> = ref(null);
-const floatingAnchorRef: Ref<HTMLElement | null> = ref(null);
-const totalQuantityCardRef: Ref<HTMLElement | null> = ref(null);
 const summaryLoading = ref(false);
 const itemsLoading = ref(false);
 const globalSummary = ref<PurchaseStatsSummary>({
@@ -578,14 +608,6 @@ const currentSummary = ref<PurchaseStatsSummary>({
 const aggregateItems = ref<PurchaseStatsGoodsItem[]>([]);
 const splitItems = ref<PurchaseStatsSplitItem[]>([]);
 
-const DRAG_DISTANCE_THRESHOLD = 6;
-
-let dragOffsetX = 0;
-let dragOffsetY = 0;
-let pointerDownX = 0;
-let pointerDownY = 0;
-let isDragging = false;
-
 const priceFormatter = new Intl.NumberFormat("zh-CN", {
   style: "currency",
   currency: "CNY",
@@ -596,29 +618,6 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
 const integerFormatter = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 0,
 });
-
-const goodsOptions = computed(() => aggregateItems.value.map((item) => item.goodsName));
-
-const clampTriggerPosition = (x: number, y: number) => {
-  const containerRect = floatingContainerRef.value?.getBoundingClientRect();
-  const anchorWidth = floatingAnchorRef.value?.offsetWidth ?? 220;
-  const anchorHeight = floatingAnchorRef.value?.offsetHeight ?? 44;
-  const containerWidth = containerRect?.width ?? window.innerWidth;
-  const containerHeight = containerRect?.height ?? window.innerHeight;
-  const minX = 12 - anchorWidth;
-  const maxX = Math.max(containerWidth - 12, minX);
-  const maxY = Math.max(containerHeight - anchorHeight - 12, 12);
-
-  return {
-    x: Math.min(Math.max(x, minX), maxX),
-    y: Math.min(Math.max(y, 12), maxY),
-  };
-};
-
-const floatingAnchorStyle = computed<CSSProperties>(() => ({
-  left: `${floatingTriggerPosition.value.x}px`,
-  top: `${floatingTriggerPosition.value.y}px`,
-}));
 
 const hasCustomDates = computed(() => customDates.value.length > 0);
 
@@ -738,60 +737,6 @@ const toggleSteamDialog = () => {
   }
 
   isSteamDialogVisible.value = !isSteamDialogVisible.value;
-};
-
-const handlePointerMove = (event: PointerEvent) => {
-  const anchorElement = floatingAnchorRef.value;
-  const containerRect = floatingContainerRef.value?.getBoundingClientRect();
-  if (!anchorElement || !containerRect) {
-    return;
-  }
-
-  if (!isDragging) {
-    const distanceX = event.clientX - pointerDownX;
-    const distanceY = event.clientY - pointerDownY;
-    const distance = Math.hypot(distanceX, distanceY);
-
-    if (distance < DRAG_DISTANCE_THRESHOLD) {
-      return;
-    }
-
-    const rect = anchorElement.getBoundingClientRect();
-    dragOffsetX = pointerDownX - rect.left;
-    dragOffsetY = pointerDownY - rect.top;
-    isDragging = true;
-  }
-
-  const nextX = event.clientX - containerRect.left - dragOffsetX;
-  const nextY = event.clientY - containerRect.top - dragOffsetY;
-
-  floatingTriggerPosition.value = clampTriggerPosition(nextX, nextY);
-};
-
-const stopDrag = () => {
-  const wasDragging = isDragging;
-
-  isDragging = false;
-  window.removeEventListener("pointermove", handlePointerMove);
-  window.removeEventListener("pointerup", stopDrag);
-
-  if (!wasDragging) {
-    toggleSteamDialog();
-  }
-};
-
-const handleTriggerPointerDown = (event: PointerEvent) => {
-  if (isMobile.value) {
-    toggleSteamDialog();
-    return;
-  }
-
-  pointerDownX = event.clientX;
-  pointerDownY = event.clientY;
-  isDragging = false;
-
-  window.addEventListener("pointermove", handlePointerMove);
-  window.addEventListener("pointerup", stopDrag);
 };
 
 const selectGoods = (value: string) => {
@@ -930,43 +875,22 @@ const discountDescription = computed(() => {
   return "按 Steam 到手价与平均买入价计算";
 });
 
-const summaryCards = computed<SummaryCard[]>(() => [
-  {
-    label: "总购买数量",
-    value: formatInteger(normalizedCurrentSummary.value.totalQuantity),
-    hint: "当前筛选条件下的累计购买数量",
-  },
-  {
-    label: "总购买金额",
-    value: formatCurrency(normalizedCurrentSummary.value.totalAmount),
-    hint: "当前筛选条件下的累计成交金额",
-  },
-  {
-    label: "平均买入价",
-    value: formatCurrency(normalizedCurrentSummary.value.averagePrice),
-    hint: "按总额 ÷ 总数量得到的平均单价",
-  },
-  {
-    label: "商品数",
-    value: formatInteger(normalizedCurrentSummary.value.goodsCount),
-    hint: "当前结果里覆盖的商品种类数",
-  },
-]);
+const goodsOptions = computed(() => aggregateItems.value.map((item) => item.goodsName));
 
 const floatingTriggerToneClass = computed(() => {
   if (discountRatio.value === null) {
-    return "bg-[var(--td-brand-color-3)]";
+    return "bg-slate-300";
   }
   if (discountRatio.value <= 0.35) {
-    return "bg-[var(--td-brand-color-4)]";
+    return "bg-emerald-500";
   }
   if (discountRatio.value <= 0.55) {
-    return "bg-[var(--td-brand-color)]";
+    return "bg-blue-500";
   }
   if (discountRatio.value <= 0.75) {
-    return "bg-[var(--td-brand-color-7)]";
+    return "bg-amber-500";
   }
-  return "bg-[var(--td-brand-color-8)]";
+  return "bg-red-500";
 });
 
 const aggregateRows = computed<AggregateRow[]>(() =>
@@ -1048,40 +972,8 @@ const getFilterButtonClass = (active: boolean) => {
   return "rounded-[4px] bg-transparent text-[#5b6473] hover:bg-[var(--td-brand-color-light)] hover:text-[var(--td-brand-color-7)]";
 };
 
-const initializeFloatingElements = () => {
-  if (isMobile.value || selectedGoods.value === "all") {
-    return;
-  }
-
-  const containerRect = floatingContainerRef.value?.getBoundingClientRect();
-  const quantityCardRect = totalQuantityCardRef.value?.getBoundingClientRect();
-  if (!containerRect || !quantityCardRect) {
-    floatingTriggerPosition.value = clampTriggerPosition(window.innerWidth - 248, 144);
-    return;
-  }
-
-  const anchorWidth = floatingAnchorRef.value?.offsetWidth ?? 220;
-  const targetX = quantityCardRect.right - containerRect.left - anchorWidth;
-  const targetY = quantityCardRect.bottom - containerRect.top + 16;
-
-  floatingTriggerPosition.value = clampTriggerPosition(targetX, targetY);
-};
-
-const syncFloatingElements = () => {
-  void nextTick(() => {
-    initializeFloatingElements();
-  });
-};
-
-watch(isMobile, (mobile) => {
-  if (!mobile) {
-    syncFloatingElements();
-  }
-});
-
 watch(selectedGoods, () => {
   void fetchCurrentStats();
-  syncFloatingElements();
 });
 
 watch(
@@ -1094,17 +986,14 @@ watch(
 
 onMounted(() => {
   void loadStatsData();
-  syncFloatingElements();
-  window.addEventListener("resize", syncFloatingElements);
 });
 
 onActivated(() => {
-  syncFloatingElements();
+  void fetchCurrentStats();
 });
 
 onBeforeUnmount(() => {
-  stopDrag();
-  window.removeEventListener("resize", syncFloatingElements);
+  // Cleanup if needed
 });
 </script>
 

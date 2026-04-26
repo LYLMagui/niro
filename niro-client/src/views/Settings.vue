@@ -1,10 +1,10 @@
 <template>
-  <div class="p-6">
+  <PageFrame :is-mobile="false" desktop-outer-class="!p-0" desktop-content-class="px-4 pt-0 pb-0">
     <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[72%_1fr]">
       <!-- 左侧：Content (72%) -->
       <div class="min-w-0">
         <!-- 账号列表 -->
-        <t-card :bordered="false" class="embedded-card h-full shadow-sm">
+        <t-card :bordered="false" class="embedded-card h-full">
           <template #title>
             <div class="flex items-center">
               <t-icon name="setting" class="mr-2 text-blue-600" />
@@ -14,7 +14,7 @@
           <template #actions>
             <t-space size="8px">
               <t-button
-                v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK_ALL"
+                v-if="canCheckAllBuffAccounts"
                 variant="outline"
                 theme="default"
                 :loading="checkingAll"
@@ -25,7 +25,7 @@
                 一键检测
               </t-button>
               <t-button
-                v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
+                v-if="canSaveBuffAccount"
                 theme="primary"
                 class="rounded transition-all duration-300"
                 @click="onAddAccount"
@@ -56,9 +56,11 @@
 
             <!-- 账号名称列增加图标标识 (保持原样) -->
             <template #accountName="{ row }">
-              <div class="flex items-center space-x-2">
-                <t-icon name="user-circle" class="text-blue-500" size="18px" />
-                <span class="font-semibold text-[#1d2129]">{{ row.accountName }}</span>
+              <div class="flex min-w-0 items-center space-x-2">
+                <t-icon name="user-circle" class="shrink-0 text-blue-500" size="18px" />
+                <t-tooltip :content="row.accountName" placement="top-left">
+                  <span class="truncate font-semibold text-[#1d2129]">{{ row.accountName }}</span>
+                </t-tooltip>
               </div>
             </template>
 
@@ -182,7 +184,7 @@
               <div class="niro-table-actions niro-table-actions--center">
                 <t-tooltip content="编辑">
                   <t-button
-                    v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
+                    v-if="canSaveBuffAccount"
                     variant="outline"
                     size="small"
                     :disabled="row.checking"
@@ -194,7 +196,7 @@
                 </t-tooltip>
                 <t-tooltip content="检测">
                   <t-button
-                    v-permission="PermissionConstant.BUFF_ACCOUNT_CHECK"
+                    v-if="canCheckBuffAccount"
                     variant="outline"
                     size="small"
                     :disabled="row.checking"
@@ -219,7 +221,7 @@
                     "
                   >
                     <t-button
-                      v-permission="PermissionConstant.BUFF_ACCOUNT_DELETE"
+                      v-if="canDeleteBuffAccount"
                       variant="outline"
                       size="small"
                       theme="danger"
@@ -238,7 +240,7 @@
 
       <!-- 右侧：Aside 整体化 (30%) -->
       <div class="flex h-fit flex-col lg:sticky lg:top-6">
-        <t-card :bordered="false" class="overflow-hidden shadow-sm">
+        <t-card :bordered="false" class="overflow-hidden">
           <template #title>
             <div class="flex items-center">
               <t-icon name="setting" class="mr-2 text-gray-500" size="20px" />
@@ -301,12 +303,7 @@
                 <span class="mr-2">平台配置</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form
-                :data="formData"
-                :rules="formRules"
-                label-align="top"
-                @submit="onSubmit"
-              >
+              <t-form :data="formData" :rules="formRules" label-align="top" @submit="onSubmit">
                 <t-form-item label="C5 AppKey" name="c5AppKey">
                   <template #label><span class="text-[#86909c]">C5 AppKey</span></template>
                   <t-input
@@ -334,12 +331,7 @@
                 <span class="mr-2">交易配置</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form
-                :data="formData"
-                :rules="formRules"
-                label-align="top"
-                @submit="onSubmit"
-              >
+              <t-form :data="formData" :rules="formRules" label-align="top" @submit="onSubmit">
                 <t-form-item label="默认支付方式" name="paymentMethod">
                   <template #label>
                     <span class="text-[#86909c]">默认支付方式</span>
@@ -375,18 +367,13 @@
                 <span class="mr-2">通知参数</span>
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
-              <t-form
-                :data="formData"
-                :rules="formRules"
-                label-align="top"
-                @submit="onSubmit"
-              >
+              <t-form :data="formData" :rules="formRules" label-align="top" @submit="onSubmit">
                 <t-collapse :borderless="true" class="bg-transparent !p-0" :default-value="[]">
                   <t-collapse-panel v-if="wecomEnabled" value="wecom" class="!bg-transparent">
                     <template #header>
                       <span class="text-[13px] text-[#86909c]">企业微信配置</span>
                     </template>
-                    <div class="config-panel-bg compact-form mt-2 rounded-md p-3">
+                    <div class="config-panel-bg compact-form mt-2 rounded p-3">
                       <t-form-item label="CorpID" name="wecomCorpid">
                         <template #label><span class="text-[#86909c]">CorpID</span></template>
                         <t-input
@@ -433,7 +420,7 @@
                     <template #header>
                       <span class="text-[13px] text-[#86909c]">邮件通知配置</span>
                     </template>
-                    <div class="config-panel-bg compact-form mt-2 rounded-md p-3">
+                    <div class="config-panel-bg compact-form mt-2 rounded p-3">
                       <div class="grid grid-cols-3 gap-3">
                         <t-form-item label="SMTP服务器" name="emailHost" class="col-span-2">
                           <template #label><span class="text-[#86909c]">SMTP服务器</span></template>
@@ -495,6 +482,7 @@
             <div class="absolute top-[-28px] right-4">
               <t-button
                 v-if="wecomEnabled || formData.emailEnabled"
+                v-if="canTestNotify"
                 variant="text"
                 theme="primary"
                 :loading="testNotifyLoading"
@@ -509,7 +497,8 @@
               type="submit"
               block
               :loading="loading"
-              class="h-9 rounded shadow-sm"
+              :disabled="!canSaveSettings"
+              class="h-9 rounded"
               @click="onSubmit({ validateResult: true } as any)"
             >
               保存全局配置
@@ -581,24 +570,24 @@
         <div class="mt-8 flex justify-end gap-3">
           <t-button
             variant="outline"
-            class="rounded-md transition-all duration-300"
+            class="rounded transition-all duration-300"
             @click="accountDialogVisible = false"
           >
             取消
           </t-button>
           <t-button
-            v-permission="PermissionConstant.BUFF_ACCOUNT_SAVE"
+            v-if="canSaveBuffAccount"
             theme="primary"
             type="submit"
             :loading="accountSubmitLoading"
-            class="rounded-md px-8 transition-all duration-300"
+            class="rounded px-8 transition-all duration-300"
           >
             确定
           </t-button>
         </div>
       </t-form>
     </t-dialog>
-  </div>
+  </PageFrame>
 </template>
 
 <script setup lang="ts">
@@ -611,6 +600,7 @@ import {
 } from "@/api/settings";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import { usePermission } from "@/hooks/usePermission";
+import useNewPermission from "@/hooks/useNewPermission";
 import {
   FormRule,
   MessagePlugin,
@@ -621,7 +611,14 @@ import {
 import { computed, onMounted, reactive, ref, watch } from "vue";
 
 const { hasPermission } = usePermission();
+const { hasButtonPermission } = useNewPermission();
 const canViewAccountList = computed(() => hasPermission(PermissionConstant.ACCOUNT_LIST));
+const canSaveBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_SAVE));
+const canDeleteBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_DELETE));
+const canCheckBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK));
+const canCheckAllBuffAccounts = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK_ALL));
+const canSaveSettings = computed(() => hasButtonPermission(PermissionConstant.SETTINGS_SAVE));
+const canTestNotify = computed(() => hasButtonPermission(PermissionConstant.SETTINGS_TEST_NOTIFY));
 
 // --- 通用配置部分 ---
 const loading = ref(false);

@@ -100,6 +100,11 @@ public class BuffAccount {
     private Integer tradeSuccessCount;
 
     /**
+     * 所属平台。
+     */
+    private String platform;
+
+    /**
      * API配置信息(JSON)
      */
     private String apiConfig;
