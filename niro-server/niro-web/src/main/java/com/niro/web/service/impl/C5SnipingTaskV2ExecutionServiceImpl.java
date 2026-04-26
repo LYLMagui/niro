@@ -6,7 +6,6 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONUtil;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.request.market.C5ProductListRequest;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
@@ -550,15 +549,14 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             return C5SnipingTaskV2ExecutionResult.continueRunning();
         }
         C5SnipingAccount account = requireAvailableAccount(task.getAccountId());
-        C5BalanceResponse balance = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getAccount()
-                .getBalance(new C5AccountBalanceRequest().setAccountType(0));
-        if (balance == null || balance.getBalance() == null) {
+        C5BalanceResponse balance = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getAccount().getBalance();
+        if (balance == null || balance.getMoneyAmount() == null) {
             return C5SnipingTaskV2ExecutionResult.continueRunning();
         }
         BigDecimal threshold = C5SnipingTaskV2BalanceGuardModeEnum.RESERVE_BALANCE.equals(task.getBalanceGuardMode())
                 ? task.getReserveBalance()
                 : task.getMaxPrice();
-        BigDecimal availableBalance = balance.getBalance().subtract(buyAttemptManager.sumInFlightAmount(task.getAccountId()));
+        BigDecimal availableBalance = balance.getMoneyAmount().subtract(buyAttemptManager.sumInFlightAmount(task.getAccountId()));
         if (threshold != null && availableBalance.compareTo(threshold) < 0) {
             return C5SnipingTaskV2ExecutionResult.completed("BALANCE_GUARD_REACHED");
         }

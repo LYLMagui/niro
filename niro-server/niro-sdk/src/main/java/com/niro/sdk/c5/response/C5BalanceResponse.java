@@ -7,5 +7,9 @@ import java.math.BigDecimal;
 @Data
 public class C5BalanceResponse {
     private Long userId;
-    private BigDecimal balance;
+    private BigDecimal moneyAmount;
+    private BigDecimal depositAmount;
+    private BigDecimal tradeSettleAmount;
+    private BigDecimal creditMoney;
+    private BigDecimal creditDeposit;
 }

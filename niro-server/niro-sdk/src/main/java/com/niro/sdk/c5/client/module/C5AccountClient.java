@@ -2,7 +2,6 @@ package com.niro.sdk.c5.client.module;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.niro.sdk.c5.client.core.C5HttpEngine;
-import com.niro.sdk.c5.request.account.C5AccountBalanceRequest;
 import com.niro.sdk.c5.request.account.C5SteamInfoRequest;
 import com.niro.sdk.c5.response.C5BalanceResponse;
 import com.niro.sdk.c5.response.C5BaseResponse;
@@ -19,10 +18,10 @@ public class C5AccountClient {
 
     /**
      * 查询账户余额
-     * GET /merchant/account/v1/balance
+     * GET /merchant/account/v2/balance
      */
-    public C5BalanceResponse getBalance(C5AccountBalanceRequest req) {
-        return engine.execute("/merchant/account/v1/balance", "GET", req, new TypeReference<C5BaseResponse<C5BalanceResponse>>() {});
+    public C5BalanceResponse getBalance() {
+        return engine.execute("/merchant/account/v2/balance", "GET", null, new TypeReference<C5BaseResponse<C5BalanceResponse>>() {});
     }
 
     /**

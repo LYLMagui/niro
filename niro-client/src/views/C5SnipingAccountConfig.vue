@@ -21,7 +21,7 @@
               @enter="fetchData"
             />
           </label>
-          <label class="flex min-w-0 flex-col gap-1.5">
+          <!-- <label class="flex min-w-0 flex-col gap-1.5">
             <span class="text-sm font-medium text-slate-700">状态</span>
             <t-select
               v-model="queryParams.status"
@@ -30,8 +30,8 @@
               placeholder="请选择状态"
               class="w-full"
             />
-          </label>
-          <div class="flex flex-wrap items-center gap-2 xl:justify-end">
+          </label> -->
+          <div class="flex flex-wrap items-center gap-2">
             <t-button theme="primary" class="c5-sniping-account-action-btn" @click="fetchData">
               查询
             </t-button>
@@ -55,6 +55,17 @@
               @click="openCreateDialog"
             >
               新增扫货账号
+            </t-button>
+            <t-button
+              v-if="canReadAccountDetail"
+              variant="outline"
+              theme="primary"
+              class="c5-sniping-account-action-btn"
+              :loading="refreshBalanceLoading"
+              :disabled="!accounts.length"
+              @click="onRefreshBalance"
+            >
+              刷新余额
             </t-button>
           </div>
         </div>
@@ -110,6 +121,14 @@
               </t-tooltip>
             </template>
 
+            <template #steamId="{ row }">
+              <t-tooltip :content="row.steamId || '未配置'" placement="top-left">
+                <div class="max-w-[160px] truncate font-mono text-xs text-slate-600">
+                  {{ row.steamId || "-" }}
+                </div>
+              </t-tooltip>
+            </template>
+
             <template #metrics="{ row }">
               <div class="flex flex-col gap-1 py-1">
                 <div class="flex items-center justify-between text-[13px]">
@@ -128,14 +147,29 @@
             </template>
 
             <template #balance="{ row }">
-              <div class="flex flex-col gap-1 py-1">
-                <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">可用余额</span>
-                  <span class="font-bold text-emerald-600">{{ formatCurrency(row.balance) }}</span>
+              <div class="flex flex-col items-end py-1 pr-2">
+                <!-- 主余额 -->
+                <div class="text-[18px] font-bold text-emerald-600 tabular-nums leading-none mb-2">
+                  {{ formatCurrency(resolveMoneyAmount(row)) }}
                 </div>
-                <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">待结算</span>
-                  <span class="font-medium text-slate-700">{{ formatCurrency(row.pendingBalance) }}</span>
+                <!-- 各项子余额 -->
+                <div class="flex flex-col items-end gap-1 text-[11px]">
+                  <div class="flex items-center gap-1 leading-tight">
+                    <span class="text-slate-400">待结算</span>
+                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.pendingBalance) }}</span>
+                  </div>
+                  <div class="flex items-center gap-1 leading-tight">
+                    <span class="text-slate-400">保证金</span>
+                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.depositAmount) }}</span>
+                  </div>
+                  <div class="flex items-center gap-1 leading-tight">
+                    <span class="text-slate-400">秒到账</span>
+                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.creditMoney) }}</span>
+                  </div>
+                  <div class="flex items-center gap-1 leading-tight">
+                    <span class="text-slate-400">秒到保证金</span>
+                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.creditDeposit) }}</span>
+                  </div>
                 </div>
               </div>
             </template>
@@ -323,6 +357,14 @@
             />
           </t-form-item>
 
+          <t-form-item label="Steam ID" name="steamId">
+            <t-input
+              v-model="accountFormData.steamId"
+              placeholder="请输入库存接口使用的 Steam ID"
+              @blur="() => trimStringField(accountFormData, 'steamId')"
+            />
+          </t-form-item>
+
           <t-form-item label="备注" name="remark">
             <t-input
               v-model="accountFormData.remark"
@@ -352,13 +394,12 @@ import {
   type PageInfo,
   type PrimaryTableCol,
   type SubmitContext,
-  type TagProps,
 } from "tdesign-vue-next";
 import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { c5SnipingV2Api } from "@/api/c5-sniping-v2";
 import PageFrame from "@/components/PageFrame.vue";
 import AppDialog from "@/components/AppDialog.vue";
-import { BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
+// import { BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
@@ -383,6 +424,7 @@ const pageSizeOptions = [10, 20, 50];
 const accountDialogVisible = ref(false);
 const accountDialogTitle = ref("新增扫货账号");
 const accountSubmitLoading = ref(false);
+const refreshBalanceLoading = ref(false);
 const detailDialogVisible = ref(false);
 const detailLoading = ref(false);
 const selectedAccount = ref<C5SnipingAccount | null>(null);
@@ -401,18 +443,23 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
   maximumFractionDigits: 2,
 });
 
-const statusOptions = Object.entries(BuffAccountStatusMap).map(([value, meta]) => ({
-  label: meta.label,
-  value,
-}));
+// const statusOptions = Object.entries(BuffAccountStatusMap).map(([value, meta]) => ({
+//   label: meta.label,
+//   value,
+// }));
 
 const accountFormData = reactive<C5SnipingAccount>({
   accountName: "",
   c5AppKey: "",
   steamTradeUrl: "",
+  steamId: "",
   status: "NORMAL",
   balance: 0,
+  moneyAmount: 0,
   pendingBalance: 0,
+  depositAmount: 0,
+  creditMoney: 0,
+  creditDeposit: 0,
   remark: "",
 });
 
@@ -420,13 +467,14 @@ const accountRules: Record<string, FormRule[]> = {
   accountName: [{ required: true, message: "账号名称不能为空", type: "error" }],
   c5AppKey: [{ required: true, message: "C5 AppKey 不能为空", type: "error" }],
   steamTradeUrl: [{ required: true, message: "Steam 交易链接不能为空", type: "error" }],
+  steamId: [{ required: true, message: "Steam ID 不能为空", type: "error" }],
 };
 
 const tableHeaderClass =
   "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
 const tableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 
-const detailTaskColumns = computed<PrimaryTableCol<C5SnipingTaskV2Item>[]>(() => [
+const detailTaskColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "detailTaskInfo",
     title: "任务信息",
@@ -454,7 +502,7 @@ const detailTaskColumns = computed<PrimaryTableCol<C5SnipingTaskV2Item>[]>(() =>
   },
 ]);
 
-const columns = computed(() => [
+const columns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "accountInfo",
     title: "账号信息",
@@ -481,6 +529,14 @@ const columns = computed(() => [
     thClassName: tableHeaderClass,
   },
   {
+    colKey: "steamId",
+    title: "Steam ID",
+    width: 180,
+    cell: "steamId",
+    className: tableBodyClass,
+    thClassName: tableHeaderClass,
+  },
+  {
     colKey: "metrics",
     title: "实时统计",
     width: 170,
@@ -491,10 +547,11 @@ const columns = computed(() => [
   {
     colKey: "balance",
     title: "余额",
-    width: 180,
+    width: 190,
+    align: "right" as const,
     cell: "balance",
     className: tableBodyClass,
-    thClassName: tableHeaderClass,
+    thClassName: `${tableHeaderClass} !text-right !pr-6`,
   },
   {
     colKey: "op",
@@ -551,11 +608,12 @@ const trimStringField = <T extends Record<string, unknown>, K extends keyof T>(
 
 const formatCurrency = (value?: number) =>
   value === undefined || value === null ? "-" : priceFormatter.format(value);
+const resolveMoneyAmount = (account: C5SnipingAccount) => account.moneyAmount ?? account.balance;
 const formatPercent = (value?: number) => `${((value || 0) * 100).toFixed(1)}%`;
 const getDetailTaskTitle = (row: C5SnipingTaskV2Item) =>
   row.name || row.goodsDisplayName || row.marketHashName || `任务 #${row.id}`;
 const getTaskStatusMeta = (status?: string) => {
-  const map: Record<string, { label: string; theme: TagProps["theme"]; dotClass: string }> = {
+  const map: Record<string, { label: string; theme: "default" | "primary" | "danger" | "warning" | "success"; dotClass: string }> = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
     READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
@@ -568,8 +626,8 @@ const getTaskStatusMeta = (status?: string) => {
     ERROR: { label: "运行异常", theme: "danger", dotClass: "bg-rose-500 animate-pulse" },
   };
   return status
-    ? map[status] || { label: status, theme: "default", dotClass: "bg-slate-300" }
-    : { label: "未知", theme: "default", dotClass: "bg-slate-300" };
+    ? map[status] || { label: status, theme: "default" as const, dotClass: "bg-slate-300" }
+    : { label: "未知", theme: "default" as const, dotClass: "bg-slate-300" };
 };
 const formatTaskProgress = (row: C5SnipingTaskV2Item) => {
   if (row.stopMode === "BUY_COUNT" && row.targetBuyCount) {
@@ -610,9 +668,14 @@ const resetAccountForm = () => {
     accountName: "",
     c5AppKey: "",
     steamTradeUrl: "",
+    steamId: "",
     status: "NORMAL",
     balance: 0,
+    moneyAmount: 0,
     pendingBalance: 0,
+    depositAmount: 0,
+    creditMoney: 0,
+    creditDeposit: 0,
     lastCheckTime: undefined,
     remark: "",
     warningMsg: undefined,
@@ -697,12 +760,14 @@ const onAccountSubmit = async (context: SubmitContext) => {
     trimStringField(accountFormData, "accountName");
     trimStringField(accountFormData, "c5AppKey");
     trimStringField(accountFormData, "steamTradeUrl");
+    trimStringField(accountFormData, "steamId");
     trimStringField(accountFormData, "remark");
     await c5SnipingAccountApi.saveAccount({
       id: accountFormData.id,
       accountName: accountFormData.accountName,
       c5AppKey: accountFormData.c5AppKey,
       steamTradeUrl: accountFormData.steamTradeUrl,
+      steamId: accountFormData.steamId,
       remark: accountFormData.remark,
     });
     MessagePlugin.success(`${accountFormData.id ? "账号已更新" : "账号已创建"}`);
@@ -710,6 +775,35 @@ const onAccountSubmit = async (context: SubmitContext) => {
     await loadData();
   } finally {
     accountSubmitLoading.value = false;
+  }
+};
+
+const onRefreshBalance = async () => {
+  const accountIds = accounts.value
+    .map((account) => account.id)
+    .filter((id): id is number => typeof id === "number");
+  if (!accountIds.length) {
+    MessagePlugin.warning("暂无可刷新账号");
+    return;
+  }
+
+  refreshBalanceLoading.value = true;
+  try {
+    const results = await c5SnipingAccountApi.refreshBalance({ accountIds });
+    const successCount = results.filter((item) => item.success).length;
+    const failCount = accountIds.length - successCount;
+
+    if (successCount === accountIds.length) {
+      MessagePlugin.success(`余额刷新完成，成功 ${successCount} 个`);
+    } else if (successCount > 0) {
+      MessagePlugin.warning(`余额刷新完成，成功 ${successCount} 个，失败 ${failCount} 个`);
+    } else {
+      MessagePlugin.error(`余额刷新失败，失败 ${failCount} 个`);
+    }
+
+    await fetchData();
+  } finally {
+    refreshBalanceLoading.value = false;
   }
 };
 

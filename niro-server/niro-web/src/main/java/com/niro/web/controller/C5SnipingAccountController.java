@@ -4,7 +4,9 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import com.niro.web.constant.PermissionConstants;
+import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
 import com.niro.web.dto.C5SnipingAccountDTO;
+import com.niro.web.dto.param.C5SnipingAccountBalanceRefreshParam;
 import com.niro.web.dto.param.C5SnipingAccountSaveParam;
 import com.niro.web.service.C5SnipingAccountService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -70,6 +72,19 @@ public class C5SnipingAccountController {
     @Operation(summary = "删除C5扫货2.0账号")
     public void deleteAccount(@Parameter(description = "账号ID") @PathVariable Long id) {
         c5SnipingAccountService.deleteAccount(id);
+    }
+
+    /**
+     * 批量刷新 C5 扫货账号余额。
+     *
+     * @param param 余额刷新参数
+     * @return 余额刷新结果列表
+     */
+    @PostMapping("/refresh-balance")
+    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @Operation(summary = "批量刷新C5扫货2.0账号余额")
+    public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(@RequestBody @Valid C5SnipingAccountBalanceRefreshParam param) {
+        return c5SnipingAccountService.refreshBalance(param);
     }
 
     /**

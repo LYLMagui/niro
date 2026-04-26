@@ -48,19 +48,39 @@ public class C5SnipingAccount {
     private String steamTradeUrl;
 
     /**
+     * Steam ID，用于 C5 库存接口。
+     */
+    private String steamId;
+
+    /**
      * 账号状态。
      */
     private C5SnipingAccountStatusEnum status;
 
     /**
-     * 账号余额。
+     * C5 可用余额。
      */
     private BigDecimal balance;
 
     /**
-     * 待结算余额。
+     * 交易待结算余额。
      */
     private BigDecimal pendingBalance;
+
+    /**
+     * 保证金余额。
+     */
+    private BigDecimal depositAmount;
+
+    /**
+     * 秒到账余额。
+     */
+    private BigDecimal creditMoney;
+
+    /**
+     * 秒到账保证金。
+     */
+    private BigDecimal creditDeposit;
 
     /**
      * 最近一次检测时间。

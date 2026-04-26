@@ -1,6 +1,8 @@
 package com.niro.web.service;
 
+import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
 import com.niro.web.dto.C5SnipingAccountDTO;
+import com.niro.web.dto.param.C5SnipingAccountBalanceRefreshParam;
 import com.niro.web.dto.param.C5SnipingAccountSaveParam;
 
 import java.util.List;
@@ -37,6 +39,14 @@ public interface C5SnipingAccountService {
      * @param id 账号 ID
      */
     void deleteAccount(Long id);
+
+    /**
+     * 批量刷新当前用户 C5 扫货账号余额。
+     *
+     * @param param 余额刷新参数
+     * @return 余额刷新结果列表
+     */
+    List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(C5SnipingAccountBalanceRefreshParam param);
 
     /**
      * 检测单个 C5 扫货账号配置。

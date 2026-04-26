@@ -12,9 +12,27 @@ export interface C5SnipingAccountSaveParam {
   accountName: string;
   c5AppKey: string;
   steamTradeUrl: string;
+  steamId?: string;
   concurrencyLimit?: number;
   maxInFlightAttempts?: number;
   remark?: string;
+}
+
+export interface C5SnipingAccountRefreshBalanceParam {
+  accountIds: number[];
+}
+
+export interface C5SnipingAccountRefreshBalanceResult {
+  accountId: number;
+  accountName?: string;
+  success: boolean;
+  balance?: number;
+  moneyAmount?: number;
+  pendingBalance?: number;
+  depositAmount?: number;
+  creditMoney?: number;
+  creditDeposit?: number;
+  message?: string;
 }
 
 export interface C5SnipingAccount {
@@ -23,11 +41,16 @@ export interface C5SnipingAccount {
   accountName: string;
   c5AppKey: string;
   steamTradeUrl: string;
+  steamId?: string;
   concurrencyLimit?: number;
   maxInFlightAttempts?: number;
   status: C5SnipingAccountStatus;
   balance: number;
+  moneyAmount?: number;
   pendingBalance?: number;
+  depositAmount?: number;
+  creditMoney?: number;
+  creditDeposit?: number;
   lastCheckTime?: string;
   remark?: string;
   warningMsg?: string;

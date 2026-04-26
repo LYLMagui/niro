@@ -34,6 +34,11 @@ public class C5SnipingAccountSaveParam {
     private String steamTradeUrl;
 
     /**
+     * Steam ID，用于 C5 库存接口。
+     */
+    private String steamId;
+
+    /**
      * 用户备注。
      */
     private String remark;

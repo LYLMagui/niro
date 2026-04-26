@@ -4,7 +4,11 @@ import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.niro.core.util.Assert;
+import com.niro.sdk.c5.exception.C5ApiException;
+import com.niro.sdk.c5.response.C5BalanceResponse;
+import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
 import com.niro.web.dto.C5SnipingAccountDTO;
+import com.niro.web.dto.param.C5SnipingAccountBalanceRefreshParam;
 import com.niro.web.dto.param.C5SnipingAccountSaveParam;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.C5SnipingAccountRuntimeV2;
@@ -13,6 +17,7 @@ import com.niro.web.enums.C5SnipingAccountStatusEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
+import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5SnipingAccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -21,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
@@ -39,6 +45,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     private final C5SnipingAccountMapperManager accountManager;
     private final C5SnipingAccountRuntimeV2MapperManager runtimeManager;
     private final C5SnipingTaskV2MapperManager taskManager;
+    private final C5ApiClientService c5ApiClientService;
 
     /**
      * 查询当前用户的 C5 扫货账号列表。
@@ -119,6 +126,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         account.setAccountName(param.getAccountName());
         account.setC5AppKey(param.getC5AppKey());
         account.setSteamTradeUrl(param.getSteamTradeUrl());
+        account.setSteamId(StrUtil.blankToDefault(param.getSteamId(), ""));
         account.setRemark(param.getRemark());
         account.setUpdateTime(now);
         accountManager.saveOrUpdate(account);
@@ -155,6 +163,31 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     }
 
     /**
+     * 批量刷新当前用户 C5 扫货账号余额。
+     *
+     * @param param 余额刷新参数
+     * @return 余额刷新结果列表
+     */
+    @Override
+    public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(C5SnipingAccountBalanceRefreshParam param) {
+        Assert.notNull(param, "余额刷新参数不能为空");
+        Assert.notEmpty(param.getAccountIds(), "账号ID列表不能为空");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        List<Long> accountIds = param.getAccountIds().stream()
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+        Assert.notEmpty(accountIds, "账号ID列表不能为空");
+
+        Map<Long, C5SnipingAccount> accountMap = accountManager.mapByUserIdAndIds(userId, accountIds);
+        return accountIds.stream()
+                .map(accountId -> refreshSingleBalance(accountId, accountMap.get(accountId)))
+                .collect(Collectors.toList());
+    }
+
+    /**
      * 获取当前用户拥有的 C5 扫货账号。
      *
      * @param id 账号 ID
@@ -166,6 +199,60 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         C5SnipingAccount account = accountManager.getByUserIdAndId(userId, id);
         Assert.notNull(account, "账号不存在");
         return account;
+    }
+
+    /**
+     * 刷新单个账号余额。
+     *
+     * @param accountId 请求中的账号 ID
+     * @param account 当前用户拥有的账号，不存在时为 null
+     * @return 单个账号余额刷新结果
+     */
+    private C5SnipingAccountBalanceRefreshResultDTO refreshSingleBalance(Long accountId, C5SnipingAccount account) {
+        C5SnipingAccountBalanceRefreshResultDTO result = new C5SnipingAccountBalanceRefreshResultDTO();
+        result.setAccountId(accountId);
+        if (account == null) {
+            result.setSuccess(false);
+            result.setMessage("账号不存在");
+            return result;
+        }
+
+        result.setAccountName(account.getAccountName());
+        try {
+            C5BalanceResponse balanceResponse = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getAccount().getBalance();
+            if (balanceResponse == null || balanceResponse.getMoneyAmount() == null) {
+                result.setSuccess(false);
+                result.setMessage("C5余额接口未返回可用余额");
+                return result;
+            }
+
+            BigDecimal balance = balanceResponse.getMoneyAmount();
+            LocalDateTime now = LocalDateTime.now();
+            account.setBalance(balance);
+            account.setPendingBalance(balanceResponse.getTradeSettleAmount());
+            account.setDepositAmount(balanceResponse.getDepositAmount());
+            account.setCreditMoney(balanceResponse.getCreditMoney());
+            account.setCreditDeposit(balanceResponse.getCreditDeposit());
+            account.setLastCheckTime(now);
+            account.setUpdateTime(now);
+            account.setWarningMsg("");
+            accountManager.updateById(account);
+
+            result.setSuccess(true);
+            result.setBalance(balance);
+            result.setMoneyAmount(balance);
+            result.setPendingBalance(balanceResponse.getTradeSettleAmount());
+            result.setDepositAmount(balanceResponse.getDepositAmount());
+            result.setCreditMoney(balanceResponse.getCreditMoney());
+            result.setCreditDeposit(balanceResponse.getCreditDeposit());
+            result.setMessage("刷新成功");
+            return result;
+        } catch (C5ApiException e) {
+            result.setSuccess(false);
+            result.setBalance(account.getBalance());
+            result.setMessage(StrUtil.blankToDefault(e.getErrorMsg(), "刷新失败"));
+            return result;
+        }
     }
 
     /**
@@ -228,6 +315,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
      */
     private C5SnipingAccountDTO toDTO(C5SnipingAccount account, C5SnipingAccountRuntimeV2 runtime, C5SnipingTaskV2 boundTask) {
         C5SnipingAccountDTO dto = BeanUtil.copyProperties(account, C5SnipingAccountDTO.class);
+        dto.setMoneyAmount(account.getBalance());
         dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit()));
         dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts()));
         if (boundTask != null) {
