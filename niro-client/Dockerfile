@@ -48,6 +48,12 @@ RUN apk add --no-cache tzdata \
     && echo "Asia/Shanghai" > /etc/timezone
 
 COPY --from=build-stage /app/dist /usr/share/nginx/html
-COPY nginx.${ENV_TYPE}.conf /etc/nginx/conf.d/default.conf
+COPY nginx.conf nginx.test.conf /tmp/nginx/
+RUN if [ "$ENV_TYPE" = "test" ]; then \
+        cp /tmp/nginx/nginx.test.conf /etc/nginx/conf.d/default.conf; \
+    else \
+        cp /tmp/nginx/nginx.conf /etc/nginx/conf.d/default.conf; \
+    fi \
+    && rm -rf /tmp/nginx
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
