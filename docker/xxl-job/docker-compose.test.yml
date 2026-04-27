@@ -56,11 +56,11 @@ services:
         condition: service_healthy
     networks:
       - xxl-job-network
-      - niro-data-net
+      - niro-data-net-test
   
 
 networks:
   xxl-job-network:
     driver: bridge
-  niro-data-net:
+  niro-data-net-test:
     external: true

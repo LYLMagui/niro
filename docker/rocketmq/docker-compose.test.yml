@@ -13,7 +13,7 @@ services:
       - JAVA_OPT=-server -Xms128m -Xmx128m -Xmn64m
     networks:
       - rocketmq
-      - niro-data-net
+      - niro-data-net-test
     # 限制容器日志大小，防止撑爆硬盘
     logging:
       driver: "json-file"
@@ -51,7 +51,7 @@ services:
       - namesrv
     networks:
       - rocketmq
-      - niro-data-net
+      - niro-data-net-test
     logging:
       driver: "json-file"
       options:
@@ -101,7 +101,7 @@ services:
       - namesrv
     networks:
       - rocketmq
-      - niro-data-net
+      - niro-data-net-test
     logging:
       driver: "json-file"
       options:
@@ -111,7 +111,7 @@ services:
 networks:
   rocketmq:
     driver: bridge
-  niro-data-net:
+  niro-data-net-test:
     external: true
 
 

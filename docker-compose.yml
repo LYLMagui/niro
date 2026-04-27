@@ -1,10 +1,10 @@
 services:
-  niro-db-prod:
-    image: niro_postgres_prod
+  niro-db:
+    image: niro_postgres
     build:
       context: ./docker/postgres
       dockerfile: Dockerfile
-    container_name: niro-db-prod
+    container_name: niro-db
     restart: always
     environment:
       POSTGRES_DB: niro
@@ -13,7 +13,7 @@ services:
       TZ: Asia/Shanghai
       PGDATA: /var/lib/postgresql/data/pgdata
     volumes:
-      - niro_db_data_prod:/var/lib/postgresql/data
+      - niro_db_data:/var/lib/postgresql/data
       - ./docker/postgres/initdb:/docker-entrypoint-initdb.d:ro
     ports:
       - "5433:5432"
@@ -24,16 +24,16 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - niro-data-net-prod
+      - niro-data-net
 
-  niro-redis-prod:
+  niro-redis:
     image: redis:8.0-alpine
-    container_name: niro-redis-prod
+    container_name: niro-redis
     restart: always
     command: ["redis-server", "/etc/redis/redis.conf", "--requirepass", "${REDIS_PASSWORD:-redis_niro_pwd}"]
     volumes:
-      - ./docker/redis/redis-prod.conf:/etc/redis/redis.conf
-      - niro_redis_data_prod:/data
+      - ./docker/redis/redis.conf:/etc/redis/redis.conf
+      - niro_redis_data:/data
     ports:
       - "6379:6379"
     healthcheck:
@@ -42,10 +42,10 @@ services:
       timeout: 5s
       retries: 3
     networks:
-      - niro-data-net-prod
+      - niro-data-net
 
-  niro-ocr-prod:
-    image: niro_ocr_prod
+  niro-ocr:
+    image: niro_ocr
     build:
       context: ./ocr_demo
       dockerfile: Dockerfile
@@ -53,7 +53,7 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,host.docker.internal}
-    container_name: niro-ocr-prod
+    container_name: niro-ocr
     restart: always
     environment:
       OCR_LOG_PATH: /var/log/niro
@@ -61,9 +61,9 @@ services:
       - "5000:5000"
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/ocr:/var/log/niro
-      - niro_ocr_paddlex_cache_prod:/root/.paddlex
-      - niro_ocr_paddleocr_cache_prod:/root/.paddleocr
-      - niro_ocr_paddle_cache_prod:/root/.cache/paddle
+      - niro_ocr_paddlex_cache:/root/.paddlex
+      - niro_ocr_paddleocr_cache:/root/.paddleocr
+      - niro_ocr_paddle_cache:/root/.cache/paddle
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5).read()"]
       interval: 30s
@@ -71,10 +71,10 @@ services:
       retries: 3
       start_period: 60s
     networks:
-      - niro-data-net-prod
+      - niro-data-net
 
-  niro-web-prod:
-    image: niro_web_prod
+  niro-web:
+    image: niro_web
     build:
       context: ./niro-server
       dockerfile: Dockerfile
@@ -83,31 +83,31 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         ALL_PROXY: ${ALL_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
-    container_name: niro-web-prod
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db,niro-redis,niro-ocr,niro-web,niro-client},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
+    container_name: niro-web
     restart: always
     depends_on:
-      niro-db-prod:
+      niro-db:
         condition: service_healthy
-      niro-redis-prod:
+      niro-redis:
         condition: service_healthy
     env_file:
       - .env
     environment:
       SPRING_PROFILES_ACTIVE: prod
-      SPRING_DATASOURCE_URL: "jdbc:postgresql://niro-db-prod:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8"
+      SPRING_DATASOURCE_URL: "jdbc:postgresql://niro-db:5432/niro?useUnicode=true&characterEncoding=utf8&serverTimezone=GMT%2B8"
       SPRING_DATASOURCE_USERNAME: ${DB_USERNAME:-niro-admin}
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD:-db_niro_pwd}
-      SPRING_DATA_REDIS_HOST: niro-redis-prod
+      SPRING_DATA_REDIS_HOST: niro-redis
       SPRING_DATA_REDIS_PORT: "6379"
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_niro_pwd}
-      NIRO_OCR_BASE_URL: http://niro-ocr-prod:5000
+      NIRO_OCR_BASE_URL: http://niro-ocr:5000
       XXL_JOB_ADMIN_ADDRESS: http://xxl-job-admin:${XXL_JOB_ADMIN_PORT:-8001}/xxl-job-admin
       XXL_JOB_ACCESS_TOKEN: ${XXL_JOB_ACCESS_TOKEN:-niro-xxl-job}
       XXL_JOB_EXECUTOR_APPNAME: ${XXL_JOB_EXECUTOR_APPNAME:-niro-executor}
       XXL_JOB_EXECUTOR_PORT: ${XXL_JOB_EXECUTOR_PORT:-9999}
       XXL_JOB_EXECUTOR_IP: ${XXL_JOB_EXECUTOR_IP:-}
-      XXL_JOB_EXECUTOR_ADDRESS: http://niro-web-prod:${XXL_JOB_EXECUTOR_PORT:-9999}
+      XXL_JOB_EXECUTOR_ADDRESS: http://niro-web:${XXL_JOB_EXECUTOR_PORT:-9999}
       ROCKETMQ_NAME_SERVER: rmqnamesrv:9876
       ROCKETMQ_PRODUCER_GROUP: ${ROCKETMQ_PRODUCER_GROUP:-niro-producer-group}
       ROCKETMQ_CONSUMER_GROUP: ${ROCKETMQ_CONSUMER_GROUP:-niro-consumer-group}
@@ -115,7 +115,7 @@ services:
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       ALL_PROXY: ${ALL_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db,niro-redis,niro-ocr,niro-web,niro-client},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web:/var/log/niro
     ports:
@@ -128,10 +128,10 @@ services:
       retries: 3
       start_period: 40s
     networks:
-      - niro-data-net-prod
+      - niro-data-net
 
-  niro-client-prod:
-    image: niro_client_prod
+  niro-client:
+    image: niro_client
     build:
       context: ./niro-client
       dockerfile: Dockerfile
@@ -140,16 +140,16 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         ALL_PROXY: ${ALL_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
-    container_name: niro-client-prod
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db,niro-redis,niro-ocr,niro-web,niro-client},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
+    container_name: niro-client
     restart: always
     environment:
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       ALL_PROXY: ${ALL_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db,niro-redis,niro-ocr,niro-web,niro-client},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     depends_on:
-      niro-web-prod:
+      niro-web:
         condition: service_healthy
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/client:/var/log/niro
@@ -158,21 +158,21 @@ services:
       - "80:80"
       - "443:443"
     networks:
-      - niro-data-net-prod
+      - niro-data-net
 
 networks:
-  niro-data-net-prod:
-    name: niro-data-net-prod
+  niro-data-net:
+    name: niro-data-net
     driver: bridge
 
 volumes:
-  niro_db_data_prod:
-    name: niro_db_data_prod
-  niro_redis_data_prod:
-    name: niro_redis_data_prod
-  niro_ocr_paddlex_cache_prod:
-    name: niro_ocr_paddlex_cache_prod
-  niro_ocr_paddleocr_cache_prod:
-    name: niro_ocr_paddleocr_cache_prod
-  niro_ocr_paddle_cache_prod:
-    name: niro_ocr_paddle_cache_prod
+  niro_db_data:
+    name: niro_db_data
+  niro_redis_data:
+    name: niro_redis_data
+  niro_ocr_paddlex_cache:
+    name: niro_ocr_paddlex_cache
+  niro_ocr_paddleocr_cache:
+    name: niro_ocr_paddleocr_cache
+  niro_ocr_paddle_cache:
+    name: niro_ocr_paddle_cache

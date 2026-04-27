@@ -46,7 +46,7 @@
 ### 3.4 compose 统一规则
 
 - `docker-compose.test.yml`
-- `docker-compose.prod.yml`
+- `docker-compose.yml`
 
 两者继续统一挂载：
 
