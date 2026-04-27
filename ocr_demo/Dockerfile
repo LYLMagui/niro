@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1.7
 FROM python:3.11-slim
 
 ARG HTTP_PROXY
@@ -13,7 +14,8 @@ RUN export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
-RUN export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
+RUN --mount=type=cache,target=/root/.cache/pip \
+    export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
     http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY \
     && pip install --timeout 300 --retries 5 -r requirements.txt
 
