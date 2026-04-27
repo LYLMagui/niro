@@ -53,7 +53,6 @@ services:
     networks:
       - rocketmq
       - niro-data-net-test
-      - niro-data-net-prod
     logging:
       driver: "json-file"
       options:
