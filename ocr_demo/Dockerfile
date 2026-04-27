@@ -15,8 +15,7 @@ RUN export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
 COPY requirements.txt ./
 RUN export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
     http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY \
-    && pip install -r requirements.txt \
-    && pip install opencv-python-headless
+    && pip install --timeout 300 --retries 5 -r requirements.txt
 
 COPY app.py ./
 COPY service.py ./

@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>库存管理 - Niro Control</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --td-brand-color: #0052d9;
+            --td-bg-color-page: #f3f3f3;
+            --td-text-color-primary: rgba(0, 0, 0, 0.9);
+            --td-bg-color-container: #fff;
+        }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--td-bg-color-page);
+            margin: 0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        /* Main Top Header */
+        .main-header {
+            height: 48px;
+            background: var(--td-brand-color);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 16px;
+            flex-shrink: 0;
+        }
+
+        /* Secondary Tab Header */
+        .tab-header {
+            height: 40px;
+            background: #fff;
+            border-bottom: 1px solid #e7e7e7;
+            display: flex;
+            align-items: center;
+            padding: 0 24px;
+            gap: 24px;
+            flex-shrink: 0;
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.6);
+        }
+        .tab-item { cursor: pointer; height: 100%; display: flex; align-items: center; padding: 0 4px; position: relative; }
+        .tab-item.active { color: var(--td-brand-color); font-weight: 500; }
+        .tab-item.active::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 2px;
+            background: var(--td-brand-color);
+        }
+
+        .layout-body {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+        }
+
+        /* Sidebar */
+        .sidebar {
+            width: 180px;
+            background: #fff;
+            border-right: 1px solid #e7e7e7;
+            overflow-y: auto;
+            flex-shrink: 0;
+        }
+        .sidebar-group-title {
+            padding: 16px 20px 8px;
+            font-size: 12px;
+            color: rgba(0, 0, 0, 0.4);
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .sidebar-item {
+            height: 40px;
+            display: flex;
+            align-items: center;
+            padding: 0 20px;
+            font-size: 13px;
+            color: rgba(0, 0, 0, 0.7);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .sidebar-item:hover { background: #f3f3f3; }
+        .sidebar-item.active {
+            color: var(--td-brand-color);
+            background: #ecf2fe;
+            border-right: 3px solid var(--td-brand-color);
+        }
+        .sidebar-item svg { margin-right: 8px; width: 16px; height: 16px; }
+
+        /* Main Content Area */
+        .content-area {
+            flex: 1;
+            overflow-y: auto;
+            padding: 24px;
+            background: #f3f3f3;
+        }
+
+        .page-card {
+            background: #fff;
+            border-radius: 4px;
+            border: 1px solid #e7e7e7;
+            padding: 20px;
+            margin-bottom: 24px;
+        }
+
+        /* Inventory Grid Styles */
+        .item-card {
+            background: #fff;
+            border: 1px solid #e7e7e7;
+            border-radius: 4px;
+            transition: all 0.2s;
+            cursor: pointer;
+            position: relative;
+        }
+        .item-card:hover {
+            border-color: var(--td-brand-color);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+        }
+        .card-stack-1 { transform: translate(3px, 3px); z-index: -1; border-color: #eee; }
+        .card-stack-2 { transform: translate(6px, 6px); z-index: -2; border-color: #f5f5f5; }
+
+        .rarity-line {
+            height: 3px;
+            width: 100%;
+        }
+        .bg-covert { background: #eb4b4b; }
+        .bg-classified { background: #d32ee6; }
+        .bg-restricted { background: #8847ff; }
+        .bg-milspec { background: #4b69ff; }
+        .bg-ancient { background: #f7ad06; }
+
+        [x-cloak] { display: none !important; }
+        
+        /* TDesign Button style */
+        .t-button {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 0 16px;
+            height: 32px;
+            border-radius: 4px;
+            font-size: 14px;
+            cursor: pointer;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+        .t-button-primary { background: var(--td-brand-color); color: #fff; }
+        .t-button-primary:hover { background: #0045b8; }
+        .t-button-outline { border-color: #dcdcdc; color: rgba(0,0,0,0.9); background: #fff; }
+        .t-button-outline:hover { border-color: var(--td-brand-color); color: var(--td-brand-color); }
+        
+        .t-input {
+            height: 32px;
+            border: 1px solid #dcdcdc;
+            border-radius: 4px;
+            padding: 0 12px;
+            font-size: 14px;
+            outline: none;
+            transition: all 0.2s;
+        }
+        .t-input:focus { border-color: var(--td-brand-color); box-shadow: 0 0 0 2px rgba(0, 82, 217, 0.1); }
+    </style>
+</head>
+<body x-data="inventoryApp()">
+    <!-- Top Header (Niro Blue) -->
+    <header class="main-header">
+        <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M4 6h16M4 12h16M4 18h16"></path></svg>
+            <span class="font-bold text-lg">Niro Control</span>
+        </div>
+        <div class="flex items-center gap-4">
+            <svg class="w-4 h-4 cursor-pointer opacity-80 hover:opacity-100" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+            <div class="flex items-center gap-2 cursor-pointer bg-white/10 px-2 py-1 rounded">
+                <div class="w-6 h-6 rounded-full bg-white/20 flex items-center justify-center text-[10px] font-bold">👤</div>
+                <span class="text-xs">_yl6qKunj</span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Sub Header Tabs -->
+    <nav class="tab-header">
+        <div class="tab-item">首页</div>
+        <div class="tab-item">拾货管理</div>
+        <div class="tab-item">账号配置</div>
+        <div class="tab-item">订单记录</div>
+        <div class="tab-item">权限管理</div>
+        <div class="tab-item active">库存管理</div>
+        <div class="tab-item">开箱记录</div>
+        <div class="tab-item">订单统计</div>
+        <div class="tab-item">商品列表</div>
+    </nav>
+
+    <div class="layout-body">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <div class="sidebar-group-title">
+                <span>工作台</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <div class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                <span>首页</span>
+            </div>
+
+            <div class="sidebar-group-title">
+                <span>扫货</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <div class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+                <span>拾货管理</span>
+            </div>
+            <div class="sidebar-item">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path></svg>
+                <span>账号配置</span>
+            </div>
+
+            <div class="sidebar-group-title">
+                <span>商品库</span>
+                <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M19 9l-7 7-7-7"></path></svg>
+            </div>
+            <div class="sidebar-item active">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"></path></svg>
+                <span>库存管理</span>
+            </div>
+        </aside>
+
+        <!-- Main Content Container -->
+        <main class="content-area">
+            <!-- Filter Section Card -->
+            <div class="page-card">
+                <div class="flex items-center flex-wrap gap-4 mb-6">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-500">账号:</span>
+                        <select x-model="selectedAccount" class="t-input w-44">
+                            <template x-for="acc in accounts" :key="acc">
+                                <option :value="acc" x-text="acc"></option>
+                            </template>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm text-gray-500">搜索:</span>
+                        <input x-model="searchText" type="text" placeholder="饰品名称" class="t-input w-64">
+                    </div>
+                    <button class="t-button t-button-primary">查询</button>
+                    <button @click="searchText = ''; selectedAccount = '所有账号'" class="t-button t-button-outline">重置</button>
+                    
+                    <div class="flex-1"></div>
+                    
+                    <!-- Refresh Button Requested -->
+                    <button @click="refreshInventory()" class="t-button t-button-outline gap-2" :class="isRefreshing ? 'opacity-50 pointer-events-none' : ''">
+                        <svg class="w-4 h-4" :class="isRefreshing ? 'animate-spin' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path></svg>
+                        <span x-text="isRefreshing ? '刷新中...' : '刷新库存'"></span>
+                    </button>
+                </div>
+
+                <!-- Tabs within content -->
+                <div class="flex gap-4 border-b border-gray-100 mb-6">
+                    <template x-for="tab in inventoryTabs" :key="tab.id">
+                        <div @click="activeInventoryTab = tab.id" 
+                             class="pb-2 px-1 text-sm cursor-pointer transition-all relative" 
+                             :class="activeInventoryTab === tab.id ? 'text-blue-600 font-bold' : 'text-gray-500 hover:text-gray-800'">
+                            <span x-text="tab.name"></span>
+                            <div x-show="activeInventoryTab === tab.id" class="absolute bottom-0 left-0 right-0 h-0.5 bg-blue-600"></div>
+                        </div>
+                    </template>
+                </div>
+
+                <!-- Item Grid -->
+                <div class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6 pt-2">
+                    <template x-for="item in filteredItems" :key="item.id">
+                        <div class="relative group">
+                            <!-- Stacks -->
+                            <template x-if="item.qty > 1">
+                                <div class="absolute inset-0 item-card card-stack-1"></div>
+                            </template>
+                            <template x-if="item.qty > 2">
+                                <div class="absolute inset-0 item-card card-stack-2"></div>
+                            </template>
+
+                            <!-- Card -->
+                            <div class="item-card flex flex-col h-full overflow-hidden bg-white">
+                                <div class="aspect-square w-full bg-gray-50/50 flex items-center justify-center relative p-3">
+                                    <img :src="item.image" class="w-full h-full object-contain" :alt="item.name">
+                                    
+                                    <!-- Badges -->
+                                    <div class="absolute top-2 left-2">
+                                        <template x-if="item.status === 'cooldown'">
+                                            <span class="px-1 py-0.5 bg-blue-500 text-white text-[9px] font-bold rounded">冷 <span x-text="item.cooldown"></span></span>
+                                        </template>
+                                        <template x-if="item.status === 'selling'">
+                                            <span class="px-1 py-0.5 bg-orange-500 text-white text-[9px] font-bold rounded">售</span>
+                                        </template>
+                                    </div>
+                                    <div x-show="item.qty > 1" class="absolute bottom-2 right-2 px-1.5 py-0.5 bg-gray-900/80 text-white text-[10px] font-bold rounded">
+                                        <span x-text="'x' + item.qty"></span>
+                                    </div>
+                                </div>
+                                <div class="rarity-line" :class="'bg-' + item.rarity"></div>
+                                <div class="p-3 flex flex-col flex-1">
+                                    <h3 class="text-[12px] font-medium text-gray-800 line-clamp-2 leading-tight h-8 mb-1" x-text="item.name"></h3>
+                                    <div class="flex items-center justify-between text-[10px] text-gray-400 mb-2">
+                                        <span x-text="getFloatName(item.float)"></span>
+                                        <span class="font-mono" x-text="item.float.toFixed(4)"></span>
+                                    </div>
+                                    <div class="mt-auto flex items-center justify-between">
+                                        <span class="text-[13px] font-bold text-red-600">¥<span x-text="item.price.toLocaleString()"></span></span>
+                                        <!-- 当选择全部账号时，展示账号标签 -->
+                                        <template x-if="selectedAccount === '所有账号'">
+                                            <span class="text-[9px] text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded font-bold border border-blue-100/50 truncate max-w-[70px]" :title="item.account" x-text="item.account"></span>
+                                        </template>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </template>
+                </div>
+                
+                <!-- Empty State -->
+                <div x-show="filteredItems.length === 0" class="py-32 text-center text-gray-400" x-cloak>
+                    <div class="mb-4 flex justify-center">
+                        <div class="w-16 h-16 bg-gray-100 rounded-lg flex items-center justify-center opacity-50">📦</div>
+                    </div>
+                    <p class="text-sm">暂无符合条件的饰品数据</p>
+                </div>
+            </div>
+            
+            <!-- Bottom Footer (from screenshot) -->
+            <div class="mt-8 pb-8 text-center text-[10px] text-gray-400 tracking-tighter">
+                闽ICP备2025101529号-2
+            </div>
+        </main>
+    </div>
+
+    <script>
+        function inventoryApp() {
+            return {
+                selectedAccount: '所有账号',
+                searchText: '',
+                activeInventoryTab: 'all',
+                isRefreshing: false,
+                accounts: ['所有账号', 'Steam-01', 'Steam-02', 'Steam-03'],
+                inventoryTabs: [
+                    { id: 'all', name: '全部商品' },
+                    { id: 'tradable', name: '可出售' },
+                    { id: 'cooldown', name: '冷却中' }
+                ],
+                items: [
+                    { id: 1, name: 'AK-47 | 墨岩 (久经沙场)', rarity: 'restricted', qty: 5, price: 128.5, status: 'tradable', account: 'Steam-01', float: 0.1832, image: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot7HxfDhjx2zJcmRD4uO7kZKKm_fLPr7Vn35cppRz2r6U896k21Xg-Uo9NW3xJY-UI1A2NQ7Zq1K5xefn1pC06pvOynVruXIn4SrdmUe-n1gSOZ_v0G2Z' },
+                    { id: 2, name: 'M4A1 消音型 | 典型的艺术 (略有磨损)', rarity: 'covert', qty: 1, price: 2850.0, status: 'cooldown', account: 'Steam-02', float: 0.0842, cooldown: '3天', image: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpou-6kejhjx2zFJjV869Szh4yKh_L7Ib7um25V4dB8xLvFodii0Vbh-kRrY2H3IYTEI1RvZAnYrAS_l-7mgpPu7Z_InHBr63R34i7cnRXin1gSOY4S9Wst' },
+                    { id: 3, name: '蝴蝶刀 | 多普勒 (崭新出厂)', rarity: 'ancient', qty: 1, price: 15600.0, status: 'selling', account: 'Steam-01', float: 0.0315, image: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpovbSsLQJf1f_BYi5H49KjhI-Zkvb8DLrDk2dQ5vp8h_v-9ALm0AHmr0pkY2_7ctOXIQ48M1qG_wC4kO_vjJ-6uM_In3s2vXMgsXvUnRbin1gSOQ_N0vQW' },
+                    { id: 4, name: '格洛克 18 型 | 渐变之色 (略有磨损)', rarity: 'covert', qty: 3, price: 8200.0, status: 'tradable', account: 'Steam-03', float: 0.0789, image: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgposbaqKAxf0v73fyhB4Nm3hr-Kk_LhDLnQhW9S68ly2rrD99-h2wXsr0ZpYm_7LdfAdVQ5YAuG_lS9wr_ugZK9vJ2cyXU3viYm7C7cnRSpwUYbOatvRVs' },
+                    { id: 5, name: 'AWP | 二次固化 (破损不堪)', rarity: 'covert', qty: 1, price: 1250.0, status: 'cooldown', account: 'Steam-02', float: 0.4215, cooldown: '1.5天', image: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FBRw7P7NYjV969C3kYm0m_L1J7fuhG9V-8t1tefI8LP5gVO8v11pYDr7cdSdcVNrYV6C_1m2lee-08S7u5_AnXUysyUj5S7fm0G0hR0eP-M6h_fNSRiXUbeXSRr8' }
+                ],
+                getFloatName(f) {
+                    if (f < 0.07) return '崭新';
+                    if (f < 0.15) return '略磨';
+                    if (f < 0.38) return '久经';
+                    if (f < 0.45) return '破损';
+                    return '战痕';
+                },
+                get filteredItems() {
+                    return this.items.filter(item => {
+                        const matchAccount = this.selectedAccount === '所有账号' || item.account === this.selectedAccount;
+                        const matchSearch = item.name.toLowerCase().includes(this.searchText.toLowerCase());
+                        const matchTab = this.activeInventoryTab === 'all' || 
+                                         (this.activeInventoryTab === 'tradable' && (item.status === 'tradable' || item.status === 'selling')) ||
+                                         (this.activeInventoryTab === 'cooldown' && item.status === 'cooldown');
+                        return matchAccount && matchSearch && matchTab;
+                    });
+                },
+                refreshInventory() {
+                    this.isRefreshing = true;
+                    setTimeout(() => {
+                        this.isRefreshing = false;
+                        alert('库存已刷新！');
+                    }, 1500);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
