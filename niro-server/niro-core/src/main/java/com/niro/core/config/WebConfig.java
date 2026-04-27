@@ -57,7 +57,8 @@ public class WebConfig implements WebMvcConfigurer {
         "/log/stream",
         "/buff/account/report/status",
         "/task/callback/status",
-        "/api/buff/account/report/status"
+        "/api/buff/account/report/status",
+        "/api/c5/sniping/v2/tasks/events"
     };
 
     private static final String[] EXCLUDE_STATIC_SOURCE_PATH = {

@@ -52,9 +52,10 @@ public class C5SnipingTaskV2Controller {
      * @return SSE emitter
      */
     @GetMapping("/events")
-    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
     @Operation(summary = "订阅C5扫货2.0运行态事件")
     public SseEmitter subscribeEvents() {
+        StpUtil.checkLogin();
+        StpUtil.checkPermission(PermissionConstants.TASK_SCAN_LIST);
         return c5SnipingTaskV2EventService.subscribe(StpUtil.getLoginIdAsLong());
     }
 
