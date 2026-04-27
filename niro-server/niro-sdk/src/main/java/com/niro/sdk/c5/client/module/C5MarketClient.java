@@ -18,6 +18,9 @@ import java.util.Map;
 @RequiredArgsConstructor
 public class C5MarketClient {
 
+    public static final String PRODUCT_LIST_METHOD = "POST";
+    public static final String PRODUCT_LIST_ENDPOINT = "/merchant/market/v2/products/list";
+
     private final C5HttpEngine engine;
 
     /**
@@ -63,7 +66,7 @@ public class C5MarketClient {
      * POST /merchant/market/v2/products/list
      */
     public C5ProductListResponse searchProductList(C5ProductListRequest req) {
-        return engine.execute("/merchant/market/v2/products/list", "POST", req, new TypeReference<C5BaseResponse<C5ProductListResponse>>() {});
+        return engine.execute(PRODUCT_LIST_ENDPOINT, PRODUCT_LIST_METHOD, req, new TypeReference<C5BaseResponse<C5ProductListResponse>>() {});
     }
 
     /**

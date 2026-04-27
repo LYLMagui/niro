@@ -74,6 +74,7 @@ export interface C5SnipingTaskV2QueryParam {
 
 export interface C5SnipingTaskV2SaveParam {
   id?: number;
+  copySourceTaskId?: number;
   accountId?: number;
   cs2GoodsId?: number;
   name?: string;

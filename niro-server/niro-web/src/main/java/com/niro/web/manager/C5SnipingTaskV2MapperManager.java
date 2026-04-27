@@ -42,24 +42,6 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
     }
 
     /**
-     * 判断同账号同商品是否已存在启用态任务。
-     *
-     * @param accountId 账号 ID
-     * @param cs2GoodsId CS2 商品 ID
-     * @param excludeId 排除的任务 ID
-     * @return 是否存在启用态任务
-     */
-    public boolean existsEnabledTask(Long accountId, Long cs2GoodsId, Long excludeId) {
-        return this.lambdaQuery()
-                .eq(C5SnipingTaskV2::getAccountId, accountId)
-                .eq(C5SnipingTaskV2::getCs2GoodsId, cs2GoodsId)
-                .in(C5SnipingTaskV2::getTaskStatus, List.of(C5SnipingTaskV2StatusEnum.READY, C5SnipingTaskV2StatusEnum.RUNNING))
-                .ne(excludeId != null, C5SnipingTaskV2::getId, excludeId)
-                .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .count() > 0;
-    }
-
-    /**
      * 判断账号是否仍被未删除任务引用。
      *
      * @param accountId 账号 ID
@@ -384,6 +366,7 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
                 .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
                 .eq(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
                 .gt(C5SnipingTaskV2::getLeaseUntil, now)
+                .notExists("select 1 from c5_sniping_task_v2 running_task where running_task.account_id = c5_sniping_task_v2.account_id and running_task.cs2_goods_id = c5_sniping_task_v2.cs2_goods_id and running_task.task_status = 'RUNNING' and running_task.del_flag = 0 and running_task.id <> c5_sniping_task_v2.id")
                 .set(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
                 .set(C5SnipingTaskV2::getLatestRunId, runId)
                 .set(C5SnipingTaskV2::getLastErrorMessage, "")

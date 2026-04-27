@@ -252,7 +252,7 @@
                 </t-popconfirm>
 
                 <t-dropdown
-                  :options="taskOperationOptions"
+                  :options="getTaskOperationOptions(row)"
                   trigger="hover"
                   @click="(data) => handleOpDropdown(String(data.value || ''), row)"
                 >
@@ -432,20 +432,6 @@
               </div>
             </t-form-item>
 
-            <!-- 停止模式选择已隐藏，默认按数量停止 -->
-            <!-- <t-form-item
-              label="停止模式："
-              name="stopMode"
-              requiredMark
-              class="col-span-1 lg:col-span-2"
-            >
-              <t-select
-                v-model="formData.stopMode"
-                :options="stopModeOptions"
-                class="task-config-select"
-                @change="handleStopModeChange"
-              />
-            </t-form-item> -->
             <t-form-item
               v-if="formData.stopMode === 'BUY_COUNT'"
               label="目标购买数："
@@ -593,7 +579,6 @@ import type {
   C5SnipingTaskV2Item,
   C5SnipingTaskV2QueryParam,
   C5SnipingTaskV2SaveParam,
-  C5SnipingTaskV2StopMode,
 } from "@/types/c5-sniping-v2";
 
 interface C5SnipingTaskV2FormData extends Omit<C5SnipingTaskV2SaveParam, "scanIntervalMs"> {
@@ -632,11 +617,6 @@ const taskStatusOptions = [
   { label: "异常", value: "ERROR" },
 ];
 
-const stopModeOptions = [
-  { label: "按购买数量停止", value: "BUY_COUNT" },
-  { label: "按余额停止", value: "BALANCE_GUARD" },
-];
-
 const balanceGuardModeOptions = [
   { label: "余额低于最高价格", value: "MAX_PRICE" },
   { label: "余额低于保底余额", value: "RESERVE_BALANCE" },
@@ -646,7 +626,7 @@ const taskTableHeaderClass =
   "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
 const taskTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 
-const taskOperationOptions = computed(() => [
+const getTaskOperationOptions = (row: C5SnipingTaskV2Item) => [
   ...(canReadTaskDetail.value
     ? [
         {
@@ -661,7 +641,7 @@ const taskOperationOptions = computed(() => [
         },
       ]
     : []),
-  ...(canCreateTask.value
+  ...(canCreateTask.value && row.taskStatus === "COMPLETED"
     ? [
         {
           content: "复制任务",
@@ -670,7 +650,7 @@ const taskOperationOptions = computed(() => [
         },
       ]
     : []),
-]);
+];
 
 const columns = computed<PrimaryTableCol[]>(() => [
   {
@@ -874,6 +854,7 @@ const formRef = ref<{
 } | null>(null);
 const defaultFormData = (): C5SnipingTaskV2FormData => ({
   id: undefined,
+  copySourceTaskId: undefined,
   accountId: undefined,
   cs2GoodsId: undefined,
   name: "",
@@ -916,6 +897,7 @@ const fillFormFromRow = (row: C5SnipingTaskV2Item, mode: FormMode) => {
   resetForm();
   Object.assign(formData, {
     id: mode === "edit" || mode === "view" ? row.id : undefined,
+    copySourceTaskId: mode === "copy" ? row.id : undefined,
     accountId: row.accountId,
     cs2GoodsId: row.cs2GoodsId,
     name: row.name || "",
@@ -966,6 +948,10 @@ const openCopyDialog = (row: C5SnipingTaskV2Item) => {
   if (!canCreateTask.value) {
     return;
   }
+  if (row.taskStatus !== "COMPLETED") {
+    MessagePlugin.warning("仅已完成任务允许复制");
+    return;
+  }
   formMode.value = "copy";
   fillFormFromRow(row, "copy");
   formTitle.value = "复制扫货任务";
@@ -984,16 +970,6 @@ const openViewDialog = (row: C5SnipingTaskV2Item) => {
 
 const closeFormDialog = () => {
   formVisible.value = false;
-};
-
-const handleStopModeChange = () => {
-  if (formData.stopMode === "BUY_COUNT") {
-    formData.balanceGuardMode = "MAX_PRICE";
-    formData.reserveBalance = undefined;
-    return;
-  }
-  formData.targetBuyCount = undefined;
-  formData.balanceGuardMode = formData.balanceGuardMode || "MAX_PRICE";
 };
 
 const buildSubmitPayload = () => {

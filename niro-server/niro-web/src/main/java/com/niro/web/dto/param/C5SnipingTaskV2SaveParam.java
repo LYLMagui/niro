@@ -13,6 +13,8 @@ public class C5SnipingTaskV2SaveParam {
 
     private Long id;
 
+    private Long copySourceTaskId;
+
     @NotNull(message = "账号ID不能为空")
     private Long accountId;
 

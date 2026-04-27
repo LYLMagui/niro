@@ -3,9 +3,9 @@ package com.niro.web.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.json.JSONUtil;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.client.module.C5MarketClient;
 import com.niro.sdk.c5.request.market.C5ProductListRequest;
 import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
@@ -177,6 +177,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                     .setPageNum(1)
                     .setPageSize(LISTING_PAGE_SIZE);
             response = client.getMarket().searchProductList(request);
+            logProductListResult(task, request, response);
         } else {
             C5ProductSearchRequest request = new C5ProductSearchRequest()
                     .setAppId(APP_ID_CS2)
@@ -189,6 +190,17 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             response = client.getMarket().productSearch(request);
         }
         return response == null || response.getList() == null ? List.of() : response.getList();
+    }
+
+    private void logProductListResult(C5SnipingTaskV2 task, C5ProductListRequest request, C5ProductListResponse response) {
+        BigDecimal minPrice = response == null || response.getList() == null ? null : response.getList().stream()
+                .map(C5ProductListResponse.ProductDTO::getPrice)
+                .filter(price -> price != null)
+                .min(BigDecimal::compareTo)
+                .orElse(null);
+        log.info("C5扫货products/list查询: userId={}, taskId={}, requestUrl='{} {}', appId={}, marketHashName={}, pageNum={}, pageSize={}, currentMinPrice={}, configuredMaxPrice={}",
+                task.getUserId(), task.getId(), C5MarketClient.PRODUCT_LIST_METHOD, C5MarketClient.PRODUCT_LIST_ENDPOINT,
+                request.getAppId(), request.getMarketHashName(), request.getPageNum(), request.getPageSize(), minPrice, task.getMaxPrice());
     }
 
     private boolean matchPaintwear(C5ProductListResponse.ProductDTO item, C5SnipingTaskV2 task, Cs2Goods goods) {

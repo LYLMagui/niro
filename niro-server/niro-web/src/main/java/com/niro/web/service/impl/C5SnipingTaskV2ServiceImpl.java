@@ -71,7 +71,7 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
     public void createTask(C5SnipingTaskV2SaveParam param) {
         validateSaveParam(param);
         Long userId = StpUtil.getLoginIdAsLong();
-        Assert.isFalse(taskManager.existsEnabledTask(param.getAccountId(), param.getCs2GoodsId(), null), "同账号同商品已存在启用任务");
+        validateCopySource(param);
 
         C5SnipingTaskV2 task = new C5SnipingTaskV2();
         fillTaskConfig(task, param);
@@ -102,7 +102,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         validateSaveParam(param);
         C5SnipingTaskV2 task = requireOwnedTask(id);
         Assert.isFalse(C5SnipingTaskV2StatusEnum.RUNNING.equals(task.getTaskStatus()), "任务运行中，无法修改核心配置");
-        Assert.isFalse(taskManager.existsEnabledTask(param.getAccountId(), param.getCs2GoodsId(), id), "同账号同商品已存在启用任务");
 
         fillTaskConfig(task, param);
         task.setUpdateTime(LocalDateTime.now());
@@ -157,7 +156,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         C5SnipingTaskV2 task = requireOwnedTask(id);
         Assert.isTrue(List.of(C5SnipingTaskV2StatusEnum.DRAFT, C5SnipingTaskV2StatusEnum.STOPPED, C5SnipingTaskV2StatusEnum.ERROR)
                 .contains(task.getTaskStatus()), "仅待开启、已停止或异常任务可启用");
-        Assert.isFalse(taskManager.existsEnabledTask(task.getAccountId(), task.getCs2GoodsId(), task.getId()), "同账号同商品已存在启用任务");
         boolean updated = taskManager.enableTask(task.getId(), List.of(C5SnipingTaskV2StatusEnum.DRAFT,
                 C5SnipingTaskV2StatusEnum.STOPPED, C5SnipingTaskV2StatusEnum.ERROR));
         Assert.isTrue(updated, "启用任务失败");
@@ -282,6 +280,14 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         Assert.notNull(account, "C5扫货账号不存在或不可用");
         Long currentUserId = StpUtil.getLoginIdAsLong();
         Assert.isTrue(GlobalConstant.ADMIN_USER_ID.equals(currentUserId) || Objects.equals(account.getUserId(), currentUserId), "权限不足：无法使用他人的C5扫货账号");
+    }
+
+    private void validateCopySource(C5SnipingTaskV2SaveParam param) {
+        if (param.getCopySourceTaskId() == null) {
+            return;
+        }
+        C5SnipingTaskV2 sourceTask = requireOwnedTask(param.getCopySourceTaskId());
+        Assert.isTrue(C5SnipingTaskV2StatusEnum.COMPLETED.equals(sourceTask.getTaskStatus()), "仅已完成任务允许复制");
     }
 
     private void validatePaintwear(BigDecimal minPaintwear, BigDecimal maxPaintwear) {

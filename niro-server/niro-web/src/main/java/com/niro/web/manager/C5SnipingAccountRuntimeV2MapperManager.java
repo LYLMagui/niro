@@ -19,6 +19,9 @@ import java.util.List;
 @Service
 public class C5SnipingAccountRuntimeV2MapperManager extends ServiceImpl<C5SnipingAccountRuntimeV2Mapper, C5SnipingAccountRuntimeV2> {
 
+    public static final int DEFAULT_CONCURRENCY_LIMIT = 5;
+    public static final int DEFAULT_MAX_IN_FLIGHT_ATTEMPTS = 1;
+
     /**
      * 查询或初始化账号运行态配置。
      *
@@ -36,8 +39,8 @@ public class C5SnipingAccountRuntimeV2MapperManager extends ServiceImpl<C5Snipin
         LocalDateTime now = LocalDateTime.now();
         C5SnipingAccountRuntimeV2 newRuntime = new C5SnipingAccountRuntimeV2();
         newRuntime.setAccountId(accountId);
-        newRuntime.setConcurrencyLimit(1);
-        newRuntime.setMaxInFlightAttempts(1);
+        newRuntime.setConcurrencyLimit(DEFAULT_CONCURRENCY_LIMIT);
+        newRuntime.setMaxInFlightAttempts(DEFAULT_MAX_IN_FLIGHT_ATTEMPTS);
         newRuntime.setCooldownReason("");
         newRuntime.setCreateTime(now);
         newRuntime.setUpdateTime(now);
@@ -78,8 +81,8 @@ public class C5SnipingAccountRuntimeV2MapperManager extends ServiceImpl<C5Snipin
      */
     public C5SnipingAccountRuntimeV2 saveAccountRuntime(Long accountId, Integer concurrencyLimit, Integer maxInFlightAttempts) {
         Assert.notNull(accountId, "账号ID不能为空");
-        int safeConcurrencyLimit = concurrencyLimit == null ? 1 : concurrencyLimit;
-        int safeMaxInFlightAttempts = maxInFlightAttempts == null ? 1 : maxInFlightAttempts;
+        int safeConcurrencyLimit = concurrencyLimit == null ? DEFAULT_CONCURRENCY_LIMIT : concurrencyLimit;
+        int safeMaxInFlightAttempts = maxInFlightAttempts == null ? DEFAULT_MAX_IN_FLIGHT_ATTEMPTS : maxInFlightAttempts;
         Assert.isTrue(safeConcurrencyLimit >= 1, "并发上限必须大于等于1");
         Assert.isTrue(safeMaxInFlightAttempts >= 1, "最大在途下单数必须大于等于1");
 
@@ -131,7 +134,7 @@ public class C5SnipingAccountRuntimeV2MapperManager extends ServiceImpl<C5Snipin
     public int resolveMaxInFlightAttempts(Long accountId) {
         C5SnipingAccountRuntimeV2 runtime = getOrCreateByAccountId(accountId);
         if (runtime.getMaxInFlightAttempts() == null || runtime.getMaxInFlightAttempts() < 1) {
-            return 1;
+            return DEFAULT_MAX_IN_FLIGHT_ATTEMPTS;
         }
         return runtime.getMaxInFlightAttempts();
     }

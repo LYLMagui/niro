@@ -38,6 +38,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 import java.net.InetAddress;
 import java.time.LocalDateTime;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -179,9 +180,11 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
             if (availableSlots <= 0) {
                 continue;
             }
+            Set<Long> scheduledGoodsIds = new HashSet<>();
             entry.getValue().stream()
                     .sorted(Comparator.comparing(C5SnipingTaskV2::getPriority, Comparator.nullsFirst(Integer::compareTo)).reversed()
                             .thenComparing(C5SnipingTaskV2::getNextScanAt, Comparator.nullsLast(LocalDateTime::compareTo)))
+                    .filter(task -> scheduledGoodsIds.add(task.getCs2GoodsId()))
                     .limit(availableSlots)
                     .forEach(task -> taskExecutor.submit(() -> startTaskAsync(task)));
         }
@@ -241,7 +244,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
 
     private int resolveConcurrencyLimit(C5SnipingAccountRuntimeV2 runtime) {
         if (runtime == null || runtime.getConcurrencyLimit() == null || runtime.getConcurrencyLimit() < 1) {
-            return 1;
+            return C5SnipingAccountRuntimeV2MapperManager.DEFAULT_CONCURRENCY_LIMIT;
         }
         return runtime.getConcurrencyLimit();
     }

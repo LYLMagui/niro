@@ -316,8 +316,8 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     private C5SnipingAccountDTO toDTO(C5SnipingAccount account, C5SnipingAccountRuntimeV2 runtime, C5SnipingTaskV2 boundTask) {
         C5SnipingAccountDTO dto = BeanUtil.copyProperties(account, C5SnipingAccountDTO.class);
         dto.setMoneyAmount(account.getBalance());
-        dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit()));
-        dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts()));
+        dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_CONCURRENCY_LIMIT));
+        dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_MAX_IN_FLIGHT_ATTEMPTS));
         if (boundTask != null) {
             dto.setBoundTaskId(boundTask.getId());
             dto.setBoundTaskName(boundTask.getName());
@@ -326,12 +326,13 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     }
 
     /**
-     * 解析正整数配置，小于 1 时按默认值 1 返回。
+     * 解析正整数配置，小于 1 时按指定默认值返回。
      *
      * @param value 配置值
+     * @param defaultValue 默认值
      * @return 正整数配置
      */
-    private Integer resolvePositive(Integer value) {
-        return value == null || value < 1 ? 1 : value;
+    private Integer resolvePositive(Integer value, Integer defaultValue) {
+        return value == null || value < 1 ? defaultValue : value;
     }
 }
