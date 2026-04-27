@@ -85,6 +85,7 @@ services:
         ALL_PROXY: ${ALL_PROXY:-}
         NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test}
     container_name: niro-web-test
+    hostname: niro-web-test
     restart: always
     depends_on:
       niro-db-test:
