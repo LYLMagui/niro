@@ -60,7 +60,7 @@ services:
     ports:
       - "5000:5000"
     volumes:
-      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/ocr:/var/log/niro
+      - ${NIRO_WORK_DIR:-/home/app}/logs/niro/ocr:/var/log/niro
       - niro_ocr_paddlex_cache_prod:/root/.paddlex
       - niro_ocr_paddleocr_cache_prod:/root/.paddleocr
       - niro_ocr_paddle_cache_prod:/root/.cache/paddle
@@ -117,7 +117,7 @@ services:
       ALL_PROXY: ${ALL_PROXY:-}
       NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
     volumes:
-      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/web:/var/log/niro
+      - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web:/var/log/niro
     ports:
       - "8080:8080"
       - "9999:9999"
@@ -152,8 +152,8 @@ services:
       niro-web-prod:
         condition: service_healthy
     volumes:
-      - ${NIRO_LOGS_PATH:-/home/workspace/logs/niro}/client:/var/log/niro
-      - ${NGINX_CERTIFICATE_PATH:-/home/workspace/certificate}:/etc/nginx/certs:ro
+      - ${NIRO_WORK_DIR:-/home/app}/logs/niro/client:/var/log/niro
+      - ${NIRO_WORK_DIR:-/home/app}/certificate:/etc/nginx/certs:ro
     ports:
       - "80:80"
       - "443:443"
