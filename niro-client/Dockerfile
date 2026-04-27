@@ -14,8 +14,7 @@ ENV http_proxy=${HTTP_PROXY} \
     HTTPS_PROXY=${HTTPS_PROXY} \
     ALL_PROXY=${ALL_PROXY} \
     NO_PROXY=${NO_PROXY}
-RUN npm config set registry https://registry.npmmirror.com \
-    && npm install -g pnpm@9
+RUN corepack enable && corepack prepare pnpm@latest --activate
 # 设置 pnpm 镜像源为国内腾讯云/淘宝镜像
 RUN pnpm config set registry https://registry.npmmirror.com
 COPY package.json pnpm-lock.yaml ./
