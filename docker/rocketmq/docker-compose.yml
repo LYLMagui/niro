@@ -14,7 +14,6 @@ services:
     networks:
       - rocketmq
       - niro-data-net-test
-      - niro-data-net-prod
     # 限制容器日志大小，防止撑爆硬盘
     logging:
       driver: "json-file"
