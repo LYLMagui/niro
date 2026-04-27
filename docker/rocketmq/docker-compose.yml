@@ -104,7 +104,6 @@ services:
     networks:
       - rocketmq
       - niro-data-net-test
-      - niro-data-net-prod
     logging:
       driver: "json-file"
       options:
@@ -116,6 +115,5 @@ networks:
     driver: bridge
   niro-data-net-test:
     external: true
-  niro-data-net-prod:
-    external: true
+
 
