@@ -83,7 +83,7 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         ALL_PROXY: ${ALL_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     container_name: niro-web-prod
     restart: always
     depends_on:
@@ -102,20 +102,20 @@ services:
       SPRING_DATA_REDIS_PORT: "6379"
       SPRING_DATA_REDIS_PASSWORD: ${REDIS_PASSWORD:-redis_niro_pwd}
       NIRO_OCR_BASE_URL: http://niro-ocr-prod:5000
-      XXL_JOB_ADMIN_ADDRESS: ${XXL_JOB_ADMIN_ADDRESS:-http://119.29.200.243:8001/xxl-job-admin}
+      XXL_JOB_ADMIN_ADDRESS: http://xxl-job-admin:${XXL_JOB_ADMIN_PORT:-8001}/xxl-job-admin
       XXL_JOB_ACCESS_TOKEN: ${XXL_JOB_ACCESS_TOKEN:-niro-xxl-job}
       XXL_JOB_EXECUTOR_APPNAME: ${XXL_JOB_EXECUTOR_APPNAME:-niro-executor}
       XXL_JOB_EXECUTOR_PORT: ${XXL_JOB_EXECUTOR_PORT:-9999}
       XXL_JOB_EXECUTOR_IP: ${XXL_JOB_EXECUTOR_IP:-}
-      XXL_JOB_EXECUTOR_ADDRESS: ${XXL_JOB_EXECUTOR_ADDRESS:-http://119.29.200.243:10000}
-      ROCKETMQ_NAME_SERVER: ${ROCKETMQ_NAME_SERVER:-119.29.200.243:9876}
+      XXL_JOB_EXECUTOR_ADDRESS: http://niro-web-prod:${XXL_JOB_EXECUTOR_PORT:-9999}
+      ROCKETMQ_NAME_SERVER: rmqnamesrv:9876
       ROCKETMQ_PRODUCER_GROUP: ${ROCKETMQ_PRODUCER_GROUP:-niro-producer-group}
       ROCKETMQ_CONSUMER_GROUP: ${ROCKETMQ_CONSUMER_GROUP:-niro-consumer-group}
       JWT_SECRET: ${JWT_SECRET:-prod_secret_key}
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       ALL_PROXY: ${ALL_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web:/var/log/niro
     ports:
@@ -140,14 +140,14 @@ services:
         HTTP_PROXY: ${HTTP_PROXY:-}
         HTTPS_PROXY: ${HTTPS_PROXY:-}
         ALL_PROXY: ${ALL_PROXY:-}
-        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
+        NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     container_name: niro-client-prod
     restart: always
     environment:
       HTTP_PROXY: ${HTTP_PROXY:-}
       HTTPS_PROXY: ${HTTPS_PROXY:-}
       ALL_PROXY: ${ALL_PROXY:-}
-      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod}
+      NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-prod,niro-redis-prod,niro-ocr-prod,niro-web-prod,niro-client-prod},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     depends_on:
       niro-web-prod:
         condition: service_healthy
