@@ -76,11 +76,12 @@
           <div class="relative z-20 flex h-full flex-col overflow-hidden rounded-md border border-slate-200 bg-white transition-all hover:shadow-md hover:-translate-y-0.5 active:scale-[0.98]">
             <!-- 图片区域 -->
             <div class="relative aspect-[4/3] w-full bg-[#f2f2f2] flex items-center justify-center overflow-hidden">
-              <img 
+              <img
                 v-if="item.imageUrl"
-                :src="item.imageUrl" 
-                :alt="getDisplayName(item)" 
-                class="h-full w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105 duration-300" 
+                :src="item.imageUrl"
+                :alt="getDisplayName(item)"
+                referrerpolicy="no-referrer"
+                class="h-full w-full object-contain mix-blend-multiply transition-transform group-hover:scale-105 duration-300"
               />
               <div v-else class="flex h-full w-full items-center justify-center text-xs text-slate-400">暂无图片</div>
               

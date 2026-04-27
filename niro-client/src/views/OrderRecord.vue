@@ -260,6 +260,7 @@
                   :src="row.goodsImg"
                   class="h-10 w-10 shrink-0 rounded border border-gray-100 bg-gray-50"
                   fit="contain"
+                  referrerpolicy="no-referrer"
                 />
                 <div class="flex min-w-0 flex-col">
                   <t-tooltip :content="row.goodsName" placement="top-left">
@@ -391,6 +392,7 @@
               :alt="row.goodsName"
               class="order-mobile-card__thumb"
               fit="contain"
+              referrerpolicy="no-referrer"
             />
 
             <div class="order-mobile-card__content">

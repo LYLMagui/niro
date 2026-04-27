@@ -112,6 +112,7 @@
                 <t-image
                   v-if="row.goodsIconUrl"
                   :src="row.goodsIconUrl"
+                  referrerpolicy="no-referrer"
                   class="mr-2 h-9 w-9 rounded"
                 />
                 <div class="min-w-0">

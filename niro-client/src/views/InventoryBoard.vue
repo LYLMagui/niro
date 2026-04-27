@@ -465,6 +465,7 @@
                     v-if="row.imageUrl"
                     :src="row.imageUrl"
                     :alt="row.goodsName"
+                    referrerpolicy="no-referrer"
                     class="h-full w-full object-contain"
                   />
                   <div

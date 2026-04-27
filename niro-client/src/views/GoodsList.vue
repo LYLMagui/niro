@@ -104,6 +104,7 @@
                 :src="row.iconUrl"
                 :style="{ width: '100px', height: '100px' }"
                 fit="contain"
+                referrerpolicy="no-referrer"
               />
             </div>
           </template>
@@ -215,6 +216,7 @@
   <t-image-viewer
     :images="[previewImage]"
     :visible="visible"
+    image-referrerpolicy="no-referrer"
     mode="modal"
     :close-on-overlay="true"
     @close="visible = false"
