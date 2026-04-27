@@ -10,7 +10,7 @@ services:
       - /home/data/rocketmq/logs:/home/rocketmq/logs
     environment:
       # 限制内存占用，防止默认参数太大导致宿主机 OOM
-      - JAVA_OPT=-server -Xms256m -Xmx256m -Xmn128m
+      - JAVA_OPT=-server -Xms128m -Xmx128m -Xmn64m
     networks:
       - rocketmq
       - niro-data-net-test
@@ -27,7 +27,7 @@ services:
     image: apache/rocketmq:5.4.0
     container_name: rmqbroker
     # Docker 内存硬限制（防容器爆内存）
-    mem_limit: 1.5g
+    mem_limit: 768m
     ports:
       - 10909:10909
       - 10911:10911
@@ -41,7 +41,7 @@ services:
     entrypoint: >
       sh -c '
       echo "修改 RocketMQ 默认内存配置..." &&
-      sed -i "s|-Xms[0-9]*g|-Xms512m|g; s|-Xmx[0-9]*g|-Xmx512m|g; s|-Xmn[0-9]*g|-Xmn256m|g; s|-XX:MaxDirectMemorySize=[0-9]*g|-XX:MaxDirectMemorySize=256m|g" /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh &&
+      sed -i "s|-Xms[0-9]*[gm]|-Xms256m|g; s|-Xmx[0-9]*[gm]|-Xmx256m|g; s|-Xmn[0-9]*[gm]|-Xmn128m|g; s|-XX:MaxDirectMemorySize=[0-9]*[gm]|-XX:MaxDirectMemorySize=128m|g" /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh &&
       cat /home/rocketmq/rocketmq-5.4.0/bin/runbroker.sh | grep JAVA_OPT | head -3 &&
       echo "启动 Broker..." &&
       cd /home/rocketmq/rocketmq-5.4.0 &&
@@ -93,7 +93,7 @@ services:
       # 指定 NameServer 地址
       - NAMESRV_ADDR=rmqnamesrv:9876
       # 限制内存占用
-      - JAVA_OPTS=-Xms256m -Xmx256m
+      - JAVA_OPTS=-Xms128m -Xmx128m
       # 设置默认语言为中文
       - LANG=zh_CN.UTF-8
       - LANGUAGE=zh_CN:zh
