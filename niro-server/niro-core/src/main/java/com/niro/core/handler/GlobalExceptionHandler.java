@@ -9,6 +9,7 @@ import org.springframework.core.annotation.Order;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import com.niro.core.exception.BusinessException;
@@ -80,6 +81,11 @@ public class GlobalExceptionHandler {
     public Result<Void> handlerNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         log.debug("接口未找到 | URI: {}", request.getRequestURI());
         return Result.failure(StatusCode.NOT_FOUND_CODE, "404");
+    }
+
+    @ExceptionHandler(AsyncRequestTimeoutException.class)
+    public void handlerAsyncRequestTimeoutException(AsyncRequestTimeoutException ex, HttpServletRequest request) {
+        log.debug("异步请求超时 | URI: {}", request.getRequestURI());
     }
 
     @ExceptionHandler(Exception.class)

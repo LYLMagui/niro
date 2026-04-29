@@ -35,6 +35,7 @@ import com.niro.web.manager.C5SnipingTaskV2MapperManager;
 import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.C5ApiClientService;
+import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.C5SnipingTaskV2EventService;
 import com.niro.web.service.C5SnipingTaskV2ExecutionService;
 import lombok.RequiredArgsConstructor;
@@ -85,6 +86,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
     private final C5SnipingAccountRuntimeV2MapperManager accountRuntimeManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordManager;
     private final C5SnipingTaskV2EventService eventService;
+    private final C5SnipingAccountService c5SnipingAccountService;
     private final RedissonClient redissonClient;
     private final TransactionTemplate transactionTemplate;
     private final Map<String, Long> recentDedup = new ConcurrentHashMap<>();
@@ -112,7 +114,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             Assert.notNull(goods, "CS2商品不存在或未启用");
             Assert.notBlank(goods.getMarketHashName(), "CS2商品 MarketHashName 为空");
             C5SnipingAccount account = requireAvailableAccount(latestTask.getAccountId());
-            C5ApiClient client = c5ApiClientService.getClientByAppKey(account.getC5AppKey());
+            C5ApiClient client = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account));
             List<C5ProductListResponse.ProductDTO> listings = searchListings(client, goods, latestTask);
             List<C5ProductListResponse.ProductDTO> hits = listings.stream()
                     .filter(item -> item.getProductId() != null)
@@ -162,7 +164,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
     private C5SnipingAccount requireAvailableAccount(Long accountId) {
         C5SnipingAccount account = accountManager.getAvailableAccount(accountId);
         Assert.notNull(account, "C5扫货账号不存在或不可用");
-        Assert.notBlank(account.getC5AppKey(), "账号未配置 C5 AppKey");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号未配置 C5 AppKey");
         Assert.notBlank(account.getSteamTradeUrl(), "账号未配置 Steam 交易链接");
         return account;
     }
@@ -561,7 +563,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             return C5SnipingTaskV2ExecutionResult.continueRunning();
         }
         C5SnipingAccount account = requireAvailableAccount(task.getAccountId());
-        C5BalanceResponse balance = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getAccount().getBalance();
+        C5BalanceResponse balance = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account)).getAccount().getBalance();
         if (balance == null || balance.getMoneyAmount() == null) {
             return C5SnipingTaskV2ExecutionResult.continueRunning();
         }

@@ -15,7 +15,6 @@ import com.niro.sdk.c5.response.order.C5BuyerStatusResponse.OrderBuyDTO;
 import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
 import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.dto.C5OrderManualSyncMessage;
-import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.TradeOrderRecord;
@@ -26,6 +25,7 @@ import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.C5OrderSyncService;
+import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
 import jakarta.annotation.PostConstruct;
@@ -75,6 +75,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final TradeOrderRecordService tradeOrderRecordService;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
+    private final C5SnipingAccountService c5SnipingAccountService;
     private final BuffGoodsService buffGoodsService;
     private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
     private final RedissonClient redissonClient;
@@ -168,12 +169,14 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
 
     private C5ApiClient getC5Client(Long userId) {
         return clientCache.computeIfAbsent(userId, uid -> {
-            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
+            UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
+                    .eq(UserPlatformSettings::getUserId, uid)
+                    .one();
             Assert.notNull(settings, "用户配置不存在");
-            Assert.notBlank(settings.getC5AppKey(), "C5 App Key 未配置");
+            String appKey = userPlatformSettingsService.decryptC5AppKey(settings);
 
             C5Config config = new C5Config()
-                    .setAppKey(settings.getC5AppKey())
+                    .setAppKey(appKey)
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
         });
@@ -192,7 +195,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         C5SnipingAccount account = c5SnipingAccountMapperManager.getByUserIdAndId(userId, accountId);
         Assert.notNull(account, "C5账号不存在或无权访问");
         // 订单同步只依赖 AppKey，不要求账号必须处于任务可用状态。
-        Assert.notBlank(account.getC5AppKey(), "C5 App Key 未配置");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "C5 App Key 未配置");
         return account;
     }
 
@@ -230,7 +233,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
         RLock lock = acquireSyncLock(lockKey);
         try {
             LocalDateTime startTime = buildStartTime(daysBefore);
-            int synced = syncUserOrders(userId, account.getId(), account.getC5AppKey(), startTime);
+            int synced = syncUserOrders(userId, account.getId(), c5SnipingAccountService.decryptAccountAppKey(account), startTime);
             log.info("用户 [{}] C5 账号 [{}] 订单同步完成，新增订单: {}", userId, account.getId(), synced);
             return synced;
         } finally {
@@ -250,8 +253,8 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
 
             // 获取所有配置了 C5 AppKey 的用户
             List<UserPlatformSettings> settingsList = userPlatformSettingsService.lambdaQuery()
-                    .isNotNull(UserPlatformSettings::getC5AppKey)
-                    .ne(UserPlatformSettings::getC5AppKey, "")
+                    .isNotNull(UserPlatformSettings::getC5AppKeyEncrypted)
+                    .ne(UserPlatformSettings::getC5AppKeyEncrypted, "")
                     .list();
 
             if (settingsList.isEmpty()) {
@@ -263,7 +266,7 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
             for (UserPlatformSettings settings : settingsList) {
                 Long userId = settings.getUserId();
                 try {
-                    int synced = syncUserOrders(userId, null, settings.getC5AppKey(), startTime);
+                    int synced = syncUserOrders(userId, null, userPlatformSettingsService.decryptC5AppKey(settings), startTime);
                     totalSynced += synced;
                     log.info("用户 [{}] 同步完成，新增订单: {}", userId, synced);
                 } catch (C5ApiException e) {

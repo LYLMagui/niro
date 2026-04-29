@@ -6,8 +6,12 @@ import cn.hutool.core.util.StrUtil;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.response.C5BalanceResponse;
+import com.niro.web.dto.AppKeyPublicKeyDTO;
+import com.niro.web.dto.AppKeyRevealDTO;
 import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
 import com.niro.web.dto.C5SnipingAccountDTO;
+import com.niro.web.dto.C5SnipingAccountListDTO;
+import com.niro.web.dto.param.AppKeyRevealParam;
 import com.niro.web.dto.param.C5SnipingAccountBalanceRefreshParam;
 import com.niro.web.dto.param.C5SnipingAccountSaveParam;
 import com.niro.web.entity.C5SnipingAccount;
@@ -17,6 +21,7 @@ import com.niro.web.enums.C5SnipingAccountStatusEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
+import com.niro.web.service.AppKeyCryptoService;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5SnipingAccountService;
 import lombok.RequiredArgsConstructor;
@@ -46,18 +51,22 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     private final C5SnipingAccountRuntimeV2MapperManager runtimeManager;
     private final C5SnipingTaskV2MapperManager taskManager;
     private final C5ApiClientService c5ApiClientService;
+    private final AppKeyCryptoService appKeyCryptoService;
 
     /**
      * 查询当前用户的 C5 扫货账号列表。
      *
-     * @return 账号列表
+     * @return 账号列表和余额合计
      */
     @Override
-    public List<C5SnipingAccountDTO> listAccounts() {
+    public C5SnipingAccountListDTO listAccounts() {
         Long userId = StpUtil.getLoginIdAsLong();
         List<C5SnipingAccount> accounts = accountManager.listByUserId(userId);
+        C5SnipingAccountListDTO result = new C5SnipingAccountListDTO();
         if (accounts.isEmpty()) {
-            return List.of();
+            result.setRecords(List.of());
+            result.setTotalBalance(BigDecimal.ZERO);
+            return result;
         }
 
         List<Long> accountIds = accounts.stream()
@@ -67,10 +76,18 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
                 .collect(Collectors.toMap(C5SnipingAccountRuntimeV2::getAccountId, Function.identity(), (first, second) -> first));
         Map<Long, C5SnipingTaskV2> taskMap = taskManager.listActiveTasksByAccountIds(accountIds).stream()
                 .collect(Collectors.toMap(C5SnipingTaskV2::getAccountId, Function.identity(), (first, second) -> first, HashMap::new));
-
-        return accounts.stream()
+        List<C5SnipingAccountDTO> records = accounts.stream()
                 .map(account -> toDTO(account, resolveRuntime(account.getId(), runtimeMap), taskMap.get(account.getId())))
                 .collect(Collectors.toList());
+
+        result.setRecords(records);
+        result.setTotalBalance(accounts.stream()
+                .collect(Collectors.toMap(C5SnipingAccount::getC5AppKeyEncrypted, Function.identity(), (first, second) -> first))
+                .values()
+                .stream()
+                .map(account -> sumBalance(account.getBalance(), account.getPendingBalance(), account.getDepositAmount(), account.getCreditMoney(), account.getCreditDeposit()))
+                .reduce(BigDecimal.ZERO, BigDecimal::add));
+        return result;
     }
 
     /**
@@ -96,7 +113,6 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     public void saveAccount(C5SnipingAccountSaveParam param) {
         Assert.notNull(param, "账号参数不能为空");
         Assert.notBlank(param.getAccountName(), "账号名称不能为空");
-        Assert.notBlank(param.getC5AppKey(), "C5 AppKey不能为空");
         Assert.notBlank(param.getSteamTradeUrl(), "Steam交易链接不能为空");
         if (param.getConcurrencyLimit() != null) {
             Assert.isTrue(param.getConcurrencyLimit() >= 1, "并发上限必须大于等于1");
@@ -124,7 +140,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         }
 
         account.setAccountName(param.getAccountName());
-        account.setC5AppKey(param.getC5AppKey());
+        updateEncryptedAppKey(account, param.getEncryptedC5AppKey(), param.getId() == null);
         account.setSteamTradeUrl(param.getSteamTradeUrl());
         account.setSteamId(StrUtil.blankToDefault(param.getSteamId(), ""));
         account.setRemark(param.getRemark());
@@ -219,7 +235,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
 
         result.setAccountName(account.getAccountName());
         try {
-            C5BalanceResponse balanceResponse = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getAccount().getBalance();
+            C5BalanceResponse balanceResponse = c5ApiClientService.getClientByAppKey(decryptAccountAppKey(account)).getAccount().getBalance();
             if (balanceResponse == null || balanceResponse.getMoneyAmount() == null) {
                 result.setSuccess(false);
                 result.setMessage("C5余额接口未返回可用余额");
@@ -265,7 +281,7 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         account.setLastCheckTime(now);
         account.setUpdateTime(now);
 
-        if (StrUtil.isBlank(account.getC5AppKey()) || StrUtil.isBlank(account.getSteamTradeUrl())) {
+        if (StrUtil.isBlank(account.getC5AppKeyEncrypted()) || StrUtil.isBlank(account.getSteamTradeUrl())) {
             account.setStatus(C5SnipingAccountStatusEnum.INVALID);
             account.setWarningMsg("账号 C5 配置不完整");
             accountManager.updateById(account);
@@ -300,6 +316,44 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
      * @param account C5 扫货账号实体
      * @return C5 扫货账号 DTO
      */
+    @Override
+    public AppKeyPublicKeyDTO getAppKeyPublicKey() {
+        return appKeyCryptoService.getPublicKey();
+    }
+
+    @Override
+    public AppKeyRevealDTO revealAppKey(Long id, AppKeyRevealParam param) {
+        Assert.notNull(id, "账号ID不能为空");
+        Assert.notNull(param, "reveal参数不能为空");
+        Assert.notBlank(param.getPublicKey(), "公钥不能为空");
+        C5SnipingAccount account = requireOwnedAccount(id);
+        String appKey = decryptAccountAppKey(account);
+        AppKeyRevealDTO dto = new AppKeyRevealDTO();
+        dto.setAlgorithm("RSA-OAEP-256");
+        dto.setEncryptedC5AppKey(appKeyCryptoService.encryptForClient(appKey, param.getPublicKey()));
+        return dto;
+    }
+
+    @Override
+    public String decryptAccountAppKey(C5SnipingAccount account) {
+        Assert.notNull(account, "账号不存在");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
+        return appKeyCryptoService.decryptFromStorage(account.getC5AppKeyEncrypted());
+    }
+
+    private void updateEncryptedAppKey(C5SnipingAccount account, String encryptedC5AppKey, boolean create) {
+        if (StrUtil.isBlank(encryptedC5AppKey)) {
+            Assert.isFalse(create, "C5 AppKey不能为空");
+            return;
+        }
+        String appKey = appKeyCryptoService.decryptTransportAppKey(encryptedC5AppKey);
+        Assert.notBlank(appKey, "C5 AppKey不能为空");
+        account.setC5AppKeyEncrypted(appKeyCryptoService.encryptForStorage(appKey));
+        account.setC5AppKeyMasked(appKeyCryptoService.mask(appKey));
+        account.setC5AppKeyMigratedAt(LocalDateTime.now());
+        account.setC5AppKey("");
+    }
+
     private C5SnipingAccountDTO toDTO(C5SnipingAccount account) {
         C5SnipingAccountRuntimeV2 runtime = runtimeManager.getOrCreateByAccountId(account.getId());
         return toDTO(account, runtime, null);
@@ -315,7 +369,10 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
      */
     private C5SnipingAccountDTO toDTO(C5SnipingAccount account, C5SnipingAccountRuntimeV2 runtime, C5SnipingTaskV2 boundTask) {
         C5SnipingAccountDTO dto = BeanUtil.copyProperties(account, C5SnipingAccountDTO.class);
+        dto.setHasC5AppKey(StrUtil.isNotBlank(account.getC5AppKeyEncrypted()));
+        dto.setC5AppKeyMasked(account.getC5AppKeyMasked());
         dto.setMoneyAmount(account.getBalance());
+        dto.setTotalBalance(sumBalance(account.getBalance(), account.getPendingBalance(), account.getDepositAmount(), account.getCreditMoney(), account.getCreditDeposit()));
         dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_CONCURRENCY_LIMIT));
         dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_MAX_IN_FLIGHT_ATTEMPTS));
         if (boundTask != null) {
@@ -323,6 +380,22 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
             dto.setBoundTaskName(boundTask.getName());
         }
         return dto;
+    }
+
+    /**
+     * 合计余额字段。
+     *
+     * @param balances 余额字段
+     * @return 合计金额
+     */
+    private BigDecimal sumBalance(BigDecimal... balances) {
+        BigDecimal total = BigDecimal.ZERO;
+        for (BigDecimal balance : balances) {
+            if (balance != null) {
+                total = total.add(balance);
+            }
+        }
+        return total;
     }
 
     /**

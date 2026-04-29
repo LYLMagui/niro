@@ -4,8 +4,11 @@ import cn.dev33.satoken.annotation.SaCheckLogin;
 import cn.dev33.satoken.annotation.SaCheckPermission;
 import cn.dev33.satoken.stp.StpUtil;
 import com.niro.web.constant.PermissionConstants;
+import com.niro.web.dto.AppKeyPublicKeyDTO;
+import com.niro.web.dto.AppKeyRevealDTO;
 import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
-import com.niro.web.dto.C5SnipingAccountDTO;
+import com.niro.web.dto.C5SnipingAccountListDTO;
+import com.niro.web.dto.param.AppKeyRevealParam;
 import com.niro.web.dto.param.C5SnipingAccountBalanceRefreshParam;
 import com.niro.web.dto.param.C5SnipingAccountSaveParam;
 import com.niro.web.service.C5SnipingAccountService;
@@ -39,12 +42,12 @@ public class C5SnipingAccountController {
     /**
      * 查询当前用户 C5 扫货账号列表。
      *
-     * @return C5 扫货账号列表
+     * @return C5 扫货账号列表和余额合计
      */
     @GetMapping
     @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
     @Operation(summary = "查询C5扫货2.0账号列表")
-    public List<C5SnipingAccountDTO> listAccounts() {
+    public C5SnipingAccountListDTO listAccounts() {
         return c5SnipingAccountService.listAccounts();
     }
 
@@ -85,6 +88,33 @@ public class C5SnipingAccountController {
     @Operation(summary = "批量刷新C5扫货2.0账号余额")
     public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(@RequestBody @Valid C5SnipingAccountBalanceRefreshParam param) {
         return c5SnipingAccountService.refreshBalance(param);
+    }
+
+    /**
+     * 获取 AppKey 字段加密公钥。
+     *
+     * @return 公钥信息
+     */
+    @GetMapping("/app-key/public-key")
+    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @Operation(summary = "获取C5 AppKey字段加密公钥")
+    public AppKeyPublicKeyDTO getAppKeyPublicKey() {
+        return c5SnipingAccountService.getAppKeyPublicKey();
+    }
+
+    /**
+     * 按需查看 C5 AppKey 明文。
+     *
+     * @param id 账号 ID
+     * @param param reveal 参数
+     * @return 使用前端临时公钥加密后的 AppKey
+     */
+    @PostMapping("/{id}/app-key/reveal")
+    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @Operation(summary = "查看C5扫货账号AppKey")
+    public AppKeyRevealDTO revealAppKey(@Parameter(description = "账号ID") @PathVariable Long id,
+                                        @RequestBody @Valid AppKeyRevealParam param) {
+        return c5SnipingAccountService.revealAppKey(id, param);
     }
 
     /**

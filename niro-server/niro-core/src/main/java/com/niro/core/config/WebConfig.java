@@ -1,6 +1,7 @@
 package com.niro.core.config;
 
 import org.springframework.context.annotation.Configuration;
+import org.springframework.web.servlet.config.annotation.AsyncSupportConfigurer;
 import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
@@ -21,6 +22,13 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 @Slf4j
 public class WebConfig implements WebMvcConfigurer {
+
+    private static final long SSE_TIMEOUT_MS = 30 * 60 * 1000L;
+
+    @Override
+    public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
+        configurer.setDefaultTimeout(SSE_TIMEOUT_MS);
+    }
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {

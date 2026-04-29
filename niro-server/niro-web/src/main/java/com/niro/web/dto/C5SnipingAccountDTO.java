@@ -31,9 +31,14 @@ public class C5SnipingAccountDTO {
     private String accountName;
 
     /**
-     * C5 AppKey。
+     * C5 AppKey 脱敏展示值。
      */
-    private String c5AppKey;
+    private String c5AppKeyMasked;
+
+    /**
+     * 是否已配置 C5 AppKey。
+     */
+    private Boolean hasC5AppKey;
 
     /**
      * Steam 交易链接。
@@ -79,6 +84,11 @@ public class C5SnipingAccountDTO {
      * 秒到账保证金。
      */
     private BigDecimal creditDeposit;
+
+    /**
+     * 账号所有余额项合计。
+     */
+    private BigDecimal totalBalance;
 
     /**
      * 最近一次检测时间。

@@ -23,6 +23,7 @@ import com.niro.web.manager.C5SnipingTaskRunV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.C5ApiClientService;
+import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.C5SnipingTaskV2EventService;
 import com.niro.web.service.C5SnipingTaskV2ExecutionService;
 import com.niro.web.service.C5SnipingTaskV2SchedulerService;
@@ -78,6 +79,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     private final C5SnipingBuyAttemptV2MapperManager buyAttemptManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordManager;
     private final C5ApiClientService c5ApiClientService;
+    private final C5SnipingAccountService c5SnipingAccountService;
     private final C5SnipingTaskV2ExecutionService executionService;
     private final C5SnipingTaskV2EventService eventService;
     private final TransactionTemplate transactionTemplate;
@@ -368,13 +370,13 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
                 return latest == null ? attempt : latest;
             }
             C5SnipingAccount account = accountManager.getAvailableAccount(attempt.getAccountId());
-            if (account == null || StrUtil.isBlank(account.getC5AppKey())) {
+            if (account == null || StrUtil.isBlank(account.getC5AppKeyEncrypted())) {
                 buyAttemptManager.incrementRecoveryAttemptCount(attempt.getId());
                 C5SnipingBuyAttemptV2 latest = buyAttemptManager.getById(attempt.getId());
                 return latest == null ? attempt : latest;
             }
             remoteCheckAttempted = true;
-            C5OrderDetailResponse detail = c5ApiClientService.getClientByAppKey(account.getC5AppKey()).getTrade()
+            C5OrderDetailResponse detail = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account)).getTrade()
                     .getOrderDetail(new C5OrderDetailRequest().setOrderId(orderRecord.getOrderId()));
             if (detail != null) {
                 OrderStatusEnum status = C5OrderStatusEnum.mapToInternalStatus(detail.getStatus());

@@ -30,6 +30,14 @@ public interface UserPlatformSettingsService extends IService<UserPlatformSettin
     void saveOrUpdate(Long userId, UserPlatformSettingsParam param);
 
     /**
+     * 解密用户全局 C5 AppKey。
+     *
+     * @param settings 用户平台配置实体
+     * @return 明文 AppKey
+     */
+    String decryptC5AppKey(UserPlatformSettings settings);
+
+    /**
      * 发送测试通知
      *
      * @param userId 用户ID

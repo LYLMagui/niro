@@ -8,6 +8,7 @@ import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.manager.UserPlatformSettingsMapperManager;
+import com.niro.web.service.UserPlatformSettingsService;
 import com.xxl.job.core.context.XxlJobHelper;
 import com.xxl.job.core.handler.annotation.XxlJob;
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class C5OrderSyncJobHandler {
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsMapperManager userPlatformSettingsMapperManager;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final RocketMqHelper rocketMqHelper;
 
     /**
@@ -80,8 +82,8 @@ public class C5OrderSyncJobHandler {
                         .in(UserPlatformSettings::getUserId, userIds)
                         .list();
                 for (UserPlatformSettings settings : settingsList) {
-                    if (settings != null && settings.getC5AppKey() != null) {
-                        appKeyMap.put(settings.getUserId(), settings.getC5AppKey());
+                    if (settings != null && settings.getC5AppKeyEncrypted() != null) {
+                        appKeyMap.put(settings.getUserId(), userPlatformSettingsService.decryptC5AppKey(settings));
                     }
                 }
             }

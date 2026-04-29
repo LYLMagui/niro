@@ -42,7 +42,7 @@ public class C5SnipingAccountMapperManager extends ServiceImpl<C5SnipingAccountM
         return this.lambdaQuery()
                 .eq(C5SnipingAccount::getUserId, userId)
                 .eq(C5SnipingAccount::getStatus, C5SnipingAccountStatusEnum.NORMAL)
-                .ne(C5SnipingAccount::getC5AppKey, "")
+                .ne(C5SnipingAccount::getC5AppKeyEncrypted, "")
                 .ne(C5SnipingAccount::getSteamTradeUrl, "")
                 .eq(C5SnipingAccount::getDelFlag, 0)
                 .orderByDesc(C5SnipingAccount::getCreateTime)
@@ -94,7 +94,7 @@ public class C5SnipingAccountMapperManager extends ServiceImpl<C5SnipingAccountM
         return this.lambdaQuery()
                 .eq(C5SnipingAccount::getId, accountId)
                 .eq(C5SnipingAccount::getStatus, C5SnipingAccountStatusEnum.NORMAL)
-                .ne(C5SnipingAccount::getC5AppKey, "")
+                .ne(C5SnipingAccount::getC5AppKeyEncrypted, "")
                 .ne(C5SnipingAccount::getSteamTradeUrl, "")
                 .eq(C5SnipingAccount::getDelFlag, 0)
                 .one();

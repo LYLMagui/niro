@@ -43,6 +43,21 @@ public class C5SnipingAccount {
     private String c5AppKey;
 
     /**
+     * C5 AppKey 密文。
+     */
+    private String c5AppKeyEncrypted;
+
+    /**
+     * C5 AppKey 脱敏展示值。
+     */
+    private String c5AppKeyMasked;
+
+    /**
+     * C5 AppKey 历史明文迁移时间。
+     */
+    private LocalDateTime c5AppKeyMigratedAt;
+
+    /**
      * Steam 交易链接。
      */
     private String steamTradeUrl;

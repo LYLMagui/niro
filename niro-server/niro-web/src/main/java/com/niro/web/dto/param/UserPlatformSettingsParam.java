@@ -70,9 +70,9 @@ public class UserPlatformSettingsParam {
     private String emailReceiver;
 
     /**
-     * C5 APP Key
+     * RSA-OAEP 加密后的 C5 APP Key。
      */
-    private String c5AppKey;
+    private String encryptedC5AppKey;
 
     /**
      * C5 交易链接

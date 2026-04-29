@@ -78,9 +78,14 @@ public class UserPlatformSettingsDTO {
     private String emailReceiver;
 
     /**
-     * C5 App Key
+     * C5 App Key 脱敏展示值。
      */
-    private String c5AppKey;
+    private String c5AppKeyMasked;
+
+    /**
+     * 是否已配置 C5 App Key。
+     */
+    private Boolean hasC5AppKey;
 
     /**
      * C5 交易链接

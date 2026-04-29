@@ -18,7 +18,7 @@ import com.niro.web.dto.PurchaseStatsSplitItemDTO;
 import com.niro.web.dto.PurchaseStatsSummaryDTO;
 import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
-import com.niro.web.dto.UserPlatformSettingsDTO;
+import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.entity.BuffAccount;
 import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.BuffScanTask;
@@ -189,15 +189,17 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
                                               UserPlatformSettingsService userPlatformSettingsService,
                                               String c5BaseUrl) {
         return clientCache.computeIfAbsent(userId, uid -> {
-            UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(uid);
+            UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
+                    .eq(UserPlatformSettings::getUserId, uid)
+                    .one();
             if (settings == null) {
                 throw new BusinessException("用户配置不存在");
             }
-            if (StrUtil.isBlank(settings.getC5AppKey())) {
+            if (StrUtil.isBlank(settings.getC5AppKeyEncrypted())) {
                 throw new BusinessException("C5 App Key 未配置");
             }
             C5Config config = new C5Config()
-                    .setAppKey(settings.getC5AppKey())
+                    .setAppKey(userPlatformSettingsService.decryptC5AppKey(settings))
                     .setBaseUrl(c5BaseUrl);
             return new C5ApiClient(config);
         });

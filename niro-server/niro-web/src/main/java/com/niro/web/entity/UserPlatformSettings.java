@@ -90,6 +90,21 @@ public class UserPlatformSettings {
     private String c5AppKey;
 
     /**
+     * C5 API Key 密文。
+     */
+    private String c5AppKeyEncrypted;
+
+    /**
+     * C5 API Key 脱敏展示值。
+     */
+    private String c5AppKeyMasked;
+
+    /**
+     * C5 API Key 历史明文迁移时间。
+     */
+    private LocalDateTime c5AppKeyMigratedAt;
+
+    /**
      * C5 交易链接
      */
     private String c5TradeUrl;

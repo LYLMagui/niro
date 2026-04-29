@@ -5,7 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
-import com.niro.web.dto.UserPlatformSettingsDTO;
+import com.niro.web.entity.UserPlatformSettings;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -69,14 +69,16 @@ public class C5ApiClientService {
         }
 
         // 2. 获取用户平台配置
-        UserPlatformSettingsDTO settings = userPlatformSettingsService.getByUserId(userId);
-        if (settings == null || StrUtil.isBlank(settings.getC5AppKey())) {
+        UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
+                .eq(UserPlatformSettings::getUserId, userId)
+                .one();
+        if (settings == null || StrUtil.isBlank(settings.getC5AppKeyEncrypted())) {
             throw new BusinessException("用户未配置 C5 App Key");
         }
 
         // 3. 创建 C5 配置
         C5Config config = new C5Config()
-                .setAppKey(settings.getC5AppKey())
+                .setAppKey(userPlatformSettingsService.decryptC5AppKey(settings))
                 .setBaseUrl(c5BaseUrl);
 
         // 4. 创建客户端并缓存

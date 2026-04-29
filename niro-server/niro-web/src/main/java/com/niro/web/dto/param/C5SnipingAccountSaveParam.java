@@ -22,10 +22,9 @@ public class C5SnipingAccountSaveParam {
     private String accountName;
 
     /**
-     * C5 AppKey。
+     * RSA-OAEP 加密后的 C5 AppKey。
      */
-    @NotBlank(message = "C5 AppKey不能为空")
-    private String c5AppKey;
+    private String encryptedC5AppKey;
 
     /**
      * Steam 交易链接。
