@@ -35,6 +35,12 @@ public class C5InventoryItem {
     private Long accountId;
 
     /**
+     * 聚合数量。
+     */
+    @TableField(exist = false)
+    private Integer quantity;
+
+    /**
      * Steam ID。
      */
     private String steamId;

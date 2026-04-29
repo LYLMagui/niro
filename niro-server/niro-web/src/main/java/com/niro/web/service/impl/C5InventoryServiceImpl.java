@@ -2,14 +2,37 @@ package com.niro.web.service.impl;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.hutool.core.bean.BeanUtil;
+import cn.hutool.core.map.MapUtil;
 import cn.hutool.core.util.StrUtil;
 import com.niro.core.util.Assert;
+import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.sdk.c5.model.C5AssetInfo;
 import com.niro.sdk.c5.model.C5ItemInfo;
+import com.niro.sdk.c5.request.inventory.C5InventoryListingCreateRequest;
+import com.niro.sdk.c5.request.inventory.C5ListingFeeCalculateRequest;
+import com.niro.sdk.c5.request.market.C5ProductListRequest;
+import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.response.C5InventoryResponse;
+import com.niro.sdk.c5.response.inventory.C5InventoryListingCreateResponse;
+import com.niro.sdk.c5.response.market.C5ProductListResponse;
+import com.niro.web.dto.C5InventoryAggregateQueryDTO;
+import com.niro.web.dto.C5InventoryAssetDTO;
+import com.niro.web.dto.C5InventoryAssetPageDTO;
 import com.niro.web.dto.C5InventoryItemDTO;
+import com.niro.web.dto.C5InventoryListingFeeDTO;
+import com.niro.web.dto.C5InventoryListingResultDTO;
+import com.niro.web.dto.C5InventoryListingSuccessDTO;
+import com.niro.web.dto.C5InventoryMarketReferenceDTO;
+import com.niro.web.dto.C5InventoryMarketReferencePageDTO;
 import com.niro.web.dto.C5InventoryPageDTO;
 import com.niro.web.dto.C5InventoryRefreshResultDTO;
+import com.niro.web.dto.C5InventoryStatsDTO;
+import com.niro.web.dto.param.C5InventoryItemListParam;
+import com.niro.web.dto.param.C5InventoryListingCreateItemParam;
+import com.niro.web.dto.param.C5InventoryListingCreateParam;
+import com.niro.web.dto.param.C5InventoryListingFeeBatchCalculateParam;
+import com.niro.web.dto.param.C5InventoryListingFeeCalculateParam;
+import com.niro.web.dto.param.C5InventoryMarketReferenceParam;
 import com.niro.web.dto.param.C5InventoryQueryParam;
 import com.niro.web.dto.param.C5InventoryRefreshParam;
 import com.niro.web.entity.C5InventoryItem;
@@ -18,17 +41,21 @@ import com.niro.web.manager.C5InventoryItemMapperManager;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5InventoryService;
+import com.niro.web.service.C5SnipingAccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 /**
@@ -42,12 +69,18 @@ public class C5InventoryServiceImpl implements C5InventoryService {
     private static final String LANGUAGE_ZH = "zh";
     private static final String INITIAL_START_ASSET_ID = "0";
     private static final int PAGE_COUNT = 1000;
+    private static final int MAX_LISTING_COUNT = 100;
+    private static final BigDecimal WEAR_REFERENCE_RANGE = new BigDecimal("0.01");
+    private static final BigDecimal MIN_WEAR = BigDecimal.ZERO;
+    private static final BigDecimal MAX_WEAR = BigDecimal.ONE;
     private static final String STATUS_IN_STOCK = "IN_STOCK";
     private static final String STATUS_REMOVED = "REMOVED";
+    private static final String STATUS_LISTING = "LISTING";
 
     private final C5SnipingAccountMapperManager accountManager;
     private final C5InventoryItemMapperManager inventoryItemManager;
     private final C5ApiClientService c5ApiClientService;
+    private final C5SnipingAccountService c5SnipingAccountService;
 
     /**
      * 刷新当前用户指定账号的 C5 库存快照。
@@ -64,7 +97,7 @@ public class C5InventoryServiceImpl implements C5InventoryService {
         Long userId = StpUtil.getLoginIdAsLong();
         C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
         Assert.notNull(account, "账号不存在");
-        Assert.notBlank(account.getC5AppKey(), "账号 C5 AppKey 不能为空");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
         Assert.notBlank(account.getSteamId(), "账号 Steam ID 不能为空，请先在账号配置页补充 Steam ID");
 
         LocalDateTime syncTime = LocalDateTime.now();
@@ -98,32 +131,339 @@ public class C5InventoryServiceImpl implements C5InventoryService {
         String keyword = param == null ? null : param.getKeyword();
         String status = normalizeStatus(param == null ? null : param.getStatus());
 
-        List<C5InventoryItem> items = inventoryItemManager.listInventoryForAggregation(userId, accountId, keyword, status);
-        Map<String, AggregatedInventoryCard> aggregatedMap = new LinkedHashMap<>();
-        for (C5InventoryItem item : items) {
-            String key = buildAggregationKey(accountId, item);
-            AggregatedInventoryCard card = aggregatedMap.computeIfAbsent(key, ignored -> new AggregatedInventoryCard(item));
-            card.increase();
-        }
-
-        List<AggregatedInventoryCard> aggregatedCards = new ArrayList<>(aggregatedMap.values());
-        int fromIndex = Math.toIntExact(Math.min((page - 1) * pageSize, aggregatedCards.size()));
-        int toIndex = Math.toIntExact(Math.min(fromIndex + pageSize, aggregatedCards.size()));
-        List<C5InventoryItem> pageItems = aggregatedCards.subList(fromIndex, toIndex).stream()
-                .map(AggregatedInventoryCard::representative)
-                .collect(Collectors.toList());
+        C5InventoryAggregateQueryDTO query = buildAggregateQuery(userId, accountId, keyword, status, page, pageSize);
+        long total = inventoryItemManager.countAggregated(query);
+        List<C5InventoryItem> pageItems = inventoryItemManager.listAggregatedPage(query);
         Map<Long, String> accountNameMap = resolveAccountNameMap(userId, pageItems);
-        List<C5InventoryItemDTO> records = aggregatedCards.subList(fromIndex, toIndex).stream()
-                .map(card -> toDTO(card.representative(), accountNameMap.get(card.representative().getAccountId()), card.quantityValue()))
+        List<C5InventoryItemDTO> records = pageItems.stream()
+                .map(item -> toDTO(item, accountNameMap.get(item.getAccountId()), resolveQuantity(item)))
                 .collect(Collectors.toList());
 
         C5InventoryPageDTO result = new C5InventoryPageDTO();
         result.setRecords(records);
-        result.setTotal((long) aggregatedCards.size());
-        result.setItemTotal(inventoryItemManager.countInventoryItems(userId, accountId, keyword, status));
+        result.setTotal(total);
+        result.setItemTotal(total);
         result.setCurrent(page);
         result.setSize(pageSize);
         return result;
+    }
+
+    /**
+     * 统计当前用户 C5 库存状态数量。
+     *
+     * @param param 查询参数
+     * @return 状态数量统计
+     */
+    @Override
+    public C5InventoryStatsDTO statsInventory(C5InventoryQueryParam param) {
+        Long userId = StpUtil.getLoginIdAsLong();
+        Long accountId = param == null ? null : param.getAccountId();
+        String keyword = param == null ? null : param.getKeyword();
+
+        C5InventoryStatsDTO result = new C5InventoryStatsDTO();
+        result.setAll(inventoryItemManager.countInventoryItems(userId, accountId, keyword, "all"));
+        result.setTradable(inventoryItemManager.countInventoryItems(userId, accountId, keyword, "tradable"));
+        result.setCooldown(inventoryItemManager.countInventoryItems(userId, accountId, keyword, "cooldown"));
+        result.setSelling(inventoryItemManager.countInventoryItems(userId, accountId, keyword, "selling"));
+        result.setTotalValue(inventoryItemManager.sumActiveInventoryValue(buildAggregateQuery(userId, accountId, keyword, "all", 1L, 1L)));
+        return result;
+    }
+
+    /**
+     * 分页查询聚合卡片背后的真实库存明细。
+     *
+     * @param param 查询参数
+     * @return 库存明细分页
+     */
+    @Override
+    public C5InventoryAssetPageDTO pageInventoryItems(C5InventoryItemListParam param) {
+        Assert.notNull(param, "库存明细查询参数不能为空");
+        Assert.notNull(param.getAccountId(), "账号ID不能为空");
+        Assert.isTrue(StrUtil.isNotBlank(param.getMarketHashName()) || StrUtil.isNotBlank(param.getName()), "商品名称不能为空");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
+        Assert.notNull(account, "账号不存在");
+
+        long page = normalizePage(param.getPage());
+        long pageSize = normalizeDetailPageSize(param.getPageSize());
+        Page<C5InventoryItem> itemPage = inventoryItemManager.pageGroupItems(
+                userId,
+                param.getAccountId(),
+                param.getMarketHashName(),
+                param.getName(),
+                param.getExteriorName(),
+                param.getIfTradable(),
+                page,
+                pageSize
+        );
+
+        List<C5InventoryAssetDTO> records = itemPage.getRecords().stream()
+                .map(item -> toAssetDTO(item, account.getAccountName()))
+                .collect(Collectors.toList());
+
+        C5InventoryAssetPageDTO result = new C5InventoryAssetPageDTO();
+        result.setRecords(records);
+        result.setTotal(itemPage.getTotal());
+        result.setCurrent(itemPage.getCurrent());
+        result.setSize(itemPage.getSize());
+        return result;
+    }
+
+    /**
+     * 提交库存饰品上架。
+     *
+     * @param param 上架参数
+     * @return 上架结果
+     */
+    @Override
+    @Transactional(rollbackFor = Exception.class)
+    public C5InventoryListingResultDTO createInventoryListings(C5InventoryListingCreateParam param) {
+        Assert.notNull(param, "库存上架参数不能为空");
+        Assert.notNull(param.getAccountId(), "账号ID不能为空");
+        Assert.notEmpty(param.getItems(), "上架库存明细不能为空");
+        Assert.isTrue(param.getItems().size() <= MAX_LISTING_COUNT, "单次最多上架100件饰品");
+        Assert.isTrue(param.getAcceptBargain() == 0 || param.getAcceptBargain() == 1, "是否允许还价参数不合法");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
+        Assert.notNull(account, "账号不存在");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
+
+        List<Long> inventoryItemIds = param.getItems().stream()
+                .map(C5InventoryListingCreateItemParam::getInventoryItemId)
+                .distinct()
+                .collect(Collectors.toList());
+        Assert.isTrue(inventoryItemIds.size() == param.getItems().size(), "上架库存明细不能重复");
+
+        Map<Long, C5InventoryListingCreateItemParam> priceMap = param.getItems().stream()
+                .collect(Collectors.toMap(C5InventoryListingCreateItemParam::getInventoryItemId, Function.identity()));
+        List<C5InventoryItem> inventoryItems = inventoryItemManager.listByUserIdAccountIdAndIds(userId, account.getId(), inventoryItemIds);
+        Assert.isTrue(inventoryItems.size() == inventoryItemIds.size(), "存在不可上架的库存明细");
+
+        List<C5InventoryListingCreateRequest.ListingItem> c5Items = inventoryItems.stream()
+                .map(item -> buildListingItem(item, priceMap.get(item.getId()), param))
+                .collect(Collectors.toList());
+        C5InventoryListingCreateRequest request = new C5InventoryListingCreateRequest().setDataList(c5Items);
+        C5InventoryListingCreateResponse response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
+                .getInventory()
+                .createListing(request);
+
+        C5InventoryListingResultDTO result = toListingResult(account.getId(), response);
+        List<String> successAssetIds = result.getSuccessList().stream()
+                .map(C5InventoryListingSuccessDTO::getAssetId)
+                .filter(StrUtil::isNotBlank)
+                .collect(Collectors.toList());
+        inventoryItemManager.markListingByAssetIds(account.getId(), successAssetIds, LocalDateTime.now());
+        return result;
+    }
+
+    /**
+     * 查询 C5 同平台在售参考。
+     *
+     * @param param 查询参数
+     * @return 在售参考分页
+     */
+    @Override
+    public C5InventoryMarketReferencePageDTO listMarketReferences(C5InventoryMarketReferenceParam param) {
+        Assert.notNull(param, "参考价查询参数不能为空");
+        Assert.notNull(param.getAccountId(), "账号ID不能为空");
+        Assert.notBlank(param.getMarketHashName(), "marketHashName不能为空");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
+        Assert.notNull(account, "账号不存在");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
+
+        BigDecimal wearMin = resolveWearMin(param);
+        BigDecimal wearMax = resolveWearMax(param);
+        validateWearRange(wearMin, wearMax);
+
+        Integer pageNum = normalizeReferencePage(param.getPageNum());
+        Integer pageSize = normalizeReferencePageSize(param.getPageSize());
+        C5ProductListResponse response;
+        if (wearMin == null && wearMax == null) {
+            C5ProductListRequest request = new C5ProductListRequest()
+                    .setAppId(Integer.valueOf(APP_ID_CS2))
+                    .setMarketHashName(StrUtil.trim(param.getMarketHashName()))
+                    .setPageNum(pageNum)
+                    .setPageSize(pageSize);
+            response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
+                    .getMarket()
+                    .searchProductList(request);
+        } else {
+            C5ProductSearchRequest request = new C5ProductSearchRequest()
+                    .setAppId(Integer.valueOf(APP_ID_CS2))
+                    .setMarketHashName(StrUtil.trim(param.getMarketHashName()))
+                    .setWearMin(wearMin == null ? null : wearMin.doubleValue())
+                    .setWearMax(wearMax == null ? null : wearMax.doubleValue())
+                    .setPageNum(pageNum)
+                    .setPageSize(pageSize);
+            response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
+                    .getMarket()
+                    .productSearch(request);
+        }
+
+        List<C5ProductListResponse.ProductDTO> products = response == null || response.getList() == null
+                ? List.of()
+                : response.getList();
+        C5InventoryMarketReferencePageDTO dto = new C5InventoryMarketReferencePageDTO();
+        dto.setRecords(products.stream()
+                .filter(product -> isWithinWearRange(product, wearMin, wearMax))
+                .map(product -> toMarketReferenceDTO(product, param.getMarketHashName()))
+                .sorted(Comparator.comparing(C5InventoryMarketReferenceDTO::getPrice, Comparator.nullsLast(BigDecimal::compareTo))
+                        .thenComparing(C5InventoryMarketReferenceDTO::getWear, Comparator.nullsLast(BigDecimal::compareTo)))
+                .collect(Collectors.toList()));
+        dto.setPageNum(response != null && response.getPageNum() != null ? response.getPageNum() : pageNum);
+        dto.setPageSize(response != null && response.getPageSize() != null ? response.getPageSize() : pageSize);
+        dto.setHasMore(response != null && Boolean.TRUE.equals(response.getHasMore()));
+        dto.setWearMin(wearMin);
+        dto.setWearMax(wearMax);
+        return dto;
+    }
+
+    /**
+     * 计算 C5 上架手续费。
+     *
+     * @param param 计算参数
+     * @return 手续费结果
+     */
+    @Override
+    public C5InventoryListingFeeDTO calculateListingFee(C5InventoryListingFeeCalculateParam param) {
+        Assert.notNull(param, "手续费计算参数不能为空");
+        Assert.notNull(param.getAccountId(), "账号ID不能为空");
+        Assert.notNull(param.getInventoryItemId(), "库存明细ID不能为空");
+        Assert.notNull(param.getPrice(), "上架价格不能为空");
+        Assert.isTrue(param.getPrice().compareTo(BigDecimal.ZERO) > 0, "上架价格必须大于0");
+
+        C5InventoryListingCreateItemParam itemParam = new C5InventoryListingCreateItemParam();
+        itemParam.setInventoryItemId(param.getInventoryItemId());
+        itemParam.setPrice(param.getPrice());
+
+        C5InventoryListingFeeBatchCalculateParam batchParam = new C5InventoryListingFeeBatchCalculateParam();
+        batchParam.setAccountId(param.getAccountId());
+        batchParam.setItems(List.of(itemParam));
+        return calculateListingFees(batchParam).getFirst();
+    }
+
+    /**
+     * 批量计算 C5 上架手续费。
+     *
+     * @param param 计算参数
+     * @return 手续费结果
+     */
+    @Override
+    public List<C5InventoryListingFeeDTO> calculateListingFees(C5InventoryListingFeeBatchCalculateParam param) {
+        Assert.notNull(param, "手续费计算参数不能为空");
+        Assert.notNull(param.getAccountId(), "账号ID不能为空");
+        Assert.notEmpty(param.getItems(), "手续费计算明细不能为空");
+        Assert.isTrue(param.getItems().size() <= MAX_LISTING_COUNT, "单次最多计算100件饰品手续费");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
+        Assert.notNull(account, "账号不存在");
+        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
+
+        List<C5InventoryListingCreateItemParam> feeItems = param.getItems();
+        feeItems.forEach(item -> {
+            Assert.notNull(item, "手续费计算明细不能为空");
+            Assert.notNull(item.getInventoryItemId(), "库存明细ID不能为空");
+            Assert.notNull(item.getPrice(), "上架价格不能为空");
+            Assert.isTrue(item.getPrice().compareTo(BigDecimal.ZERO) > 0, "上架价格必须大于0");
+        });
+        List<Long> inventoryItemIds = feeItems.stream()
+                .map(C5InventoryListingCreateItemParam::getInventoryItemId)
+                .distinct()
+                .collect(Collectors.toList());
+        Assert.isTrue(inventoryItemIds.size() == feeItems.size(), "手续费计算明细不能重复");
+
+        Map<Long, C5InventoryListingCreateItemParam> priceMap = feeItems.stream()
+                .collect(Collectors.toMap(C5InventoryListingCreateItemParam::getInventoryItemId, Function.identity()));
+        List<C5InventoryItem> inventoryItems = inventoryItemManager.listByUserIdAccountIdAndIds(userId, account.getId(), inventoryItemIds);
+        Assert.isTrue(inventoryItems.size() == inventoryItemIds.size(), "存在不可计算手续费的库存明细");
+
+        Map<Long, C5InventoryItem> inventoryItemMap = inventoryItems.stream()
+                .collect(Collectors.toMap(C5InventoryItem::getId, Function.identity()));
+        List<C5InventoryItem> orderedInventoryItems = inventoryItemIds.stream()
+                .map(inventoryItemMap::get)
+                .collect(Collectors.toList());
+        C5ListingFeeCalculateRequest request = new C5ListingFeeCalculateRequest()
+                .setDataList(orderedInventoryItems.stream()
+                        .map(item -> buildListingFeeCalculateItem(item, priceMap.get(item.getId())))
+                        .collect(Collectors.toList()));
+        List<Map<String, Object>> rawDataList = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
+                .getInventory()
+                .calculateListingFee(request);
+
+        List<C5InventoryListingFeeDTO> result = new ArrayList<>();
+        for (int i = 0; i < orderedInventoryItems.size(); i++) {
+            C5InventoryItem inventoryItem = orderedInventoryItems.get(i);
+            Map<String, Object> rawData = rawDataList == null || i >= rawDataList.size() || rawDataList.get(i) == null ? Map.of() : rawDataList.get(i);
+            result.add(toListingFeeDTO(account.getId(), inventoryItem, priceMap.get(inventoryItem.getId()).getPrice(), rawData));
+        }
+        return result;
+    }
+
+    private C5ListingFeeCalculateRequest.CalculateItem buildListingFeeCalculateItem(C5InventoryItem inventoryItem, C5InventoryListingCreateItemParam param) {
+        Assert.isTrue(STATUS_IN_STOCK.equals(inventoryItem.getInventoryStatus()), "库存明细不是在库状态");
+        Assert.notBlank(inventoryItem.getToken(), "库存明细缺少 C5 token");
+        Assert.notBlank(inventoryItem.getStyleToken(), "库存明细缺少 C5 styleToken");
+        return new C5ListingFeeCalculateRequest.CalculateItem()
+                .setPrice(param.getPrice().setScale(2, RoundingMode.HALF_UP))
+                .setToken(inventoryItem.getToken())
+                .setStyleToken(inventoryItem.getStyleToken());
+    }
+
+    private C5InventoryListingFeeDTO toListingFeeDTO(Long accountId, C5InventoryItem inventoryItem, BigDecimal price, Map<String, Object> rawData) {
+        BigDecimal scaledPrice = price.setScale(2, RoundingMode.HALF_UP);
+        C5InventoryListingFeeDTO dto = new C5InventoryListingFeeDTO();
+        dto.setAccountId(accountId);
+        dto.setInventoryItemId(inventoryItem.getId());
+        dto.setAssetId(readJsonString(inventoryItem.getAssetInfoJson(), "assetId"));
+        dto.setPrice(scaledPrice);
+        dto.setRawData(rawData);
+        dto.setItemId(readString(rawData, "itemId"));
+        dto.setFee(readDecimal(rawData, "fee", "sellerFee", "serviceFee", "commission"));
+        dto.setFreeFeePrice(readDecimal(rawData, "freeFeePrice"));
+        dto.setSellerPrice(readDecimal(rawData, "sellerPrice", "sellerAmount", "netPrice", "settlePrice"));
+        if (dto.getSellerPrice() == null && dto.getFee() != null) {
+            dto.setSellerPrice(scaledPrice.subtract(dto.getFee()));
+        }
+        dto.setIncome(readDecimal(rawData, "income", "actualIncome"));
+        dto.setActualAmount(readDecimal(rawData, "actualAmount", "amount"));
+        return dto;
+    }
+
+    /**
+     * 构建库存聚合查询参数。
+     *
+     * @param userId 用户 ID
+     * @param accountId 账号 ID
+     * @param keyword 商品关键字
+     * @param status 状态筛选
+     * @param page 当前页
+     * @param pageSize 每页数量
+     * @return 聚合查询参数
+     */
+    private C5InventoryAggregateQueryDTO buildAggregateQuery(Long userId, Long accountId, String keyword, String status, Long page, Long pageSize) {
+        C5InventoryAggregateQueryDTO query = new C5InventoryAggregateQueryDTO();
+        query.setUserId(userId);
+        query.setAccountId(accountId);
+        query.setKeyword(keyword);
+        query.setStatus(status);
+        query.setOffset((page - 1) * pageSize);
+        query.setPageSize(pageSize);
+        return query;
+    }
+
+    /**
+     * 解析聚合数量。
+     *
+     * @param item 库存实体
+     * @return 聚合数量
+     */
+    private int resolveQuantity(C5InventoryItem item) {
+        return item.getQuantity() == null || item.getQuantity() < 1 ? 1 : item.getQuantity();
     }
 
     /**
@@ -136,7 +476,7 @@ public class C5InventoryServiceImpl implements C5InventoryService {
         List<C5InventoryResponse.InventoryItem> items = new ArrayList<>();
         String startAssetId = INITIAL_START_ASSET_ID;
         while (true) {
-            C5InventoryResponse response = c5ApiClientService.getClientByAppKey(account.getC5AppKey())
+            C5InventoryResponse response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
                     .getInventory()
                     .getInventory(account.getSteamId(), APP_ID_CS2, LANGUAGE_ZH, startAssetId, PAGE_COUNT);
             List<C5InventoryResponse.InventoryItem> pageItems = response == null ? List.of() : response.getList();
@@ -295,48 +635,292 @@ public class C5InventoryServiceImpl implements C5InventoryService {
         C5InventoryItemDTO dto = BeanUtil.copyProperties(item, C5InventoryItemDTO.class);
         dto.setAccountName(accountName);
         dto.setQuantity(quantity);
+        dto.setItemType(readJsonString(item.getItemInfoJson(), "type"));
+        dto.setItemTypeName(readJsonString(item.getItemInfoJson(), "typeName"));
         return dto;
     }
 
     /**
-     * 构建库存卡片聚合键。
+     * 转换真实库存资产明细 DTO。
      *
-     * @param selectedAccountId 页面选中的账号 ID
      * @param item 库存实体
-     * @return 聚合键
+     * @param accountName 账号名称
+     * @return 真实库存资产明细 DTO
      */
-    private String buildAggregationKey(Long selectedAccountId, C5InventoryItem item) {
-        Long accountId = selectedAccountId == null ? item.getAccountId() : selectedAccountId;
-        return accountId + "|"
-                + StrUtil.blankToDefault(item.getMarketHashName(), item.getName()) + "|"
-                + StrUtil.blankToDefault(item.getExteriorName(), resolveWearLevel(item.getWear())) + "|"
-                + item.getIfTradable();
+    private C5InventoryAssetDTO toAssetDTO(C5InventoryItem item, String accountName) {
+        C5InventoryAssetDTO dto = BeanUtil.copyProperties(item, C5InventoryAssetDTO.class);
+        dto.setAccountName(accountName);
+        return dto;
     }
 
     /**
-     * 按磨损值解析外观分组。
+     * 转换 C5 同平台参考 DTO。
      *
-     * @param wear 磨损值
-     * @return 外观分组
+     * @param product C5 在售商品
+     * @param marketHashName Steam 市场 Hash 名称
+     * @return 同平台参考 DTO
      */
-    private String resolveWearLevel(BigDecimal wear) {
+    private C5InventoryMarketReferenceDTO toMarketReferenceDTO(C5ProductListResponse.ProductDTO product, String marketHashName) {
+        C5InventoryMarketReferenceDTO dto = new C5InventoryMarketReferenceDTO();
+        dto.setProductId(product.getProductId());
+        dto.setPrice(product.getPrice());
+        dto.setDelivery(product.getDelivery());
+        dto.setAcceptBargain(product.getAcceptBargain());
+        dto.setImageUrl(product.getImg());
+        dto.setSellerUid(product.getSellerUid());
+        dto.setMarketHashName(marketHashName);
+        if (product.getAssetInfo() != null) {
+            dto.setAssetId(product.getAssetInfo().getAssetId());
+            dto.setWear(getProductWear(product));
+        }
+        return dto;
+    }
+
+    /**
+     * 判断挂单磨损是否落在查询区间。
+     *
+     * @param product C5 在售商品
+     * @param wearMin 最小磨损
+     * @param wearMax 最大磨损
+     * @return 是否匹配
+     */
+    private boolean isWithinWearRange(C5ProductListResponse.ProductDTO product, BigDecimal wearMin, BigDecimal wearMax) {
+        BigDecimal wear = getProductWear(product);
         if (wear == null) {
-            return "";
+            return wearMin == null && wearMax == null;
         }
-        double value = wear.doubleValue();
-        if (value <= 0.07) {
-            return "崭新出厂";
+        if (wearMin != null && wear.compareTo(wearMin) < 0) {
+            return false;
         }
-        if (value <= 0.15) {
-            return "略有磨损";
+        return wearMax == null || wear.compareTo(wearMax) <= 0;
+    }
+
+    /**
+     * 读取挂单磨损。
+     *
+     * @param product C5 在售商品
+     * @return 挂单磨损
+     */
+    private BigDecimal getProductWear(C5ProductListResponse.ProductDTO product) {
+        if (product == null || product.getAssetInfo() == null) {
+            return null;
         }
-        if (value <= 0.38) {
-            return "久经沙场";
+        Double wear = product.getAssetInfo().getWear() != null
+                ? product.getAssetInfo().getWear()
+                : product.getAssetInfo().getFloatWear();
+        return wear == null ? null : BigDecimal.valueOf(wear);
+    }
+
+    /**
+     * 构建 C5 上架明细。
+     *
+     * @param item 库存实体
+     * @param priceParam 价格参数
+     * @param param 上架参数
+     * @return C5 上架明细
+     */
+    private C5InventoryListingCreateRequest.ListingItem buildListingItem(C5InventoryItem item,
+                                                                         C5InventoryListingCreateItemParam priceParam,
+                                                                         C5InventoryListingCreateParam param) {
+        Assert.isTrue(STATUS_IN_STOCK.equals(item.getInventoryStatus()), "库存明细不是在库状态");
+        Assert.notBlank(item.getToken(), "库存明细缺少 C5 token");
+        Assert.notBlank(item.getStyleToken(), "库存明细缺少 C5 styleToken");
+        Assert.notNull(priceParam, "上架价格参数不能为空");
+        Assert.notNull(priceParam.getPrice(), "上架价格不能为空");
+        Assert.isTrue(priceParam.getPrice().compareTo(BigDecimal.ZERO) > 0, "上架价格必须大于0");
+
+        return new C5InventoryListingCreateRequest.ListingItem()
+                .setPrice(priceParam.getPrice().setScale(2, RoundingMode.HALF_UP))
+                .setDescription(StrUtil.blankToDefault(param.getDescription(), ""))
+                .setAcceptBargain(param.getAcceptBargain())
+                .setToken(item.getToken())
+                .setStyleToken(item.getStyleToken());
+    }
+
+    /**
+     * 转换 C5 上架响应。
+     *
+     * @param accountId 账号 ID
+     * @param response C5 上架响应
+     * @return 本地上架结果
+     */
+    private C5InventoryListingResultDTO toListingResult(Long accountId, C5InventoryListingCreateResponse response) {
+        C5InventoryListingCreateResponse safeResponse = response == null ? new C5InventoryListingCreateResponse() : response;
+        C5InventoryListingResultDTO result = new C5InventoryListingResultDTO();
+        result.setAccountId(accountId);
+        result.setShopOn(safeResponse.getShopOn());
+        result.setSucceed(safeResponse.getSucceed() == null ? 0 : safeResponse.getSucceed());
+        result.setFailed(safeResponse.getFailed() == null ? 0 : safeResponse.getFailed());
+        result.setFailedList(safeResponse.getFailedList() == null ? List.of() : safeResponse.getFailedList());
+        result.setHighPriceItemIdList(safeResponse.getHighPriceItemIdList() == null ? List.of() : safeResponse.getHighPriceItemIdList());
+        result.setPriceCheckResult(safeResponse.getPriceCheckResult());
+        result.setSuccessList((safeResponse.getSuccessList() == null ? List.<C5InventoryListingCreateResponse.SuccessItem>of() : safeResponse.getSuccessList()).stream()
+                .map(item -> {
+                    C5InventoryListingSuccessDTO success = new C5InventoryListingSuccessDTO();
+                    success.setAssetId(item.getAssetId());
+                    success.setProductId(item.getProductId());
+                    return success;
+                })
+                .collect(Collectors.toList()));
+        return result;
+    }
+
+    /**
+     * 从 JSON 对象中读取字符串字段。
+     *
+     * @param json JSON 对象
+     * @param key 字段名
+     * @return 字段值
+     */
+    private String readJsonString(Object json, String key) {
+        if (!(json instanceof Map<?, ?> map)) {
+            return null;
         }
-        if (value <= 0.45) {
-            return "破损不堪";
+        return MapUtil.getStr(map, key);
+    }
+
+    /**
+     * 解析参考价查询最小磨损。
+     *
+     * @param param 查询参数
+     * @return 最小磨损
+     */
+    private BigDecimal resolveWearMin(C5InventoryMarketReferenceParam param) {
+        if (param.getWearMin() != null) {
+            return clampWear(param.getWearMin());
         }
-        return "战痕累累";
+        if (param.getWear() == null) {
+            return null;
+        }
+        return clampWear(param.getWear().subtract(WEAR_REFERENCE_RANGE));
+    }
+
+    /**
+     * 解析参考价查询最大磨损。
+     *
+     * @param param 查询参数
+     * @return 最大磨损
+     */
+    private BigDecimal resolveWearMax(C5InventoryMarketReferenceParam param) {
+        if (param.getWearMax() != null) {
+            return clampWear(param.getWearMax());
+        }
+        if (param.getWear() == null) {
+            return null;
+        }
+        return clampWear(param.getWear().add(WEAR_REFERENCE_RANGE));
+    }
+
+    /**
+     * 限制磨损合法范围。
+     *
+     * @param wear 磨损
+     * @return 合法磨损
+     */
+    private BigDecimal clampWear(BigDecimal wear) {
+        if (wear.compareTo(MIN_WEAR) < 0) {
+            return MIN_WEAR;
+        }
+        if (wear.compareTo(MAX_WEAR) > 0) {
+            return MAX_WEAR;
+        }
+        return wear;
+    }
+
+    /**
+     * 校验磨损区间。
+     *
+     * @param wearMin 最小磨损
+     * @param wearMax 最大磨损
+     */
+    private void validateWearRange(BigDecimal wearMin, BigDecimal wearMax) {
+        if (wearMin != null && wearMax != null) {
+            Assert.isTrue(wearMin.compareTo(wearMax) <= 0, "最小磨损不能大于最大磨损");
+        }
+    }
+
+    /**
+     * 读取 C5 原始返回金额字段。
+     *
+     * @param data 原始返回
+     * @param keys 字段名
+     * @return 金额
+     */
+    private BigDecimal readDecimal(Map<String, Object> data, String... keys) {
+        if (data == null) {
+            return null;
+        }
+        for (String key : keys) {
+            BigDecimal value = toDecimal(data.get(key));
+            if (value != null) {
+                return value;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * 读取 C5 原始返回文本字段。
+     *
+     * @param data 原始返回
+     * @param key 字段名
+     * @return 文本值
+     */
+    private String readString(Map<String, Object> data, String key) {
+        if (data == null) {
+            return null;
+        }
+        Object value = data.get(key);
+        return value == null ? null : value.toString();
+    }
+
+    /**
+     * 转换金额字段。
+     *
+     * @param value 原始值
+     * @return 金额
+     */
+    private BigDecimal toDecimal(Object value) {
+        if (value == null) {
+            return null;
+        }
+        if (value instanceof BigDecimal decimal) {
+            return decimal;
+        }
+        if (value instanceof Number number) {
+            return BigDecimal.valueOf(number.doubleValue());
+        }
+        String text = value.toString();
+        if (StrUtil.isBlank(text)) {
+            return null;
+        }
+        return new BigDecimal(text);
+    }
+
+    /**
+     * 规范化参考页码。
+     *
+     * @param pageNum 页码
+     * @return 合法页码
+     */
+    private Integer normalizeReferencePage(Integer pageNum) {
+        if (pageNum == null || pageNum < 1) {
+            return 1;
+        }
+        return pageNum;
+    }
+
+    /**
+     * 规范化参考每页数量。
+     *
+     * @param pageSize 每页数量
+     * @return 合法每页数量
+     */
+    private Integer normalizeReferencePageSize(Integer pageSize) {
+        if (pageSize == null || pageSize < 1) {
+            return 10;
+        }
+        return Math.min(pageSize, 20);
     }
 
     /**
@@ -363,6 +947,19 @@ public class C5InventoryServiceImpl implements C5InventoryService {
     }
 
     /**
+     * 规范化明细每页数量。
+     *
+     * @param pageSize 每页数量
+     * @return 合法每页数量
+     */
+    private long normalizeDetailPageSize(Long pageSize) {
+        if (pageSize == null || pageSize < 1) {
+            return 200L;
+        }
+        return Math.min(pageSize, 500L);
+    }
+
+    /**
      * 规范化状态筛选。
      *
      * @param status 状态筛选
@@ -370,34 +967,6 @@ public class C5InventoryServiceImpl implements C5InventoryService {
      */
     private String normalizeStatus(String status) {
         return StrUtil.blankToDefault(status, "all");
-    }
-
-    /**
-     * 聚合库存卡片。
-     *
-     * @param representative 代表库存记录
-     * @param quantity 聚合数量
-     */
-    private static class AggregatedInventoryCard {
-
-        private final C5InventoryItem representative;
-        private int quantity;
-
-        private AggregatedInventoryCard(C5InventoryItem representative) {
-            this.representative = representative;
-        }
-
-        private C5InventoryItem representative() {
-            return representative;
-        }
-
-        private void increase() {
-            quantity++;
-        }
-
-        private int quantityValue() {
-            return quantity;
-        }
     }
 
     /**

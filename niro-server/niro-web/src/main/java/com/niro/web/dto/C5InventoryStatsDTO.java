@@ -2,6 +2,8 @@ package com.niro.web.dto;
 
 import lombok.Data;
 
+import java.math.BigDecimal;
+
 /**
  * C5 库存状态统计 DTO。
  */
@@ -27,4 +29,9 @@ public class C5InventoryStatsDTO {
      * 寄售中数量。
      */
     private Long selling;
+
+    /**
+     * 当前筛选条件下的库存总价值。
+     */
+    private BigDecimal totalValue;
 }

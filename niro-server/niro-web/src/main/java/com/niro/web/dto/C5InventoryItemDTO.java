@@ -33,6 +33,8 @@ public class C5InventoryItemDTO {
     private String shortName;
     private String marketHashName;
     private String imageUrl;
+    private String itemType;
+    private String itemTypeName;
     private BigDecimal price;
     private Boolean ifTradable;
     private BigDecimal wear;
