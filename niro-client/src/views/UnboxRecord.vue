@@ -5,6 +5,20 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-3"
   >
+    <PageHeader title="开箱记录">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">批次总数</span>
+          <span class="font-numeric text-base font-bold text-slate-900">{{ batchPagination.total }} <small class="text-[10px] font-medium text-slate-400">组</small></span>
+        </div>
+      </template>
+    </PageHeader>
+
     <div
       ref="pageHostRef"
       class="unbox-record-page relative flex min-h-0 flex-1 flex-col"
@@ -327,9 +341,10 @@
 
         <div v-if="batchPagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
-            :current="batchPagination.current"
-            :page-size="batchPagination.pageSize"
+            v-model="batchPagination.current"
+            v-model:page-size="batchPagination.pageSize"
             :total="batchPagination.total"
+            show-jumper
             @change="handleBatchPageChange"
           />
         </div>
@@ -532,7 +547,7 @@
             </section>
 
             <section
-              class="flex min-h-0 flex-col overflow-hidden rounded border border-slate-200/80 bg-white"
+              class="flex min-h-0 flex-col overflow-hidden border border-slate-200/80 bg-white"
             >
               <div class="shrink-0 border-b border-slate-200/80 px-3 py-2">
                 <div class="space-y-2">
@@ -1733,6 +1748,7 @@ import type {
   TableSort,
 } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import { cs2GoodsApi } from "@/api/cs2-goods";
@@ -3294,7 +3310,7 @@ function sortableNumber(value: number | null | undefined) {
 }
 
 const summaryTableHeaderClass =
-  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+  "!bg-slate-50 !text-slate-500 !text-xs !font-semibold whitespace-nowrap";
 const summaryToolbarFieldClass =
   "[&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const summaryTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
@@ -3567,7 +3583,7 @@ const draftRowEntries = computed<DraftRowEntry[]>(() =>
 );
 
 const draftTableHeaderClass =
-  "!bg-slate-100 !text-slate-600 !text-sm !font-semibold !tracking-[0.08em] whitespace-nowrap";
+  "!bg-slate-100 !text-slate-600 !text-xs !font-semibold whitespace-nowrap";
 const draftTableBodyClass = "!py-2 px-3 text-slate-700 align-middle";
 const draftTableFixedBodyClass = `${draftTableBodyClass} !bg-white`;
 const draftTableFooterClass =

@@ -123,7 +123,7 @@ body {
   overflow: hidden !important;
   background: #fff !important;
   border: 1px solid #e8e8e8 !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
   box-shadow: none !important;
 }
 
@@ -146,32 +146,47 @@ body {
 
 .t-table__content {
   background: #fff !important;
-  border-radius: 4px !important;
+  border-radius: 0 !important;
 }
 
 .t-table .t-table__header th {
-  padding: 10px 10px !important;
-  font-size: 13px !important;
+  padding: 8px 10px !important;
+  font-size: 12px !important;
   font-weight: 600 !important;
   color: #64748b !important; /* slate-500 */
   background: #f8fafc !important; /* slate-50 */
   border-bottom: 1px solid #e2e8f0 !important; /* slate-200 */
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   text-transform: uppercase;
 }
 
+/* 抽屉/弹窗等紧凑容器中的表格样式优化 */
+.t-drawer .t-table .t-table__header th,
+.t-dialog .t-table .t-table__header th {
+  font-size: 11px !important;
+  padding: 6px 8px !important;
+  letter-spacing: 0;
+}
+
+.t-drawer .t-table .t-table__body td,
+.t-dialog .t-table .t-table__body td {
+  padding: 4px 8px !important;
+  font-size: 12px !important;
+}
+
+
 .t-table .t-table__body td {
-  padding-top: 12px !important;
+  padding-top: 6px !important;
   padding-right: 10px !important;
-  padding-bottom: 12px !important;
+  padding-bottom: 6px !important;
   padding-left: 10px !important;
   font-size: 13px !important;
   color: #334155 !important; /* slate-700 */
   border-bottom: 1px solid #f1f5f9 !important; /* slate-100 */
 }
 
-.t-table .t-table__row--hover td {
-  background: #f8fafc !important; /* slate-50 */
+.t-table tbody tr:hover td {
+  background: #ecf2f8 !important; /* 精致的蓝灰色 */
   box-shadow: none !important;
 }
 

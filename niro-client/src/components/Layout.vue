@@ -155,13 +155,9 @@
 
         <t-content
           class="erp-main-content min-h-0 flex-1"
-          :class="activeValue === 'Logs' ? 'overflow-hidden' : 'overflow-y-auto'"
+          :class="activeValue === 'LogsNew' ? 'overflow-hidden' : 'overflow-y-auto'"
         >
-          <router-view v-slot="{ Component, route: viewRoute }">
-            <keep-alive include="Logs">
-              <component :is="Component" v-if="Component" :key="viewRoute.fullPath" />
-            </keep-alive>
-          </router-view>
+          <router-view :key="route.fullPath" />
         </t-content>
       </t-layout>
     </t-layout>

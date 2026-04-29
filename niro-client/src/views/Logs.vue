@@ -1,25 +1,30 @@
 <template>
   <PageFrame desktop-outer-class="!p-0">
-    <div class="flex h-full flex-col overflow-hidden">
+    <PageHeader title="全链路日志">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex items-center gap-3 rounded-full bg-slate-100/50 px-3 py-1.5 ring-1 ring-slate-200">
+          <div
+            class="h-2 w-2 rounded-full"
+            :class="[
+              isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400',
+              isConnected ? 'animate-pulse' : '',
+            ]"
+          ></div>
+          <span class="text-xs font-medium text-slate-600">
+            {{ isConnected ? "实时监听中" : "连接已断开" }}
+          </span>
+        </div>
+      </template>
+    </PageHeader>
+
+    <div class="flex h-full flex-col overflow-hidden px-4">
       <t-card :bordered="false" class="embedded-card flex flex-1 flex-col overflow-hidden">
-        <template #title>
-          <div class="flex items-center">
-            <bulletpoint-icon class="mr-2 text-blue-600" />
-            <span class="text-lg font-bold text-gray-800">全链路日志</span>
-            <div class="ml-4 flex items-center space-x-1.5">
-              <div
-                class="h-2 w-2 rounded-full"
-                :class="[
-                  isConnected ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.6)]' : 'bg-gray-400',
-                  isConnected ? 'animate-pulse' : '',
-                ]"
-              ></div>
-              <span class="text-xs text-gray-500">
-                {{ isConnected ? "实时监听中" : "连接已断开" }}
-              </span>
-            </div>
-          </div>
-        </template>
+        <!-- 搜索栏/工具栏 -->
 
         <!-- 搜索栏/工具栏 -->
         <div class="border-b border-gray-100 p-6">
@@ -315,6 +320,7 @@ import {
   BulletpointIcon,
 } from "tdesign-icons-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import { type LogItem } from "../api/log";
 import dayjs from "dayjs";
 import { PermissionConstant } from "@/constant/PermissionConstant";

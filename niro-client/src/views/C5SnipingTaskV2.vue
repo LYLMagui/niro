@@ -6,6 +6,20 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
+    <PageHeader title="C5 扫货任务">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">任务总数</span>
+          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">项</small></span>
+        </div>
+      </template>
+    </PageHeader>
+
     <section class="overflow-hidden bg-white">
       <div class="flex flex-col gap-3 px-0 py-4">
         <div
@@ -268,9 +282,10 @@
 
         <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
-            :current="pagination.current"
-            :page-size="pagination.pageSize"
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            show-jumper
             @change="onPageChange"
           />
         </div>
@@ -539,9 +554,10 @@
       </t-table>
       <div v-if="detailDrawer.pagination.total > 0" class="mt-3 flex justify-end">
         <t-pagination
-          :current="detailDrawer.pagination.current"
-          :page-size="detailDrawer.pagination.pageSize"
+          v-model="detailDrawer.pagination.current"
+          v-model:page-size="detailDrawer.pagination.pageSize"
           :total="detailDrawer.pagination.total"
+          show-jumper
           @change="onDetailPageChange"
         />
       </div>
@@ -566,6 +582,7 @@ import {
 import { c5SnipingV2Api, c5SnipingV2BaseUrl } from "@/api/c5-sniping-v2";
 import { cs2GoodsApi } from "@/api/cs2-goods";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
 import { BuffAccountStatusEnum, BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
@@ -624,7 +641,7 @@ const balanceGuardModeOptions = [
 ];
 
 const taskTableHeaderClass =
-  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+  "!bg-slate-50 !text-slate-500 !text-xs !font-semibold uppercase whitespace-nowrap";
 const taskTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 
 const getTaskOperationOptions = (row: C5SnipingTaskV2Item) => [

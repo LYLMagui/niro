@@ -6,45 +6,32 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-3"
   >
+    <PageHeader title="订单统计看板">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex items-center gap-6">
+          <div class="flex flex-col items-end">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">全部总额</span>
+            <span class="font-numeric text-base font-bold text-slate-900">{{ formatCurrency(normalizedGlobalSummary.totalAmount) }}</span>
+          </div>
+          <div class="flex flex-col items-end">
+            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">全部总量</span>
+            <span class="font-numeric text-base font-bold text-slate-900">{{ formatInteger(normalizedGlobalSummary.totalQuantity) }}</span>
+          </div>
+        </div>
+      </template>
+    </PageHeader>
+
     <div
       class="inventory-board-page relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-slate-50/30 p-4"
     >
-      <!-- 页面标题 -->
-      <div class="mb-4 flex items-center justify-between">
-        <div class="flex items-center gap-3">
-          <div
-            class="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-600 text-white shadow-md shadow-blue-100"
-          >
-            <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
-              />
-            </svg>
-          </div>
-          <h1 class="text-lg font-bold tracking-tight text-slate-900">订单统计看板</h1>
-        </div>
-        <div class="flex items-center gap-4">
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-slate-400">全部总额</span>
-            <span class="font-numeric text-base font-bold text-slate-900">
-              {{ formatCurrency(normalizedGlobalSummary.totalAmount) }}
-            </span>
-          </div>
-          <div class="h-4 w-[1px] bg-slate-200"></div>
-          <div class="flex items-center gap-2">
-            <span class="text-xs font-medium text-slate-400">全部总量</span>
-            <span class="font-numeric text-base font-bold text-slate-900">
-              {{ formatInteger(normalizedGlobalSummary.totalQuantity) }}
-            </span>
-          </div>
-        </div>
-      </div>
 
       <!-- 筛选区域 -->
-      <section class="mb-4 space-y-3 rounded-xl border border-slate-100 bg-white p-4 shadow-sm">
+      <section class="mb-4 space-y-3 border border-slate-100 bg-white p-4 shadow-sm">
         <div class="flex flex-col gap-3">
           <!-- 时间筛选 -->
           <div class="flex flex-col gap-2 xl:flex-row xl:items-center">
@@ -370,7 +357,7 @@
 
       <!-- 统计汇总 (移除) -->
 
-      <section class="rounded-[6px] border border-[#ebeef5] bg-white p-3">
+      <section class="border border-[#ebeef5] bg-white p-3">
         <div class="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div class="text-[13px] font-medium text-[#303133]">结果列表</div>
@@ -525,7 +512,7 @@
             </article>
           </div>
 
-          <div v-else class="overflow-hidden rounded border border-[#ebeef5] bg-white">
+          <div v-else class="overflow-hidden border border-[#ebeef5] bg-white">
             <div class="flex min-h-[180px] items-center justify-center">
               <t-empty description="当前筛选条件下暂无数据" />
             </div>
@@ -545,6 +532,7 @@ import type { CSSProperties, Ref } from "vue";
 import type { DateValue, PrimaryTableCol, TableRowData } from "tdesign-vue-next";
 import { orderApi } from "@/api/order";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import type {
   PurchaseStatsGoodsItem,
   PurchaseStatsSplitItem,

@@ -10,12 +10,26 @@ export type C5SnipingAccountStatus =
 export interface C5SnipingAccountSaveParam {
   id?: number;
   accountName: string;
-  c5AppKey: string;
+  encryptedC5AppKey?: string;
   steamTradeUrl: string;
   steamId?: string;
   concurrencyLimit?: number;
   maxInFlightAttempts?: number;
   remark?: string;
+}
+
+export interface AppKeyPublicKeyResult {
+  algorithm: "RSA-OAEP-256";
+  publicKey: string;
+}
+
+export interface AppKeyRevealParam {
+  publicKey: string;
+}
+
+export interface AppKeyRevealResult {
+  algorithm: "RSA-OAEP-256";
+  encryptedC5AppKey: string;
 }
 
 export interface C5SnipingAccountRefreshBalanceParam {
@@ -35,11 +49,17 @@ export interface C5SnipingAccountRefreshBalanceResult {
   message?: string;
 }
 
+export interface C5SnipingAccountListResult {
+  records: C5SnipingAccount[];
+  totalBalance: number;
+}
+
 export interface C5SnipingAccount {
   id?: number;
   userId?: number;
   accountName: string;
-  c5AppKey: string;
+  c5AppKeyMasked?: string;
+  hasC5AppKey?: boolean;
   steamTradeUrl: string;
   steamId?: string;
   concurrencyLimit?: number;
@@ -51,6 +71,7 @@ export interface C5SnipingAccount {
   depositAmount?: number;
   creditMoney?: number;
   creditDeposit?: number;
+  totalBalance?: number;
   lastCheckTime?: string;
   remark?: string;
   warningMsg?: string;

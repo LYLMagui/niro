@@ -1,5 +1,22 @@
 <template>
   <PageFrame :is-mobile="false" desktop-outer-class="!p-0" desktop-content-class="px-4 pt-0 pb-0">
+    <PageHeader title="系统设置">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div v-if="accounts.length > 0" class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">BUFF 全站总资产</span>
+          <span class="font-numeric text-base font-bold text-slate-900">
+            <span v-if="balanceVisible">¥{{ totalAssets.toFixed(2) }}</span>
+            <span v-else>****</span>
+          </span>
+        </div>
+      </template>
+    </PageHeader>
     <div class="grid grid-cols-1 items-start gap-6 lg:grid-cols-[72%_1fr]">
       <!-- 左侧：Content (72%) -->
       <div class="min-w-0">
@@ -7,7 +24,7 @@
         <t-card :bordered="false" class="embedded-card h-full">
           <template #title>
             <div class="flex items-center">
-              <t-icon name="setting" class="mr-2 text-blue-600" />
+              <t-icon name="user-circle" class="mr-2 text-blue-600" />
               <span class="text-lg font-bold text-gray-800">BUFF 账号管理</span>
             </div>
           </template>
@@ -59,7 +76,7 @@
               <div class="flex min-w-0 items-center space-x-2">
                 <t-icon name="user-circle" class="shrink-0 text-blue-500" size="18px" />
                 <t-tooltip :content="row.accountName" placement="top-left">
-                  <span class="truncate font-semibold text-[#1d2129]">{{ row.accountName }}</span>
+                  <span class="truncate text-[15px] font-bold text-[#1d2129]">{{ row.accountName }}</span>
                 </t-tooltip>
               </div>
             </template>
@@ -110,7 +127,7 @@
                 ></span>
                 <div class="ml-2 flex flex-col">
                   <div class="flex items-center">
-                    <span :class="['text-[13px] font-semibold', getStatusTextColor(row.status)]">
+                    <span :class="['text-[14px] font-bold', getStatusTextColor(row.status)]">
                       {{ getStatusLabel(row.status) }}
                     </span>
                     <t-tooltip v-if="row.warningMsg" :content="row.warningMsg">
@@ -123,45 +140,53 @@
 
             <!-- 统计列美化 (保持原样) -->
             <template #stats="{ row }">
-              <div class="flex h-full min-h-[44px] flex-col justify-center gap-1 py-1">
+              <div class="flex h-full min-h-[44px] flex-col justify-center gap-1.5 py-1">
                 <div class="flex items-center leading-tight">
-                  <span class="mr-2 shrink-0 text-[12px] text-[#86909c]">扫描:</span>
-                  <span class="font-numeric text-[13px] font-bold text-blue-600">
+                  <span class="mr-2 shrink-0 text-[13px] text-[#86909c]">扫描:</span>
+                  <span class="font-numeric text-[14px] font-bold text-[#1d2129]">
                     {{ (row.todayScanCount || 0).toLocaleString() }}
                   </span>
                 </div>
                 <div class="flex items-center leading-tight">
-                  <span class="mr-2 shrink-0 text-[12px] text-[#86909c]">成功:</span>
-                  <span class="font-numeric text-[13px] font-bold text-green-600">
+                  <span class="mr-2 shrink-0 text-[13px] text-[#86909c]">成功:</span>
+                  <span class="font-numeric text-[14px] font-bold text-green-600">
                     {{ ((row.tradeSuccessRate || 0) * 100).toFixed(1) }}%
                   </span>
                 </div>
               </div>
             </template>
 
-            <!-- 余额显示/隐藏 (保持原样) -->
+            <!-- 余额显示/隐藏 -->
             <template #balance="{ row }">
               <div
-                class="group flex cursor-pointer flex-col items-end justify-center py-1 select-none"
+                class="group flex cursor-pointer flex-col gap-1 py-0.5 px-0.5 w-full select-none"
                 @click="balanceVisible = !balanceVisible"
               >
-                <div
-                  :class="[
-                    'font-numeric text-sm font-bold transition-all duration-300',
-                    getBalanceClass(row),
-                    (row.balance || 0) > 1000 ? 'high-value-shadow' : '',
-                  ]"
-                >
-                  <span class="mr-0.5 text-[10px] opacity-60">¥</span>
-                  <span v-if="balanceVisible">{{ row.balance?.toFixed(2) }}</span>
-                  <span v-else>****</span>
+                <!-- 资产统计 (置顶突出) -->
+                <div class="flex items-center justify-between w-full pb-1 border-b border-orange-100/40">
+                   <span class="text-[9px] font-bold text-orange-600 uppercase tracking-tight px-1 py-0 bg-orange-50 rounded-[2px]">资产统计</span>
+                   <span class="text-orange-600 tabular-nums text-[13px] font-bold">
+                     <span v-if="balanceVisible">¥{{ ((row.balance || 0) + (row.pendingBalance || 0)).toFixed(2) }}</span>
+                     <span v-else>****</span>
+                   </span>
                 </div>
-                <div
-                  v-if="row.pendingBalance !== undefined && row.pendingBalance !== null"
-                  class="font-numeric mt-1 text-[12px] leading-tight font-medium text-orange-500 antialiased"
-                >
-                  <span v-if="balanceVisible">待结算: ¥{{ row.pendingBalance?.toFixed(2) }}</span>
-                  <span v-else>****</span>
+
+                <!-- 可用余额 & 待结算 (并排) -->
+                <div class="flex items-center justify-between w-full px-0.5 text-[11px]">
+                  <div class="flex items-center gap-1">
+                    <span class="text-slate-400">可用</span>
+                    <span :class="['font-bold tabular-nums', getBalanceClass(row)]">
+                      <span v-if="balanceVisible">¥{{ row.balance?.toFixed(1) }}</span>
+                      <span v-else>***</span>
+                    </span>
+                  </div>
+                  <div class="flex items-center gap-1">
+                    <span class="text-slate-400">待结</span>
+                    <span class="font-bold text-slate-600 tabular-nums">
+                      <span v-if="balanceVisible">¥{{ row.pendingBalance?.toFixed(1) }}</span>
+                      <span v-else>***</span>
+                    </span>
+                  </div>
                 </div>
               </div>
             </template>
@@ -304,13 +329,18 @@
                 <div class="h-[1px] flex-1 bg-gray-100"></div>
               </div>
               <t-form :data="formData" :rules="formRules" label-align="top" @submit="onSubmit">
-                <t-form-item label="C5 AppKey" name="c5AppKey">
+                <t-form-item label="C5 AppKey" name="c5AppKeyPlain">
                   <template #label><span class="text-[#86909c]">C5 AppKey</span></template>
                   <t-input
-                    v-model="formData.c5AppKey"
-                    placeholder="请输入C5平台的AppKey"
-                    @blur="(v: any) => handleInputTrim(v, formData, 'c5AppKey')"
+                    v-model="c5AppKeyPlain"
+                    :placeholder="formData.hasC5AppKey ? '留空则不修改当前 AppKey' : '请输入C5平台的AppKey'"
+                    type="password"
+                    clearable
+                    @blur="(v: string | number) => handlePlainAppKeyTrim(String(v))"
                   />
+                  <div v-if="formData.c5AppKeyMasked" class="mt-1 text-xs text-slate-400">
+                    当前已配置：{{ formData.c5AppKeyMasked }}
+                  </div>
                 </t-form-item>
                 <t-form-item label="Steam交易链接" name="steamTradeUrl">
                   <template #label><span class="text-[#86909c]">Steam交易链接</span></template>
@@ -590,6 +620,7 @@
 </template>
 
 <script setup lang="ts">
+import PageHeader from "@/components/PageHeader.vue";
 import {
   settingsApi,
   UserPlatformSettings,
@@ -624,6 +655,7 @@ const loading = ref(false);
 const testNotifyLoading = ref(false);
 const wecomEnabled = ref(false);
 const balanceVisible = ref(true);
+const c5AppKeyPlain = ref("");
 
 /**
  * 自动清除换行符和首尾空格
@@ -634,9 +666,44 @@ const handleInputTrim = (val: any, target: any, key: string) => {
   }
 };
 
+const handlePlainAppKeyTrim = (value: string) => {
+  c5AppKeyPlain.value = value.replace(/[\r\n]/g, "").trim();
+};
+
+const base64ToBytes = (value: string) => {
+  const binary = window.atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+};
+
+const bytesToBase64 = (value: ArrayBuffer) => {
+  const bytes = new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary);
+};
+
+const encryptAppKeyWithPublicKey = async (appKey: string, publicKey: string) => {
+  const key = await window.crypto.subtle.importKey(
+    "spki",
+    base64ToBytes(publicKey),
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["encrypt"]
+  );
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    key,
+    new TextEncoder().encode(appKey)
+  );
+  return bytesToBase64(encrypted);
+};
+
 const formData = reactive<UserPlatformSettings>({
   paymentMethod: "BALANCE",
-  c5AppKey: "",
+  c5AppKeyMasked: "",
+  hasC5AppKey: false,
   steamTradeUrl: "",
   wecomCorpid: "",
   wecomCorpsecret: "",
@@ -655,6 +722,7 @@ const fetchSettings = async () => {
     const res = await settingsApi.getSettings();
     if (res) {
       Object.assign(formData, res);
+      c5AppKeyPlain.value = "";
       // 如果企业ID为空，默认收起通知配置
       wecomEnabled.value = !!res.wecomCorpid;
       // 邮件通知开关直接绑定 formData.emailEnabled，无需额外处理
@@ -668,7 +736,17 @@ const onSubmit = async (context: SubmitContext) => {
   if (context.validateResult === true) {
     loading.value = true;
     try {
-      await settingsApi.saveSettings(formData);
+      const encryptedC5AppKey = c5AppKeyPlain.value
+        ? await encryptAppKeyWithPublicKey(
+            c5AppKeyPlain.value,
+            (await settingsApi.getAppKeyPublicKey()).publicKey
+          )
+        : undefined;
+      await settingsApi.saveSettings({
+        ...formData,
+        encryptedC5AppKey,
+      });
+      c5AppKeyPlain.value = "";
       MessagePlugin.success("全局配置已同步");
     } finally {
       loading.value = false;
@@ -765,7 +843,7 @@ const accountColumns: PrimaryTableCol<TableRowData>[] = [
   { colKey: "role", title: "角色", width: 100, cell: "role", align: "left" },
   { colKey: "status", title: "状态", width: 120, cell: "status", align: "left" },
   { colKey: "stats", title: "实时统计", width: 150, cell: "stats", align: "left" },
-  { colKey: "balance", title: "余额", width: 110, cell: "balance", align: "right" },
+  { colKey: "balance", title: "余额", width: 210, cell: "balance", align: "left" },
   { colKey: "lastCheckTime", title: "最后检测", width: 140, cell: "lastCheckTime", align: "left" },
   {
     colKey: "operation",

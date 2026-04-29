@@ -8,6 +8,20 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
+    <PageHeader title="订单记录">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">订单总数</span>
+          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">单</small></span>
+        </div>
+      </template>
+    </PageHeader>
+
     <section class="overflow-hidden bg-white">
       <t-tabs
         v-model="activeTab"
@@ -361,9 +375,10 @@
 
         <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
-            :current="pagination.current"
-            :page-size="pagination.pageSize"
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            show-jumper
             @change="onPageChange"
           />
         </div>
@@ -499,11 +514,12 @@
           <div v-if="!loading && pagination.total > 0" class="order-mobile__pagination">
             <t-pagination
               theme="simple"
-              :current="pagination.current"
-              :page-size="pagination.pageSize"
+              v-model="pagination.current"
+              v-model:page-size="pagination.pageSize"
               :total="pagination.total"
               :show-page-size="false"
               :total-content="false"
+              show-jumper
               @change="onPageChange"
             />
           </div>
@@ -528,6 +544,7 @@ import {
 } from "tdesign-vue-next";
 import { CheckCircleIcon, CloseCircleIcon } from "tdesign-icons-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { orderApi } from "@/api/order";
 import type { C5SnipingAccount } from "@/types/c5-sniping-account";
@@ -630,12 +647,12 @@ const pagination = reactive({
 });
 
 const orderTableHeaderClass =
-  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+  "!bg-slate-50 !text-slate-500 !text-xs !font-semibold !tracking-[0.04em] whitespace-nowrap";
 const orderTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 const toolbarFieldClass =
-  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input__wrap]:min-h-10 [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const toolbarCompactFieldClass =
-  "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "[&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const ORDER_TABLE_MIN_HEIGHT = 320;
 const ORDER_TABLE_MAX_HEIGHT_OFFSET = 1;
 const orderTableMaxHeight = computed(() => {
@@ -1047,7 +1064,8 @@ const toggleAdvancedFilters = () => {
 const fetchAccounts = async () => {
   accountsLoading.value = true;
   try {
-    c5Accounts.value = await c5SnipingAccountApi.getAccounts();
+    const res = await c5SnipingAccountApi.getAccounts();
+    c5Accounts.value = res?.records || [];
   } catch (error) {
     console.error("C5 账号列表加载失败", error);
     MessagePlugin.error("C5 账号列表加载失败");

@@ -166,14 +166,6 @@
 
     <div class="mt-8 flex flex-col items-center gap-1 text-sm text-gray-400">
       <div>Copyright © 2024 - 2026 Niro Control</div>
-      <a
-        href="https://beian.miit.gov.cn/"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="transition-colors hover:text-gray-600"
-      >
-        闽ICP备2025101529号-2
-      </a>
     </div>
   </div>
 </template>

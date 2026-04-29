@@ -1,58 +1,60 @@
 <template>
   <PageFrame :is-mobile="false" desktop-outer-class="!p-0" desktop-content-class="p-0">
     <div class="flex h-full min-h-0 flex-col overflow-hidden bg-white">
-      <header class="shrink-0 border-b border-slate-200 bg-white px-6">
-        <div class="flex min-h-16 flex-wrap items-center justify-between gap-3 py-3">
-          <div class="min-w-0 flex-1">
-            <h1 class="text-lg font-medium text-slate-800">权限与角色管理</h1>
-          </div>
-
-          <div v-if="canReadResource || canReadRoleAuth" class="flex shrink-0 flex-wrap items-center gap-3">
-            <t-button
-              v-if="canReadResource || canReadRoleAuth"
-              variant="outline"
-              class="!rounded"
-              :loading="resourcesLoading || roleResourceLoading || usersLoading"
-              @click="reloadWorkbench"
-            >
-              刷新草稿
-            </t-button>
-            <t-button
-              v-if="canSaveResource"
-              variant="outline"
-              class="!rounded"
-              @click="resourceDrawerVisible = true"
-            >
-              资源工作台
-            </t-button>
-            <t-button v-if="canAssignUserRole" variant="outline" class="!rounded" @click="openUserRoleDrawer">
-              用户分配角色
-            </t-button>
-            <t-button
-              v-if="canPreviewRole"
-              variant="outline"
-              class="!rounded"
-              :disabled="!selectedRoleId"
-              @click="openPreviewDrawer"
-            >
-              角色预览
-            </t-button>
-            <t-button
-              v-if="canValidatePublish"
-              theme="warning"
-              variant="outline"
-              class="!rounded"
-              :loading="publishValidating"
-              @click="openValidateDrawer"
-            >
-              发布校验
-            </t-button>
-            <t-button v-if="canPublish" theme="primary" class="!rounded" :loading="publishing" @click="handlePublish">
-              执行发布
-            </t-button>
-          </div>
+    <PageHeader title="权限与角色管理">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div v-if="canReadResource || canReadRoleAuth" class="flex shrink-0 flex-wrap items-center gap-3">
+          <t-button
+            v-if="canReadResource || canReadRoleAuth"
+            variant="outline"
+            class="!rounded"
+            :loading="resourcesLoading || roleResourceLoading || usersLoading"
+            @click="reloadWorkbench"
+          >
+            刷新草稿
+          </t-button>
+          <t-button
+            v-if="canSaveResource"
+            variant="outline"
+            class="!rounded"
+            @click="resourceDrawerVisible = true"
+          >
+            资源工作台
+          </t-button>
+          <t-button v-if="canAssignUserRole" variant="outline" class="!rounded" @click="openUserRoleDrawer">
+            用户分配角色
+          </t-button>
+          <t-button
+            v-if="canPreviewRole"
+            variant="outline"
+            class="!rounded"
+            :disabled="!selectedRoleId"
+            @click="openPreviewDrawer"
+          >
+            角色预览
+          </t-button>
+          <t-button
+            v-if="canValidatePublish"
+            theme="warning"
+            variant="outline"
+            class="!rounded"
+            :loading="publishValidating"
+            @click="openValidateDrawer"
+          >
+            发布校验
+          </t-button>
+          <t-button v-if="canPublish" theme="primary" class="!rounded" :loading="publishing" @click="handlePublish">
+            执行发布
+          </t-button>
         </div>
-      </header>
+      </template>
+    </PageHeader>
+
 
       <div class="min-h-0 flex-1 overflow-hidden">
         <div class="flex h-full min-h-0 overflow-hidden">
@@ -1354,6 +1356,8 @@ import { getNewPageRegistryItem, listNewPageRegistry } from "@/router/pageRegist
 import { clearNewPermissionCache, useNewPermissionStore } from "@/store/new-permission";
 import type { NewPermissionResource, NewPermissionResourceType } from "@/types/router";
 import { useRouter } from "vue-router";
+import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 
 defineOptions({
   name: "PermissionManageNew",

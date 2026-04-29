@@ -7,6 +7,13 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
+    <PageHeader title="邀请码管理">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+        </svg>
+      </template>
+    </PageHeader>
     <section class="overflow-hidden bg-white">
       <div class="flex flex-col gap-3 bg-white px-0 py-4">
         <div
@@ -319,9 +326,10 @@
 
         <div v-if="pagination.total > 0" class="bg-white px-4 py-3">
           <t-pagination
-            :current="pagination.current"
-            :page-size="pagination.pageSize"
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
+            show-jumper
             @change="onPageChange"
           />
         </div>
@@ -424,11 +432,12 @@
         <div v-if="!loading && pagination.total > 0" class="invite-mobile__pagination">
           <t-pagination
             theme="simple"
-            :current="pagination.current"
-            :page-size="pagination.pageSize"
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
             :show-page-size="false"
             :total-content="false"
+            show-jumper
             @change="onPageChange"
           />
         </div>
@@ -727,6 +736,7 @@ import {
   type TagProps,
 } from "tdesign-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import { inviteCodeApi } from "@/api/invite-code";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
@@ -862,9 +872,9 @@ const availabilityOptions: InviteAvailabilityOption[] = [
 ];
 
 const toolbarFieldClass =
-  "w-full [&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:rounded [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
+  "w-full [&_.t-input__wrap]:min-h-9 [&_.t-input__wrap]:border-slate-200 [&_.t-input__wrap]:bg-white [&_.t-input__wrap]:shadow-none [&_.t-input__wrap:hover]:border-slate-300 [&_.t-is-focused]:border-sky-500 [&_.t-is-focused]:shadow-[0_0_0_3px_rgb(14_165_233_/_0.12)]";
 const inviteTableHeaderClass =
-  "!bg-white !text-slate-500 !text-sm !font-semibold whitespace-nowrap";
+  "!bg-white !text-slate-500 !text-xs !font-semibold whitespace-nowrap";
 const inviteTableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 
 const { hasPermission } = usePermission();

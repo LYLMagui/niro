@@ -6,6 +6,25 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-0"
   >
+    <PageHeader title="C5 账号配置">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div v-if="accounts.length > 0" class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">C5 资金总资产</span>
+          <div class="flex items-baseline gap-1">
+            <span class="text-[10px] font-bold text-orange-500/80 italic">¥</span>
+            <span class="font-numeric text-lg font-bold text-orange-500 tabular-nums tracking-tight">
+              {{ formatCurrency(totalAssetBalance).replace('¥', '') }}
+            </span>
+          </div>
+        </div>
+      </template>
+    </PageHeader>
+
     <section class="overflow-hidden bg-white">
       <div class="flex flex-col gap-3 bg-white px-0 py-4">
         <div
@@ -93,7 +112,7 @@
             <template #accountInfo="{ row }">
               <div class="min-w-0">
                 <t-tooltip :content="row.accountName" placement="top-left">
-                  <div class="truncate font-medium text-slate-800">
+                  <div class="truncate text-[15px] font-bold text-slate-800">
                     {{ row.accountName }}
                   </div>
                 </t-tooltip>
@@ -106,16 +125,28 @@
             </template>
 
             <template #c5AppKey="{ row }">
-              <t-tooltip :content="row.c5AppKey || '未配置'" placement="top-left">
-                <div class="max-w-[180px] truncate font-mono text-xs text-slate-600">
-                  {{ row.c5AppKey || "-" }}
-                </div>
-              </t-tooltip>
+              <div class="flex max-w-[220px] items-center gap-2">
+                <t-tooltip :content="revealedAppKeys[row.id] || row.c5AppKeyMasked || '未配置'" placement="top-left">
+                  <div class="min-w-0 flex-1 truncate font-mono text-[14px] text-slate-700">
+                    {{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}
+                  </div>
+                </t-tooltip>
+                <t-button
+                  v-if="canReadAccountDetail && row.hasC5AppKey"
+                  variant="text"
+                  theme="primary"
+                  size="small"
+                  :loading="revealingAccountId === row.id"
+                  @click="revealRowAppKey(row)"
+                >
+                  显示
+                </t-button>
+              </div>
             </template>
 
             <template #steamTradeUrl="{ row }">
               <t-tooltip :content="row.steamTradeUrl || '未配置'" placement="top-left">
-                <div class="max-w-[220px] truncate font-mono text-xs text-slate-600">
+                <div class="max-w-[220px] truncate font-mono text-[14px] text-slate-700">
                   {{ row.steamTradeUrl || "-" }}
                 </div>
               </t-tooltip>
@@ -123,52 +154,44 @@
 
             <template #steamId="{ row }">
               <t-tooltip :content="row.steamId || '未配置'" placement="top-left">
-                <div class="max-w-[160px] truncate font-mono text-xs text-slate-600">
+                <div class="max-w-[160px] truncate font-mono text-[14px] text-slate-700">
                   {{ row.steamId || "-" }}
                 </div>
               </t-tooltip>
             </template>
 
-            <template #metrics="{ row }">
-              <div class="flex flex-col gap-1 py-1">
-                <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">今日扫描</span>
-                  <span class="font-medium text-slate-700">{{ row.todayScanCount ?? 0 }}</span>
-                </div>
-                <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">成功次数</span>
-                  <span class="font-medium text-slate-700 text-emerald-600">{{ row.tradeSuccessCount ?? 0 }}</span>
-                </div>
-                <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">成功率</span>
-                  <span class="font-medium text-slate-700">{{ formatPercent(row.tradeSuccessRate) }}</span>
-                </div>
-              </div>
-            </template>
 
             <template #balance="{ row }">
-              <div class="flex flex-col items-end py-1 pr-2">
-                <!-- 主余额 -->
-                <div class="text-[18px] font-bold text-emerald-600 tabular-nums leading-none mb-2">
-                  {{ formatCurrency(resolveMoneyAmount(row)) }}
+              <div class="flex flex-col gap-1 py-0.5 px-0.5 w-full">
+                <!-- 资产统计 (最重要，置顶) -->
+                <div class="flex items-center justify-between w-full pb-1 mb-0.5 border-b border-orange-100/60">
+                   <span class="text-[9px] font-bold text-orange-600 uppercase tracking-tight px-1.5 py-0 bg-orange-50 rounded-[2px]">资产统计</span>
+                   <span class="text-orange-600 tabular-nums text-[13px] font-bold">{{ formatCurrency(getRowTotal(row)) }}</span>
                 </div>
-                <!-- 各项子余额 -->
-                <div class="flex flex-col items-end gap-1 text-[11px]">
-                  <div class="flex items-center gap-1 leading-tight">
-                    <span class="text-slate-400">待结算</span>
-                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.pendingBalance) }}</span>
+
+                <!-- 可用余额 -->
+                <div class="flex items-center justify-between w-full mb-1 px-0.5">
+                  <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tight px-1.5 py-0 bg-emerald-50 rounded-[2px]">可用余额</span>
+                  <span class="text-[13px] font-bold text-emerald-600 tabular-nums">{{ formatCurrency(resolveMoneyAmount(row)) }}</span>
+                </div>
+                
+                <!-- 次要资产网格 (2列布局压缩高度) -->
+                <div class="grid grid-cols-2 gap-x-2 gap-y-1 px-0.5 pt-1 border-t border-slate-100/60">
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">待结</span>
+                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.pendingBalance) }}</span>
                   </div>
-                  <div class="flex items-center gap-1 leading-tight">
-                    <span class="text-slate-400">保证金</span>
-                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.depositAmount) }}</span>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">保证金</span>
+                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.depositAmount) }}</span>
                   </div>
-                  <div class="flex items-center gap-1 leading-tight">
-                    <span class="text-slate-400">秒到账</span>
-                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.creditMoney) }}</span>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">秒到</span>
+                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.creditMoney) }}</span>
                   </div>
-                  <div class="flex items-center gap-1 leading-tight">
-                    <span class="text-slate-400">秒到保证金</span>
-                    <span class="text-slate-500 tabular-nums">{{ formatCurrency(row.creditDeposit) }}</span>
+                  <div class="flex items-center justify-between">
+                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">秒保</span>
+                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.creditDeposit) }}</span>
                   </div>
                 </div>
               </div>
@@ -219,10 +242,11 @@
 
         <div class="border-t border-slate-200 px-4 py-3">
           <t-pagination
-            v-model:current="pagination.current"
-            v-model:pageSize="pagination.pageSize"
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :total="filteredAccounts.length"
             :page-size-options="pageSizeOptions"
+            show-jumper
             @change="handlePageChange"
           />
         </div>
@@ -307,10 +331,11 @@
           class="mt-3 flex justify-end"
         >
           <t-pagination
-            v-model:current="detailPagination.current"
-            v-model:pageSize="detailPagination.pageSize"
+            v-model="detailPagination.current"
+            v-model:page-size="detailPagination.pageSize"
             :total="detailPagination.total"
             :page-size-options="detailPageSizeOptions"
+            show-jumper
             @change="handleDetailPageChange"
           />
         </div>
@@ -341,12 +366,17 @@
             />
           </t-form-item>
 
-          <t-form-item label="C5 AppKey" name="c5AppKey">
+          <t-form-item label="C5 AppKey" name="c5AppKeyPlain">
             <t-input
-              v-model="accountFormData.c5AppKey"
-              placeholder="请输入该账号使用的 C5 AppKey"
-              @blur="() => trimStringField(accountFormData, 'c5AppKey')"
+              v-model="accountFormData.c5AppKeyPlain"
+              :placeholder="accountFormData.id ? '留空则不修改当前 AppKey' : '请输入该账号使用的 C5 AppKey'"
+              type="password"
+              clearable
+              @blur="() => trimStringField(accountFormData, 'c5AppKeyPlain')"
             />
+            <div v-if="accountFormData.id && accountFormData.c5AppKeyMasked" class="mt-1 text-xs text-slate-400">
+              当前已配置：{{ accountFormData.c5AppKeyMasked }}
+            </div>
           </t-form-item>
 
           <t-form-item label="Steam 链接" name="steamTradeUrl">
@@ -387,7 +417,7 @@
 
 <script setup lang="ts">
 import { useWindowSize } from "@vueuse/core";
-import { computed, onMounted, reactive, ref, watch } from "vue";
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import {
   MessagePlugin,
   type FormRule,
@@ -398,12 +428,17 @@ import {
 import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { c5SnipingV2Api } from "@/api/c5-sniping-v2";
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
 // import { BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
 import type { C5SnipingTaskV2Item } from "@/types/c5-sniping-v2";
+
+interface AccountFormData extends C5SnipingAccount {
+  c5AppKeyPlain: string;
+}
 
 const { hasButtonPermission } = useNewPermission();
 const { width } = useWindowSize();
@@ -415,6 +450,7 @@ const canReadAccountDetail = computed(() => hasButtonPermission(PermissionConsta
 
 const listLoading = ref(false);
 const accounts = ref<C5SnipingAccount[]>([]);
+const totalAssetBalance = ref(0);
 const queryParams = reactive<{ keyword: string; status?: C5SnipingAccountStatus }>({
   keyword: "",
   status: undefined,
@@ -425,6 +461,9 @@ const accountDialogVisible = ref(false);
 const accountDialogTitle = ref("新增扫货账号");
 const accountSubmitLoading = ref(false);
 const refreshBalanceLoading = ref(false);
+const revealingAccountId = ref<number>();
+const revealedAppKeys = reactive<Record<number, string>>({});
+const revealTimers = new Map<number, number>();
 const detailDialogVisible = ref(false);
 const detailLoading = ref(false);
 const selectedAccount = ref<C5SnipingAccount | null>(null);
@@ -448,9 +487,11 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
 //   value,
 // }));
 
-const accountFormData = reactive<C5SnipingAccount>({
+const accountFormData = reactive<AccountFormData>({
   accountName: "",
-  c5AppKey: "",
+  c5AppKeyPlain: "",
+  c5AppKeyMasked: "",
+  hasC5AppKey: false,
   steamTradeUrl: "",
   steamId: "",
   status: "NORMAL",
@@ -460,18 +501,25 @@ const accountFormData = reactive<C5SnipingAccount>({
   depositAmount: 0,
   creditMoney: 0,
   creditDeposit: 0,
+  totalBalance: 0,
   remark: "",
 });
 
 const accountRules: Record<string, FormRule[]> = {
   accountName: [{ required: true, message: "账号名称不能为空", type: "error" }],
-  c5AppKey: [{ required: true, message: "C5 AppKey 不能为空", type: "error" }],
+  c5AppKeyPlain: [
+    {
+      validator: (value) => Boolean(accountFormData.id || String(value || "").trim()),
+      message: "C5 AppKey 不能为空",
+      type: "error",
+    },
+  ],
   steamTradeUrl: [{ required: true, message: "Steam 交易链接不能为空", type: "error" }],
   steamId: [{ required: true, message: "Steam ID 不能为空", type: "error" }],
 };
 
 const tableHeaderClass =
-  "!bg-slate-50 !text-slate-500 !text-sm !font-semibold !tracking-[0.06em] uppercase whitespace-nowrap";
+  "!bg-slate-50 !text-slate-500 !text-xs !font-semibold uppercase whitespace-nowrap";
 const tableBodyClass = "!py-2 text-sm text-slate-700 align-middle";
 
 const detailTaskColumns = computed<PrimaryTableCol[]>(() => [
@@ -537,21 +585,13 @@ const columns = computed<PrimaryTableCol[]>(() => [
     thClassName: tableHeaderClass,
   },
   {
-    colKey: "metrics",
-    title: "实时统计",
-    width: 170,
-    cell: "metrics",
-    className: tableBodyClass,
-    thClassName: tableHeaderClass,
-  },
-  {
     colKey: "balance",
     title: "余额",
-    width: 190,
-    align: "right" as const,
+    width: 220,
+    align: "left" as const,
     cell: "balance",
     className: tableBodyClass,
-    thClassName: `${tableHeaderClass} !text-right !pr-6`,
+    thClassName: `${tableHeaderClass} !text-left !pl-6`,
   },
   {
     colKey: "op",
@@ -606,10 +646,68 @@ const trimStringField = <T extends Record<string, unknown>, K extends keyof T>(
   }
 };
 
+const base64ToBytes = (value: string) => {
+  const binary = window.atob(value);
+  return Uint8Array.from(binary, (char) => char.charCodeAt(0));
+};
+
+const bytesToBase64 = (value: ArrayBuffer) => {
+  const bytes = new Uint8Array(value);
+  let binary = "";
+  bytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return window.btoa(binary);
+};
+
+const importRsaPublicKey = (publicKey: string) =>
+  window.crypto.subtle.importKey(
+    "spki",
+    base64ToBytes(publicKey),
+    { name: "RSA-OAEP", hash: "SHA-256" },
+    false,
+    ["encrypt"]
+  );
+
+const encryptAppKeyWithPublicKey = async (appKey: string, publicKey: string) => {
+  const key = await importRsaPublicKey(publicKey);
+  const encrypted = await window.crypto.subtle.encrypt(
+    { name: "RSA-OAEP" },
+    key,
+    new TextEncoder().encode(appKey)
+  );
+  return bytesToBase64(encrypted);
+};
+
+const generateRevealKeyPair = () =>
+  window.crypto.subtle.generateKey(
+    {
+      name: "RSA-OAEP",
+      modulusLength: 2048,
+      publicExponent: new Uint8Array([1, 0, 1]),
+      hash: "SHA-256",
+    },
+    true,
+    ["encrypt", "decrypt"]
+  );
+
+const exportPublicKey = async (key: CryptoKey) => bytesToBase64(await window.crypto.subtle.exportKey("spki", key));
+
+const decryptRevealAppKey = async (encryptedAppKey: string, privateKey: CryptoKey) => {
+  const decrypted = await window.crypto.subtle.decrypt(
+    { name: "RSA-OAEP" },
+    privateKey,
+    base64ToBytes(encryptedAppKey)
+  );
+  return new TextDecoder().decode(decrypted);
+};
+
 const formatCurrency = (value?: number) =>
   value === undefined || value === null ? "-" : priceFormatter.format(value);
+
+
 const resolveMoneyAmount = (account: C5SnipingAccount) => account.moneyAmount ?? account.balance;
-const formatPercent = (value?: number) => `${((value || 0) * 100).toFixed(1)}%`;
+const getRowTotal = (row: C5SnipingAccount) => row.totalBalance ?? 0;
 const getDetailTaskTitle = (row: C5SnipingTaskV2Item) =>
   row.name || row.goodsDisplayName || row.marketHashName || `任务 #${row.id}`;
 const getTaskStatusMeta = (status?: string) => {
@@ -637,7 +735,9 @@ const formatTaskProgress = (row: C5SnipingTaskV2Item) => {
 };
 
 const fetchAccounts = async () => {
-  accounts.value = (await c5SnipingAccountApi.getAccounts()) || [];
+  const res = await c5SnipingAccountApi.getAccounts();
+  accounts.value = res?.records || [];
+  totalAssetBalance.value = res?.totalBalance || 0;
 };
 
 const loadData = async () => {
@@ -666,7 +766,9 @@ const resetAccountForm = () => {
     id: undefined,
     userId: undefined,
     accountName: "",
-    c5AppKey: "",
+    c5AppKeyPlain: "",
+    c5AppKeyMasked: "",
+    hasC5AppKey: false,
     steamTradeUrl: "",
     steamId: "",
     status: "NORMAL",
@@ -676,6 +778,7 @@ const resetAccountForm = () => {
     depositAmount: 0,
     creditMoney: 0,
     creditDeposit: 0,
+    totalBalance: 0,
     lastCheckTime: undefined,
     remark: "",
     warningMsg: undefined,
@@ -743,7 +846,10 @@ const openEditDialog = (row: C5SnipingAccount) => {
     return;
   }
   resetAccountForm();
-  Object.assign(accountFormData, row);
+  Object.assign(accountFormData, {
+    ...row,
+    c5AppKeyPlain: "",
+  });
   accountDialogTitle.value = "编辑扫货账号";
   accountDialogVisible.value = true;
 };
@@ -757,22 +863,49 @@ const onAccountSubmit = async (context: SubmitContext) => {
   }
   accountSubmitLoading.value = true;
   try {
+    const isCreate = !accountFormData.id;
+    const existingAccountIds = new Set(
+      accounts.value.map((account) => account.id).filter((id): id is number => typeof id === "number")
+    );
+
     trimStringField(accountFormData, "accountName");
-    trimStringField(accountFormData, "c5AppKey");
+    trimStringField(accountFormData, "c5AppKeyPlain");
     trimStringField(accountFormData, "steamTradeUrl");
     trimStringField(accountFormData, "steamId");
     trimStringField(accountFormData, "remark");
+
+    const encryptedC5AppKey = accountFormData.c5AppKeyPlain
+      ? await encryptAppKeyWithPublicKey(
+          accountFormData.c5AppKeyPlain,
+          (await c5SnipingAccountApi.getAppKeyPublicKey()).publicKey
+        )
+      : undefined;
+
     await c5SnipingAccountApi.saveAccount({
       id: accountFormData.id,
       accountName: accountFormData.accountName,
-      c5AppKey: accountFormData.c5AppKey,
+      encryptedC5AppKey,
       steamTradeUrl: accountFormData.steamTradeUrl,
       steamId: accountFormData.steamId,
       remark: accountFormData.remark,
     });
-    MessagePlugin.success(`${accountFormData.id ? "账号已更新" : "账号已创建"}`);
     accountDialogVisible.value = false;
     await loadData();
+
+    if (isCreate) {
+      const createdAccountId = accounts.value.find(
+        (account) => typeof account.id === "number" && !existingAccountIds.has(account.id)
+      )?.id;
+      if (createdAccountId) {
+        try {
+          await c5SnipingAccountApi.refreshBalance({ accountIds: [createdAccountId] });
+        } finally {
+          await loadData();
+        }
+      }
+    }
+
+    MessagePlugin.success(`${isCreate ? "账号已创建" : "账号已更新"}`);
   } finally {
     accountSubmitLoading.value = false;
   }
@@ -807,6 +940,36 @@ const onRefreshBalance = async () => {
   }
 };
 
+const clearRevealedAppKey = (accountId: number) => {
+  delete revealedAppKeys[accountId];
+  const timer = revealTimers.get(accountId);
+  if (timer) {
+    window.clearTimeout(timer);
+    revealTimers.delete(accountId);
+  }
+};
+
+const revealRowAppKey = async (row: C5SnipingAccount) => {
+  if (!row.id || !canReadAccountDetail.value) {
+    return;
+  }
+  revealingAccountId.value = row.id;
+  try {
+    const keyPair = await generateRevealKeyPair();
+    const publicKey = await exportPublicKey(keyPair.publicKey);
+    const result = await c5SnipingAccountApi.revealAppKey(row.id, { publicKey });
+    revealedAppKeys[row.id] = await decryptRevealAppKey(result.encryptedC5AppKey, keyPair.privateKey);
+    const existingTimer = revealTimers.get(row.id);
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+    }
+    revealTimers.set(row.id, window.setTimeout(() => clearRevealedAppKey(row.id as number), 30000));
+    MessagePlugin.success("AppKey 明文已显示，30 秒后自动隐藏");
+  } finally {
+    revealingAccountId.value = undefined;
+  }
+};
+
 const onDeleteAccount = async (row: C5SnipingAccount) => {
   if (!canDeleteAccount.value) {
     return;
@@ -834,6 +997,10 @@ const handlePageChange = (pageInfo: PageInfo) => {
   pagination.pageSize = pageInfo.pageSize;
 };
 
+onBeforeUnmount(() => {
+  [...revealTimers.keys()].forEach(clearRevealedAppKey);
+});
+
 onMounted(async () => {
   await loadData();
 });
@@ -852,8 +1019,8 @@ onMounted(async () => {
 }
 
 :deep(.c5-sniping-account-table .t-table__body td) {
-  padding-top: 8px;
-  padding-bottom: 8px;
+  padding-top: 4px;
+  padding-bottom: 4px;
 }
 
 :deep(.c5-sniping-account-table__action-btn.t-button) {

@@ -1,5 +1,12 @@
 <template>
   <PageFrame desktop-outer-class="!p-0">
+    <PageHeader title="控制面板">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z" />
+        </svg>
+      </template>
+    </PageHeader>
     <div class="space-y-6 p-4">
       <!-- 顶部数据卡片区域，使用 Grid 布局 -->
       <div class="grid grid-cols-1 gap-6 md:grid-cols-4">
@@ -116,6 +123,7 @@
 
 <script setup lang="ts">
 import PageFrame from "@/components/PageFrame.vue";
+import PageHeader from "@/components/PageHeader.vue";
 import { computed, ref } from "vue";
 import type { PrimaryTableCol } from "tdesign-vue-next";
 import { PermissionConstant } from "@/constant/PermissionConstant";

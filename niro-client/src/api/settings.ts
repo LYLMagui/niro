@@ -4,7 +4,9 @@ export interface UserPlatformSettings {
   id?: number;
   userId?: number;
   paymentMethod: "BALANCE" | "ALIPAY" | "WECHAT";
-  c5AppKey?: string;
+  encryptedC5AppKey?: string;
+  c5AppKeyMasked?: string;
+  hasC5AppKey?: boolean;
   steamTradeUrl?: string;
   wecomCorpid?: string;
   wecomCorpsecret?: string;
@@ -16,6 +18,11 @@ export interface UserPlatformSettings {
   emailAccount?: string;
   emailPassword?: string;
   emailReceiver?: string;
+}
+
+export interface AppKeyPublicKeyResult {
+  algorithm: "RSA-OAEP-256";
+  publicKey: string;
 }
 
 export type BuffAccountRole = "SCAN" | "TRADE" | "BOTH";
@@ -59,6 +66,10 @@ export const settingsApi = {
   // 获取配置
   getSettings() {
     return request.get<UserPlatformSettings>("/settings");
+  },
+
+  getAppKeyPublicKey() {
+    return request.get<AppKeyPublicKeyResult>("/settings/app-key/public-key");
   },
 
   // 保存配置

@@ -5,12 +5,22 @@
     desktop-content-class="px-4 pt-0 pb-0"
     mobile-content-class="px-3 pt-3 pb-3"
   >
+    <PageHeader title="商品管理">
+      <template #icon>
+        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+        </svg>
+      </template>
+      <template #extra>
+        <div class="flex flex-col items-end">
+          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">商品总数</span>
+          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">款</small></span>
+        </div>
+      </template>
+    </PageHeader>
+
     <section class="overflow-hidden bg-white">
       <div class="flex flex-col gap-3 px-0 py-4">
-        <div class="flex items-center">
-          <t-icon name="shop" class="mr-2 text-blue-600" />
-          <span class="text-lg font-bold text-gray-800">商品列表</span>
-        </div>
         <div class="grid grid-cols-1 gap-4 xl:grid-cols-4 xl:items-end">
           <label class="flex flex-col gap-1.5">
             <span class="text-sm font-medium text-slate-700">商品名称</span>
@@ -237,6 +247,7 @@ import {
   ShopIcon,
 } from "tdesign-icons-vue-next";
 import type { PageInfo, PrimaryTableCol } from "tdesign-vue-next";
+import PageHeader from "@/components/PageHeader.vue";
 import { MessagePlugin } from "tdesign-vue-next";
 import { computed, reactive, ref, watch } from "vue";
 import { debounce } from "lodash-es";
