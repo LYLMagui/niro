@@ -3,6 +3,7 @@ services:
   mysql:
     image: mysql:${MYSQL_VERSION:-8.4}
     container_name: xxl-job-mysql
+    restart: always
     env_file:
       - .env
     environment:
@@ -36,6 +37,7 @@ services:
     #image: xuxueli/xxl-job-admin:{version}
     image: xuxueli/xxl-job-admin:${XXL_JOB_ADMIN_VERSION:-3.3.2}
     container_name: xxl-job-admin
+    restart: always
     env_file:
       - .env
     environment:

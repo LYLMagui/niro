@@ -3,6 +3,7 @@ services:
   namesrv:
     image: apache/rocketmq:5.4.0
     container_name: rmqnamesrv
+    restart: always
     ports:
       - 9876:9876
     # 挂载日志，方便宿主机直接看日志排查
@@ -26,6 +27,7 @@ services:
   broker:
     image: apache/rocketmq:5.4.0
     container_name: rmqbroker
+    restart: always
     # Docker 内存硬限制（防容器爆内存）
     mem_limit: 768m
     ports:
@@ -87,6 +89,7 @@ services:
   dashboard:
     image: apacherocketmq/rocketmq-dashboard:latest
     container_name: rmqdashboard
+    restart: always
     ports:
       - 18080:8082
     environment:
