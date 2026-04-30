@@ -1,4 +1,4 @@
-serverAddr = "119.29.200.243"
+serverAddr = "106.53.11.158"
 serverPort = 7000
 auth.token = "niro_frp_token_2024"
 
@@ -7,4 +7,4 @@ name = "niro-xxl-job-executor"
 type = "tcp"
 localIP = "127.0.0.1"
 localPort = 9999
-remotePort = 9999
+remotePort = 19999
