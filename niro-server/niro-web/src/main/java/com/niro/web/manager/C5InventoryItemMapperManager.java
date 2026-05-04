@@ -41,12 +41,9 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
                         .or()
                         .like(C5InventoryItem::getMarketHashName, keyword))
                 .eq("tradable".equals(status), C5InventoryItem::getInventoryStatus, "IN_STOCK")
-                .eq("tradable".equals(status), C5InventoryItem::getIfTradable, true)
+                .eq("tradable".equals(status), C5InventoryItem::getC5Status, 0)
                 .eq("cooldown".equals(status), C5InventoryItem::getInventoryStatus, "IN_STOCK")
-                .and("cooldown".equals(status), wrapper -> wrapper
-                        .eq(C5InventoryItem::getIfTradable, false)
-                        .isNotNull(C5InventoryItem::getTradableTime)
-                        .ne(C5InventoryItem::getTradableTime, ""))
+                .eq("cooldown".equals(status), C5InventoryItem::getC5Status, 4)
                 .eq("selling".equals(status), C5InventoryItem::getInventoryStatus, "LISTING")
                 .count();
     }
@@ -102,6 +99,7 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
                 .eq(C5InventoryItem::getUserId, userId)
                 .eq(C5InventoryItem::getAccountId, accountId)
                 .eq(C5InventoryItem::getInventoryStatus, "IN_STOCK")
+                .eq(C5InventoryItem::getC5Status, 0)
                 .eq(StrUtil.isNotBlank(groupName), StrUtil.isNotBlank(marketHashName) ? C5InventoryItem::getMarketHashName : C5InventoryItem::getName, groupName)
                 .and(StrUtil.isBlank(exteriorName), wrapper -> wrapper
                         .isNull(C5InventoryItem::getExteriorName)
@@ -173,12 +171,9 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
                         .or()
                         .like(C5InventoryItem::getMarketHashName, keyword))
                 .eq("tradable".equals(status), C5InventoryItem::getInventoryStatus, "IN_STOCK")
-                .eq("tradable".equals(status), C5InventoryItem::getIfTradable, true)
+                .eq("tradable".equals(status), C5InventoryItem::getC5Status, 0)
                 .eq("cooldown".equals(status), C5InventoryItem::getInventoryStatus, "IN_STOCK")
-                .and("cooldown".equals(status), wrapper -> wrapper
-                        .eq(C5InventoryItem::getIfTradable, false)
-                        .isNotNull(C5InventoryItem::getTradableTime)
-                        .ne(C5InventoryItem::getTradableTime, ""))
+                .eq("cooldown".equals(status), C5InventoryItem::getC5Status, 4)
                 .eq("selling".equals(status), C5InventoryItem::getInventoryStatus, "LISTING")
                 .orderByDesc(C5InventoryItem::getLastSyncTime)
                 .orderByDesc(C5InventoryItem::getUpdateTime)
@@ -205,7 +200,7 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
     }
 
     /**
-     * 将账号下本次未返回的在库快照标记为已移除。
+     * 将账号下本次未返回的活跃库存快照标记为已移除。
      *
      * @param accountId 账号 ID
      * @param returnedAssetIds 本次返回的资产 ID 集合
@@ -215,7 +210,7 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
     public long markMissingInStockRemoved(Long accountId, Collection<String> returnedAssetIds, LocalDateTime syncTime) {
         long pendingRemoveCount = this.lambdaQuery()
                 .eq(C5InventoryItem::getAccountId, accountId)
-                .eq(C5InventoryItem::getInventoryStatus, "IN_STOCK")
+                .in(C5InventoryItem::getInventoryStatus, "IN_STOCK", "LISTING")
                 .notIn(returnedAssetIds != null && !returnedAssetIds.isEmpty(), C5InventoryItem::getAssetId, returnedAssetIds)
                 .count();
         if (pendingRemoveCount <= 0) {
@@ -224,7 +219,7 @@ public class C5InventoryItemMapperManager extends ServiceImpl<C5InventoryItemMap
 
         this.lambdaUpdate()
                 .eq(C5InventoryItem::getAccountId, accountId)
-                .eq(C5InventoryItem::getInventoryStatus, "IN_STOCK")
+                .in(C5InventoryItem::getInventoryStatus, "IN_STOCK", "LISTING")
                 .notIn(returnedAssetIds != null && !returnedAssetIds.isEmpty(), C5InventoryItem::getAssetId, returnedAssetIds)
                 .set(C5InventoryItem::getInventoryStatus, "REMOVED")
                 .set(C5InventoryItem::getLastSyncTime, syncTime)

@@ -120,6 +120,20 @@ public class C5InventoryController {
         return c5InventoryService.listMarketReferences(param);
     }
 
+
+    /**
+     * 刷新 C5 同平台在售参考。
+     *
+     * @param param 查询参数
+     * @return 在售参考分页
+     */
+    @PostMapping("/market-references/refresh")
+    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @Operation(summary = "刷新C5同平台在售参考")
+    public C5InventoryMarketReferencePageDTO refreshMarketReferences(@RequestBody @Valid C5InventoryMarketReferenceParam param) {
+        return c5InventoryService.refreshMarketReferences(param);
+    }
+
     /**
      * 计算 C5 库存上架手续费。
      *

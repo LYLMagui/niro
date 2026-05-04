@@ -31,10 +31,10 @@ public interface C5InventoryItemMapper extends BaseMapper<C5InventoryItem> {
                     and (name like concat('%', #{query.keyword}, '%') or market_hash_name like concat('%', #{query.keyword}, '%'))
                   </if>
                   <if test='query.status == "tradable"'>
-                    and inventory_status = 'IN_STOCK' and if_tradable = true
+                    and inventory_status = 'IN_STOCK' and c5_status = 0
                   </if>
                   <if test='query.status == "cooldown"'>
-                    and inventory_status = 'IN_STOCK' and if_tradable = false and tradable_time is not null and tradable_time != ''
+                    and inventory_status = 'IN_STOCK' and c5_status = 4
                   </if>
                   <if test='query.status == "selling"'>
                     and inventory_status = 'LISTING'
@@ -62,10 +62,10 @@ public interface C5InventoryItemMapper extends BaseMapper<C5InventoryItem> {
                     and (name like concat('%', #{query.keyword}, '%') or market_hash_name like concat('%', #{query.keyword}, '%'))
                   </if>
                   <if test='query.status == "tradable"'>
-                    and inventory_status = 'IN_STOCK' and if_tradable = true
+                    and inventory_status = 'IN_STOCK' and c5_status = 0
                   </if>
                   <if test='query.status == "cooldown"'>
-                    and inventory_status = 'IN_STOCK' and if_tradable = false and tradable_time is not null and tradable_time != ''
+                    and inventory_status = 'IN_STOCK' and c5_status = 4
                   </if>
                   <if test='query.status == "selling"'>
                     and inventory_status = 'LISTING'

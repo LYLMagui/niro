@@ -47,4 +47,19 @@ public final class MqConstant {
      */
     public static final String CONSUMER_GROUP_C5_ORDER_STATUS_SYNC = "niro-c5-order-status-sync-consumer";
 
+    /**
+     * C5 市场价格快照 Topic
+     */
+    public static final String TOPIC_C5_MARKET_PRICE_SNAPSHOT = "niro-c5-market-price-snapshot";
+
+    /**
+     * C5 市场价格快照刷新 Tag
+     */
+    public static final String TAG_C5_MARKET_PRICE_SNAPSHOT_REFRESH = "market-price-snapshot-refresh";
+
+    /**
+     * C5 市场价格快照刷新消费者组
+     */
+    public static final String CONSUMER_GROUP_C5_MARKET_PRICE_SNAPSHOT_REFRESH = "niro-c5-market-price-snapshot-refresh-consumer";
+
 }

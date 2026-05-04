@@ -222,6 +222,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
                 taskManager.clearLeaseByOwner(task.getId(), leaseOwner);
                 return;
             }
+            runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "STALE_RUNNING_RUN", "启动前清理遗留运行记录");
             run = runManager.createRun(task.getId());
             boolean marked = taskManager.markRunning(task.getId(), run.getId(), leaseOwner, LocalDateTime.now(), LocalDateTime.now().plusSeconds(LEASE_TTL_SECONDS));
             if (!marked) {

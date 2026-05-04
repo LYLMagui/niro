@@ -40,7 +40,8 @@ niro:
 
 c5:
   base-url: https://openapi.c5game.com
-
+  market-price:
+    system-app-key: ${C5_MARKET_PRICE_SYSTEM_APP_KEY:-}
 # XXL-JOB 任务调度配置
 xxl:
   job:

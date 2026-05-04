@@ -70,6 +70,15 @@ public interface C5InventoryService {
      */
     C5InventoryMarketReferencePageDTO listMarketReferences(C5InventoryMarketReferenceParam param);
 
+
+    /**
+     * 刷新 C5 同平台在售参考。
+     *
+     * @param param 查询参数
+     * @return 在售参考分页
+     */
+    C5InventoryMarketReferencePageDTO refreshMarketReferences(C5InventoryMarketReferenceParam param);
+
     /**
      * 计算 C5 上架手续费。
      *

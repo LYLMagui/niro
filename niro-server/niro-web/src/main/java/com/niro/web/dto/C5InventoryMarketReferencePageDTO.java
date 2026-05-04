@@ -3,6 +3,7 @@ package com.niro.web.dto;
 import lombok.Data;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -40,4 +41,24 @@ public class C5InventoryMarketReferencePageDTO {
      * 实际查询最大磨损。
      */
     private BigDecimal wearMax;
+
+    /**
+     * 快照状态。
+     */
+    private String snapshotStatus;
+
+    /**
+     * 最近成功刷新时间。
+     */
+    private LocalDateTime lastSuccessTime;
+
+    /**
+     * 是否已超过刷新周期。
+     */
+    private Boolean stale;
+
+    /**
+     * 快照提示文案。
+     */
+    private String message;
 }

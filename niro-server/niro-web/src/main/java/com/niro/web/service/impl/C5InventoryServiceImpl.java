@@ -27,6 +27,10 @@ import com.niro.web.dto.C5InventoryMarketReferencePageDTO;
 import com.niro.web.dto.C5InventoryPageDTO;
 import com.niro.web.dto.C5InventoryRefreshResultDTO;
 import com.niro.web.dto.C5InventoryStatsDTO;
+import com.niro.web.dto.C5MarketPriceSnapshotListingDTO;
+import com.niro.web.dto.C5MarketPriceSnapshotReferenceDTO;
+import com.niro.web.dto.param.C5MarketPriceSnapshotReferenceParam;
+import com.niro.web.dto.param.C5MarketPriceSnapshotRefreshRequestParam;
 import com.niro.web.dto.param.C5InventoryItemListParam;
 import com.niro.web.dto.param.C5InventoryListingCreateItemParam;
 import com.niro.web.dto.param.C5InventoryListingCreateParam;
@@ -41,6 +45,7 @@ import com.niro.web.manager.C5InventoryItemMapperManager;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5InventoryService;
+import com.niro.web.service.C5MarketPriceSnapshotService;
 import com.niro.web.service.C5SnipingAccountService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -76,11 +81,14 @@ public class C5InventoryServiceImpl implements C5InventoryService {
     private static final String STATUS_IN_STOCK = "IN_STOCK";
     private static final String STATUS_REMOVED = "REMOVED";
     private static final String STATUS_LISTING = "LISTING";
+    private static final int C5_STATUS_NORMAL = 0;
+    private static final int C5_STATUS_LISTING = 1;
 
     private final C5SnipingAccountMapperManager accountManager;
     private final C5InventoryItemMapperManager inventoryItemManager;
     private final C5ApiClientService c5ApiClientService;
     private final C5SnipingAccountService c5SnipingAccountService;
+    private final C5MarketPriceSnapshotService marketPriceSnapshotService;
 
     /**
      * 刷新当前用户指定账号的 C5 库存快照。
@@ -267,58 +275,67 @@ public class C5InventoryServiceImpl implements C5InventoryService {
     @Override
     public C5InventoryMarketReferencePageDTO listMarketReferences(C5InventoryMarketReferenceParam param) {
         Assert.notNull(param, "参考价查询参数不能为空");
-        Assert.notNull(param.getAccountId(), "账号ID不能为空");
-        Assert.notBlank(param.getMarketHashName(), "marketHashName不能为空");
+        C5MarketPriceSnapshotReferenceParam snapshotParam = new C5MarketPriceSnapshotReferenceParam();
+        snapshotParam.setMarketHashName(param.getMarketHashName());
+        snapshotParam.setRangeType(param.getWear() == null && param.getWearMin() == null && param.getWearMax() == null ? "ALL" : "WEAR");
+        snapshotParam.setWear(param.getWear());
+        snapshotParam.setWearMin(param.getWearMin());
+        snapshotParam.setWearMax(param.getWearMax());
+        snapshotParam.setCurrentWear(param.getWear());
+        snapshotParam.setDisplayMode("PRICE_LOWEST");
+        snapshotParam.setPageNum(param.getPageNum());
+        snapshotParam.setLimit(param.getPageSize());
 
-        Long userId = StpUtil.getLoginIdAsLong();
-        C5SnipingAccount account = accountManager.getByUserIdAndId(userId, param.getAccountId());
-        Assert.notNull(account, "账号不存在");
-        Assert.notBlank(account.getC5AppKeyEncrypted(), "账号 C5 AppKey 不能为空");
-
-        BigDecimal wearMin = resolveWearMin(param);
-        BigDecimal wearMax = resolveWearMax(param);
-        validateWearRange(wearMin, wearMax);
-
-        Integer pageNum = normalizeReferencePage(param.getPageNum());
-        Integer pageSize = normalizeReferencePageSize(param.getPageSize());
-        C5ProductListResponse response;
-        if (wearMin == null && wearMax == null) {
-            C5ProductListRequest request = new C5ProductListRequest()
-                    .setAppId(Integer.valueOf(APP_ID_CS2))
-                    .setMarketHashName(StrUtil.trim(param.getMarketHashName()))
-                    .setPageNum(pageNum)
-                    .setPageSize(pageSize);
-            response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
-                    .getMarket()
-                    .searchProductList(request);
-        } else {
-            C5ProductSearchRequest request = new C5ProductSearchRequest()
-                    .setAppId(Integer.valueOf(APP_ID_CS2))
-                    .setMarketHashName(StrUtil.trim(param.getMarketHashName()))
-                    .setWearMin(wearMin == null ? null : wearMin.doubleValue())
-                    .setWearMax(wearMax == null ? null : wearMax.doubleValue())
-                    .setPageNum(pageNum)
-                    .setPageSize(pageSize);
-            response = c5ApiClientService.getClientByAppKey(c5SnipingAccountService.decryptAccountAppKey(account))
-                    .getMarket()
-                    .productSearch(request);
-        }
-
-        List<C5ProductListResponse.ProductDTO> products = response == null || response.getList() == null
-                ? List.of()
-                : response.getList();
+        C5MarketPriceSnapshotReferenceDTO snapshot = marketPriceSnapshotService.getReference(snapshotParam);
         C5InventoryMarketReferencePageDTO dto = new C5InventoryMarketReferencePageDTO();
-        dto.setRecords(products.stream()
-                .filter(product -> isWithinWearRange(product, wearMin, wearMax))
-                .map(product -> toMarketReferenceDTO(product, param.getMarketHashName()))
-                .sorted(Comparator.comparing(C5InventoryMarketReferenceDTO::getPrice, Comparator.nullsLast(BigDecimal::compareTo))
-                        .thenComparing(C5InventoryMarketReferenceDTO::getWear, Comparator.nullsLast(BigDecimal::compareTo)))
+        dto.setRecords(snapshot.getRecords().stream()
+                .map(this::toInventoryMarketReferenceDTO)
                 .collect(Collectors.toList()));
-        dto.setPageNum(response != null && response.getPageNum() != null ? response.getPageNum() : pageNum);
-        dto.setPageSize(response != null && response.getPageSize() != null ? response.getPageSize() : pageSize);
-        dto.setHasMore(response != null && Boolean.TRUE.equals(response.getHasMore()));
-        dto.setWearMin(wearMin);
-        dto.setWearMax(wearMax);
+        dto.setPageNum(snapshot.getPageNum());
+        dto.setPageSize(snapshot.getPageSize());
+        dto.setHasMore(snapshot.getHasMore());
+        dto.setWearMin(snapshot.getNormalizedWearMin());
+        dto.setWearMax(snapshot.getNormalizedWearMax());
+        dto.setSnapshotStatus(snapshot.getSnapshotStatus());
+        dto.setLastSuccessTime(snapshot.getLastSuccessTime());
+        dto.setStale(snapshot.getStale());
+        dto.setMessage(snapshot.getMessage());
+        return dto;
+    }
+
+
+    /**
+     * 刷新 C5 同平台在售参考。
+     *
+     * @param param 查询参数
+     * @return 在售参考分页
+     */
+    @Override
+    public C5InventoryMarketReferencePageDTO refreshMarketReferences(C5InventoryMarketReferenceParam param) {
+        Assert.notNull(param, "参考价刷新参数不能为空");
+        C5MarketPriceSnapshotRefreshRequestParam refreshParam = new C5MarketPriceSnapshotRefreshRequestParam();
+        refreshParam.setMarketHashName(param.getMarketHashName());
+        refreshParam.setRangeType(param.getWear() == null && param.getWearMin() == null && param.getWearMax() == null ? "ALL" : "WEAR");
+        refreshParam.setWear(param.getWear());
+        refreshParam.setWearMin(param.getWearMin());
+        refreshParam.setWearMax(param.getWearMax());
+        refreshParam.setPageNum(param.getPageNum());
+        refreshParam.setLimit(param.getPageSize());
+
+        C5MarketPriceSnapshotReferenceDTO snapshot = marketPriceSnapshotService.requestRefresh(refreshParam);
+        C5InventoryMarketReferencePageDTO dto = new C5InventoryMarketReferencePageDTO();
+        dto.setRecords(snapshot.getRecords().stream()
+                .map(this::toInventoryMarketReferenceDTO)
+                .collect(Collectors.toList()));
+        dto.setPageNum(snapshot.getPageNum());
+        dto.setPageSize(snapshot.getPageSize());
+        dto.setHasMore(snapshot.getHasMore());
+        dto.setWearMin(snapshot.getNormalizedWearMin());
+        dto.setWearMax(snapshot.getNormalizedWearMax());
+        dto.setSnapshotStatus(snapshot.getSnapshotStatus());
+        dto.setLastSuccessTime(snapshot.getLastSuccessTime());
+        dto.setStale(snapshot.getStale());
+        dto.setMessage(snapshot.getMessage());
         return dto;
     }
 
@@ -406,6 +423,7 @@ public class C5InventoryServiceImpl implements C5InventoryService {
 
     private C5ListingFeeCalculateRequest.CalculateItem buildListingFeeCalculateItem(C5InventoryItem inventoryItem, C5InventoryListingCreateItemParam param) {
         Assert.isTrue(STATUS_IN_STOCK.equals(inventoryItem.getInventoryStatus()), "库存明细不是在库状态");
+        Assert.isTrue(inventoryItem.getC5Status() != null && inventoryItem.getC5Status() == C5_STATUS_NORMAL, "库存明细不是可上架状态");
         Assert.notBlank(inventoryItem.getToken(), "库存明细缺少 C5 token");
         Assert.notBlank(inventoryItem.getStyleToken(), "库存明细缺少 C5 styleToken");
         return new C5ListingFeeCalculateRequest.CalculateItem()
@@ -535,6 +553,10 @@ public class C5InventoryServiceImpl implements C5InventoryService {
         return new UpsertStat(addedCount, updatedCount, itemMap.keySet());
     }
 
+    private String resolveInventoryStatus(Integer c5Status) {
+        return c5Status != null && c5Status == C5_STATUS_LISTING ? STATUS_LISTING : STATUS_IN_STOCK;
+    }
+
     /**
      * 将 C5 返回字段填充到库存实体。
      *
@@ -547,7 +569,7 @@ public class C5InventoryServiceImpl implements C5InventoryService {
                                    C5InventoryResponse.InventoryItem c5Item, LocalDateTime syncTime) {
         inventoryItem.setSteamId(StrUtil.blankToDefault(c5Item.getSteamId(), account.getSteamId()));
         inventoryItem.setAppId(c5Item.getAppId() == null ? Integer.valueOf(APP_ID_CS2) : c5Item.getAppId());
-        inventoryItem.setInventoryStatus(STATUS_IN_STOCK);
+        inventoryItem.setInventoryStatus(resolveInventoryStatus(c5Item.getStatus()));
         inventoryItem.setLastSyncTime(syncTime);
         inventoryItem.setToken(c5Item.getToken());
         inventoryItem.setStyleToken(c5Item.getStyleToken());
@@ -677,6 +699,26 @@ public class C5InventoryServiceImpl implements C5InventoryService {
     }
 
     /**
+     * 转换库存参考 DTO。
+     *
+     * @param listing 快照挂单
+     * @return 库存参考 DTO
+     */
+    private C5InventoryMarketReferenceDTO toInventoryMarketReferenceDTO(C5MarketPriceSnapshotListingDTO listing) {
+        C5InventoryMarketReferenceDTO dto = new C5InventoryMarketReferenceDTO();
+        dto.setProductId(listing.getProductId());
+        dto.setPrice(listing.getPrice());
+        dto.setDelivery(listing.getDelivery());
+        dto.setAcceptBargain(listing.getAcceptBargain());
+        dto.setImageUrl(listing.getImageUrl());
+        dto.setSellerUid(listing.getSellerUid());
+        dto.setAssetId(listing.getAssetId());
+        dto.setWear(listing.getWear());
+        dto.setMarketHashName(listing.getMarketHashName());
+        return dto;
+    }
+
+    /**
      * 判断挂单磨损是否落在查询区间。
      *
      * @param product C5 在售商品
@@ -723,6 +765,7 @@ public class C5InventoryServiceImpl implements C5InventoryService {
                                                                          C5InventoryListingCreateItemParam priceParam,
                                                                          C5InventoryListingCreateParam param) {
         Assert.isTrue(STATUS_IN_STOCK.equals(item.getInventoryStatus()), "库存明细不是在库状态");
+        Assert.isTrue(item.getC5Status() != null && item.getC5Status() == C5_STATUS_NORMAL, "库存明细不是可上架状态");
         Assert.notBlank(item.getToken(), "库存明细缺少 C5 token");
         Assert.notBlank(item.getStyleToken(), "库存明细缺少 C5 styleToken");
         Assert.notNull(priceParam, "上架价格参数不能为空");

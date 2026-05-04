@@ -5,28 +5,27 @@ import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.niro.core.util.Assert;
-import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.model.C5AssetInfo;
-import com.niro.sdk.c5.request.market.C5ProductListRequest;
-import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
-import com.niro.sdk.c5.response.market.C5ProductListResponse;
+import com.niro.web.dto.C5MarketPriceSnapshotListingDTO;
+import com.niro.web.dto.C5MarketPriceSnapshotReferenceDTO;
 import com.niro.web.dto.UnboxRecordC5ListingPageDTO;
 import com.niro.web.dto.UnboxRecordC5ListingVO;
 import com.niro.web.dto.UnboxRecordDTO;
 import com.niro.web.dto.UnboxRecordItemDTO;
 import com.niro.web.dto.UnboxRecordPageDTO;
 import com.niro.web.dto.UnboxRecordSummaryDTO;
+import com.niro.web.dto.param.C5MarketPriceSnapshotReferenceParam;
 import com.niro.web.dto.param.UnboxRecordC5ListingQueryParam;
 import com.niro.web.dto.param.UnboxRecordItemParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
 import com.niro.web.entity.Cs2Goods;
 import com.niro.web.entity.UnboxRecord;
 import com.niro.web.entity.UnboxRecordItem;
+import com.niro.web.enums.C5MarketPriceSnapshotDisplayModeEnum;
 import com.niro.web.enums.UnboxHandlingStatusEnum;
 import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.manager.UnboxRecordItemMapperManager;
 import com.niro.web.manager.UnboxRecordMapperManager;
-import com.niro.web.service.C5ApiClientService;
+import com.niro.web.service.C5MarketPriceSnapshotService;
 import com.niro.web.service.UnboxRecordService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -50,14 +49,13 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
     private final UnboxRecordMapperManager unboxRecordMapperManager;
     private static final BigDecimal HUNDRED = new BigDecimal("100");
     private static final BigDecimal FEE_RATE = new BigDecimal("0.01");
-    private static final int C5_APP_ID = 730;
     private static final String STATUS_UNSETTLED = "未结算";
     private static final String STATUS_PARTIAL = "部分结算";
     private static final String STATUS_SETTLED = "已结算";
 
     private final UnboxRecordItemMapperManager unboxRecordItemMapperManager;
     private final Cs2GoodsMapperManager cs2GoodsMapperManager;
-    private final C5ApiClientService c5ApiClientService;
+    private final C5MarketPriceSnapshotService marketPriceSnapshotService;
 
     @Override
     public Page<UnboxRecordPageDTO> page(Long userId, Integer page, Integer pageSize, LocalDate startDate, LocalDate endDate) {
@@ -135,19 +133,26 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         String marketHashName = StrUtil.trim(goods.getMarketHashName());
         Assert.notBlank(marketHashName, "未找到对应饰品的 marketHashName");
 
-        C5ApiClient client = c5ApiClientService.getClient(userId);
-        C5ProductListResponse response = searchC5Products(client, marketHashName, param);
-        List<C5ProductListResponse.ProductDTO> products = response == null || CollUtil.isEmpty(response.getList())
-                ? List.of()
-                : response.getList();
+        C5MarketPriceSnapshotReferenceParam referenceParam = new C5MarketPriceSnapshotReferenceParam();
+        referenceParam.setMarketHashName(marketHashName);
+        referenceParam.setWearMin(param.getWearMin());
+        referenceParam.setWearMax(param.getWearMax());
+        referenceParam.setCurrentWear(resolveCurrentWear(param));
+        referenceParam.setDisplayMode(C5MarketPriceSnapshotDisplayModeEnum.WEAR_NEAREST.name());
+        referenceParam.setLimit(5);
+        C5MarketPriceSnapshotReferenceDTO reference = marketPriceSnapshotService.getReference(referenceParam);
 
         UnboxRecordC5ListingPageDTO dto = new UnboxRecordC5ListingPageDTO();
-        dto.setRecords(products.stream()
-                .map(product -> toC5ListingVO(product, goods))
+        dto.setRecords(reference.getRecords().stream()
+                .map(listing -> toC5ListingVO(listing, goods))
                 .toList());
-        dto.setPageNum(response != null && response.getPageNum() != null ? response.getPageNum() : param.getPageNum());
-        dto.setPageSize(response != null && response.getPageSize() != null ? response.getPageSize() : param.getPageSize());
-        dto.setHasMore(response != null && Boolean.TRUE.equals(response.getHasMore()));
+        dto.setPageNum(1);
+        dto.setPageSize(5);
+        dto.setHasMore(Boolean.TRUE.equals(reference.getHasMore()));
+        dto.setSnapshotStatus(reference.getSnapshotStatus());
+        dto.setLastSuccessTime(reference.getLastSuccessTime());
+        dto.setStale(reference.getStale());
+        dto.setMessage(reference.getMessage());
         return dto;
     }
 
@@ -212,24 +217,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         return goods;
     }
 
-    private C5ProductListResponse searchC5Products(C5ApiClient client, String marketHashName, UnboxRecordC5ListingQueryParam param) {
-        if (param.getWearMin() == null && param.getWearMax() == null) {
-            C5ProductListRequest req = new C5ProductListRequest()
-                    .setAppId(C5_APP_ID)
-                    .setMarketHashName(marketHashName)
-                    .setPageNum(param.getPageNum())
-                    .setPageSize(param.getPageSize());
-            return client.getMarket().searchProductList(req);
-        }
-        C5ProductSearchRequest req = new C5ProductSearchRequest()
-                .setAppId(C5_APP_ID)
-                .setMarketHashName(marketHashName)
-                .setWearMin(param.getWearMin() == null ? null : param.getWearMin().doubleValue())
-                .setWearMax(param.getWearMax() == null ? null : param.getWearMax().doubleValue())
-                .setPageNum(param.getPageNum())
-                .setPageSize(param.getPageSize());
-        return client.getMarket().productSearch(req);
-    }
+    
 
     private void validateWearRange(BigDecimal wearMin, BigDecimal wearMax) {
         boolean hasWearMin = wearMin != null;
@@ -241,30 +229,30 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         Assert.isTrue(wearMin.compareTo(wearMax) < 0, "磨损区间最小值必须小于最大值");
     }
 
-    private UnboxRecordC5ListingVO toC5ListingVO(C5ProductListResponse.ProductDTO product, Cs2Goods goods) {
+    
+
+    private UnboxRecordC5ListingVO toC5ListingVO(C5MarketPriceSnapshotListingDTO listing, Cs2Goods goods) {
         UnboxRecordC5ListingVO vo = new UnboxRecordC5ListingVO();
-        vo.setProductId(product.getProductId());
-        vo.setPrice(product.getPrice());
-        vo.setSellerUid(product.getSellerUid());
-        vo.setSellerName(StrUtil.blankToDefault(product.getSellerUid(), "卖家未知"));
-        vo.setWear(extractWear(product.getAssetInfo()));
-        vo.setDelivery(product.getDelivery());
-        vo.setImageUrl(StrUtil.blankToDefault(product.getImg(), goods.getImageUrl()));
+        vo.setProductId(listing.getProductId());
+        vo.setPrice(listing.getPrice());
+        vo.setSellerUid(listing.getSellerUid());
+        vo.setSellerName(StrUtil.blankToDefault(listing.getSellerUid(), "卖家未知"));
+        vo.setWear(listing.getWear());
+        vo.setDelivery(listing.getDelivery());
+        vo.setImageUrl(StrUtil.blankToDefault(listing.getImageUrl(), goods.getImageUrl()));
         vo.setMarketHashName(goods.getMarketHashName());
         vo.setItemName(StrUtil.blankToDefault(goods.getDisplayName(), goods.getMarketHashName()));
         return vo;
     }
 
-    private BigDecimal extractWear(C5AssetInfo assetInfo) {
-        if (assetInfo == null) {
+    private BigDecimal resolveCurrentWear(UnboxRecordC5ListingQueryParam param) {
+        if (param.getWearMin() == null || param.getWearMax() == null) {
             return null;
         }
-        Double wear = assetInfo.getWear() != null ? assetInfo.getWear() : assetInfo.getFloatWear();
-        if (wear == null || !Double.isFinite(wear)) {
-            return null;
-        }
-        return BigDecimal.valueOf(wear);
+        return param.getWearMin().add(param.getWearMax()).divide(BigDecimal.valueOf(2), 8, RoundingMode.HALF_UP);
     }
+
+    
 
     private void validateItems(List<UnboxRecordItemParam> items) {
         if (CollUtil.isEmpty(items)) {
