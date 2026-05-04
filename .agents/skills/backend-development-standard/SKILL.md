@@ -1,8 +1,13 @@
 ---
 name: backend-development-standard
-description: 当用户要求新增、修改、重构、规范化、沉淀或审查后端接口、业务链路、分层结构、DTO/VO/Param/Entity、持久层访问方式或后端开发流程时使用。本技能先识别当前项目的后端技术栈、既有分层和编码规范；若已存在 references/project-backend-standard.md 则优先按该规范执行，否则先从当前项目代码中归纳并生成项目规范，再按该规范落地实现。
-tags: [backend, architecture, standards, api]
-platforms: [Claude]
+description: >
+  识别当前项目的后端技术栈、分层结构、返回模型、DTO/VO/Param/Entity 边界和持久层访问方式，
+  并按项目既有规范新增、修改、重构、审查或沉淀后端代码。Use when 用户要求新增、修改、
+  重构、规范化、沉淀或审查后端接口、业务链路、Controller、Service、Mapper/DAO、Entity、
+  DTO、VO、Param、事务、鉴权、校验、分页或后端开发流程。
+metadata:
+  tags: backend, architecture, standards, api
+  platforms: Claude
 ---
 
 # Backend Development Standard

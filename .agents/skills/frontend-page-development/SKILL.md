@@ -1,6 +1,11 @@
 ---
 name: frontend-page-development
-description: 当用户要求修改前端页面、重构布局、优化 UI、补表单/表格/弹窗、实现响应式适配，或改造 Vue 页面时使用。这是前端页面开发与界面改造的默认技能。
+description: >
+  指导前端页面、Vue 视图、布局结构、UI 组件、表单、表格、弹窗、抽屉、详情页、列表页和响应式适配的设计、实现、改造与审查。
+  Use when 用户要求修改前端页面、重构布局、优化 UI、补交互组件、改造 Vue 页面、调整样式、实现响应式适配，或让 AI 处理页面结构、样式、组件和交互。
+metadata:
+  tags: frontend, ui, vue, page-development
+  platforms: Claude
 ---
 
 # Frontend Page Development
@@ -21,14 +26,14 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 
 [//]: # (- `web-design-guidelines`)
 
-如果本地没有安装，先用 `find-skills` 搜索并安装到项目内，再继续。
+如果任务确实需要对应能力且本地没有安装，再用 `find-skills` 搜索并安装到项目内。
 
 ### TDesign 可插拔依赖
 
 `tdesign-mcp-server` 不是强制前提，而是一个可插拔能力：
 
 - 如果当前项目**没有使用 TDesign UI 组件**，忽略这条，不要强行查文档或配置 MCP。
-- 如果当前项目**使用了 TDesign**，且`tdesign-mcp-server`中获取不到组件的API和使用方式时，必须通过 `markdown-proxy` skill 获取官方文档：
+- 如果当前项目**使用了 TDesign**，且无法从 `tdesign-mcp-server` 获取组件 API 或使用方式时，必须通过 `markdown-proxy` skill 获取官方文档：
   `https://tdesign.tencent.com/vue-next/getting-started`
 - 同时检查 `tdesign-mcp-server` 是否已配置；如果没有配置，再按当前客户端把它补到项目的 MCP 配置里。
 - 使用 TDesign 相关组件时，优先参考官方文档和 MCP 输出，不凭印象猜 API。
@@ -156,7 +161,7 @@ description: 当用户要求修改前端页面、重构布局、优化 UI、补�
 
 1. 优先把 skill 定位成本仓库的前端页面开发总控，而不是单纯视觉设计 skill。
 2. description 只写触发条件，不把工作流和依赖 skill 塞进 frontmatter。
-3. 前置依赖必须先确认安装；缺失时用 `find-skills` 补齐后再继续。
+3. 前置依赖先确认安装；只有任务确实需要对应能力且缺失时，才用 `find-skills` 补齐。
 4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断，必须优先使用`tailwind-design-system`编写css，如果无法实现再使用传统的css。
 
 [//]: # (5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。)

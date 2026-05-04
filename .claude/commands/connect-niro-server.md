@@ -1,26 +1,29 @@
 ---
-description: 连接 Niro 远程服务器并查看测试环境状态
-argument-hint: "[extra-remote-command]"
+description: 连接 Niro 远程服务器并查看指定环境状态
+argument-hint: "<test|prod> [extra-remote-command]"
 ---
 
 # Connect Niro Server
 
-连接 Niro 远程服务器 `root@106.53.11.158`，默认使用本机私钥 `~/.ssh/niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前测试环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
+连接 Niro 远程服务器，按用户指定连接测试环境 `root@106.53.11.158` 或生产环境 `root@119.29.200.243`，默认使用本机私钥 `~/.ssh/niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前指定环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
 
 ## What This Command Does
 
 1. **检查 SSH 私钥**：确认 `~/.ssh/niro_server_ed25519` 存在，不读取私钥内容。
 2. **检查远程连通性**：通过 SSH 执行 `hostname && whoami && pwd`。
-3. **查看测试环境状态**：输出 `niro-*`、`xxl-job-*`、`rmq*`、Redis、数据库等相关容器状态与端口。
-4. **查看监听端口**：输出远程服务器当前 TCP 监听端口，便于判断本地连接测试环境需要开放哪些端口。
+3. **查看指定环境状态**：输出 `niro-*`、`xxl-job-*`、`rmq*`、Redis、数据库等相关容器状态与端口。
+4. **查看监听端口**：输出远程服务器当前 TCP 监听端口，便于判断本地连接指定环境需要开放哪些端口。
 5. **执行可选远程命令**：如果 `$ARGUMENTS` 非空，则在连接检查后执行用户传入的额外远程命令。
 
 ## Usage
 
 ```bash
-/connect-niro-server
-/connect-niro-server "docker logs --tail 100 niro-web-test"
-/connect-niro-server "cd /home/app/niro && git status --short"
+/connect-niro-server test
+/connect-niro-server prod
+/connect-niro-server test "docker logs --tail 100 niro-web-test"
+/connect-niro-server prod "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
+/connect-niro-server test "cd /home/app/niro && git status --short"
+/connect-niro-server prod "cd /home/workspace/niro && git status --short"
 ```
 
 ## Implementation Steps
@@ -29,14 +32,33 @@ When this command is invoked:
 
 ### 1. Prepare connection settings
 
-Use these fixed settings unless the user explicitly asks to change them:
+Require the first argument to identify the target environment:
+
+- `test`: 测试环境，连接 `root@106.53.11.158`
+- `prod`: 生产环境，连接 `root@119.29.200.243`
+
+If the first argument is missing or is not `test` / `prod`:
+
+- Stop immediately.
+- Ask the user to specify the target server.
+- Show examples: `/connect-niro-server test` and `/connect-niro-server prod`.
+
+Choose `SSH_TARGET` from the first argument:
 
 ```bash
 SSH_KEY="$HOME/.ssh/niro_server_ed25519"
-SSH_TARGET="root@106.53.11.158"
+SSH_TEST_TARGET="root@106.53.11.158"
+SSH_PROD_TARGET="root@119.29.200.243"
+SSH_TARGET="$SSH_TEST_TARGET"  # when the first argument is test
+SSH_TARGET="$SSH_PROD_TARGET"  # when the first argument is prod
+SSH_TEST_PROJECT_DIR="/home/app/niro"
+SSH_PROD_PROJECT_DIR="/home/workspace/niro"
+REMOTE_PROJECT_DIR="$SSH_TEST_PROJECT_DIR"  # when the first argument is test
+REMOTE_PROJECT_DIR="$SSH_PROD_PROJECT_DIR"  # when the first argument is prod
 SSH_OPTS="-i $SSH_KEY -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10"
-REMOTE_PROJECT_DIR="/home/app/niro"
 ```
+
+Treat all remaining arguments after `test` / `prod` as the optional extra remote command.
 
 Do not print private key content. Do not ask the user for passwords.
 
@@ -63,13 +85,13 @@ ssh -i "$HOME/.ssh/niro_server_ed25519" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
-  root@106.53.11.158 'hostname && whoami && pwd'
+  "$SSH_TARGET" 'hostname && whoami && pwd'
 ```
 
-Expected successful output includes:
+Expected successful output includes the remote hostname, current user, and current directory, for example:
 
 ```text
-VM-0-15-ubuntu
+<remote-hostname>
 root
 /root
 ```
@@ -80,7 +102,7 @@ If SSH exits non-zero:
 - Do not retry with password.
 - Suggest checking key binding, server security group, SSH service, and `authorized_keys`.
 
-### 4. Inspect current test environment status
+### 4. Inspect current selected environment status
 
 Use Bash tool to run this read-only remote status command:
 
@@ -89,7 +111,7 @@ ssh -i "$HOME/.ssh/niro_server_ed25519" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
-  root@106.53.11.158 \
+  "$SSH_TARGET" \
   'hostname && whoami && docker ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}" && printf "\nLISTEN PORTS\n" && ss -lntp'
 ```
 
@@ -102,14 +124,14 @@ Expected successful outcome:
 
 ### 5. Execute optional extra remote command
 
-If `$ARGUMENTS` is empty:
+If the optional extra remote command is empty:
 
 - Stop after connection check and status output.
-- Report that the server connection was successful and current test environment status was displayed.
+- Report that the server connection was successful and current selected environment status was displayed.
 
-If `$ARGUMENTS` is not empty:
+If the optional extra remote command is not empty:
 
-- Treat `$ARGUMENTS` as an extra remote shell command.
+- Treat the remaining arguments after `test` / `prod` as an extra remote shell command.
 - Run it after step 4 completes.
 - Use Bash tool to run:
 
@@ -118,13 +140,17 @@ ssh -i "$HOME/.ssh/niro_server_ed25519" \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
-  root@106.53.11.158 '$ARGUMENTS'
+  "$SSH_TARGET" '$ARGUMENTS'
 ```
 
-For project-specific commands, prefer arguments that explicitly enter the project directory:
+For project-specific commands, prefer arguments that explicitly enter the selected environment project directory:
+
+- `test`: `/home/app/niro`
+- `prod`: `/home/workspace/niro`
 
 ```bash
 "cd /home/app/niro && <command>"
+"cd /home/workspace/niro && <command>"
 ```
 
 ### 6. Safety rules
@@ -169,6 +195,6 @@ Success means:
 
 - SSH returns exit code 0.
 - Current remote host identity is displayed.
-- Current test environment container status and listening ports are reported.
+- Current selected environment container status and listening ports are reported.
 - No project pull, build, deployment, or container lifecycle operation runs by default.
 - Optional extra remote command, if provided and safe, completes successfully.
