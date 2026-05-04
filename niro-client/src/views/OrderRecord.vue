@@ -274,6 +274,7 @@
         </div>
       </div>
     </section>
+    </div>
 
     <div
       :class="['order-record-main relative', isMobile ? 'min-h-fit flex-none' : 'min-h-0 flex-1']"

@@ -463,7 +463,6 @@
             v-model="pagination.current"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
-            :show-page-size="false"
             :total-content="false"
             show-jumper
             @change="onPageChange"

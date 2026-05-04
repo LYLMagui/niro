@@ -134,8 +134,9 @@
             </t-button>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
+    </div>
+
 
     <div class="relative min-h-0 flex-1">
       <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
