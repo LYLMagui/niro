@@ -32,6 +32,7 @@ const onClose = () => {
     :header="title"
     :footer="false"
     :width="width"
+    placement="center"
     class="app-common-dialog"
     :dialog-style="{ padding: 0, boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)' }"
     @close="onClose"
@@ -111,6 +112,7 @@ const onClose = () => {
 @media (max-width: 768px) {
   :deep(.form-container) {
     padding: 16px;
+    max-height: calc(100vh - 180px);
   }
 
   :deep(.compact-form .t-form__item) {

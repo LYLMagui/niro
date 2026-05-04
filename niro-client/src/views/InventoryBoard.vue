@@ -9,18 +9,31 @@
     <PageHeader title="订单统计看板">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+          />
         </svg>
       </template>
       <template #extra>
         <div class="flex items-center gap-6">
           <div class="flex flex-col items-end">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">全部总额</span>
-            <span class="font-numeric text-base font-bold text-slate-900">{{ formatCurrency(normalizedGlobalSummary.totalAmount) }}</span>
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              全部总额
+            </span>
+            <span class="font-numeric text-base font-bold text-slate-900">
+              {{ formatCurrency(normalizedGlobalSummary.totalAmount) }}
+            </span>
           </div>
           <div class="flex flex-col items-end">
-            <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">全部总量</span>
-            <span class="font-numeric text-base font-bold text-slate-900">{{ formatInteger(normalizedGlobalSummary.totalQuantity) }}</span>
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              全部总量
+            </span>
+            <span class="font-numeric text-base font-bold text-slate-900">
+              {{ formatInteger(normalizedGlobalSummary.totalQuantity) }}
+            </span>
           </div>
         </div>
       </template>
@@ -29,7 +42,6 @@
     <div
       class="inventory-board-page relative flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain bg-slate-50/30 p-4"
     >
-
       <!-- 筛选区域 -->
       <section class="mb-4 space-y-3 border border-slate-100 bg-white p-4 shadow-sm">
         <div class="flex flex-col gap-3">
@@ -104,16 +116,19 @@
                   v-model:visible="isSteamDialogVisible"
                   trigger="click"
                   placement="bottom-right"
-                  :overlay-inner-style="{ padding: 0, borderRadius: '12px', border: 'none', boxShadow: '0 20px 50px rgba(15,23,42,0.15)' }"
+                  :overlay-inner-style="{
+                    padding: 0,
+                    borderRadius: '12px',
+                    border: 'none',
+                    boxShadow: '0 20px 50px rgba(15,23,42,0.15)',
+                  }"
                   destroy-on-close
                 >
                   <button
                     type="button"
                     class="inline-flex h-10 items-center gap-2.5 rounded-lg border border-slate-200 bg-white px-4 text-[13px] font-bold text-slate-600 shadow-sm transition-all duration-300 hover:scale-105 hover:border-blue-300 hover:bg-blue-50/50 hover:text-blue-600 hover:shadow-md active:scale-95"
                   >
-                    <span
-                      class="relative flex h-2.5 w-2.5"
-                    >
+                    <span class="relative flex h-2.5 w-2.5">
                       <span
                         class="absolute inline-flex h-full w-full animate-ping rounded-full opacity-75"
                         :class="floatingTriggerToneClass"
@@ -131,9 +146,14 @@
                       aria-labelledby="steam-discount-title"
                       @click.stop
                     >
-                      <header class="flex items-start justify-between gap-3 border-b border-slate-50 px-5 py-4">
+                      <header
+                        class="flex items-start justify-between gap-3 border-b border-slate-50 px-5 py-4"
+                      >
                         <div>
-                          <h2 id="steam-discount-title" class="text-[16px] font-bold text-slate-900">
+                          <h2
+                            id="steam-discount-title"
+                            class="text-[16px] font-bold text-slate-900"
+                          >
                             Steam 折扣测算
                           </h2>
                           <p class="mt-1 text-[13px] text-slate-400">
@@ -145,14 +165,28 @@
                           class="inline-flex h-8 w-8 items-center justify-center rounded-full text-slate-400 transition hover:bg-slate-100 hover:text-slate-600"
                           @click="isSteamDialogVisible = false"
                         >
-                          <svg class="h-5 w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                          <svg
+                            class="h-5 w-5"
+                            fill="none"
+                            stroke="currentColor"
+                            viewBox="0 0 24 24"
+                          >
+                            <path
+                              stroke-linecap="round"
+                              stroke-linejoin="round"
+                              stroke-width="2"
+                              d="M6 18L18 6M6 6l12 12"
+                            />
                           </svg>
                         </button>
                       </header>
 
                       <div class="px-5 py-5">
-                        <div class="text-[12px] font-medium text-slate-400 uppercase tracking-wider">当前商品</div>
+                        <div
+                          class="text-[12px] font-medium tracking-wider text-slate-400 uppercase"
+                        >
+                          当前商品
+                        </div>
                         <div class="mt-1 text-[15px] font-bold text-slate-700">
                           {{ selectedGoods }}
                         </div>
@@ -186,10 +220,12 @@
                           </div>
                         </div>
 
-                        <div class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 px-5 py-6 text-center">
+                        <div
+                          class="mt-5 rounded-2xl border border-dashed border-slate-200 bg-slate-50/30 px-5 py-6 text-center"
+                        >
                           <div class="text-[12px] font-medium text-slate-400">计算折扣</div>
                           <div
-                            class="font-numeric mt-2 text-[40px] font-bold leading-none tracking-tight"
+                            class="font-numeric mt-2 text-[40px] leading-none font-bold tracking-tight"
                             :class="discountToneClass"
                           >
                             {{ discountText }}
@@ -403,11 +439,11 @@
 
             <template #goodsName="{ row }">
               <div class="min-w-0">
-              <t-tooltip :content="row.goodsName" placement="top-left">
-                <div class="truncate font-medium text-[#303133]">
-                  {{ row.goodsName }}
-                </div>
-              </t-tooltip>
+                <t-tooltip :content="row.goodsName" placement="top-left">
+                  <div class="truncate font-medium text-[#303133]">
+                    {{ row.goodsName }}
+                  </div>
+                </t-tooltip>
               </div>
             </template>
 

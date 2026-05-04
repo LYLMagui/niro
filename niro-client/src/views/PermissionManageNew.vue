@@ -1,60 +1,78 @@
 <template>
   <PageFrame :is-mobile="false" desktop-outer-class="!p-0" desktop-content-class="p-0">
     <div class="flex h-full min-h-0 flex-col overflow-hidden bg-white">
-    <PageHeader title="权限与角色管理">
-      <template #icon>
-        <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-        </svg>
-      </template>
-      <template #extra>
-        <div v-if="canReadResource || canReadRoleAuth" class="flex shrink-0 flex-wrap items-center gap-3">
-          <t-button
+      <PageHeader title="权限与角色管理">
+        <template #icon>
+          <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"
+            />
+          </svg>
+        </template>
+        <template #extra>
+          <div
             v-if="canReadResource || canReadRoleAuth"
-            variant="outline"
-            class="!rounded"
-            :loading="resourcesLoading || roleResourceLoading || usersLoading"
-            @click="reloadWorkbench"
+            class="flex shrink-0 flex-wrap items-center gap-3"
           >
-            刷新草稿
-          </t-button>
-          <t-button
-            v-if="canSaveResource"
-            variant="outline"
-            class="!rounded"
-            @click="resourceDrawerVisible = true"
-          >
-            资源工作台
-          </t-button>
-          <t-button v-if="canAssignUserRole" variant="outline" class="!rounded" @click="openUserRoleDrawer">
-            用户分配角色
-          </t-button>
-          <t-button
-            v-if="canPreviewRole"
-            variant="outline"
-            class="!rounded"
-            :disabled="!selectedRoleId"
-            @click="openPreviewDrawer"
-          >
-            角色预览
-          </t-button>
-          <t-button
-            v-if="canValidatePublish"
-            theme="warning"
-            variant="outline"
-            class="!rounded"
-            :loading="publishValidating"
-            @click="openValidateDrawer"
-          >
-            发布校验
-          </t-button>
-          <t-button v-if="canPublish" theme="primary" class="!rounded" :loading="publishing" @click="handlePublish">
-            执行发布
-          </t-button>
-        </div>
-      </template>
-    </PageHeader>
-
+            <t-button
+              v-if="canReadResource || canReadRoleAuth"
+              variant="outline"
+              class="!rounded"
+              :loading="resourcesLoading || roleResourceLoading || usersLoading"
+              @click="reloadWorkbench"
+            >
+              刷新草稿
+            </t-button>
+            <t-button
+              v-if="canSaveResource"
+              variant="outline"
+              class="!rounded"
+              @click="resourceDrawerVisible = true"
+            >
+              资源工作台
+            </t-button>
+            <t-button
+              v-if="canAssignUserRole"
+              variant="outline"
+              class="!rounded"
+              @click="openUserRoleDrawer"
+            >
+              用户分配角色
+            </t-button>
+            <t-button
+              v-if="canPreviewRole"
+              variant="outline"
+              class="!rounded"
+              :disabled="!selectedRoleId"
+              @click="openPreviewDrawer"
+            >
+              角色预览
+            </t-button>
+            <t-button
+              v-if="canValidatePublish"
+              theme="warning"
+              variant="outline"
+              class="!rounded"
+              :loading="publishValidating"
+              @click="openValidateDrawer"
+            >
+              发布校验
+            </t-button>
+            <t-button
+              v-if="canPublish"
+              theme="primary"
+              class="!rounded"
+              :loading="publishing"
+              @click="handlePublish"
+            >
+              执行发布
+            </t-button>
+          </div>
+        </template>
+      </PageHeader>
 
       <div class="min-h-0 flex-1 overflow-hidden">
         <div class="flex h-full min-h-0 overflow-hidden">
@@ -274,7 +292,11 @@
                             @click="toggleTreePermissionModuleCollapsed(module.id)"
                           >
                             <t-icon
-                              :name="isTreePermissionModuleCollapsed(module.id) ? 'chevron-right' : 'chevron-down'"
+                              :name="
+                                isTreePermissionModuleCollapsed(module.id)
+                                  ? 'chevron-right'
+                                  : 'chevron-down'
+                              "
                               class="shrink-0 text-slate-500"
                             />
                             <div class="min-w-0">
@@ -301,7 +323,10 @@
                           <span v-else class="text-xs text-slate-400">待接入</span>
                         </div>
 
-                        <div v-if="!isTreePermissionModuleCollapsed(module.id)" class="divide-y divide-slate-100">
+                        <div
+                          v-if="!isTreePermissionModuleCollapsed(module.id)"
+                          class="divide-y divide-slate-100"
+                        >
                           <div
                             v-for="row in module.rows"
                             :key="row.key"
@@ -315,7 +340,10 @@
                                 <t-tooltip :content="row.title" placement="top-left">
                                   <span class="truncate">{{ row.title }}</span>
                                 </t-tooltip>
-                                <span v-if="row.hint" class="ml-2 text-xs font-normal text-slate-400">
+                                <span
+                                  v-if="row.hint"
+                                  class="ml-2 text-xs font-normal text-slate-400"
+                                >
                                   {{ row.hint }}
                                 </span>
                               </div>
@@ -327,12 +355,16 @@
                                   :key="action.id"
                                   :checked="isSelectedRoleResource(action.id)"
                                   :disabled="rolePermissionLocked"
-                                  @change="(checked) => toggleTreePermissionRow(row, action.id, checked)"
+                                  @change="
+                                    (checked) => toggleTreePermissionRow(row, action.id, checked)
+                                  "
                                 >
                                   {{ action.label }}
                                 </t-checkbox>
                               </template>
-                              <span v-else class="text-sm text-slate-400">{{ activeTreeEmptyRowText }}</span>
+                              <span v-else class="text-sm text-slate-400">
+                                {{ activeTreeEmptyRowText }}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -345,7 +377,9 @@
                         :key="module.id"
                         class="mb-8 last:mb-0"
                       >
-                        <div class="flex items-center justify-between border-b border-slate-200 pb-3">
+                        <div
+                          class="flex items-center justify-between border-b border-slate-200 pb-3"
+                        >
                           <div class="min-w-0">
                             <t-tooltip :content="module.title" placement="top-left">
                               <h3 class="truncate text-base font-semibold text-slate-800">
@@ -382,7 +416,10 @@
                                 <t-tooltip :content="row.title" placement="top-left">
                                   <span class="truncate">{{ row.title }}</span>
                                 </t-tooltip>
-                                <span v-if="row.hint" class="ml-2 text-xs font-normal text-slate-400">
+                                <span
+                                  v-if="row.hint"
+                                  class="ml-2 text-xs font-normal text-slate-400"
+                                >
                                   {{ row.hint }}
                                 </span>
                               </div>
@@ -426,7 +463,12 @@
                 <t-button
                   variant="outline"
                   class="!rounded"
-                  :disabled="!selectedRoleId || !selectedRoleDirty || savingRoleResources || selectedRoleLocked"
+                  :disabled="
+                    !selectedRoleId ||
+                    !selectedRoleDirty ||
+                    savingRoleResources ||
+                    selectedRoleLocked
+                  "
                   @click="resetSelectedRoleDraft"
                 >
                   取消修改
@@ -1429,15 +1471,31 @@ const newPermissionStore = useNewPermissionStore();
 const isAdmin = computed(() => hasRole("admin"));
 const hasWorkbenchPermission = (permissionCode: string) =>
   isAdmin.value || hasButtonPermission(permissionCode);
-const canReadResource = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_RESOURCE_READ));
-const canReadRoleAuth = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_AUTH_READ));
-const canSaveResource = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_RESOURCE_SAVE));
-const canCreateRole = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_CREATE));
-const canDeleteRole = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_DELETE));
+const canReadResource = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_RESOURCE_READ)
+);
+const canReadRoleAuth = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_AUTH_READ)
+);
+const canSaveResource = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_RESOURCE_SAVE)
+);
+const canCreateRole = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_CREATE)
+);
+const canDeleteRole = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_DELETE)
+);
 const canCopyRole = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_COPY));
-const canSaveRoleAuth = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_AUTH_SAVE));
-const canAssignUserRole = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_USER_ASSIGN));
-const canPreviewRole = computed(() => hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_PREVIEW));
+const canSaveRoleAuth = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_AUTH_SAVE)
+);
+const canAssignUserRole = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_USER_ASSIGN)
+);
+const canPreviewRole = computed(() =>
+  hasWorkbenchPermission(PermissionConstant.PERMISSION_ROLE_PREVIEW)
+);
 const canValidatePublish = computed(() =>
   hasWorkbenchPermission(PermissionConstant.PERMISSION_PUBLISH_VALIDATE)
 );
@@ -1501,7 +1559,9 @@ const batchRoleIds = ref<number[]>([]);
 
 const roleResourceDraftMap = reactive<Record<number, number[]>>({});
 const roleResourceBaselineMap = reactive<Record<number, number[]>>({});
-const collapsedTreePermissionModuleIds = ref<Record<Extract<PermissionTab, "MENU" | "DATA">, number[]>>({
+const collapsedTreePermissionModuleIds = ref<
+  Record<Extract<PermissionTab, "MENU" | "DATA">, number[]>
+>({
   MENU: [],
   DATA: [],
 });
@@ -1590,7 +1650,9 @@ const filteredRoles = computed(() => {
     });
 });
 
-const selectedRoleLocked = computed(() => Boolean(selectedRole.value && isSystemRole(selectedRole.value)));
+const selectedRoleLocked = computed(() =>
+  Boolean(selectedRole.value && isSystemRole(selectedRole.value))
+);
 
 const rolePermissionLocked = computed(
   () => !canSaveRoleAuth.value || !selectedRoleId.value || selectedRoleLocked.value
@@ -1632,7 +1694,9 @@ const dataPermissionModules = computed<PermissionMatrixModule[]>(() =>
   buildDataPermissionModules()
 );
 
-const isTreePermissionTab = computed(() => activeTab.value === "MENU" || activeTab.value === "DATA");
+const isTreePermissionTab = computed(
+  () => activeTab.value === "MENU" || activeTab.value === "DATA"
+);
 
 const activeTreePermissionModules = computed<PermissionMatrixModule[]>(() => {
   if (activeTab.value === "DATA") {
@@ -1641,7 +1705,9 @@ const activeTreePermissionModules = computed<PermissionMatrixModule[]>(() => {
   return menuPermissionModules.value;
 });
 
-const userPermissionModules = computed<PermissionMatrixModule[]>(() => buildPlaceholderPermissionModules());
+const userPermissionModules = computed<PermissionMatrixModule[]>(() =>
+  buildPlaceholderPermissionModules()
+);
 
 const activePermissionModules = computed<PermissionMatrixModule[]>(() => {
   if (activeTab.value === "MENU") {
@@ -1796,7 +1862,9 @@ const previewNavigationTreeData = computed<TreeNodeItem[]>(() =>
 );
 
 const dirtySavableRoleIds = computed(() =>
-  roles.value.filter((item) => !isSystemRole(item) && isRoleDirty(item.roleId)).map((item) => item.roleId)
+  roles.value
+    .filter((item) => !isSystemRole(item) && isRoleDirty(item.roleId))
+    .map((item) => item.roleId)
 );
 
 const roleEditorTitle = computed(() =>

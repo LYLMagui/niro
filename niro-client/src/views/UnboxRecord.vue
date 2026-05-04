@@ -8,13 +8,23 @@
     <PageHeader title="开箱记录">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
+          />
         </svg>
       </template>
       <template #extra>
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">批次总数</span>
-          <span class="font-numeric text-base font-bold text-slate-900">{{ batchPagination.total }} <small class="text-[10px] font-medium text-slate-400">组</small></span>
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            批次总数
+          </span>
+          <span class="font-numeric text-base font-bold text-slate-900">
+            {{ batchPagination.total }}
+            <small class="text-[10px] font-medium text-slate-400">组</small>
+          </span>
         </div>
       </template>
     </PageHeader>
@@ -242,7 +252,12 @@
           </div>
 
           <div class="flex shrink-0 items-center justify-end gap-2">
-            <t-button v-if="canCreateUnboxRecord" theme="primary" class="touch-manipulation" @click="openCreateEditor">
+            <t-button
+              v-if="canCreateUnboxRecord"
+              theme="primary"
+              class="touch-manipulation"
+              @click="openCreateEditor"
+            >
               新增开箱记录
             </t-button>
           </div>
@@ -270,13 +285,15 @@
 
             <template #totalCount="{ row }">
               <t-tooltip :content="String(row.summary.totalCount)" placement="top">
-                <span class="truncate font-numeric text-slate-700">{{ row.summary.totalCount }}</span>
+                <span class="font-numeric truncate text-slate-700">
+                  {{ row.summary.totalCount }}
+                </span>
               </t-tooltip>
             </template>
 
             <template #purchaseCost="{ row }">
               <t-tooltip :content="formatCurrency(row.summary.totalPurchaseCost)" placement="top">
-                <span class="truncate font-numeric text-slate-700">
+                <span class="font-numeric truncate text-slate-700">
                   {{ formatCurrency(row.summary.totalPurchaseCost) }}
                 </span>
               </t-tooltip>
@@ -284,24 +301,33 @@
 
             <template #totalFee="{ row }">
               <t-tooltip :content="formatCurrency(row.summary.totalActualFee)" placement="top">
-                <span class="truncate font-numeric text-amber-600">
+                <span class="font-numeric truncate text-amber-600">
                   {{ formatCurrency(row.summary.totalActualFee) }}
                 </span>
               </t-tooltip>
             </template>
 
             <template #actualNetProfit="{ row }">
-              <t-tooltip :content="formatSignedCurrency(row.summary.totalActualNetProfit)" placement="top">
-                <span class="truncate font-numeric" :class="profitClass(row.summary.totalActualNetProfit)">
+              <t-tooltip
+                :content="formatSignedCurrency(row.summary.totalActualNetProfit)"
+                placement="top"
+              >
+                <span
+                  class="font-numeric truncate"
+                  :class="profitClass(row.summary.totalActualNetProfit)"
+                >
                   {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
                 </span>
               </t-tooltip>
             </template>
 
             <template #actualProfitRate="{ row }">
-              <t-tooltip :content="formatPercent(row.summary.totalActualProfitRate)" placement="top">
+              <t-tooltip
+                :content="formatPercent(row.summary.totalActualProfitRate)"
+                placement="top"
+              >
                 <span
-                  class="truncate font-numeric"
+                  class="font-numeric truncate"
                   :class="profitClass(row.summary.totalActualProfitRate ?? 0)"
                 >
                   {{ formatPercent(row.summary.totalActualProfitRate) }}
@@ -341,6 +367,9 @@
 
         <div v-if="batchPagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="batchPagination.current"
             v-model:page-size="batchPagination.pageSize"
             :total="batchPagination.total"
@@ -357,7 +386,7 @@
       :close-on-overlay-click="false"
       :confirm-btn="null"
       :cancel-btn="null"
-      :destroy-on-close="true"
+      :destroy-on-close="false"
       :attach="editorDialogAttach"
       :showInAttachedElement="!isMobile"
       :footer="false"
@@ -391,7 +420,12 @@
                 {{ isEditorFullscreen ? "缩小" : "全屏" }}
               </t-button>
               <t-button variant="outline" @click="editorVisible = false">取消</t-button>
-              <t-button theme="primary" :loading="savingBatch" :disabled="!canEditUnboxDraft" @click="saveDraftBatch">
+              <t-button
+                theme="primary"
+                :loading="savingBatch"
+                :disabled="!canEditUnboxDraft"
+                @click="saveDraftBatch"
+              >
                 {{ savingBatch ? "保存中..." : "保存批次" }}
               </t-button>
               <button
@@ -562,11 +596,28 @@
 
                     <div class="overflow-x-auto">
                       <div class="inline-flex min-w-max items-center gap-1.5 pb-0.5">
-                        <t-button theme="primary" variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleAddRow()">
+                        <t-button
+                          theme="primary"
+                          variant="outline"
+                          :disabled="!canEditUnboxDraft || !canAddUnboxDetail"
+                          @click="handleAddRow()"
+                        >
                           +1
                         </t-button>
-                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleBulkAdd(10)">+10</t-button>
-                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleBulkAdd(50)">+50</t-button>
+                        <t-button
+                          variant="outline"
+                          :disabled="!canEditUnboxDraft || !canAddUnboxDetail"
+                          @click="handleBulkAdd(10)"
+                        >
+                          +10
+                        </t-button>
+                        <t-button
+                          variant="outline"
+                          :disabled="!canEditUnboxDraft || !canAddUnboxDetail"
+                          @click="handleBulkAdd(50)"
+                        >
+                          +50
+                        </t-button>
                         <div
                           class="inline-flex items-center gap-1 rounded-lg border border-slate-200 bg-slate-50/80 p-1"
                         >
@@ -605,10 +656,18 @@
                             theme="normal"
                           />
                         </div>
-                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canApplyUnboxPrice" @click="applyToolbarBoxPurchasePriceToAllRows">
+                        <t-button
+                          variant="outline"
+                          :disabled="!canEditUnboxDraft || !canApplyUnboxPrice"
+                          @click="applyToolbarBoxPurchasePriceToAllRows"
+                        >
                           应用箱子购入价到全部
                         </t-button>
-                        <t-button variant="outline" :disabled="!canEditUnboxDraft || !canApplyUnboxDefaults" @click="applyDefaultsToEmptyRows">
+                        <t-button
+                          variant="outline"
+                          :disabled="!canEditUnboxDraft || !canApplyUnboxDefaults"
+                          @click="applyDefaultsToEmptyRows"
+                        >
                           应用到未填写行
                         </t-button>
                       </div>
@@ -806,8 +865,11 @@
 
                     <template #purchaseCost="{ row: entry }">
                       <div class="text-right leading-4">
-                        <t-tooltip :content="formatPendingCurrency(entry.metrics.purchaseCost)" placement="top-right">
-                          <div class="truncate font-numeric text-sm font-semibold text-[#303133]">
+                        <t-tooltip
+                          :content="formatPendingCurrency(entry.metrics.purchaseCost)"
+                          placement="top-right"
+                        >
+                          <div class="font-numeric truncate text-sm font-semibold text-[#303133]">
                             {{ formatPendingCurrency(entry.metrics.purchaseCost) }}
                           </div>
                         </t-tooltip>
@@ -835,7 +897,11 @@
                             show-arrow
                             attach="body"
                             overlay-inner-class-name="unbox-c5-popup__inner"
-                            :disabled="!canQueryUnboxC5 || !isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                            :disabled="
+                              !canQueryUnboxC5 ||
+                              !isRowEditable(entry.row) ||
+                              !entry.row.weaponName.trim()
+                            "
                             @visible-change="
                               (visible) => handleRowC5PopupVisibleChange(entry.row, visible)
                             "
@@ -858,6 +924,29 @@
                                       class="mt-1 text-xs text-slate-400"
                                     >
                                       {{ getRowC5WearHint(entry.row) }}
+                                    </div>
+                                    <div
+                                      v-if="getRowC5State(entry.row.id).snapshotMessage"
+                                      class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"
+                                    >
+                                      <t-tag
+                                        size="small"
+                                        variant="light"
+                                        :theme="getRowC5SnapshotTagTheme(entry.row)"
+                                      >
+                                        {{ getRowC5State(entry.row.id).snapshotStatus || "快照" }}
+                                      </t-tag>
+                                      <span>{{ getRowC5State(entry.row.id).snapshotMessage }}</span>
+                                      <span
+                                        v-if="getRowC5State(entry.row.id).snapshotLastSuccessTime"
+                                        class="text-slate-400"
+                                      >
+                                        上次成功：{{
+                                          formatSnapshotTime(
+                                            getRowC5State(entry.row.id).snapshotLastSuccessTime
+                                          )
+                                        }}
+                                      </span>
                                     </div>
                                   </div>
                                   <button
@@ -1028,7 +1117,11 @@
                             <button
                               type="button"
                               class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                              :disabled="!canQueryUnboxC5 || !isRowEditable(entry.row) || !entry.row.weaponName.trim()"
+                              :disabled="
+                                !canQueryUnboxC5 ||
+                                !isRowEditable(entry.row) ||
+                                !entry.row.weaponName.trim()
+                              "
                               :aria-label="getRowC5TriggerTooltip(entry.row)"
                             >
                               <svg
@@ -1054,9 +1147,12 @@
 
                     <template #actualNetProfit="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <t-tooltip :content="formatActualProfit(entry.metrics.actualNetProfit)" placement="top-left">
+                        <t-tooltip
+                          :content="formatActualProfit(entry.metrics.actualNetProfit)"
+                          placement="top-left"
+                        >
                           <div
-                            class="truncate font-numeric text-sm font-semibold"
+                            class="font-numeric truncate text-sm font-semibold"
                             :class="profitClass(entry.metrics.actualNetProfit ?? 0)"
                           >
                             {{ formatActualProfit(entry.metrics.actualNetProfit) }}
@@ -1076,9 +1172,12 @@
 
                     <template #actualProfitRate="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <t-tooltip :content="formatPercent(entry.metrics.actualProfitRate)" placement="top-left">
+                        <t-tooltip
+                          :content="formatPercent(entry.metrics.actualProfitRate)"
+                          placement="top-left"
+                        >
                           <div
-                            class="truncate font-numeric text-sm font-semibold"
+                            class="font-numeric truncate text-sm font-semibold"
                             :class="profitClass(entry.metrics.actualProfitRate ?? 0)"
                           >
                             {{ formatPercent(entry.metrics.actualProfitRate) }}
@@ -1089,8 +1188,11 @@
 
                     <template #actualFee="{ row: entry }">
                       <div class="px-1 leading-4">
-                        <t-tooltip :content="formatPendingCurrency(entry.metrics.actualFee)" placement="top-left">
-                          <div class="truncate font-numeric text-sm font-semibold text-amber-600">
+                        <t-tooltip
+                          :content="formatPendingCurrency(entry.metrics.actualFee)"
+                          placement="top-left"
+                        >
+                          <div class="font-numeric truncate text-sm font-semibold text-amber-600">
                             {{ formatPendingCurrency(entry.metrics.actualFee) }}
                           </div>
                         </t-tooltip>
@@ -1126,7 +1228,9 @@
                       <div :class="draftTableFooterClass">
                         <div>明细数</div>
                         <t-tooltip :content="`${draftSummary.totalCount} 条`" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-slate-700"
+                          >
                             {{ draftSummary.totalCount }} 条
                           </div>
                         </t-tooltip>
@@ -1137,7 +1241,9 @@
                       <div :class="draftTableFooterClass">
                         <div>已购买数量</div>
                         <t-tooltip :content="`${draftSummary.boughtCount} 条`" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-emerald-600">
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-emerald-600"
+                          >
                             {{ draftSummary.boughtCount }} 条
                           </div>
                         </t-tooltip>
@@ -1153,8 +1259,13 @@
                     <template #footerInGamePrice>
                       <div :class="draftTableFooterClass">
                         <div>购买总价</div>
-                        <t-tooltip :content="formatCurrency(draftSummary.totalInGamePrice)" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                        <t-tooltip
+                          :content="formatCurrency(draftSummary.totalInGamePrice)"
+                          placement="top-left"
+                        >
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-slate-700"
+                          >
                             {{ formatCurrency(draftSummary.totalInGamePrice) }}
                           </div>
                         </t-tooltip>
@@ -1170,8 +1281,13 @@
                     <template #footerPurchaseCost>
                       <div :class="draftTableFooterClass">
                         <div>实际购入价</div>
-                        <t-tooltip :content="formatCurrency(draftSummary.totalPurchaseCost)" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                        <t-tooltip
+                          :content="formatCurrency(draftSummary.totalPurchaseCost)"
+                          placement="top-left"
+                        >
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-slate-700"
+                          >
                             {{ formatCurrency(draftSummary.totalPurchaseCost) }}
                           </div>
                         </t-tooltip>
@@ -1181,8 +1297,13 @@
                     <template #footerActualSellPrice>
                       <div :class="draftTableFooterClass">
                         <div>总手续费</div>
-                        <t-tooltip :content="formatCurrency(draftSummary.totalActualFee)" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-amber-600">
+                        <t-tooltip
+                          :content="formatCurrency(draftSummary.totalActualFee)"
+                          placement="top-left"
+                        >
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-amber-600"
+                          >
                             {{ formatCurrency(draftSummary.totalActualFee) }}
                           </div>
                         </t-tooltip>
@@ -1192,8 +1313,13 @@
                     <template #footerActualFee>
                       <div :class="draftTableFooterClass">
                         <div>到账汇总</div>
-                        <t-tooltip :content="formatCurrency(draftSummary.totalActualNetIncome)" placement="top-left">
-                          <div class="truncate font-numeric mt-1 text-sm font-semibold text-slate-700">
+                        <t-tooltip
+                          :content="formatCurrency(draftSummary.totalActualNetIncome)"
+                          placement="top-left"
+                        >
+                          <div
+                            class="font-numeric mt-1 truncate text-sm font-semibold text-slate-700"
+                          >
                             {{ formatCurrency(draftSummary.totalActualNetIncome) }}
                           </div>
                         </t-tooltip>
@@ -1203,9 +1329,12 @@
                     <template #footerActualNetProfit>
                       <div :class="draftTableFooterFixedClass">
                         <div>净利润</div>
-                        <t-tooltip :content="formatSignedCurrency(draftSummary.totalActualNetProfit)" placement="top-left">
+                        <t-tooltip
+                          :content="formatSignedCurrency(draftSummary.totalActualNetProfit)"
+                          placement="top-left"
+                        >
                           <div
-                            class="truncate font-numeric mt-1 text-sm font-semibold"
+                            class="font-numeric mt-1 truncate text-sm font-semibold"
                             :class="profitClass(draftSummary.totalActualNetProfit)"
                           >
                             {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
@@ -1217,9 +1346,12 @@
                     <template #footerActualProfitRate>
                       <div :class="draftTableFooterFixedClass">
                         <div>总利润率</div>
-                        <t-tooltip :content="formatPercent(draftSummary.totalActualProfitRate)" placement="top-left">
+                        <t-tooltip
+                          :content="formatPercent(draftSummary.totalActualProfitRate)"
+                          placement="top-left"
+                        >
                           <div
-                            class="truncate font-numeric mt-1 text-sm font-semibold"
+                            class="font-numeric mt-1 truncate text-sm font-semibold"
                             :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
                           >
                             {{ formatPercent(draftSummary.totalActualProfitRate) }}
@@ -1306,7 +1438,9 @@
                               attach="body"
                               overlay-inner-class-name="unbox-ocr-popup__inner"
                               :disabled="
-                                !canRunUnboxOcr || !isRowEditable(row) || getRowOcrState(row.id).status === 'uploading'
+                                !canRunUnboxOcr ||
+                                !isRowEditable(row) ||
+                                getRowOcrState(row.id).status === 'uploading'
                               "
                               @visible-change="
                                 (visible) => handleRowOcrPopupVisibleChange(row.id, visible)
@@ -1444,7 +1578,9 @@
                               show-arrow
                               attach="body"
                               overlay-inner-class-name="unbox-c5-popup__inner"
-                              :disabled="!canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()"
+                              :disabled="
+                                !canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()
+                              "
                               @visible-change="
                                 (visible) => handleRowC5PopupVisibleChange(row, visible)
                               "
@@ -1467,6 +1603,29 @@
                                         class="mt-1 text-xs text-slate-400"
                                       >
                                         {{ getRowC5WearHint(row) }}
+                                      </div>
+                                      <div
+                                        v-if="getRowC5State(row.id).snapshotMessage"
+                                        class="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-slate-500"
+                                      >
+                                        <t-tag
+                                          size="small"
+                                          variant="light"
+                                          :theme="getRowC5SnapshotTagTheme(row)"
+                                        >
+                                          {{ getRowC5State(row.id).snapshotStatus || "快照" }}
+                                        </t-tag>
+                                        <span>{{ getRowC5State(row.id).snapshotMessage }}</span>
+                                        <span
+                                          v-if="getRowC5State(row.id).snapshotLastSuccessTime"
+                                          class="text-slate-400"
+                                        >
+                                          上次成功：{{
+                                            formatSnapshotTime(
+                                              getRowC5State(row.id).snapshotLastSuccessTime
+                                            )
+                                          }}
+                                        </span>
                                       </div>
                                     </div>
                                     <button
@@ -1633,7 +1792,9 @@
                               <button
                                 type="button"
                                 class="group inline-flex h-8 w-8 shrink-0 items-center justify-center rounded border border-slate-200 bg-white transition-colors hover:border-sky-300 hover:bg-sky-50 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-60"
-                                :disabled="!canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()"
+                                :disabled="
+                                  !canQueryUnboxC5 || !isRowEditable(row) || !row.weaponName.trim()
+                                "
                                 :aria-label="getRowC5TriggerTooltip(row)"
                               >
                                 <svg
@@ -1702,7 +1863,12 @@
                     </div>
 
                     <div class="mt-4 flex gap-2">
-                      <t-button variant="outline" class="flex-1" :disabled="!canEditUnboxDraft || !canAddUnboxDetail" @click="handleAddRow(index + 1)">
+                      <t-button
+                        variant="outline"
+                        class="flex-1"
+                        :disabled="!canEditUnboxDraft || !canAddUnboxDetail"
+                        @click="handleAddRow(index + 1)"
+                      >
                         下方新增
                       </t-button>
                       <t-button
@@ -1725,6 +1891,12 @@
     </t-dialog>
   </PageFrame>
 </template>
+
+<script lang="ts">
+export default {
+  name: "UnboxRecord",
+};
+</script>
 
 <script setup lang="ts">
 import dayjs, { type Dayjs } from "dayjs";
@@ -1902,6 +2074,10 @@ interface RowC5State {
   appliedWearMax: number | null;
   appliedRangeKey: string;
   invalidationKey: string;
+  snapshotStatus: string;
+  snapshotMessage: string;
+  snapshotLastSuccessTime: string | null;
+  snapshotStale: boolean;
   resolvingGoodsId: boolean;
 }
 
@@ -2007,15 +2183,31 @@ const { height: editorContentHeight } = useElementSize(editorContentRef);
 const { height: batchInfoSectionHeight } = useElementSize(batchInfoSectionRef);
 
 const { hasButtonPermission } = useNewPermission();
-const canCreateUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_CREATE));
-const canUpdateUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_UPDATE));
-const canDeleteUnboxRecord = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DELETE));
+const canCreateUnboxRecord = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_CREATE)
+);
+const canUpdateUnboxRecord = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_UPDATE)
+);
+const canDeleteUnboxRecord = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_DELETE)
+);
 const canRunUnboxOcr = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_OCR));
-const canQueryUnboxC5 = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_QUERY_C5));
-const canAddUnboxDetail = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_ADD));
-const canDeleteUnboxDetail = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_DELETE));
-const canApplyUnboxPrice = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_PRICE));
-const canApplyUnboxDefaults = computed(() => hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_DEFAULTS));
+const canQueryUnboxC5 = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_QUERY_C5)
+);
+const canAddUnboxDetail = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_ADD)
+);
+const canDeleteUnboxDetail = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_DETAIL_DELETE)
+);
+const canApplyUnboxPrice = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_PRICE)
+);
+const canApplyUnboxDefaults = computed(() =>
+  hasButtonPermission(PermissionConstant.UNBOX_RECORD_APPLY_DEFAULTS)
+);
 const canEditUnboxDraft = computed(() =>
   editingBatchId.value ? canUpdateUnboxRecord.value : canCreateUnboxRecord.value
 );
@@ -2331,6 +2523,10 @@ function createDefaultRowC5State(): RowC5State {
     appliedWearMax: null,
     appliedRangeKey: C5_WEAR_RANGE_ALL_KEY,
     invalidationKey: "",
+    snapshotStatus: "",
+    snapshotMessage: "",
+    snapshotLastSuccessTime: null,
+    snapshotStale: false,
     resolvingGoodsId: false,
   };
 }
@@ -2595,6 +2791,10 @@ function initializeRowC5State(row: UnboxRow) {
   state.appliedWearMin = null;
   state.appliedWearMax = null;
   state.appliedRangeKey = C5_WEAR_RANGE_ALL_KEY;
+  state.snapshotStatus = "";
+  state.snapshotMessage = "";
+  state.snapshotLastSuccessTime = null;
+  state.snapshotStale = false;
   state.invalidationKey = invalidationKey;
 }
 
@@ -2780,6 +2980,10 @@ async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
   state.pageNum = pageResult.pageNum || pageNum;
   state.pageSize = pageResult.pageSize || state.pageSize;
   state.hasMore = Boolean(pageResult.hasMore);
+  state.snapshotStatus = pageResult.snapshotStatus || "";
+  state.snapshotMessage = pageResult.message || "";
+  state.snapshotLastSuccessTime = pageResult.lastSuccessTime || null;
+  state.snapshotStale = Boolean(pageResult.stale);
   state.listings = pageNum === 1 ? pageResult.records : [...state.listings, ...pageResult.records];
 }
 
@@ -3886,6 +4090,19 @@ function formatPercent(value: number | null) {
   const normalized = round(value);
   const prefix = normalized > 0 ? "+" : "";
   return `${prefix}${normalized.toFixed(2)}%`;
+}
+
+function formatSnapshotTime(value?: string | null) {
+  return value ? value.replace("T", " ").slice(0, 16) : "--";
+}
+
+function getRowC5SnapshotTagTheme(row: UnboxRow) {
+  const state = getRowC5State(row.id);
+  if (state.snapshotStale) return "warning";
+  if (state.snapshotStatus === "SUCCESS") return "success";
+  if (state.snapshotStatus === "FAILED") return "danger";
+  if (state.snapshotStatus === "REFRESHING") return "primary";
+  return "default";
 }
 
 function formatDateText(value: string) {

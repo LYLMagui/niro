@@ -8,13 +8,23 @@
     <PageHeader title="商品管理">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"
+          />
         </svg>
       </template>
       <template #extra>
         <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">商品总数</span>
-          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">款</small></span>
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            商品总数
+          </span>
+          <span class="font-numeric text-base font-bold text-slate-900">
+            {{ pagination.total }}
+            <small class="text-[10px] font-medium text-slate-400">款</small>
+          </span>
         </div>
       </template>
     </PageHeader>
@@ -67,11 +77,20 @@
             </t-select>
           </label>
           <div class="flex items-center gap-2">
-            <t-button v-permission="PermissionConstant.GOODS_LIST" theme="primary" @click="handleSearch">
+            <t-button
+              v-permission="PermissionConstant.GOODS_LIST"
+              theme="primary"
+              @click="handleSearch"
+            >
               <template #icon><search-icon /></template>
               查询
             </t-button>
-            <t-button v-permission="PermissionConstant.GOODS_LIST" theme="default" variant="base" @click="handleReset">
+            <t-button
+              v-permission="PermissionConstant.GOODS_LIST"
+              theme="default"
+              variant="base"
+              @click="handleReset"
+            >
               <template #icon><refresh-icon /></template>
               重置
             </t-button>
@@ -121,7 +140,7 @@
 
           <!-- 商品名称列自定义渲染 -->
           <template #name="{ row }">
-            <div class="flex flex-col min-w-0">
+            <div class="flex min-w-0 flex-col">
               <t-tooltip :content="row.name" placement="top-left">
                 <span class="truncate font-medium text-gray-900">{{ row.name }}</span>
               </t-tooltip>

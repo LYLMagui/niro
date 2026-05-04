@@ -9,20 +9,62 @@
     <PageHeader title="C5 扫货任务">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+          />
         </svg>
       </template>
       <template #extra>
-        <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">任务总数</span>
-          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">项</small></span>
+        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
+          <t-button
+            v-if="canCreateTask"
+            variant="outline"
+            size="small"
+            theme="primary"
+            @click="openCreateDialog"
+          >
+            <template #icon><t-icon name="plus" /></template>
+            新增
+          </t-button>
+          <t-button
+            variant="outline"
+            size="small"
+            theme="default"
+            @click="showFilters = !showFilters"
+          >
+            <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
+            {{ showFilters ? '收起' : '筛选' }}
+          </t-button>
+        </div>
+        <div v-if="!isMobile" class="flex flex-col items-end">
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            任务总数
+          </span>
+          <span class="font-numeric text-base font-bold text-slate-900">
+            {{ pagination.total }}
+            <small class="text-[10px] font-medium text-slate-400">项</small>
+          </span>
         </div>
       </template>
     </PageHeader>
 
-    <section class="overflow-hidden bg-white">
+    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+      <!-- 移动端统计数据条 -->
+      <div
+        v-if="isMobile"
+        class="mx-0 flex items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-xs"
+      >
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400">任务总数:</span>
+          <span class="font-bold text-slate-700">{{ pagination.total }} 项</span>
+        </div>
+      </div>
       <div class="flex flex-col gap-3 px-0 py-4">
         <div
+          v-if="!isMobile || showFilters"
           class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_minmax(0,160px)_auto] xl:items-end"
         >
           <label class="flex min-w-0 flex-col gap-1.5">
@@ -95,7 +137,12 @@
 
         <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex flex-wrap items-center gap-2">
-            <t-button v-if="canCreateTask" theme="primary" class="c5-sniping-v2-action-btn" @click="openCreateDialog">
+            <t-button
+              v-if="canCreateTask"
+              theme="primary"
+              class="c5-sniping-v2-action-btn"
+              @click="openCreateDialog"
+            >
               新增扫货任务
             </t-button>
           </div>
@@ -106,7 +153,171 @@
     <div class="relative min-h-0 flex-1">
       <div class="relative flex h-full min-h-0 flex-col overflow-hidden">
         <div class="min-h-0 flex-1 overflow-hidden">
+          <!-- 移动端卡片视图 -->
+          <div v-if="isMobile" class="h-full overflow-y-auto bg-slate-50 p-3">
+            <div v-if="loading" class="flex h-32 items-center justify-center">
+              <t-loading size="medium" text="加载中..." />
+            </div>
+            <div v-else-if="dataList.length === 0" class="py-8">
+              <t-empty description="暂无扫货任务" />
+            </div>
+            <div v-else class="flex flex-col gap-3">
+              <div
+                v-for="row in dataList"
+                :key="row.id"
+                class="flex flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100"
+              >
+                <!-- 头部：状态和基础信息 -->
+                <div class="flex items-start justify-between border-b border-slate-100 p-3">
+                  <div class="flex min-w-0 flex-1 items-center gap-2">
+                    <t-image
+                      v-if="row.goodsIconUrl"
+                      :src="row.goodsIconUrl"
+                      referrerpolicy="no-referrer"
+                      class="h-10 w-10 shrink-0 rounded bg-slate-50"
+                    />
+                    <div class="min-w-0 flex-1">
+                      <div class="truncate text-sm font-bold text-slate-800">
+                        {{ row.goodsDisplayName || row.name || "未命名任务" }}
+                      </div>
+                      <div class="mt-0.5 truncate text-[11px] text-slate-500">
+                        账号：{{ getTaskAccountName(row.accountId) }}
+                      </div>
+                    </div>
+                  </div>
+                  <div class="ml-2 flex shrink-0 items-center gap-1.5">
+                    <div
+                      :class="[
+                        'h-1.5 w-1.5 rounded-full',
+                        getTaskStatusMeta(row.taskStatus).dotClass,
+                      ]"
+                    ></div>
+                    <t-tag
+                      :theme="getTaskStatusMeta(row.taskStatus).theme"
+                      variant="light-outline"
+                      size="small"
+                      class="origin-right scale-90 font-medium"
+                    >
+                      {{ getTaskStatusMeta(row.taskStatus).label }}
+                    </t-tag>
+                  </div>
+                </div>
+
+                <!-- 内容区：目标配置、实战数据 -->
+                <div class="flex flex-col gap-2 p-3 text-xs text-slate-600">
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">最高价格</span>
+                    <span class="font-medium text-red-600">{{ formatPrice(row.maxPrice) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">磨损范围</span>
+                    <span>{{ formatPaintwear(row) }}</span>
+                  </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">停止规则</span>
+                    <div class="text-right">
+                      <div>{{ getStopModeLabel(row.stopMode) }}</div>
+                      <div v-if="row.stopMode === 'BUY_COUNT'" class="text-[10px] text-slate-500">
+                        目标: {{ row.targetBuyCount ?? "-" }}
+                      </div>
+                      <div
+                        v-else-if="row.balanceGuardMode === 'RESERVE_BALANCE'"
+                        class="text-[10px] text-slate-500"
+                      >
+                        保底: {{ formatPrice(row.reserveBalance) }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="mt-1 rounded bg-slate-50 p-2">
+                    <div class="mb-1 flex items-center justify-between">
+                      <span class="text-slate-500">成功/预占 (命中: {{ row.hitCount ?? 0 }})</span>
+                      <span class="font-bold text-emerald-600">
+                        {{ row.successBuyCount ?? 0 }} / {{ row.reservedBuyCount ?? 0 }}
+                      </span>
+                    </div>
+                    <div class="h-1 w-full overflow-hidden rounded-full bg-slate-200">
+                      <div
+                        class="h-full bg-emerald-500 transition-all duration-500"
+                        :style="{ width: getSuccessProgress(row) + '%' }"
+                      ></div>
+                    </div>
+                  </div>
+
+                  <div v-if="row.lastErrorMessage" class="mt-1 truncate text-[11px] text-rose-500">
+                    错误: {{ row.lastErrorMessage }}
+                  </div>
+                </div>
+
+                <!-- 底部操作区 -->
+                <div
+                  class="flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-50 bg-slate-50/50 p-2"
+                >
+                  <t-button
+                    v-if="canEnableTask && isEnableVisible(row.taskStatus)"
+                    variant="outline"
+                    theme="success"
+                    class="h-7 px-2 text-xs"
+                    @click="enableTask(row)"
+                  >
+                    开启
+                  </t-button>
+                  <t-button
+                    v-else-if="canDisableTask && isDisableVisible(row.taskStatus)"
+                    variant="outline"
+                    theme="warning"
+                    class="h-7 px-2 text-xs"
+                    @click="disableTask(row)"
+                  >
+                    停止
+                  </t-button>
+
+                  <t-button
+                    v-if="canReadTaskDetail || canUpdateTask"
+                    variant="outline"
+                    theme="default"
+                    class="h-7 px-2 text-xs"
+                    :disabled="row.taskStatus === 'RUNNING'"
+                    @click="
+                      row.taskStatus === 'COMPLETED' ? openViewDialog(row) : openEditDialog(row)
+                    "
+                  >
+                    {{ row.taskStatus === "COMPLETED" ? "详情" : "编辑" }}
+                  </t-button>
+
+                  <t-popconfirm
+                    v-if="canDeleteTask"
+                    content="确定删除该任务吗？"
+                    :disabled="row.taskStatus === 'RUNNING'"
+                    @confirm="deleteTask(row)"
+                  >
+                    <t-button
+                      variant="outline"
+                      theme="danger"
+                      class="h-7 px-2 text-xs"
+                      :disabled="row.taskStatus === 'RUNNING'"
+                    >
+                      删除
+                    </t-button>
+                  </t-popconfirm>
+
+                  <t-dropdown
+                    :options="getTaskOperationOptions(row)"
+                    trigger="click"
+                    @click="(data) => handleOpDropdown(String(data.value || ''), row)"
+                  >
+                    <t-button variant="text" shape="square" class="h-7 w-7 !text-slate-400">
+                      <t-icon name="ellipsis" />
+                    </t-button>
+                  </t-dropdown>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- 桌面端表格视图 -->
           <t-table
+            v-else
             row-key="id"
             :data="dataList"
             :columns="columns"
@@ -138,7 +349,11 @@
                   <div class="mt-1 text-sm text-slate-500">
                     绑定账号：{{ getTaskAccountName(row.accountId) }}
                   </div>
-                  <t-tooltip v-if="row.marketHashName" :content="row.marketHashName" placement="top-left">
+                  <t-tooltip
+                    v-if="row.marketHashName"
+                    :content="row.marketHashName"
+                    placement="top-left"
+                  >
                     <div class="mt-1 max-w-[220px] truncate text-sm text-slate-400">
                       {{ row.marketHashName }}
                     </div>
@@ -245,7 +460,9 @@
                   theme="default"
                   class="h-7 px-2 text-xs"
                   :disabled="row.taskStatus === 'RUNNING'"
-                  @click="row.taskStatus === 'COMPLETED' ? openViewDialog(row) : openEditDialog(row)"
+                  @click="
+                    row.taskStatus === 'COMPLETED' ? openViewDialog(row) : openEditDialog(row)
+                  "
                 >
                   {{ row.taskStatus === "COMPLETED" ? "详情" : "编辑" }}
                 </t-button>
@@ -282,6 +499,9 @@
 
         <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="pagination.current"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
@@ -554,6 +774,9 @@
       </t-table>
       <div v-if="detailDrawer.pagination.total > 0" class="mt-3 flex justify-end">
         <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
           v-model="detailDrawer.pagination.current"
           v-model:page-size="detailDrawer.pagination.pageSize"
           :total="detailDrawer.pagination.total"
@@ -561,11 +784,16 @@
           @change="onDetailPageChange"
         />
       </div>
+
+      <template #footer>
+        <t-button variant="outline" theme="default" @click="closeDetailDrawer">关闭</t-button>
+      </template>
     </t-drawer>
   </PageFrame>
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "C5SnipingTaskV2" });
 import { computed, h, onBeforeUnmount, onMounted, reactive, ref, watch } from "vue";
 import { useWindowSize } from "@vueuse/core";
 import dayjs from "dayjs";
@@ -606,14 +834,27 @@ interface C5SnipingTaskV2FormData extends Omit<C5SnipingTaskV2SaveParam, "scanIn
 const { hasButtonPermission } = useNewPermission();
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 768);
-const canCreateTask = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_CREATE));
-const canUpdateTask = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_UPDATE));
-const canEnableTask = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_ENABLE));
-const canDisableTask = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DISABLE));
-const canDeleteTask = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DELETE));
-const canReadTaskDetail = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DETAIL));
+const canCreateTask = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_CREATE)
+);
+const canUpdateTask = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_UPDATE)
+);
+const canEnableTask = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_ENABLE)
+);
+const canDisableTask = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DISABLE)
+);
+const canDeleteTask = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DELETE)
+);
+const canReadTaskDetail = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_TASK_DETAIL)
+);
 
 const loading = ref(false);
+const showFilters = ref(false);
 const dataList = ref<C5SnipingTaskV2Item[]>([]);
 const queryParams = reactive<C5SnipingTaskV2QueryParam>({
   page: 1,
@@ -865,7 +1106,9 @@ const formMode = ref<FormMode>("create");
 const formTitle = ref("新增扫货任务");
 const submitLoading = ref(false);
 const isFormReadonly = computed(() => formMode.value === "view");
-const isGoodsSelectDisabled = computed(() => formMode.value === "copy" || formMode.value === "view");
+const isGoodsSelectDisabled = computed(
+  () => formMode.value === "copy" || formMode.value === "view"
+);
 const formRef = ref<{
   submit: (options?: { showErrorMessage?: boolean }) => void;
   clearValidate: () => void;

@@ -9,25 +9,71 @@
     <PageHeader title="C5 账号配置">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
+          />
         </svg>
       </template>
       <template #extra>
-        <div v-if="accounts.length > 0" class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">C5 资金总资产</span>
+        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
+          <t-button
+            v-permission="PermissionConstant.ACCOUNT_MANAGE_ADD"
+            variant="outline"
+            size="small"
+            theme="primary"
+            @click="handleAdd"
+          >
+            <template #icon><t-icon name="plus" /></template>
+            新增
+          </t-button>
+          <t-button
+            variant="outline"
+            size="small"
+            theme="default"
+            @click="showFilters = !showFilters"
+          >
+            <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
+            {{ showFilters ? '收起' : '筛选' }}
+          </t-button>
+        </div>
+        <div v-if="!isMobile && accounts.length > 0" class="flex flex-col items-end">
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            C5 资金总资产
+          </span>
           <div class="flex items-baseline gap-1">
             <span class="text-[10px] font-bold text-orange-500/80 italic">¥</span>
-            <span class="font-numeric text-lg font-bold text-orange-500 tabular-nums tracking-tight">
-              {{ formatCurrency(totalAssetBalance).replace('¥', '') }}
+            <span
+              class="font-numeric text-lg font-bold tracking-tight text-orange-500 tabular-nums"
+            >
+              {{ formatCurrency(totalAssetBalance).replace("¥", "") }}
             </span>
           </div>
         </div>
       </template>
     </PageHeader>
 
-    <section class="overflow-hidden bg-white">
-      <div class="flex flex-col gap-3 bg-white px-0 py-4">
+    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+      <!-- 移动端统计数据条 -->
+      <div
+        v-if="isMobile && accounts.length > 0"
+        class="mx-0 flex items-center justify-between rounded-lg bg-orange-50/50 px-3 py-2 text-xs"
+      >
+        <div class="flex items-center gap-1.5">
+          <span class="text-orange-400">总资产:</span>
+          <span class="font-bold text-orange-600">
+            {{ formatCurrency(totalAssetBalance) }}
+          </span>
+        </div>
+      </div>
+
+
+      <section class="overflow-hidden bg-white">
+        <div :class="['flex flex-col px-0 py-4', isMobile ? 'gap-2' : 'gap-3']">
         <div
+          v-if="!isMobile || showFilters"
           class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_auto] xl:items-end"
         >
           <label class="flex min-w-0 flex-col gap-1.5">
@@ -94,7 +140,170 @@
     <div class="relative min-h-0 flex-1">
       <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
         <div class="min-h-0 flex-1 overflow-hidden">
+          <!-- 移动端卡片视图 -->
+          <div v-if="isMobile" class="h-full overflow-y-auto bg-slate-50 p-3">
+            <div v-if="listLoading" class="flex h-32 items-center justify-center">
+              <t-loading size="medium" text="加载中..." />
+            </div>
+            <div v-else-if="pagedAccounts.length === 0" class="py-8">
+              <t-empty description="暂无扫货账号" />
+            </div>
+            <div v-else class="flex flex-col gap-3">
+              <div
+                v-for="row in pagedAccounts"
+                :key="row.id"
+                class="flex flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100"
+              >
+                <!-- 头部：账号名称 -->
+                <div class="flex items-center justify-between border-b border-slate-100 p-3 bg-slate-50/50">
+                  <div class="min-w-0 flex-1">
+                    <div class="truncate text-sm font-bold text-slate-800">
+                      {{ row.accountName }}
+                    </div>
+                    <div v-if="row.remark" class="mt-0.5 truncate text-[11px] text-slate-500">
+                      备注：{{ row.remark }}
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 资产信息 -->
+                <div class="p-3">
+                  <div class="flex w-full flex-col gap-1 px-0.5 py-0.5">
+                    <!-- 资产统计 (最重要，置顶) -->
+                    <div
+                      class="mb-0.5 flex w-full items-center justify-between border-b border-orange-100/60 pb-1"
+                    >
+                      <span
+                        class="rounded-[2px] bg-orange-50 px-1.5 py-0 text-[9px] font-bold tracking-tight text-orange-600 uppercase"
+                      >
+                        资产统计
+                      </span>
+                      <span class="text-[13px] font-bold text-orange-600 tabular-nums">
+                        {{ formatCurrency(getRowTotal(row)) }}
+                      </span>
+                    </div>
+
+                    <!-- 可用余额 -->
+                    <div class="mb-1 flex w-full items-center justify-between px-0.5">
+                      <span
+                        class="rounded-[2px] bg-emerald-50 px-1.5 py-0 text-[9px] font-bold tracking-tight text-emerald-600 uppercase"
+                      >
+                        可用余额
+                      </span>
+                      <span class="text-[13px] font-bold text-emerald-600 tabular-nums">
+                        {{ formatCurrency(resolveMoneyAmount(row)) }}
+                      </span>
+                    </div>
+
+                    <!-- 次要资产网格 (2列布局压缩高度) -->
+                    <div
+                      class="grid grid-cols-2 gap-x-2 gap-y-1 border-t border-slate-100/60 px-0.5 pt-1"
+                    >
+                      <div class="flex items-center justify-between">
+                        <span class="mr-1 shrink-0 text-[10px] text-slate-400">待结</span>
+                        <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                          {{ formatCurrency(row.pendingBalance) }}
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="mr-1 shrink-0 text-[10px] text-slate-400">保证金</span>
+                        <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                          {{ formatCurrency(row.depositAmount) }}
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="mr-1 shrink-0 text-[10px] text-slate-400">秒到</span>
+                        <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                          {{ formatCurrency(row.creditMoney) }}
+                        </span>
+                      </div>
+                      <div class="flex items-center justify-between">
+                        <span class="mr-1 shrink-0 text-[10px] text-slate-400">秒保</span>
+                        <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                          {{ formatCurrency(row.creditDeposit) }}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 密钥和配置信息 -->
+                  <div class="mt-2 flex flex-col gap-1.5 rounded bg-slate-50 p-2 text-[11px] text-slate-500">
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="shrink-0 text-slate-400">AppKey:</span>
+                      <div class="flex min-w-0 flex-1 items-center justify-end gap-1">
+                        <span class="truncate font-mono text-slate-700">{{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}</span>
+                        <t-button
+                          v-if="canReadAccountDetail && row.hasC5AppKey"
+                          variant="text"
+                          theme="primary"
+                          class="!p-0 h-4 text-[10px]"
+                          :loading="revealingAccountId === row.id"
+                          @click="revealRowAppKey(row)"
+                        >
+                          显示
+                        </t-button>
+                      </div>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="shrink-0 text-slate-400">Steam ID:</span>
+                      <span class="truncate font-mono text-slate-700">{{ row.steamId || "-" }}</span>
+                    </div>
+                    <div class="flex items-center justify-between gap-2">
+                      <span class="shrink-0 text-slate-400">交易链接:</span>
+                      <span class="truncate font-mono text-slate-700">{{ row.steamTradeUrl || "-" }}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- 底部操作区 -->
+                <div class="flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-50 bg-slate-50/50 p-2">
+                  <t-button
+                    v-if="canUpdateAccount"
+                    variant="outline"
+                    theme="default"
+                    class="h-7 px-2 text-xs"
+                    @click="openEditDialog(row)"
+                  >
+                    编辑
+                  </t-button>
+                  <t-button
+                    v-if="canReadAccountDetail"
+                    variant="outline"
+                    theme="primary"
+                    class="h-7 px-2 text-xs"
+                    @click="openDetailDialog(row)"
+                  >
+                    详情
+                  </t-button>
+                  <t-button
+                    v-if="canDeleteAccount && row.boundTaskId"
+                    variant="outline"
+                    theme="danger"
+                    class="h-7 px-2 text-xs"
+                    disabled
+                  >
+                    删除
+                  </t-button>
+                  <t-popconfirm
+                    v-else-if="canDeleteAccount"
+                    content="确定删除该账号吗？"
+                    @confirm="onDeleteAccount(row)"
+                  >
+                    <t-button
+                      variant="outline"
+                      theme="danger"
+                      class="h-7 px-2 text-xs"
+                    >
+                      删除
+                    </t-button>
+                  </t-popconfirm>
+                </div>
+              </div>
+            </div>
+          </div>
+
           <t-table
+            v-else
             row-key="id"
             :data="pagedAccounts"
             :columns="columns"
@@ -126,7 +335,10 @@
 
             <template #c5AppKey="{ row }">
               <div class="flex max-w-[220px] items-center gap-2">
-                <t-tooltip :content="revealedAppKeys[row.id] || row.c5AppKeyMasked || '未配置'" placement="top-left">
+                <t-tooltip
+                  :content="revealedAppKeys[row.id] || row.c5AppKeyMasked || '未配置'"
+                  placement="top-left"
+                >
                   <div class="min-w-0 flex-1 truncate font-mono text-[14px] text-slate-700">
                     {{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}
                   </div>
@@ -160,38 +372,61 @@
               </t-tooltip>
             </template>
 
-
             <template #balance="{ row }">
-              <div class="flex flex-col gap-1 py-0.5 px-0.5 w-full">
+              <div class="flex w-full flex-col gap-1 px-0.5 py-0.5">
                 <!-- 资产统计 (最重要，置顶) -->
-                <div class="flex items-center justify-between w-full pb-1 mb-0.5 border-b border-orange-100/60">
-                   <span class="text-[9px] font-bold text-orange-600 uppercase tracking-tight px-1.5 py-0 bg-orange-50 rounded-[2px]">资产统计</span>
-                   <span class="text-orange-600 tabular-nums text-[13px] font-bold">{{ formatCurrency(getRowTotal(row)) }}</span>
+                <div
+                  class="mb-0.5 flex w-full items-center justify-between border-b border-orange-100/60 pb-1"
+                >
+                  <span
+                    class="rounded-[2px] bg-orange-50 px-1.5 py-0 text-[9px] font-bold tracking-tight text-orange-600 uppercase"
+                  >
+                    资产统计
+                  </span>
+                  <span class="text-[13px] font-bold text-orange-600 tabular-nums">
+                    {{ formatCurrency(getRowTotal(row)) }}
+                  </span>
                 </div>
 
                 <!-- 可用余额 -->
-                <div class="flex items-center justify-between w-full mb-1 px-0.5">
-                  <span class="text-[9px] font-bold text-emerald-600 uppercase tracking-tight px-1.5 py-0 bg-emerald-50 rounded-[2px]">可用余额</span>
-                  <span class="text-[13px] font-bold text-emerald-600 tabular-nums">{{ formatCurrency(resolveMoneyAmount(row)) }}</span>
+                <div class="mb-1 flex w-full items-center justify-between px-0.5">
+                  <span
+                    class="rounded-[2px] bg-emerald-50 px-1.5 py-0 text-[9px] font-bold tracking-tight text-emerald-600 uppercase"
+                  >
+                    可用余额
+                  </span>
+                  <span class="text-[13px] font-bold text-emerald-600 tabular-nums">
+                    {{ formatCurrency(resolveMoneyAmount(row)) }}
+                  </span>
                 </div>
-                
+
                 <!-- 次要资产网格 (2列布局压缩高度) -->
-                <div class="grid grid-cols-2 gap-x-2 gap-y-1 px-0.5 pt-1 border-t border-slate-100/60">
+                <div
+                  class="grid grid-cols-2 gap-x-2 gap-y-1 border-t border-slate-100/60 px-0.5 pt-1"
+                >
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">待结</span>
-                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.pendingBalance) }}</span>
+                    <span class="mr-1 shrink-0 text-[10px] text-slate-400">待结</span>
+                    <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                      {{ formatCurrency(row.pendingBalance) }}
+                    </span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">保证金</span>
-                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.depositAmount) }}</span>
+                    <span class="mr-1 shrink-0 text-[10px] text-slate-400">保证金</span>
+                    <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                      {{ formatCurrency(row.depositAmount) }}
+                    </span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">秒到</span>
-                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.creditMoney) }}</span>
+                    <span class="mr-1 shrink-0 text-[10px] text-slate-400">秒到</span>
+                    <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                      {{ formatCurrency(row.creditMoney) }}
+                    </span>
                   </div>
                   <div class="flex items-center justify-between">
-                    <span class="text-[10px] text-slate-400 mr-1 shrink-0">秒保</span>
-                    <span class="text-slate-600 tabular-nums text-[11px] font-medium truncate">{{ formatCurrency(row.creditDeposit) }}</span>
+                    <span class="mr-1 shrink-0 text-[10px] text-slate-400">秒保</span>
+                    <span class="truncate text-[11px] font-medium text-slate-600 tabular-nums">
+                      {{ formatCurrency(row.creditDeposit) }}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -226,7 +461,11 @@
                 >
                   删除
                 </t-button>
-                <t-popconfirm v-else-if="canDeleteAccount" content="确定删除该账号吗？" @confirm="onDeleteAccount(row)">
+                <t-popconfirm
+                  v-else-if="canDeleteAccount"
+                  content="确定删除该账号吗？"
+                  @confirm="onDeleteAccount(row)"
+                >
                   <t-button
                     variant="outline"
                     theme="danger"
@@ -242,6 +481,9 @@
 
         <div class="border-t border-slate-200 px-4 py-3">
           <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="pagination.current"
             v-model:page-size="pagination.pageSize"
             :total="filteredAccounts.length"
@@ -292,7 +534,11 @@
                   {{ getDetailTaskTitle(row) }}
                 </div>
               </t-tooltip>
-              <t-tooltip v-if="row.marketHashName" :content="row.marketHashName" placement="top-left">
+              <t-tooltip
+                v-if="row.marketHashName"
+                :content="row.marketHashName"
+                placement="top-left"
+              >
                 <div class="mt-1 truncate text-xs text-slate-400">
                   {{ row.marketHashName }}
                 </div>
@@ -331,6 +577,9 @@
           class="mt-3 flex justify-end"
         >
           <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="detailPagination.current"
             v-model:page-size="detailPagination.pageSize"
             :total="detailPagination.total"
@@ -345,7 +594,7 @@
     <AppDialog
       v-model:visible="accountDialogVisible"
       :title="accountDialogTitle"
-      width="520px"
+      width="min(520px, calc(100vw - 32px))"
       @close="resetAccountForm"
     >
       <t-form
@@ -369,12 +618,17 @@
           <t-form-item label="C5 AppKey" name="c5AppKeyPlain">
             <t-input
               v-model="accountFormData.c5AppKeyPlain"
-              :placeholder="accountFormData.id ? '留空则不修改当前 AppKey' : '请输入该账号使用的 C5 AppKey'"
+              :placeholder="
+                accountFormData.id ? '留空则不修改当前 AppKey' : '请输入该账号使用的 C5 AppKey'
+              "
               type="password"
               clearable
               @blur="() => trimStringField(accountFormData, 'c5AppKeyPlain')"
             />
-            <div v-if="accountFormData.id && accountFormData.c5AppKeyMasked" class="mt-1 text-xs text-slate-400">
+            <div
+              v-if="accountFormData.id && accountFormData.c5AppKeyMasked"
+              class="mt-1 text-xs text-slate-400"
+            >
               当前已配置：{{ accountFormData.c5AppKeyMasked }}
             </div>
           </t-form-item>
@@ -408,7 +662,14 @@
           <t-button variant="outline" theme="default" @click="accountDialogVisible = false">
             取消
           </t-button>
-          <t-button theme="primary" type="submit" :loading="accountSubmitLoading" :disabled="!canSubmitAccountForm">提交</t-button>
+          <t-button
+            theme="primary"
+            type="submit"
+            :loading="accountSubmitLoading"
+            :disabled="!canSubmitAccountForm"
+          >
+            提交
+          </t-button>
         </div>
       </t-form>
     </AppDialog>
@@ -442,11 +703,20 @@ interface AccountFormData extends C5SnipingAccount {
 
 const { hasButtonPermission } = useNewPermission();
 const { width } = useWindowSize();
+const showFilters = ref(false);
 const isMobile = computed(() => width.value <= 768);
-const canCreateAccount = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_CREATE));
-const canUpdateAccount = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_UPDATE));
-const canDeleteAccount = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_DELETE));
-const canReadAccountDetail = computed(() => hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_DETAIL));
+const canCreateAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_CREATE)
+);
+const canUpdateAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_UPDATE)
+);
+const canDeleteAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_DELETE)
+);
+const canReadAccountDetail = computed(() =>
+  hasButtonPermission(PermissionConstant.C5_SNIPING_ACCOUNT_DETAIL)
+);
 
 const listLoading = ref(false);
 const accounts = ref<C5SnipingAccount[]>([]);
@@ -691,7 +961,8 @@ const generateRevealKeyPair = () =>
     ["encrypt", "decrypt"]
   );
 
-const exportPublicKey = async (key: CryptoKey) => bytesToBase64(await window.crypto.subtle.exportKey("spki", key));
+const exportPublicKey = async (key: CryptoKey) =>
+  bytesToBase64(await window.crypto.subtle.exportKey("spki", key));
 
 const decryptRevealAppKey = async (encryptedAppKey: string, privateKey: CryptoKey) => {
   const decrypted = await window.crypto.subtle.decrypt(
@@ -705,13 +976,19 @@ const decryptRevealAppKey = async (encryptedAppKey: string, privateKey: CryptoKe
 const formatCurrency = (value?: number) =>
   value === undefined || value === null ? "-" : priceFormatter.format(value);
 
-
 const resolveMoneyAmount = (account: C5SnipingAccount) => account.moneyAmount ?? account.balance;
 const getRowTotal = (row: C5SnipingAccount) => row.totalBalance ?? 0;
 const getDetailTaskTitle = (row: C5SnipingTaskV2Item) =>
   row.name || row.goodsDisplayName || row.marketHashName || `任务 #${row.id}`;
 const getTaskStatusMeta = (status?: string) => {
-  const map: Record<string, { label: string; theme: "default" | "primary" | "danger" | "warning" | "success"; dotClass: string }> = {
+  const map: Record<
+    string,
+    {
+      label: string;
+      theme: "default" | "primary" | "danger" | "warning" | "success";
+      dotClass: string;
+    }
+  > = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
     READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
@@ -865,7 +1142,9 @@ const onAccountSubmit = async (context: SubmitContext) => {
   try {
     const isCreate = !accountFormData.id;
     const existingAccountIds = new Set(
-      accounts.value.map((account) => account.id).filter((id): id is number => typeof id === "number")
+      accounts.value
+        .map((account) => account.id)
+        .filter((id): id is number => typeof id === "number")
     );
 
     trimStringField(accountFormData, "accountName");
@@ -958,12 +1237,18 @@ const revealRowAppKey = async (row: C5SnipingAccount) => {
     const keyPair = await generateRevealKeyPair();
     const publicKey = await exportPublicKey(keyPair.publicKey);
     const result = await c5SnipingAccountApi.revealAppKey(row.id, { publicKey });
-    revealedAppKeys[row.id] = await decryptRevealAppKey(result.encryptedC5AppKey, keyPair.privateKey);
+    revealedAppKeys[row.id] = await decryptRevealAppKey(
+      result.encryptedC5AppKey,
+      keyPair.privateKey
+    );
     const existingTimer = revealTimers.get(row.id);
     if (existingTimer) {
       window.clearTimeout(existingTimer);
     }
-    revealTimers.set(row.id, window.setTimeout(() => clearRevealedAppKey(row.id as number), 30000));
+    revealTimers.set(
+      row.id,
+      window.setTimeout(() => clearRevealedAppKey(row.id as number), 30000)
+    );
     MessagePlugin.success("AppKey 明文已显示，30 秒后自动隐藏");
   } finally {
     revealingAccountId.value = undefined;

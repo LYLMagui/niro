@@ -169,6 +169,10 @@ export interface C5InventoryMarketReferencePageResult {
   hasMore: boolean;
   wearMin?: number;
   wearMax?: number;
+  snapshotStatus?: string;
+  lastSuccessTime?: string;
+  stale?: boolean;
+  message?: string;
 }
 
 export interface C5InventoryListingFeeCalculateParam {
@@ -198,4 +202,3 @@ export interface C5InventoryListingFeeResult {
   actualAmount?: number;
   rawData?: Record<string, unknown>;
 }
-

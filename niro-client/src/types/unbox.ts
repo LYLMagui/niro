@@ -110,4 +110,8 @@ export interface UnboxRecordC5ListingPageResult {
   pageNum: number;
   pageSize: number;
   hasMore: boolean;
+  snapshotStatus?: string;
+  lastSuccessTime?: string;
+  stale?: boolean;
+  message?: string;
 }

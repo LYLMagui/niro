@@ -10,7 +10,12 @@
     <PageHeader title="邀请码管理">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"
+          />
         </svg>
       </template>
     </PageHeader>
@@ -133,7 +138,11 @@
             >
               批量生成
             </t-button>
-            <t-popconfirm v-if="canDisableInviteCode" content="确认批量停用选中的邀请码吗？" @confirm="handleBatchDisable">
+            <t-popconfirm
+              v-if="canDisableInviteCode"
+              content="确认批量停用选中的邀请码吗？"
+              @confirm="handleBatchDisable"
+            >
               <t-button
                 variant="outline"
                 theme="default"
@@ -169,7 +178,6 @@
 
     <div class="relative min-h-0 flex-1">
       <div v-if="!isMobile" class="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
-        >
         <div class="min-h-0 flex-1 overflow-hidden">
           <t-table
             row-key="id"
@@ -311,10 +319,10 @@
                   {{ row.adminStatus === "enabled" ? "停用" : "启用" }}
                 </t-button>
                 <t-button
+                  v-if="canCopyInviteCode"
                   variant="outline"
                   theme="default"
                   class="invite-code-table__action-btn"
-                  v-if="canCopyInviteCode"
                   @click="copyInviteLink(row)"
                 >
                   复制链接
@@ -326,6 +334,9 @@
 
         <div v-if="pagination.total > 0" class="bg-white px-4 py-3">
           <t-pagination
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="pagination.current"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
@@ -416,13 +427,28 @@
               <t-button variant="outline" theme="default" @click="openDetailDrawer(row)">
                 详情
               </t-button>
-              <t-button v-if="canUpdateInviteCode" variant="outline" theme="default" @click="openEditDialog(row)">
+              <t-button
+                v-if="canUpdateInviteCode"
+                variant="outline"
+                theme="default"
+                @click="openEditDialog(row)"
+              >
                 编辑
               </t-button>
-              <t-button v-if="canCopyInviteCode" variant="outline" theme="default" @click="copyInviteCode(row)">
+              <t-button
+                v-if="canCopyInviteCode"
+                variant="outline"
+                theme="default"
+                @click="copyInviteCode(row)"
+              >
                 复制码
               </t-button>
-              <t-button v-if="canCopyInviteCode" variant="outline" theme="default" @click="copyInviteLink(row)">
+              <t-button
+                v-if="canCopyInviteCode"
+                variant="outline"
+                theme="default"
+                @click="copyInviteLink(row)"
+              >
                 复制链接
               </t-button>
             </div>
@@ -431,7 +457,9 @@
 
         <div v-if="!loading && pagination.total > 0" class="invite-mobile__pagination">
           <t-pagination
-            theme="simple"
+            :size="isMobile ? 'small' : 'medium'"
+            :theme="isMobile ? 'simple' : 'default'"
+            :show-page-size="isMobile ? false : undefined"
             v-model="pagination.current"
             v-model:page-size="pagination.pageSize"
             :total="pagination.total"
@@ -577,7 +605,9 @@
         </div>
         <div class="mt-6 flex justify-end gap-3">
           <t-button variant="outline" @click="createDialogVisible = false">取消</t-button>
-          <t-button theme="primary" :disabled="!canCreateInviteCode" @click="submitCreate">创建邀请码</t-button>
+          <t-button theme="primary" :disabled="!canCreateInviteCode" @click="submitCreate">
+            创建邀请码
+          </t-button>
         </div>
       </t-form>
     </t-dialog>
@@ -625,7 +655,13 @@
           </div>
           <div class="mt-6 flex justify-end gap-3">
             <t-button variant="outline" @click="batchDialogVisible = false">取消</t-button>
-            <t-button theme="primary" :disabled="!canBatchCreateInviteCode" @click="submitBatchGenerate">开始生成</t-button>
+            <t-button
+              theme="primary"
+              :disabled="!canBatchCreateInviteCode"
+              @click="submitBatchGenerate"
+            >
+              开始生成
+            </t-button>
           </div>
         </t-form>
       </template>
@@ -888,13 +924,21 @@ const canManageInviteCodes = computed(() =>
 );
 const hasInviteCodeAction = (permissionCode: string) =>
   props.permissionMode === "new" ? hasButtonPermission(permissionCode) : canManageInviteCodes.value;
-const canCreateInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_CREATE));
+const canCreateInviteCode = computed(() =>
+  hasInviteCodeAction(PermissionConstant.INVITE_CODE_CREATE)
+);
 const canBatchCreateInviteCode = computed(() =>
   hasInviteCodeAction(PermissionConstant.INVITE_CODE_BATCH_CREATE)
 );
-const canUpdateInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_UPDATE));
-const canEnableInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_ENABLE));
-const canDisableInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_DISABLE));
+const canUpdateInviteCode = computed(() =>
+  hasInviteCodeAction(PermissionConstant.INVITE_CODE_UPDATE)
+);
+const canEnableInviteCode = computed(() =>
+  hasInviteCodeAction(PermissionConstant.INVITE_CODE_ENABLE)
+);
+const canDisableInviteCode = computed(() =>
+  hasInviteCodeAction(PermissionConstant.INVITE_CODE_DISABLE)
+);
 const canCopyInviteCode = computed(() => hasInviteCodeAction(PermissionConstant.INVITE_CODE_COPY));
 
 const hasVisibleOperation = (record: InviteCodeRecord) =>

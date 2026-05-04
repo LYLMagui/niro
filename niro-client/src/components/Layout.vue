@@ -157,7 +157,11 @@
           class="erp-main-content min-h-0 flex-1"
           :class="activeValue === 'LogsNew' ? 'overflow-hidden' : 'overflow-y-auto'"
         >
-          <router-view :key="route.fullPath" />
+          <router-view v-slot="{ Component, route: r }">
+            <keep-alive :include="keepAliveNames">
+              <component :is="Component" :key="r.fullPath" />
+            </keep-alive>
+          </router-view>
         </t-content>
       </t-layout>
     </t-layout>
@@ -202,7 +206,9 @@ const findMenuValueByPath = (menus: MenuConfig[], path: string): string | undefi
   return undefined;
 };
 
-const sidebarMenus = computed((): MenuConfig[] => transformRoutesToMenus(newPermissionStore.routes as any));
+const sidebarMenus = computed((): MenuConfig[] =>
+  transformRoutesToMenus(newPermissionStore.routes as any)
+);
 
 const activeValue = computed(() => {
   const matchedValue = findMenuValueByPath(sidebarMenus.value, route.path);
@@ -230,6 +236,10 @@ const activeTabKey = computed({
 const displayTabs = computed<PageTab[]>(() => {
   const tabs = pageTabs.value;
   return tabs.length > 0 ? tabs : [HOME_TAB];
+});
+
+const keepAliveNames = computed(() => {
+  return pageTabs.value.filter((tab) => tab.keepAlive).map((tab) => tab.key);
 });
 
 watch(

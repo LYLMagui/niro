@@ -15,14 +15,52 @@
         </svg>
       </template>
       <template #extra>
-        <div class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">订单总数</span>
-          <span class="font-numeric text-base font-bold text-slate-900">{{ pagination.total }} <small class="text-[10px] font-medium text-slate-400">单</small></span>
+        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
+          <t-button
+            v-if="canTriggerC5Sync"
+            variant="outline"
+            size="small"
+            theme="primary"
+            :loading="c5SyncLoading"
+            @click="handleC5Sync"
+          >
+            <template #icon><t-icon name="refresh" :class="{ 'animate-spin': c5SyncLoading }" /></template>
+            同步
+          </t-button>
+          <t-button
+            variant="outline"
+            size="small"
+            theme="default"
+            @click="showAdvancedFilters = !showAdvancedFilters"
+          >
+            <template #icon><t-icon :name="showAdvancedFilters ? 'chevron-up' : 'filter'" /></template>
+            {{ showAdvancedFilters ? '收起' : '筛选' }}
+          </t-button>
+        </div>
+        <div v-if="!isMobile" class="flex flex-col items-end">
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            订单总数
+          </span>
+          <span class="font-numeric text-base font-bold text-slate-900">
+            {{ pagination.total }}
+            <small class="text-[10px] font-medium text-slate-400">单</small>
+          </span>
         </div>
       </template>
     </PageHeader>
 
-    <section class="overflow-hidden bg-white">
+    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+      <!-- 移动端统计数据条 -->
+      <div
+        v-if="isMobile"
+        class="mx-0 flex items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-xs"
+      >
+        <div class="flex items-center gap-1.5">
+          <span class="text-slate-400">订单总数:</span>
+          <span class="font-bold text-slate-700">{{ pagination.total }} 单</span>
+        </div>
+      </div>
+      <section class="overflow-hidden bg-white">
       <t-tabs
         v-model="activeTab"
         class="jsh-tabs border-b border-slate-200 bg-white px-4"
@@ -36,6 +74,7 @@
 
       <div class="flex flex-col gap-3 bg-white px-0 py-4">
         <div
+          v-if="!isMobile || showAdvancedFilters"
           :class="[
             'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
             showAdvancedFilters
@@ -530,6 +569,7 @@
 </template>
 
 <script setup lang="ts">
+defineOptions({ name: "OrderRecord" });
 import { computed, nextTick, onMounted, reactive, ref, watch } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import dayjs from "dayjs";
@@ -593,7 +633,7 @@ const { width } = useWindowSize();
 const canViewOrderRecord = computed(() => hasPermission(PermissionConstant.TASK_RECORD_LIST));
 const canTriggerC5Sync = computed(() => hasButtonPermission(PermissionConstant.ORDER_C5_SYNC));
 const canDeleteOrderRecord = computed(() => hasButtonPermission(PermissionConstant.ORDER_RECORD_DELETE));
-const isMobile = computed(() => width.value <= 640);
+const isMobile = computed(() => width.value <= 768);
 
 const loading = ref(false);
 const c5SyncLoading = ref(false);
@@ -1151,6 +1191,9 @@ const handleC5Sync = async () => {
 
   const accountId = getSelectedSyncAccountId();
   if (!accountId) {
+    if (isMobile.value) {
+      showAdvancedFilters.value = true;
+    }
     warnMissingSyncAccount();
     return;
   }

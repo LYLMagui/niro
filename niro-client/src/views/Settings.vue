@@ -3,13 +3,25 @@
     <PageHeader title="系统设置">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
+          />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+          />
         </svg>
       </template>
       <template #extra>
         <div v-if="accounts.length > 0" class="flex flex-col items-end">
-          <span class="text-[10px] font-bold uppercase tracking-wider text-slate-400">BUFF 全站总资产</span>
+          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+            BUFF 全站总资产
+          </span>
           <span class="font-numeric text-base font-bold text-slate-900">
             <span v-if="balanceVisible">¥{{ totalAssets.toFixed(2) }}</span>
             <span v-else>****</span>
@@ -76,7 +88,9 @@
               <div class="flex min-w-0 items-center space-x-2">
                 <t-icon name="user-circle" class="shrink-0 text-blue-500" size="18px" />
                 <t-tooltip :content="row.accountName" placement="top-left">
-                  <span class="truncate text-[15px] font-bold text-[#1d2129]">{{ row.accountName }}</span>
+                  <span class="truncate text-[15px] font-bold text-[#1d2129]">
+                    {{ row.accountName }}
+                  </span>
                 </t-tooltip>
               </div>
             </template>
@@ -159,20 +173,28 @@
             <!-- 余额显示/隐藏 -->
             <template #balance="{ row }">
               <div
-                class="group flex cursor-pointer flex-col gap-1 py-0.5 px-0.5 w-full select-none"
+                class="group flex w-full cursor-pointer flex-col gap-1 px-0.5 py-0.5 select-none"
                 @click="balanceVisible = !balanceVisible"
               >
                 <!-- 资产统计 (置顶突出) -->
-                <div class="flex items-center justify-between w-full pb-1 border-b border-orange-100/40">
-                   <span class="text-[9px] font-bold text-orange-600 uppercase tracking-tight px-1 py-0 bg-orange-50 rounded-[2px]">资产统计</span>
-                   <span class="text-orange-600 tabular-nums text-[13px] font-bold">
-                     <span v-if="balanceVisible">¥{{ ((row.balance || 0) + (row.pendingBalance || 0)).toFixed(2) }}</span>
-                     <span v-else>****</span>
-                   </span>
+                <div
+                  class="flex w-full items-center justify-between border-b border-orange-100/40 pb-1"
+                >
+                  <span
+                    class="rounded-[2px] bg-orange-50 px-1 py-0 text-[9px] font-bold tracking-tight text-orange-600 uppercase"
+                  >
+                    资产统计
+                  </span>
+                  <span class="text-[13px] font-bold text-orange-600 tabular-nums">
+                    <span v-if="balanceVisible">
+                      ¥{{ ((row.balance || 0) + (row.pendingBalance || 0)).toFixed(2) }}
+                    </span>
+                    <span v-else>****</span>
+                  </span>
                 </div>
 
                 <!-- 可用余额 & 待结算 (并排) -->
-                <div class="flex items-center justify-between w-full px-0.5 text-[11px]">
+                <div class="flex w-full items-center justify-between px-0.5 text-[11px]">
                   <div class="flex items-center gap-1">
                     <span class="text-slate-400">可用</span>
                     <span :class="['font-bold tabular-nums', getBalanceClass(row)]">
@@ -333,7 +355,9 @@
                   <template #label><span class="text-[#86909c]">C5 AppKey</span></template>
                   <t-input
                     v-model="c5AppKeyPlain"
-                    :placeholder="formData.hasC5AppKey ? '留空则不修改当前 AppKey' : '请输入C5平台的AppKey'"
+                    :placeholder="
+                      formData.hasC5AppKey ? '留空则不修改当前 AppKey' : '请输入C5平台的AppKey'
+                    "
                     type="password"
                     clearable
                     @blur="(v: string | number) => handlePlainAppKeyTrim(String(v))"
@@ -643,10 +667,18 @@ import { computed, onMounted, reactive, ref, watch } from "vue";
 const { hasPermission } = usePermission();
 const { hasButtonPermission } = useNewPermission();
 const canViewAccountList = computed(() => hasPermission(PermissionConstant.ACCOUNT_LIST));
-const canSaveBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_SAVE));
-const canDeleteBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_DELETE));
-const canCheckBuffAccount = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK));
-const canCheckAllBuffAccounts = computed(() => hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK_ALL));
+const canSaveBuffAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_SAVE)
+);
+const canDeleteBuffAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_DELETE)
+);
+const canCheckBuffAccount = computed(() =>
+  hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK)
+);
+const canCheckAllBuffAccounts = computed(() =>
+  hasButtonPermission(PermissionConstant.BUFF_ACCOUNT_CHECK_ALL)
+);
 const canSaveSettings = computed(() => hasButtonPermission(PermissionConstant.SETTINGS_SAVE));
 const canTestNotify = computed(() => hasButtonPermission(PermissionConstant.SETTINGS_TEST_NOTIFY));
 
