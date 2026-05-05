@@ -148,6 +148,7 @@
           </div>
         </div>
       </div>
+    </div>
 
     <div class="relative min-h-0 flex-1">
       <div class="relative flex h-full min-h-0 flex-col overflow-hidden">
