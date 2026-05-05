@@ -166,6 +166,7 @@
 
     <div class="mt-8 flex flex-col items-center gap-1 text-sm text-gray-400">
       <div>Copyright © 2024 - 2026 Niro Control</div>
+      <div>闽ICP备2025101529号-2</div>
     </div>
   </div>
 </template>

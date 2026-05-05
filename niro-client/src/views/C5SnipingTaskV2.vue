@@ -228,6 +228,10 @@
                       </div>
                     </div>
                   </div>
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">创建时间</span>
+                    <span>{{ formatDateTime(row.createTime) }}</span>
+                  </div>
 
                   <div class="mt-1 rounded bg-slate-50 p-2">
                     <div class="mb-1 flex items-center justify-between">
@@ -431,6 +435,12 @@
                   {{ row.lastErrorMessage || "-" }}
                 </div>
               </t-tooltip>
+            </template>
+
+            <template #createTime="{ row }">
+              <div class="text-sm text-slate-600">
+                {{ formatDateTime(row.createTime) }}
+              </div>
             </template>
 
             <template #op="{ row }">
@@ -959,6 +969,14 @@ const columns = computed<PrimaryTableCol[]>(() => [
     title: "错误详情",
     width: 200,
     cell: "lastError",
+    className: taskTableBodyClass,
+    thClassName: taskTableHeaderClass,
+  },
+  {
+    colKey: "createTime",
+    title: "创建时间",
+    width: 170,
+    cell: "createTime",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
