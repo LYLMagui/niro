@@ -1,0 +1,19 @@
+services:
+  serena-niro:
+    image: ghcr.io/oraios/serena:main
+    container_name: ${SERENA_CONTAINER_NAME:-serena-niro}
+    restart: unless-stopped
+    ports:
+      - "${SERENA_PORT:-9121}:9121"
+      - "${SERENA_DASHBOARD_PORT:-24282}:24282"
+    environment:
+      - SERENA_DOCKER=1
+    volumes:
+      - ${SERENA_PROJECT_PATH:-D:/MySpace/niro}:/workspace/project
+      - ${SERENA_GLOBAL_CONFIG_PATH:-D:/Environment/SoftWare/MCP/Serena/config}:/workspace/serena/config
+      - D:/Environment/Maven/maven-3.9.12/conf:/root/.m2
+      - D:/Environment/Maven/maven-library:/root/.m2/repository
+    entrypoint: [ "/bin/bash", "-lc" ]
+    command:
+      - >-
+        exec uv run --directory . serena start-mcp-server --transport streamable-http --port 9121 --host 0.0.0.0 --project /workspace/project --context claude-code --open-web-dashboard False

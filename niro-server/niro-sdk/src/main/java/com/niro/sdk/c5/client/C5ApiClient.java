@@ -1,7 +1,12 @@
 package com.niro.sdk.c5.client;
 
-import com.niro.sdk.c5.client.core.C5HttpEngine;
-import com.niro.sdk.c5.client.module.*;
+import com.niro.sdk.c5.client.core.C5HttpExecutor;
+import com.niro.sdk.c5.account.C5AccountClient;
+import com.niro.sdk.c5.inventory.C5InventoryClient;
+import com.niro.sdk.c5.market.C5MarketClient;
+import com.niro.sdk.c5.order.C5OrderClient;
+import com.niro.sdk.c5.purchase.C5PurchaseClient;
+import com.niro.sdk.c5.trade.C5TradeClient;
 import com.niro.sdk.c5.config.C5Config;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -19,7 +24,7 @@ public class C5ApiClient {
     /**
      * HTTP 执行引擎 (核心组件，负责连接池和请求发送)
      */
-    private final C5HttpEngine engine;
+    private final C5HttpExecutor executor;
 
     // ================== 功能模块 ==================
 
@@ -60,15 +65,15 @@ public class C5ApiClient {
      */
     public C5ApiClient(C5Config config) {
         // 初始化核心引擎 (单例 HttpClient，线程安全)
-        this.engine = new C5HttpEngine(config);
+        this.executor = new C5HttpExecutor(config);
 
         // 初始化各功能模块
-        this.account = new C5AccountClient(engine);
-        this.market = new C5MarketClient(engine);
-        this.trade = new C5TradeClient(engine);
-        this.purchase = new C5PurchaseClient(engine);
-        this.inventory = new C5InventoryClient(engine);
-        this.order = new C5OrderClient(engine);
+        this.account = new C5AccountClient(executor);
+        this.market = new C5MarketClient(executor);
+        this.trade = new C5TradeClient(executor);
+        this.purchase = new C5PurchaseClient(executor);
+        this.inventory = new C5InventoryClient(executor);
+        this.order = new C5OrderClient(executor);
 
         log.info("C5ApiClient initialized with Virtual Thread support.");
     }

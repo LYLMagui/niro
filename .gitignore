@@ -88,3 +88,5 @@ logs/
 /.playwright-cli/
 /.serena/
 /.claude/skills/sql-database-workflow/references/
+
+**/*.local.json

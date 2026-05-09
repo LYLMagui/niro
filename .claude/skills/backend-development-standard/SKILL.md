@@ -70,7 +70,7 @@ metadata:
 ### Step 2: Load or create the project backend standard
 优先检查当前 skill 目录下是否存在：
 
-- `references/project-backend-standard.md`
+- `.claude/skills/backend-development-standard/references/project-backend-standard.md`
 
 处理规则：
 
@@ -82,7 +82,7 @@ metadata:
 2. **如果不存在**：
    - 读取当前项目有代表性的 Controller、Service、持久层、DTO/VO/Param/Entity、配置或项目说明。
    - 归纳该项目的后端规范。
-   - 在 `references/project-backend-standard.md` 中写入项目规范。
+   - 在 `.claude/skills/backend-development-standard/references/project-backend-standard.md` 中写入项目规范。
    - 后续按新生成的参考文件执行。
 
 ### Step 3: Analyze the project shape before prescribing structure
@@ -127,7 +127,7 @@ metadata:
 
 - 小改动优先沿用所在模块的稳定写法
 - 新增模块或规范化改造优先按项目参考规范落地
-- 只有当你确认发现了稳定、可复用、值得长期保留的新规范时，才更新 `references/project-backend-standard.md`
+- 只有当你确认发现了稳定、可复用、值得长期保留的新规范时，才更新 `.claude/skills/backend-development-standard/references/project-backend-standard.md`
 - 如果只是某个文件的临时例外，不要把它升级成项目规范
 
 ### Step 7: Verify the result with compatibility in mind
@@ -151,7 +151,7 @@ metadata:
 
 你应该：
 
-1. 先读取 `references/project-backend-standard.md`。
+1. 先读取 `.claude/skills/backend-development-standard/references/project-backend-standard.md`。
 2. 再读取当前模块的相似 Controller / Service / 持久层实现。
 3. 按参考规范和当前模块既有模式落代码。
 4. 若发现参考规范与当前模块实现冲突，先确认是否是旧代码偏差还是规范已过时。
@@ -163,10 +163,10 @@ metadata:
 
 你应该：
 
-1. 先检查 `references/project-backend-standard.md` 是否存在。
+1. 先检查 `.claude/skills/backend-development-standard/references/project-backend-standard.md` 是否存在。
 2. 若不存在，读取代表性的 Controller、Service、持久层、DTO、Entity 和项目说明。
 3. 总结项目的分层、返回值、查询方式、校验与事务模式。
-4. 生成 `references/project-backend-standard.md`。
+4. 生成 `.claude/skills/backend-development-standard/references/project-backend-standard.md`。
 5. 再开始后续规范化改造。
 
 ### Example 3: The project differs from a familiar pattern
@@ -194,7 +194,7 @@ metadata:
 
 ## References
 
-- `references/project-backend-standard.md`
+- `.claude/skills/backend-development-standard/references/project-backend-standard.md`
 - `D:\MySpace\niro\CLAUDE.md`
 - `D:\MySpace\niro\niro-server\CLAUDE.md`
 - 当前项目内相似的 Controller、Service、持久层、DTO、Entity 实现

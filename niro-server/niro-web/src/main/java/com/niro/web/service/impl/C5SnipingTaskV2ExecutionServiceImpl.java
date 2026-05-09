@@ -3,37 +3,20 @@ package com.niro.web.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
+import cn.hutool.http.Method;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.client.module.C5MarketClient;
-import com.niro.sdk.c5.request.market.C5ProductListRequest;
-import com.niro.sdk.c5.request.market.C5ProductSearchRequest;
-import com.niro.sdk.c5.request.trade.C5BatchBuyRequest;
-import com.niro.sdk.c5.response.C5BalanceResponse;
-import com.niro.sdk.c5.response.market.C5ProductListResponse;
+import com.niro.sdk.c5.constant.C5GameAPI;
+import com.niro.sdk.c5.market.C5ProductListRequest;
+import com.niro.sdk.c5.market.C5ProductSearchRequest;
+import com.niro.sdk.c5.trade.C5BatchBuyRequest;
+import com.niro.sdk.c5.account.C5BalanceResponse;
+import com.niro.sdk.c5.market.C5ProductListResponse;
+import com.niro.sdk.c5.trade.C5BatchBuyResponse;
 import com.niro.web.dto.C5SnipingTaskV2EventDTO;
-import com.niro.sdk.c5.response.trade.C5BatchBuyResponse;
-import com.niro.web.entity.C5SnipingAccount;
-import com.niro.web.entity.C5SnipingBuyAttemptV2;
-import com.niro.web.entity.C5SnipingHitRecordV2;
-import com.niro.web.entity.C5SnipingTaskRunV2;
-import com.niro.web.entity.C5SnipingTaskV2;
-import com.niro.web.entity.Cs2Goods;
-import com.niro.web.entity.TradeOrderRecord;
-import com.niro.web.enums.C5SnipingBuyAttemptV2StatusEnum;
-import com.niro.web.enums.C5SnipingTaskRunV2StatusEnum;
-import com.niro.web.enums.C5SnipingTaskV2BalanceGuardModeEnum;
-import com.niro.web.enums.C5SnipingTaskV2StopModeEnum;
-import com.niro.web.enums.OrderStatusEnum;
-import com.niro.web.enums.PlatformEnum;
-import com.niro.web.manager.C5SnipingAccountMapperManager;
-import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
-import com.niro.web.manager.C5SnipingBuyAttemptV2MapperManager;
-import com.niro.web.manager.C5SnipingHitRecordV2MapperManager;
-import com.niro.web.manager.C5SnipingTaskRunV2MapperManager;
-import com.niro.web.manager.C5SnipingTaskV2MapperManager;
-import com.niro.web.manager.Cs2GoodsMapperManager;
-import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.entity.*;
+import com.niro.web.enums.*;
+import com.niro.web.manager.*;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.C5SnipingTaskV2EventService;
@@ -47,13 +30,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -201,7 +178,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                 .min(BigDecimal::compareTo)
                 .orElse(null);
         log.info("C5扫货products/list查询: userId={}, taskId={}, requestUrl='{} {}', appId={}, marketHashName={}, pageNum={}, pageSize={}, currentMinPrice={}, configuredMaxPrice={}",
-                task.getUserId(), task.getId(), C5MarketClient.PRODUCT_LIST_METHOD, C5MarketClient.PRODUCT_LIST_ENDPOINT,
+                task.getUserId(), task.getId(), Method.POST, C5GameAPI.Market.PRODUCT_LIST,
                 request.getAppId(), request.getMarketHashName(), request.getPageNum(), request.getPageSize(), minPrice, task.getMaxPrice());
     }
 

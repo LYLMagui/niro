@@ -18,4 +18,9 @@ public class C5Config {
      * API 基础地址
      */
     private String baseUrl = "https://openapi.c5game.com";
+
+    /**
+     * 单次请求超时（秒），影响每个 HttpRequest 的 timeout 设置
+     */
+    private int requestTimeoutSeconds = 60;
 }

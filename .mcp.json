@@ -9,7 +9,7 @@
         "tdesign-mcp-server@latest"
       ]
     },
-    "PostgreSQL": {
+    "postgresSQL-dev": {
       "command": "cmd",
       "args": [
         "/c",
@@ -17,6 +17,16 @@
         "-y",
         "@modelcontextprotocol/server-postgres",
         "postgresql://niro-admin:Lyl010430.@106.53.11.158:5433/niro"
+      ]
+    },
+    "postgresSQL-prod": {
+      "command": "cmd",
+      "args": [
+        "/c",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-postgres",
+        "%NIRO_POSTGRESQL_PROD_URL%"
       ]
     },
     "redis": {

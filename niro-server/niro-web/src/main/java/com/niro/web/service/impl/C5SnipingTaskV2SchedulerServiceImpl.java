@@ -2,8 +2,8 @@ package com.niro.web.service.impl;
 
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
-import com.niro.sdk.c5.request.trade.C5OrderDetailRequest;
-import com.niro.sdk.c5.response.trade.C5OrderDetailResponse;
+import com.niro.sdk.c5.order.C5OrderDetailRequest;
+import com.niro.sdk.c5.order.C5OrderDetailResponse;
 import com.niro.web.dto.C5SnipingTaskV2EventDTO;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.C5SnipingAccountRuntimeV2;

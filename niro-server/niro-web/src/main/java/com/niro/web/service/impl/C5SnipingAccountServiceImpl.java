@@ -5,7 +5,7 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.util.StrUtil;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.exception.C5ApiException;
-import com.niro.sdk.c5.response.C5BalanceResponse;
+import com.niro.sdk.c5.account.C5BalanceResponse;
 import com.niro.web.dto.AppKeyPublicKeyDTO;
 import com.niro.web.dto.AppKeyRevealDTO;
 import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
