@@ -95,97 +95,17 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
     }
 
     /**
-     * 查询账号下待调度任务。
+     * 查询当前运行中的未删除任务。
      *
-     * @param accountId 账号 ID
-     * @return 待调度任务列表
+     * @return RUNNING 任务列表
      */
-    public List<C5SnipingTaskV2> listReadyTasksByAccount(Long accountId) {
+    public List<C5SnipingTaskV2> listRunningTasks() {
         return this.lambdaQuery()
-                .eq(C5SnipingTaskV2::getAccountId, accountId)
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
-                .le(C5SnipingTaskV2::getNextScanAt, LocalDateTime.now())
+                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
                 .eq(C5SnipingTaskV2::getDelFlag, 0)
                 .orderByDesc(C5SnipingTaskV2::getPriority)
-                .orderByAsc(C5SnipingTaskV2::getNextScanAt)
                 .orderByAsc(C5SnipingTaskV2::getUpdateTime)
                 .list();
-    }
-
-    /**
-     * 查询当前到期待调度任务。
-     *
-     * @return 到期 READY 任务列表
-     */
-    public List<C5SnipingTaskV2> listDueReadyTasks() {
-        LocalDateTime now = LocalDateTime.now();
-        return this.lambdaQuery()
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
-                .le(C5SnipingTaskV2::getNextScanAt, now)
-                .and(wrapper -> wrapper.isNull(C5SnipingTaskV2::getLeaseUntil)
-                        .or()
-                        .le(C5SnipingTaskV2::getLeaseUntil, now))
-                .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .orderByDesc(C5SnipingTaskV2::getPriority)
-                .orderByAsc(C5SnipingTaskV2::getNextScanAt)
-                .orderByAsc(C5SnipingTaskV2::getUpdateTime)
-                .list();
-    }
-
-    /**
-     * 尝试抢占 READY 任务调度租约。
-     *
-     * @param taskId 任务 ID
-     * @param leaseOwner 租约持有者
-     * @param now 当前时间
-     * @param leaseUntil 租约过期时间
-     * @return 是否抢占成功
-     */
-    public boolean tryAcquireLease(Long taskId, String leaseOwner, LocalDateTime now, LocalDateTime leaseUntil) {
-        return this.lambdaUpdate()
-                .eq(C5SnipingTaskV2::getId, taskId)
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
-                .le(C5SnipingTaskV2::getNextScanAt, now)
-                .and(wrapper -> wrapper.isNull(C5SnipingTaskV2::getLeaseUntil)
-                        .or()
-                        .le(C5SnipingTaskV2::getLeaseUntil, now))
-                .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .set(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
-                .set(C5SnipingTaskV2::getLeaseUntil, leaseUntil)
-                .setSql("version = version + 1")
-                .update();
-    }
-
-    /**
-     * 清理任务调度租约。
-     *
-     * @param taskId 任务 ID
-     * @return 是否更新成功
-     */
-    public boolean clearLease(Long taskId) {
-        return this.lambdaUpdate()
-                .eq(C5SnipingTaskV2::getId, taskId)
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
-                .setSql("version = version + 1")
-                .update();
-    }
-
-    /**
-     * 按租约持有者清理任务调度租约，避免误清理其他实例新抢占的租约。
-     *
-     * @param taskId 任务 ID
-     * @param leaseOwner 租约持有者
-     * @return 是否更新成功
-     */
-    public boolean clearLeaseByOwner(Long taskId, String leaseOwner) {
-        return this.lambdaUpdate()
-                .eq(C5SnipingTaskV2::getId, taskId)
-                .eq(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
-                .setSql("version = version + 1")
-                .update();
     }
 
     /**
@@ -203,15 +123,12 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
     }
 
     /**
-     * 查询服务启动时需要恢复的任务。
+     * 查询服务启动时需要恢复本地循环的任务。
      *
-     * @return READY 或 RUNNING 的未删除任务
+     * @return RUNNING 的未删除任务
      */
     public List<C5SnipingTaskV2> listRecoverableTasks() {
-        return this.lambdaQuery()
-                .in(C5SnipingTaskV2::getTaskStatus, List.of(C5SnipingTaskV2StatusEnum.READY, C5SnipingTaskV2StatusEnum.RUNNING))
-                .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .list();
+        return listRunningTasks();
     }
 
     /**
@@ -227,9 +144,8 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
                 .eq(C5SnipingTaskV2::getId, taskId)
                 .eq(fromStatus != null, C5SnipingTaskV2::getTaskStatus, fromStatus)
                 .set(C5SnipingTaskV2::getTaskStatus, toStatus)
+                .set(C5SnipingTaskV2::getFinishedAt, C5SnipingTaskV2StatusEnum.COMPLETED.equals(toStatus) ? LocalDateTime.now() : null)
                 .set(C5SnipingTaskV2::getLastErrorMessage, "")
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .update();
     }
@@ -279,36 +195,12 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
                 .set(C5SnipingTaskV2::getStopRequested, false)
                 .set(C5SnipingTaskV2::getStopRequestedAt, null)
                 .set(C5SnipingTaskV2::getLastErrorMessage, "")
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .update();
     }
 
     /**
-     * 单轮执行结束后将任务重新放回 READY 并写入下次扫描时间。
-     *
-     * @param taskId 任务 ID
-     * @param nextScanAt 下次扫描时间
-     * @return 是否更新成功
-     */
-    public boolean markReadyForNextScan(Long taskId, LocalDateTime nextScanAt) {
-        return this.lambdaUpdate()
-                .eq(C5SnipingTaskV2::getId, taskId)
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
-                .set(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
-                .set(C5SnipingTaskV2::getNextScanAt, nextScanAt)
-                .set(C5SnipingTaskV2::getStopRequested, false)
-                .set(C5SnipingTaskV2::getStopRequestedAt, null)
-                .set(C5SnipingTaskV2::getLastErrorMessage, "")
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
-                .setSql("version = version + 1")
-                .update();
-    }
-
-    /**
-     * 启用任务并重置调度时间。
+     * 启用任务并直接进入运行中。
      *
      * @param taskId 任务 ID
      * @param fromStatuses 允许的原状态
@@ -318,13 +210,11 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
         return this.lambdaUpdate()
                 .eq(C5SnipingTaskV2::getId, taskId)
                 .in(fromStatuses != null && !fromStatuses.isEmpty(), C5SnipingTaskV2::getTaskStatus, fromStatuses)
-                .set(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
+                .set(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
                 .set(C5SnipingTaskV2::getStopRequested, false)
                 .set(C5SnipingTaskV2::getStopRequestedAt, null)
-                .set(C5SnipingTaskV2::getNextScanAt, LocalDateTime.now())
+                .set(C5SnipingTaskV2::getFinishedAt, null)
                 .set(C5SnipingTaskV2::getLastErrorMessage, "")
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .update();
     }
@@ -344,54 +234,54 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
                 .eq(C5SnipingTaskV2::getId, taskId)
                 .in(fromStatuses != null && !fromStatuses.isEmpty(), C5SnipingTaskV2::getTaskStatus, fromStatuses)
                 .set(C5SnipingTaskV2::getTaskStatus, toStatus)
+                .set(C5SnipingTaskV2::getFinishedAt, C5SnipingTaskV2StatusEnum.COMPLETED.equals(toStatus) ? LocalDateTime.now() : null)
                 .set(C5SnipingTaskV2::getLastErrorMessage, errorMessage == null ? "" : errorMessage)
-                .set(C5SnipingTaskV2::getLeaseOwner, "")
-                .set(C5SnipingTaskV2::getLeaseUntil, null)
                 .setSql("version = version + 1")
                 .update();
     }
 
     /**
-     * 创建运行实例后标记任务运行中。
+     * 按条件标记任务运行中。
      *
      * @param taskId 任务 ID
-     * @param runId 运行实例 ID
-     * @param leaseOwner lease 持有者
-     * @param now 当前时间
      * @return 是否更新成功
      */
-    public boolean markRunning(Long taskId, Long runId, String leaseOwner, LocalDateTime now, LocalDateTime leaseUntil) {
-        return this.lambdaUpdate()
-                .eq(C5SnipingTaskV2::getId, taskId)
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.READY)
-                .eq(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
-                .gt(C5SnipingTaskV2::getLeaseUntil, now)
-                .notExists("select 1 from c5_sniping_task_v2 running_task where running_task.account_id = c5_sniping_task_v2.account_id and running_task.cs2_goods_id = c5_sniping_task_v2.cs2_goods_id and running_task.task_status = 'RUNNING' and running_task.del_flag = 0 and running_task.id <> c5_sniping_task_v2.id")
-                .set(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
-                .set(C5SnipingTaskV2::getLatestRunId, runId)
-                .set(C5SnipingTaskV2::getLastErrorMessage, "")
-                .set(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
-                .set(C5SnipingTaskV2::getLeaseUntil, leaseUntil)
-                .setSql("version = version + 1")
-                .update();
-    }
-
-    public boolean refreshRunningLease(Long taskId, String leaseOwner, LocalDateTime leaseUntil) {
+    public boolean markRunning(Long taskId) {
         return this.lambdaUpdate()
                 .eq(C5SnipingTaskV2::getId, taskId)
                 .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
-                .eq(C5SnipingTaskV2::getLeaseOwner, leaseOwner)
-                .set(C5SnipingTaskV2::getLeaseUntil, leaseUntil)
-                .setSql("version = version + 1")
-                .update();
-    }
-
-    public List<C5SnipingTaskV2> listExpiredRunningTasks(LocalDateTime now) {
-        return this.lambdaQuery()
-                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
-                .le(C5SnipingTaskV2::getLeaseUntil, now)
                 .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .list();
+                .set(C5SnipingTaskV2::getStopRequested, false)
+                .set(C5SnipingTaskV2::getStopRequestedAt, null)
+                .set(C5SnipingTaskV2::getLastErrorMessage, "")
+                .setSql("version = version + 1")
+                .update();
+    }
+
+    /**
+     * 更新任务最近错误，不改变运行状态。
+     *
+     * @param taskId 任务 ID
+     * @param errorMessage 错误信息
+     * @return 是否更新成功
+     */
+    public boolean updateLastError(Long taskId, String errorMessage) {
+        return this.lambdaUpdate()
+                .eq(C5SnipingTaskV2::getId, taskId)
+                .eq(C5SnipingTaskV2::getTaskStatus, C5SnipingTaskV2StatusEnum.RUNNING)
+                .set(C5SnipingTaskV2::getLastErrorMessage, errorMessage == null ? "" : errorMessage)
+                .setSql("version = version + 1")
+                .update();
+    }
+
+    /**
+     * 清空任务最近错误。
+     *
+     * @param taskId 任务 ID
+     * @return 是否更新成功
+     */
+    public boolean clearLastError(Long taskId) {
+        return updateLastError(taskId, "");
     }
 
     /**

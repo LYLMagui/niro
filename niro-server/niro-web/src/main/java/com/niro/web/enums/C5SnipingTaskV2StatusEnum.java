@@ -10,7 +10,6 @@ import lombok.Getter;
 public enum C5SnipingTaskV2StatusEnum {
 
     DRAFT("DRAFT", "待开启"),
-    READY("READY", "待运行"),
     RUNNING("RUNNING", "运行中"),
     STOPPED("STOPPED", "已停止"),
     COMPLETED("COMPLETED", "已完成"),

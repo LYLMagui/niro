@@ -1,4 +1,4 @@
-import type { PageResult } from "@/types/goods";
+import type { PageResult } from "@/types/page";
 
 export type DraftHandlingStatus = "pending" | "discarded" | "stored" | "purchased";
 

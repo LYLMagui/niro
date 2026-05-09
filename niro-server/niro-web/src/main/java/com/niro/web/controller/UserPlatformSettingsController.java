@@ -12,7 +12,6 @@ import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -21,7 +20,6 @@ import org.springframework.web.bind.annotation.*;
  * @author liyl
  * @since 2025-12-24
  */
-@Slf4j
 @Tag(name = "个人配置")
 @RestController
 @RequestMapping("/settings")
@@ -50,14 +48,6 @@ public class UserPlatformSettingsController {
     public Result<Void> saveSettings(@RequestBody @Valid UserPlatformSettingsParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         userPlatformSettingsService.saveOrUpdate(userId, param);
-        return Result.success();
-    }
-
-    @Operation(summary = "发送测试通知")
-    @PostMapping("/test-notify")
-    public Result<Void> sendTestNotify() {
-        Long userId = StpUtil.getLoginIdAsLong();
-        userPlatformSettingsService.sendTestNotify(userId);
         return Result.success();
     }
 }

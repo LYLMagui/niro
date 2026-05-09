@@ -45,7 +45,7 @@ public class C5SnipingAccountController {
      * @return C5 扫货账号列表和余额合计
      */
     @GetMapping
-    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
+    @SaCheckPermission(PermissionConstants.Task.SCAN_LIST)
     @Operation(summary = "查询C5扫货2.0账号列表")
     public C5SnipingAccountListDTO listAccounts() {
         return c5SnipingAccountService.listAccounts();
@@ -60,8 +60,8 @@ public class C5SnipingAccountController {
     @Operation(summary = "保存C5扫货2.0账号")
     public void saveAccount(@RequestBody @Valid C5SnipingAccountSaveParam param) {
         StpUtil.checkPermission(param.getId() == null
-                ? PermissionConstants.C5_SNIPING_ACCOUNT_CREATE
-                : PermissionConstants.C5_SNIPING_ACCOUNT_UPDATE);
+                ? PermissionConstants.C5SnipingAccount.CREATE
+                : PermissionConstants.C5SnipingAccount.UPDATE);
         c5SnipingAccountService.saveAccount(param);
     }
 
@@ -71,7 +71,7 @@ public class C5SnipingAccountController {
      * @param id 账号 ID
      */
     @DeleteMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DELETE)
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DELETE)
     @Operation(summary = "删除C5扫货2.0账号")
     public void deleteAccount(@Parameter(description = "账号ID") @PathVariable Long id) {
         c5SnipingAccountService.deleteAccount(id);
@@ -84,7 +84,7 @@ public class C5SnipingAccountController {
      * @return 余额刷新结果列表
      */
     @PostMapping("/refresh-balance")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DETAIL)
     @Operation(summary = "批量刷新C5扫货2.0账号余额")
     public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(@RequestBody @Valid C5SnipingAccountBalanceRefreshParam param) {
         return c5SnipingAccountService.refreshBalance(param);
@@ -96,7 +96,7 @@ public class C5SnipingAccountController {
      * @return 公钥信息
      */
     @GetMapping("/app-key/public-key")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DETAIL)
     @Operation(summary = "获取C5 AppKey字段加密公钥")
     public AppKeyPublicKeyDTO getAppKeyPublicKey() {
         return c5SnipingAccountService.getAppKeyPublicKey();
@@ -110,7 +110,7 @@ public class C5SnipingAccountController {
      * @return 使用前端临时公钥加密后的 AppKey
      */
     @PostMapping("/{id}/app-key/reveal")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DETAIL)
     @Operation(summary = "查看C5扫货账号AppKey")
     public AppKeyRevealDTO revealAppKey(@Parameter(description = "账号ID") @PathVariable Long id,
                                         @RequestBody @Valid AppKeyRevealParam param) {
@@ -123,7 +123,7 @@ public class C5SnipingAccountController {
      * @param id 账号 ID
      */
     @PostMapping("/{id}/check")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_ACCOUNT_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DETAIL)
     @Operation(summary = "检测C5扫货2.0账号")
     public void checkAccount(@Parameter(description = "账号ID") @PathVariable Long id) {
         c5SnipingAccountService.checkAccount(id);

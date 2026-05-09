@@ -27,19 +27,11 @@ export const PermissionConstant = {
   ACCOUNT_LIST: "system:account:list",
   GOODS_LIST: "system:goods:list",
 
-  BUFF_ACCOUNT_SAVE: "buff:account:save",
-  BUFF_ACCOUNT_DELETE: "buff:account:delete",
-  BUFF_ACCOUNT_CHECK: "buff:account:check",
-  BUFF_ACCOUNT_CHECK_ALL: "buff:account:check:all",
-
   ORDER_RECORD_UPDATE: "order:record:update",
   ORDER_RECORD_DELETE: "order:record:delete",
   ORDER_C5_SYNC: "order:c5:sync",
 
-  GOODS_SYNC: "system:goods:sync",
-
   SETTINGS_SAVE: "system:settings:save",
-  SETTINGS_TEST_NOTIFY: "system:settings:test-notify",
   INVITE_CODE_MANAGE: "system:invite-code:manage",
   INVITE_CODE_CREATE: "system:invite-code:create",
   INVITE_CODE_BATCH_CREATE: "system:invite-code:batch-create",
@@ -61,8 +53,6 @@ export const PermissionConstant = {
   PERMISSION_ROLE_PREVIEW: "system:permission:role:preview",
   PERMISSION_PUBLISH_VALIDATE: "system:permission:publish:validate",
   PERMISSION_PUBLISH: "system:permission:publish",
-
-  NOTIFY_SEND: "system:notify:send",
 
   UNBOX_RECORD_CREATE: "unbox:record:create",
   UNBOX_RECORD_UPDATE: "unbox:record:update",

@@ -16,7 +16,6 @@ const componentMap: Record<string, () => Promise<Component>> = {
   "c5-sniping-account-config": () => import("@/views/C5SnipingAccountConfig.vue"),
   record: () => import("@/views/OrderRecord.vue"),
   account: () => import("@/views/Settings.vue"),
-  goods: () => import("@/views/GoodsList.vue"),
   logs: () => import("@/views/Logs.vue"),
   system: () => import("@/views/Settings.vue"),
   permission: () => import("@/views/PermissionManageNew.vue"),

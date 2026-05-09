@@ -1,5 +1,5 @@
 import request from "@/utils/request";
-import type { PageResult } from "@/types/goods";
+import type { PageResult } from "@/types/page";
 import type { C5SnipingAccount } from "@/types/c5-sniping-account";
 import type {
   C5SnipingBuyAttemptV2Item,

@@ -20,11 +20,11 @@
       <template #extra>
         <div v-if="isMobile" class="flex items-center gap-2 mr-1">
           <t-button
-            v-permission="PermissionConstant.ACCOUNT_MANAGE_ADD"
+            v-if="canCreateAccount"
             variant="outline"
             size="small"
             theme="primary"
-            @click="handleAdd"
+            @click="openCreateDialog"
           >
             <template #icon><t-icon name="plus" /></template>
             新增
@@ -233,7 +233,7 @@
                     <div class="flex items-center justify-between gap-2">
                       <span class="shrink-0 text-slate-400">AppKey:</span>
                       <div class="flex min-w-0 flex-1 items-center justify-end gap-1">
-                        <span class="truncate font-mono text-slate-700">{{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}</span>
+                        <span class="truncate font-mono text-slate-700">{{ row.id ? revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" : row.c5AppKeyMasked || "-" }}</span>
                         <t-button
                           v-if="canReadAccountDetail && row.hasC5AppKey"
                           variant="text"
@@ -342,7 +342,7 @@
                   placement="top-left"
                 >
                   <div class="min-w-0 flex-1 truncate font-mono text-[14px] text-slate-700">
-                    {{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}
+                    {{ row.id ? revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" : row.c5AppKeyMasked || "-" }}
                   </div>
                 </t-tooltip>
                 <t-button
@@ -693,7 +693,6 @@ import { c5SnipingV2Api } from "@/api/c5-sniping-v2";
 import PageFrame from "@/components/PageFrame.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
-// import { BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
@@ -753,11 +752,6 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
-
-// const statusOptions = Object.entries(BuffAccountStatusMap).map(([value, meta]) => ({
-//   label: meta.label,
-//   value,
-// }));
 
 const accountFormData = reactive<AccountFormData>({
   accountName: "",
@@ -992,7 +986,6 @@ const getTaskStatusMeta = (status?: string) => {
     }
   > = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
-    READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
       label: "扫描中",
       theme: "success",

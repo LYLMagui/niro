@@ -203,39 +203,11 @@
                   </div>
                 </div>
 
-                <!-- 内容区：目标配置、实战数据 -->
+                <!-- 内容区：任务状态、购买进度、余额/最近错误、明细入口 -->
                 <div class="flex flex-col gap-2 p-3 text-xs text-slate-600">
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">最高价格</span>
-                    <span class="font-medium text-red-600">{{ formatPrice(row.maxPrice) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">磨损范围</span>
-                    <span>{{ formatPaintwear(row) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">停止规则</span>
-                    <div class="text-right">
-                      <div>{{ getStopModeLabel(row.stopMode) }}</div>
-                      <div v-if="row.stopMode === 'BUY_COUNT'" class="text-[10px] text-slate-500">
-                        目标: {{ row.targetBuyCount ?? "-" }}
-                      </div>
-                      <div
-                        v-else-if="row.balanceGuardMode === 'RESERVE_BALANCE'"
-                        class="text-[10px] text-slate-500"
-                      >
-                        保底: {{ formatPrice(row.reserveBalance) }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">创建时间</span>
-                    <span>{{ formatDateTime(row.createTime) }}</span>
-                  </div>
-
-                  <div class="mt-1 rounded bg-slate-50 p-2">
+                  <div class="rounded bg-slate-50 p-2">
                     <div class="mb-1 flex items-center justify-between">
-                      <span class="text-slate-500">成功/预占 (命中: {{ row.hitCount ?? 0 }})</span>
+                      <span class="text-slate-500">购买进度</span>
                       <span class="font-bold text-emerald-600">
                         {{ row.successBuyCount ?? 0 }} / {{ row.reservedBuyCount ?? 0 }}
                       </span>
@@ -248,8 +220,33 @@
                     </div>
                   </div>
 
-                  <div v-if="row.lastErrorMessage" class="mt-1 truncate text-[11px] text-rose-500">
-                    错误: {{ row.lastErrorMessage }}
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">账号余额</span>
+                    <span class="font-medium text-slate-700">{{ getTaskAccountBalance(row.accountId) }}</span>
+                  </div>
+
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">命中次数</span>
+                    <span class="font-medium text-slate-700">{{ row.hitCount ?? 0 }}</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2 rounded bg-slate-50 p-2">
+                    <div class="min-w-0">
+                      <div class="text-slate-400">创建时间</div>
+                      <div class="mt-0.5 truncate font-medium text-slate-700">
+                        {{ formatDateTime(row.createTime) }}
+                      </div>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-slate-400">完成时间</div>
+                      <div class="mt-0.5 truncate font-medium text-slate-700">
+                        {{ formatDateTime(row.finishedAt) }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="row.lastErrorMessage" class="truncate text-[11px] text-rose-500">
+                    最近错误: {{ row.lastErrorMessage }}
                   </div>
                 </div>
 
@@ -384,30 +381,6 @@
               </div>
             </template>
 
-            <template #target="{ row }">
-              <div class="space-y-1 text-sm text-slate-600">
-                <div>
-                  最高价格：
-                  <span class="font-medium text-red-600">{{ formatPrice(row.maxPrice) }}</span>
-                </div>
-                <div>磨损范围：{{ formatPaintwear(row) }}</div>
-                <div>扫描间隔：{{ formatScanInterval(row.scanIntervalMs) }}</div>
-              </div>
-            </template>
-
-            <template #stopRule="{ row }">
-              <div class="space-y-1 text-sm text-slate-600">
-                <div>{{ getStopModeLabel(row.stopMode) }}</div>
-                <div v-if="row.stopMode === 'BUY_COUNT'">
-                  目标购买数：{{ row.targetBuyCount ?? "-" }}
-                </div>
-                <div v-else-if="row.balanceGuardMode === 'RESERVE_BALANCE'">
-                  保底余额：{{ formatPrice(row.reserveBalance) }}
-                </div>
-                <div v-else>余额口径：{{ getBalanceGuardModeLabel(row.balanceGuardMode) }}</div>
-              </div>
-            </template>
-
             <template #summary="{ row }">
               <div class="flex flex-col gap-1.5 py-1">
                 <div class="flex items-center justify-between text-[13px]">
@@ -429,17 +402,21 @@
               </div>
             </template>
 
-            <template #lastError="{ row }">
-              <t-tooltip :content="row.lastErrorMessage || '-'" placement="top-left">
-                <div class="max-w-[220px] truncate text-sm text-slate-600">
-                  {{ row.lastErrorMessage || "-" }}
-                </div>
-              </t-tooltip>
+            <template #accountState="{ row }">
+              <div class="space-y-1 text-sm text-slate-600">
+                <div>账号余额：{{ getTaskAccountBalance(row.accountId) }}</div>
+                <t-tooltip :content="row.lastErrorMessage || '-'" placement="top-left">
+                  <div class="max-w-[220px] truncate">
+                    最近错误：{{ row.lastErrorMessage || "-" }}
+                  </div>
+                </t-tooltip>
+              </div>
             </template>
 
-            <template #createTime="{ row }">
-              <div class="text-sm text-slate-600">
-                {{ formatDateTime(row.createTime) }}
+            <template #timeInfo="{ row }">
+              <div class="space-y-1 text-sm text-slate-600">
+                <div>创建：{{ formatDateTime(row.createTime) }}</div>
+                <div>完成：{{ formatDateTime(row.finishedAt) }}</div>
               </div>
             </template>
 
@@ -823,7 +800,10 @@ import PageFrame from "@/components/PageFrame.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
-import { BuffAccountStatusEnum, BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
+import {
+  C5SnipingAccountStatusEnum,
+  C5SnipingAccountStatusMap,
+} from "@/enums/C5SnipingAccountStatusEnum";
 import type { Cs2GoodsOption } from "@/types/cs2-goods";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
@@ -879,7 +859,6 @@ const c5Accounts = ref<C5SnipingAccount[]>([]);
 
 const taskStatusOptions = [
   { label: "待开启", value: "DRAFT" },
-  { label: "待运行", value: "READY" },
   { label: "运行中", value: "RUNNING" },
   { label: "已停止", value: "STOPPED" },
   { label: "已完成", value: "COMPLETED" },
@@ -941,48 +920,32 @@ const columns = computed<PrimaryTableCol[]>(() => [
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "target",
-    title: "目标配置",
-    width: 180,
-    cell: "target",
-    className: taskTableBodyClass,
-    thClassName: taskTableHeaderClass,
-  },
-  {
-    colKey: "stopRule",
-    title: "停止规则",
-    width: 180,
-    cell: "stopRule",
-    className: taskTableBodyClass,
-    thClassName: taskTableHeaderClass,
-  },
-  {
     colKey: "summary",
-    title: "实战数据",
-    width: 160,
+    title: "购买进度",
+    width: 180,
     cell: "summary",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "lastError",
-    title: "错误详情",
-    width: 200,
-    cell: "lastError",
+    colKey: "accountState",
+    title: "余额/最近错误",
+    width: 220,
+    cell: "accountState",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "createTime",
-    title: "创建时间",
-    width: 170,
-    cell: "createTime",
+    colKey: "timeInfo",
+    title: "时间",
+    width: 220,
+    cell: "timeInfo",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
     colKey: "op",
-    title: "操作",
+    title: "命中/下单尝试",
     width: 220,
     cell: "op",
     fixed: "right" as const,
@@ -1012,14 +975,11 @@ const getDecisionResultLabel = (value?: string) => {
   };
   return value ? map[value] || value : "-";
 };
-const formatPaintwear = (row: C5SnipingTaskV2Item) =>
-  `${row.minPaintwear ?? 0} - ${row.maxPaintwear ?? 1}`;
-const formatScanInterval = (value?: number) => (value ? `${Math.ceil(value / 1000)}秒/次` : "-");
-
-const getTaskStatusMeta = (status: string) => {
-  const map: Record<string, { label: string; theme: TagProps["theme"]; dotClass: string }> = {
+const getTaskStatusMeta = (
+  status?: string
+): { label: string; theme: NonNullable<TagProps["theme"]>; dotClass: string } => {
+  const map: Record<string, { label: string; theme: NonNullable<TagProps["theme"]>; dotClass: string }> = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
-    READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
       label: "运行中",
       theme: "success",
@@ -1029,7 +989,9 @@ const getTaskStatusMeta = (status: string) => {
     COMPLETED: { label: "已完成", theme: "success", dotClass: "bg-emerald-600" },
     ERROR: { label: "异常", theme: "danger", dotClass: "bg-rose-500 animate-pulse" },
   };
-  return map[status] || { label: status, theme: "default", dotClass: "bg-slate-300" };
+  return status
+    ? map[status] || { label: status, theme: "default", dotClass: "bg-slate-300" }
+    : { label: "未知", theme: "default", dotClass: "bg-slate-300" };
 };
 
 const getSuccessProgress = (row: C5SnipingTaskV2Item) => {
@@ -1039,24 +1001,20 @@ const getSuccessProgress = (row: C5SnipingTaskV2Item) => {
   return row.successBuyCount ? 100 : 0;
 };
 
-const getStopModeLabel = (value?: string) =>
-  value === "BUY_COUNT" ? "按购买数量停止" : value === "BALANCE_GUARD" ? "按余额停止" : "-";
-const getBalanceGuardModeLabel = (value?: string) =>
-  value === "MAX_PRICE"
-    ? "余额低于最高价格"
-    : value === "RESERVE_BALANCE"
-      ? "余额低于保底余额"
-      : "-";
 const isNormalAccount = (account: C5SnipingAccount) =>
-  account.status === BuffAccountStatusEnum.NORMAL;
+  account.status === C5SnipingAccountStatusEnum.NORMAL;
 const getAccountOptionLabel = (account: C5SnipingAccount) =>
   `${account.accountName}${account.id ? `（${account.id}）` : ""}`;
 const getTaskAccountName = (accountId?: number) =>
   c5Accounts.value.find((item) => item.id === accountId)?.accountName || "-";
+const getTaskAccountBalance = (accountId?: number) => {
+  const account = c5Accounts.value.find((item) => item.id === accountId);
+  return account ? formatPrice(account.moneyAmount ?? account.balance) : "-";
+};
 const getAccountStatusMeta = (
   status?: C5SnipingAccountStatus
 ): { label: string; theme: NonNullable<TagProps["theme"]> } => {
-  const meta = status ? BuffAccountStatusMap[status as BuffAccountStatusEnum] : undefined;
+  const meta = status ? C5SnipingAccountStatusMap[status as C5SnipingAccountStatusEnum] : undefined;
   return meta
     ? { label: meta.label, theme: meta.theme as NonNullable<TagProps["theme"]> }
     : { label: "异常", theme: "danger" };
@@ -1072,7 +1030,7 @@ const getSlotReserveMeta = (
     : { label: "预占中", theme: "warning" };
 };
 const isEnableVisible = (status?: string) => ["DRAFT", "STOPPED", "ERROR"].includes(status || "");
-const isDisableVisible = (status?: string) => ["READY", "RUNNING"].includes(status || "");
+const isDisableVisible = (status?: string) => status === "RUNNING";
 
 const fetchAccounts = async () => {
   accountsLoading.value = true;

@@ -3,25 +3,20 @@ package com.niro.web.entity;
 import com.baomidou.mybatisplus.annotation.IdType;
 import com.baomidou.mybatisplus.annotation.TableId;
 import com.baomidou.mybatisplus.annotation.TableName;
-import com.niro.web.enums.PaymentMethodEnum;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
 import java.time.LocalDateTime;
 
-/**
- * 用户多平台配置实体
- *
- * @author liyl
- * @since 2025-12-24
- */
 @Data
 @TableName("user_platform_setting")
+@EqualsAndHashCode(callSuper = false)
 public class UserPlatformSettings {
 
     /**
-     * 主键
+     * 主键ID
      */
-    @TableId(type = IdType.AUTO)
+    @TableId(value = "id", type = IdType.AUTO)
     private Long id;
 
     /**
@@ -30,87 +25,37 @@ public class UserPlatformSettings {
     private Long userId;
 
     /**
-     * 支付方式
+     * 收款方式
      */
-    private PaymentMethodEnum paymentMethod;
+    private String paymentMethod;
 
     /**
-     * 企业微信企业ID
-     */
-    private String wecomCorpid;
-
-    /**
-     * 企业微信应用Secret
-     */
-    private String wecomCorpsecret;
-
-    /**
-     * 企业微信应用AgentID
-     */
-    private String wecomAgentid;
-
-    /**
-     * 企业微信接收人 (@all 或 指定用户)
-     */
-    private String wecomTouser;
-
-    /**
-     * 是否开启邮件通知
-     */
-    private Boolean emailEnabled;
-
-    /**
-     * 邮件服务器域名
-     */
-    private String emailHost;
-
-    /**
-     * 邮件服务器端口
-     */
-    private Integer emailPort;
-
-    /**
-     * 邮件发送账号
-     */
-    private String emailAccount;
-
-    /**
-     * 邮件发送密码/授权码
-     */
-    private String emailPassword;
-
-    /**
-     * 邮件接收人
-     */
-    private String emailReceiver;
-
-    /**
-     * C5 API Key
+     * C5 App Key 明文历史字段
      */
     private String c5AppKey;
 
     /**
-     * C5 API Key 密文。
+     * C5 App Key 加密密文
      */
     private String c5AppKeyEncrypted;
 
     /**
-     * C5 API Key 脱敏展示值。
+     * C5 App Key 脱敏展示
      */
     private String c5AppKeyMasked;
 
     /**
-     * C5 API Key 历史明文迁移时间。
+     * C5 App Key 迁移时间
      */
     private LocalDateTime c5AppKeyMigratedAt;
 
     /**
-     * C5 交易链接
+     * C5交易链接
      */
     private String c5TradeUrl;
 
     /**
-     * Steam 交易链接
+     * Steam交易链接
      */
     private String steamTradeUrl;
 

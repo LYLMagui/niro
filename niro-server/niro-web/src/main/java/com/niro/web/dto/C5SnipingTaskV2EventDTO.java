@@ -15,7 +15,6 @@ public class C5SnipingTaskV2EventDTO {
     private Long taskId;
     private String eventType;
     private LocalDateTime occurredAt;
-    private Long runId;
     private Long hitRecordId;
     private Long attemptId;
     private String taskStatus;

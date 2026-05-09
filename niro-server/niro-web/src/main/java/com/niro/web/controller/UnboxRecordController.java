@@ -72,7 +72,7 @@ public class UnboxRecordController {
 
     @Operation(summary = "新增开箱记录")
     @PostMapping
-    @SaCheckPermission(PermissionConstants.UNBOX_RECORD_CREATE)
+    @SaCheckPermission(PermissionConstants.UnboxRecord.CREATE)
     public Long create(@RequestBody @Valid UnboxRecordSaveParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         return unboxRecordService.create(userId, param);
@@ -80,7 +80,7 @@ public class UnboxRecordController {
 
     @Operation(summary = "更新开箱记录")
     @PutMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.UNBOX_RECORD_UPDATE)
+    @SaCheckPermission(PermissionConstants.UnboxRecord.UPDATE)
     public void update(@PathVariable Long id, @RequestBody @Valid UnboxRecordSaveParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         unboxRecordService.update(userId, id, param);
@@ -88,14 +88,14 @@ public class UnboxRecordController {
 
     @Operation(summary = "开箱记录 OCR 识别")
     @PostMapping(value = "/ocr", consumes = "multipart/form-data")
-    @SaCheckPermission(PermissionConstants.UNBOX_RECORD_OCR)
+    @SaCheckPermission(PermissionConstants.UnboxRecord.OCR)
     public UnboxRecordOcrResultDTO recognize(@RequestPart("file") MultipartFile file) {
         return unboxRecordOcrService.recognize(file);
     }
 
     @Operation(summary = "查询开箱记录 C5 在售列表")
     @PostMapping("/c5/listings")
-    @SaCheckPermission(PermissionConstants.UNBOX_RECORD_QUERY_C5)
+    @SaCheckPermission(PermissionConstants.UnboxRecord.QUERY_C5)
     public UnboxRecordC5ListingPageDTO listC5Listings(@RequestBody @Valid UnboxRecordC5ListingQueryParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         return unboxRecordService.listC5Listings(userId, param);
@@ -103,7 +103,7 @@ public class UnboxRecordController {
 
     @Operation(summary = "删除开箱记录")
     @DeleteMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.UNBOX_RECORD_DELETE)
+    @SaCheckPermission(PermissionConstants.UnboxRecord.DELETE)
     public void delete(@PathVariable Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
         unboxRecordService.delete(userId, id);

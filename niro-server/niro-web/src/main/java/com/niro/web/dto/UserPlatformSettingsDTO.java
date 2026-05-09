@@ -1,19 +1,13 @@
 package com.niro.web.dto;
 
-import com.niro.web.enums.PaymentMethodEnum;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-/**
- * 用户平台配置DTO
- *
- * @author liyl
- * @since 2025-12-24
- */
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class UserPlatformSettingsDTO {
-
     /**
-     * ID
+     * 主键ID
      */
     private Long id;
 
@@ -23,77 +17,27 @@ public class UserPlatformSettingsDTO {
     private Long userId;
 
     /**
-     * 支付方式
+     * 收款方式
      */
-    private PaymentMethodEnum paymentMethod;
+    private String paymentMethod;
 
     /**
-     * 企业微信企业ID
-     */
-    private String wecomCorpid;
-
-    /**
-     * 企业微信应用Secret
-     */
-    private String wecomCorpsecret;
-
-    /**
-     * 企业微信应用AgentID
-     */
-    private String wecomAgentid;
-
-    /**
-     * 企业微信接收人
-     */
-    private String wecomTouser;
-
-    /**
-     * 是否开启邮件通知
-     */
-    private Boolean emailEnabled;
-
-    /**
-     * 邮件服务器域名
-     */
-    private String emailHost;
-
-    /**
-     * 邮件服务器端口
-     */
-    private Integer emailPort;
-
-    /**
-     * 邮件发送账号
-     */
-    private String emailAccount;
-
-    /**
-     * 邮件发送密码/授权码
-     */
-    private String emailPassword;
-
-    /**
-     * 邮件接收人
-     */
-    private String emailReceiver;
-
-    /**
-     * C5 App Key 脱敏展示值。
+     * C5 App Key 脱敏展示
      */
     private String c5AppKeyMasked;
 
     /**
-     * 是否已配置 C5 App Key。
+     * 是否已配置 C5 App Key
      */
     private Boolean hasC5AppKey;
 
     /**
-     * C5 交易链接
+     * C5交易链接
      */
     private String c5TradeUrl;
 
     /**
-     * Steam 交易链接
+     * Steam交易链接
      */
     private String steamTradeUrl;
 }

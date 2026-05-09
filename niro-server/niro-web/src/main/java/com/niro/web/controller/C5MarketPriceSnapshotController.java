@@ -34,7 +34,7 @@ public class C5MarketPriceSnapshotController {
      * @return 快照参考结果
      */
     @GetMapping("/reference")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "查询C5市场价格快照参考")
     public C5MarketPriceSnapshotReferenceDTO getReference(@Valid C5MarketPriceSnapshotReferenceParam param) {
         return marketPriceSnapshotService.getReference(param);
@@ -47,7 +47,7 @@ public class C5MarketPriceSnapshotController {
      * @return 快照参考结果
      */
     @PostMapping("/refresh-request")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "申请刷新C5市场价格快照")
     public C5MarketPriceSnapshotReferenceDTO requestRefresh(@RequestBody @Valid C5MarketPriceSnapshotRefreshRequestParam param) {
         return marketPriceSnapshotService.requestRefresh(param);

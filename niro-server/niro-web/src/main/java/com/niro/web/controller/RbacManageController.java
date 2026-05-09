@@ -62,7 +62,7 @@ public class RbacManageController {
     private final RoleResourcePublishedMapperManager roleResourcePublishedMapperManager;
 
     @GetMapping("/users")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_AUTH_READ)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_AUTH_READ)
     @Operation(summary = "查询用户列表（含角色）")
     public List<RbacUserDTO> listUsers() {
         List<User> users = userService.lambdaQuery()
@@ -99,7 +99,7 @@ public class RbacManageController {
     }
 
     @GetMapping("/roles")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_AUTH_READ)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_AUTH_READ)
     @Operation(summary = "查询角色列表")
     public List<RbacRoleDTO> listRoles(@RequestParam(required = false) String keyword,
                                        @RequestParam(required = false) Integer status) {
@@ -116,7 +116,7 @@ public class RbacManageController {
     }
 
     @PostMapping("/roles")
-    @SaCheckPermission(value = {PermissionConstants.PERMISSION_ROLE_CREATE, PermissionConstants.PERMISSION_ROLE_COPY}, mode = SaMode.OR)
+    @SaCheckPermission(value = {PermissionConstants.Permission.ROLE_CREATE, PermissionConstants.Permission.ROLE_COPY}, mode = SaMode.OR)
     @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "新增角色")
     public void createRole(@RequestBody CreateRoleParam param) {
@@ -142,7 +142,7 @@ public class RbacManageController {
     }
 
     @PutMapping("/roles/{roleId}")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_UPDATE)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_UPDATE)
     @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "更新角色")
     public void updateRole(@PathVariable Long roleId, @RequestBody UpdateRoleParam param) {
@@ -173,7 +173,7 @@ public class RbacManageController {
     }
 
     @DeleteMapping("/roles/{roleId}")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_DELETE)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_DELETE)
     @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "删除角色")
     public void deleteRole(@PathVariable Long roleId) {
@@ -199,7 +199,7 @@ public class RbacManageController {
     }
 
     @PutMapping("/users/{userId}/roles")
-    @SaCheckPermission(PermissionConstants.PERMISSION_USER_ASSIGN)
+    @SaCheckPermission(PermissionConstants.Permission.USER_ASSIGN)
     @Operation(summary = "用户分配角色（覆盖）")
     public void assignUserRoles(@PathVariable Long userId, @RequestBody AssignUserRolesParam param) {
         Assert.notNull(param, "请求参数不能为空");
@@ -218,7 +218,7 @@ public class RbacManageController {
     }
 
     @PostMapping("/users/roles/batch-append")
-    @SaCheckPermission(PermissionConstants.PERMISSION_USER_ASSIGN)
+    @SaCheckPermission(PermissionConstants.Permission.USER_ASSIGN)
     @Transactional(rollbackFor = Exception.class)
     @Operation(summary = "批量追加用户角色")
     public void batchAppendUserRoles(@RequestBody BatchAppendUserRolesParam param) {

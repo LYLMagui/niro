@@ -2,18 +2,15 @@ export type C5SnipingTaskV2StopMode = "BUY_COUNT" | "BALANCE_GUARD";
 export type C5SnipingTaskV2BalanceGuardMode = "MAX_PRICE" | "RESERVE_BALANCE";
 export type C5SnipingTaskV2Status =
   | "DRAFT"
-  | "READY"
   | "RUNNING"
   | "STOPPED"
   | "COMPLETED"
   | "ERROR";
-export type C5SnipingTaskV2RunStatus = "RUNNING" | "STOPPED" | "COMPLETED" | "ERROR";
 
 export interface C5SnipingTaskV2EventPayload {
   taskId: number;
   eventType: string;
   occurredAt: string;
-  runId?: number;
   hitRecordId?: number;
   attemptId?: number;
   taskStatus?: C5SnipingTaskV2Status | string;
@@ -23,14 +20,6 @@ export interface C5SnipingTaskV2EventPayload {
   hitCount?: number;
   lastErrorMessage?: string;
   message?: string;
-}
-
-export interface C5SnipingTaskV2RunSummary {
-  id: number;
-  runStatus: string;
-  stopReason?: string;
-  startedAt?: string;
-  finishedAt?: string;
 }
 
 export interface C5SnipingTaskV2Item {
@@ -58,10 +47,9 @@ export interface C5SnipingTaskV2Item {
   lastErrorMessage?: string;
   stopRequested?: boolean;
   stopRequestedAt?: string;
-  nextScanAt?: string;
   createTime?: string;
   updateTime?: string;
-  latestRun?: C5SnipingTaskV2RunSummary;
+  finishedAt?: string;
 }
 
 export interface C5SnipingTaskV2QueryParam {

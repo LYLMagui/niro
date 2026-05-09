@@ -19,7 +19,6 @@ public class C5SnipingHitRecordV2 {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long taskId;
-    private Long runId;
     private Long accountId;
     private String listingId;
     private BigDecimal listingPrice;

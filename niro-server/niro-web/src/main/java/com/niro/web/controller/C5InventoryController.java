@@ -49,7 +49,7 @@ public class C5InventoryController {
      * @return 刷新结果
      */
     @PostMapping("/refresh")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_REFRESH)
+    @SaCheckPermission(PermissionConstants.C5Inventory.REFRESH)
     @Operation(summary = "刷新C5库存")
     public C5InventoryRefreshResultDTO refreshInventory(@RequestBody @Valid C5InventoryRefreshParam param) {
         return c5InventoryService.refreshInventory(param);
@@ -62,7 +62,7 @@ public class C5InventoryController {
      * @return 库存分页
      */
     @GetMapping
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "分页查询C5库存")
     public C5InventoryPageDTO pageInventory(@Valid C5InventoryQueryParam param) {
         return c5InventoryService.pageInventory(param);
@@ -75,7 +75,7 @@ public class C5InventoryController {
      * @return 库存状态数量
      */
     @GetMapping("/stats")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "统计C5库存状态数量")
     public C5InventoryStatsDTO statsInventory(@Valid C5InventoryQueryParam param) {
         return c5InventoryService.statsInventory(param);
@@ -88,7 +88,7 @@ public class C5InventoryController {
      * @return 库存明细分页
      */
     @GetMapping("/items")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "分页查询C5库存明细")
     public C5InventoryAssetPageDTO pageInventoryItems(@Valid C5InventoryItemListParam param) {
         return c5InventoryService.pageInventoryItems(param);
@@ -101,7 +101,7 @@ public class C5InventoryController {
      * @return 上架结果
      */
     @PostMapping("/listings")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_REFRESH)
+    @SaCheckPermission(PermissionConstants.C5Inventory.REFRESH)
     @Operation(summary = "提交C5库存上架")
     public C5InventoryListingResultDTO createInventoryListings(@RequestBody @Valid C5InventoryListingCreateParam param) {
         return c5InventoryService.createInventoryListings(param);
@@ -114,7 +114,7 @@ public class C5InventoryController {
      * @return 在售参考分页
      */
     @GetMapping("/market-references")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "查询C5同平台在售参考")
     public C5InventoryMarketReferencePageDTO listMarketReferences(@Valid C5InventoryMarketReferenceParam param) {
         return c5InventoryService.listMarketReferences(param);
@@ -128,7 +128,7 @@ public class C5InventoryController {
      * @return 在售参考分页
      */
     @PostMapping("/market-references/refresh")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "刷新C5同平台在售参考")
     public C5InventoryMarketReferencePageDTO refreshMarketReferences(@RequestBody @Valid C5InventoryMarketReferenceParam param) {
         return c5InventoryService.refreshMarketReferences(param);
@@ -141,7 +141,7 @@ public class C5InventoryController {
      * @return 手续费结果
      */
     @PostMapping("/listing-fee")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "计算C5库存上架手续费")
     public C5InventoryListingFeeDTO calculateListingFee(@RequestBody @Valid C5InventoryListingFeeCalculateParam param) {
         return c5InventoryService.calculateListingFee(param);
@@ -154,7 +154,7 @@ public class C5InventoryController {
      * @return 手续费结果
      */
     @PostMapping("/listing-fees")
-    @SaCheckPermission(PermissionConstants.C5_INVENTORY_LIST)
+    @SaCheckPermission(PermissionConstants.C5Inventory.LIST)
     @Operation(summary = "批量计算C5库存上架手续费")
     public List<C5InventoryListingFeeDTO> calculateListingFees(@RequestBody @Valid C5InventoryListingFeeBatchCalculateParam param) {
         return c5InventoryService.calculateListingFees(param);

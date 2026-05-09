@@ -35,56 +35,56 @@ public class NewPermissionController {
     private final NewPermissionService newPermissionService;
 
     @GetMapping("/resources")
-    @SaCheckPermission(PermissionConstants.PERMISSION_RESOURCE_READ)
+    @SaCheckPermission(PermissionConstants.Permission.RESOURCE_READ)
     @Operation(summary = "查询草稿资源树")
     public List<NewPermissionResourceDTO> listDraftResources() {
         return newPermissionService.listDraftResources();
     }
 
     @GetMapping("/resources/{id}")
-    @SaCheckPermission(PermissionConstants.PERMISSION_RESOURCE_READ)
+    @SaCheckPermission(PermissionConstants.Permission.RESOURCE_READ)
     @Operation(summary = "查询草稿资源详情")
     public NewPermissionResourceDTO getDraftResource(@PathVariable Long id) {
         return newPermissionService.getDraftResource(id);
     }
 
     @PostMapping("/resources")
-    @SaCheckPermission(PermissionConstants.PERMISSION_RESOURCE_SAVE)
+    @SaCheckPermission(PermissionConstants.Permission.RESOURCE_SAVE)
     @Operation(summary = "保存草稿资源")
     public NewPermissionResourceDTO saveDraftResource(@RequestBody NewPermissionResourceSaveParam param) {
         return newPermissionService.saveDraftResource(param);
     }
 
     @GetMapping("/roles/{roleId}/resources")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_AUTH_READ)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_AUTH_READ)
     @Operation(summary = "查询草稿角色授权")
     public List<Long> listDraftRoleResourceIds(@PathVariable Long roleId) {
         return newPermissionService.listDraftRoleResourceIds(roleId);
     }
 
     @PutMapping("/roles/{roleId}/resources")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_AUTH_SAVE)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_AUTH_SAVE)
     @Operation(summary = "保存草稿角色授权")
     public void saveDraftRoleResources(@PathVariable Long roleId, @RequestBody NewPermissionRoleResourceSaveParam param) {
         newPermissionService.saveDraftRoleResources(roleId, param);
     }
 
     @GetMapping("/roles/{roleId}/preview")
-    @SaCheckPermission(PermissionConstants.PERMISSION_ROLE_PREVIEW)
+    @SaCheckPermission(PermissionConstants.Permission.ROLE_PREVIEW)
     @Operation(summary = "预览角色权限")
     public NewPermissionRolePreviewDTO previewRole(@PathVariable Long roleId) {
         return newPermissionService.previewRole(roleId);
     }
 
     @PostMapping("/publish/validate")
-    @SaCheckPermission(PermissionConstants.PERMISSION_PUBLISH_VALIDATE)
+    @SaCheckPermission(PermissionConstants.Permission.PUBLISH_VALIDATE)
     @Operation(summary = "发布前校验")
     public NewPermissionPublishResultDTO validatePublish(@RequestBody NewPermissionPublishParam param) {
         return newPermissionService.validatePublish(param);
     }
 
     @PostMapping("/publish")
-    @SaCheckPermission(PermissionConstants.PERMISSION_PUBLISH)
+    @SaCheckPermission(PermissionConstants.Permission.PUBLISH)
     @Operation(summary = "执行发布")
     public NewPermissionPublishResultDTO publish(@RequestBody NewPermissionPublishParam param) {
         return newPermissionService.publish(param);

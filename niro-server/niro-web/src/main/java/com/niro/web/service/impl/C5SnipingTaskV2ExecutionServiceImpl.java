@@ -3,20 +3,36 @@ package com.niro.web.service.impl;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.IdUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.Method;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
+import com.niro.sdk.c5.account.C5BalanceResponse;
 import com.niro.sdk.c5.constant.C5GameAPI;
+import com.niro.sdk.c5.market.C5MarketClient;
 import com.niro.sdk.c5.market.C5ProductListRequest;
+import com.niro.sdk.c5.market.C5ProductListResponse;
 import com.niro.sdk.c5.market.C5ProductSearchRequest;
 import com.niro.sdk.c5.trade.C5BatchBuyRequest;
-import com.niro.sdk.c5.account.C5BalanceResponse;
-import com.niro.sdk.c5.market.C5ProductListResponse;
 import com.niro.sdk.c5.trade.C5BatchBuyResponse;
 import com.niro.web.dto.C5SnipingTaskV2EventDTO;
-import com.niro.web.entity.*;
-import com.niro.web.enums.*;
-import com.niro.web.manager.*;
+import com.niro.web.entity.C5SnipingAccount;
+import com.niro.web.entity.C5SnipingBuyAttemptV2;
+import com.niro.web.entity.C5SnipingHitRecordV2;
+import com.niro.web.entity.C5SnipingTaskV2;
+import com.niro.web.entity.Cs2Goods;
+import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.enums.C5SnipingBuyAttemptV2StatusEnum;
+import com.niro.web.enums.C5SnipingTaskV2StatusEnum;
+import com.niro.web.enums.C5SnipingTaskV2BalanceGuardModeEnum;
+import com.niro.web.enums.C5SnipingTaskV2StopModeEnum;
+import com.niro.web.enums.OrderStatusEnum;
+import com.niro.web.enums.PlatformEnum;
+import com.niro.web.manager.C5SnipingAccountMapperManager;
+import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
+import com.niro.web.manager.C5SnipingBuyAttemptV2MapperManager;
+import com.niro.web.manager.C5SnipingHitRecordV2MapperManager;
+import com.niro.web.manager.C5SnipingTaskV2MapperManager;
+import com.niro.web.manager.Cs2GoodsMapperManager;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.C5SnipingTaskV2EventService;
@@ -30,7 +46,13 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
@@ -45,7 +67,6 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
 
     private static final int APP_ID_CS2 = 730;
     private static final int LISTING_PAGE_SIZE = 20;
-    private static final int MAX_ERROR_COUNT = 3;
     private static final long ACCOUNT_COOLDOWN_SECONDS = 30L;
     private static final String ACCOUNT_IN_FLIGHT_LOCK_KEY_PREFIX = "niro:c5:sniping:v2:account-in-flight:";
     private static final long ACCOUNT_IN_FLIGHT_LOCK_WAIT_SECONDS = 0L;
@@ -57,7 +78,6 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
     private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final C5SnipingTaskV2MapperManager taskManager;
     private final C5SnipingAccountMapperManager accountManager;
-    private final C5SnipingTaskRunV2MapperManager runManager;
     private final C5SnipingHitRecordV2MapperManager hitRecordManager;
     private final C5SnipingBuyAttemptV2MapperManager buyAttemptManager;
     private final C5SnipingAccountRuntimeV2MapperManager accountRuntimeManager;
@@ -72,14 +92,13 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
      * 执行一轮扫描、命中、下单和停止条件判断。
      *
      * @param task 任务定义
-     * @param run 运行实例
      * @return 执行结果
      */
     @Override
-    public C5SnipingTaskV2ExecutionResult executeOneCycle(C5SnipingTaskV2 task, C5SnipingTaskRunV2 run) {
+    public C5SnipingTaskV2ExecutionResult executeOneCycle(C5SnipingTaskV2 task) {
         try {
             C5SnipingTaskV2 latestTask = taskManager.getById(task.getId());
-            if (latestTask == null || !latestTask.getTaskStatus().equals(task.getTaskStatus())) {
+            if (latestTask == null || !C5SnipingTaskV2StatusEnum.RUNNING.equals(latestTask.getTaskStatus())) {
                 return C5SnipingTaskV2ExecutionResult.stopped("TASK_STATUS_CHANGED");
             }
             C5SnipingTaskV2ExecutionResult balanceStop = checkBalanceStop(latestTask);
@@ -100,6 +119,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                     .sorted(Comparator.comparing(C5ProductListResponse.ProductDTO::getPrice))
                     .collect(Collectors.toList());
             if (CollUtil.isEmpty(hits)) {
+                taskManager.clearLastError(latestTask.getId());
                 return checkCompletion(latestTask);
             }
 
@@ -109,12 +129,11 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                 if (StrUtil.isBlank(listingId) || isDuplicateHit(latestTask.getAccountId(), listingId)) {
                     continue;
                 }
-                C5SnipingHitRecordV2 hitRecord = saveHitRecord(latestTask, run, listing);
+                C5SnipingHitRecordV2 hitRecord = saveHitRecord(latestTask, listing);
                 writtenHits++;
                 taskManager.incrementHitCount(latestTask.getId(), 1);
-                runManager.incrementHitCount(run.getId(), 1);
-                publishEvent(latestTask, "HIT_RECORD_CREATED", run.getId(), hitRecord.getId(), null, null);
-                attemptBuy(client, account, latestTask, run, goods, listing, hitRecord);
+                publishEvent(latestTask, "HIT_RECORD_CREATED", hitRecord.getId(), null, null);
+                attemptBuy(client, account, latestTask, goods, listing, hitRecord);
                 C5SnipingTaskV2ExecutionResult completion = checkCompletion(taskManager.getById(latestTask.getId()));
                 if (completion.isStopTask()) {
                     return completion;
@@ -122,18 +141,14 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             }
 
             if (writtenHits > 0) {
-                publishEvent(latestTask, "TASK_PROGRESS", run.getId(), null, null, null);
+                publishEvent(latestTask, "TASK_PROGRESS", null, null, null);
             }
+            taskManager.clearLastError(latestTask.getId());
             return checkCompletion(taskManager.getById(latestTask.getId()));
         } catch (Exception e) {
             String message = StrUtil.maxLength(StrUtil.blankToDefault(e.getMessage(), "扫货执行异常"), 500);
-            runManager.markCycleError(run.getId(), message);
-            C5SnipingTaskRunV2 latestRun = runManager.getById(run.getId());
-            if (latestRun != null && latestRun.getConsecutiveErrorCount() != null
-                    && latestRun.getConsecutiveErrorCount() >= MAX_ERROR_COUNT) {
-                return C5SnipingTaskV2ExecutionResult.error("MAX_RETRY_EXCEEDED", message);
-            }
-            log.warn("C5扫货2.0单轮执行异常: taskId={}, runId={}, msg={}", task.getId(), run.getId(), message);
+            taskManager.updateLastError(task.getId(), message);
+            log.warn("C5扫货2.0单轮执行异常，将继续下一轮: taskId={}, msg={}", task.getId(), message, e);
             return C5SnipingTaskV2ExecutionResult.continueRunning();
         }
     }
@@ -177,8 +192,8 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                 .filter(price -> price != null)
                 .min(BigDecimal::compareTo)
                 .orElse(null);
-        log.info("C5扫货products/list查询: userId={}, taskId={}, requestUrl='{} {}', appId={}, marketHashName={}, pageNum={}, pageSize={}, currentMinPrice={}, configuredMaxPrice={}",
-                task.getUserId(), task.getId(), Method.POST, C5GameAPI.Market.PRODUCT_LIST,
+        log.info("C5扫货products/list查询: userId={}, taskId={}, requestUrl='GET {}', appId={}, marketHashName={}, pageNum={}, pageSize={}, currentMinPrice={}, configuredMaxPrice={}",
+                task.getUserId(), task.getId(), C5GameAPI.Market.PRODUCT_LIST,
                 request.getAppId(), request.getMarketHashName(), request.getPageNum(), request.getPageSize(), minPrice, task.getMaxPrice());
     }
 
@@ -222,10 +237,9 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
         recentDedup.entrySet().removeIf(entry -> entry.getValue() < expireBefore);
     }
 
-    private C5SnipingHitRecordV2 saveHitRecord(C5SnipingTaskV2 task, C5SnipingTaskRunV2 run, C5ProductListResponse.ProductDTO listing) {
+    private C5SnipingHitRecordV2 saveHitRecord(C5SnipingTaskV2 task, C5ProductListResponse.ProductDTO listing) {
         C5SnipingHitRecordV2 record = new C5SnipingHitRecordV2();
         record.setTaskId(task.getId());
-        record.setRunId(run.getId());
         record.setAccountId(task.getAccountId());
         record.setListingId(listing.getProductId());
         record.setListingPrice(listing.getPrice());
@@ -240,7 +254,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
         return hitRecordManager.saveHitRecord(record);
     }
 
-    private void attemptBuy(C5ApiClient client, C5SnipingAccount account, C5SnipingTaskV2 task, C5SnipingTaskRunV2 run,
+    private void attemptBuy(C5ApiClient client, C5SnipingAccount account, C5SnipingTaskV2 task,
                             Cs2Goods goods, C5ProductListResponse.ProductDTO listing, C5SnipingHitRecordV2 hitRecord) {
         boolean reserved = false;
         if (C5SnipingTaskV2StopModeEnum.BUY_COUNT.equals(task.getStopMode())) {
@@ -259,20 +273,19 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
         try {
             locked = lock.tryLock(ACCOUNT_IN_FLIGHT_LOCK_WAIT_SECONDS, TimeUnit.SECONDS);
             if (!locked) {
-                skipNoAccountInFlightSlot(task, run, hitRecord, reserved);
+                skipNoAccountInFlightSlot(task, hitRecord, reserved);
                 return;
             }
 
             int maxInFlightAttempts = accountRuntimeManager.resolveMaxInFlightAttempts(task.getAccountId());
             if (buyAttemptManager.countInFlightAttempts(task.getAccountId()) >= maxInFlightAttempts) {
-                skipNoAccountInFlightSlot(task, run, hitRecord, reserved);
+                skipNoAccountInFlightSlot(task, hitRecord, reserved);
                 return;
             }
 
             orderRecord = createOrderRecord(task, goods, listing);
             attempt = new C5SnipingBuyAttemptV2();
             attempt.setTaskId(task.getId());
-            attempt.setRunId(run.getId());
             attempt.setHitRecordId(hitRecord.getId());
             attempt.setAccountId(task.getAccountId());
             attempt.setListingId(listing.getProductId());
@@ -290,14 +303,13 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                     taskManager.releaseBuySlot(task.getId());
                 }
                 finishHit(hitRecord, "SKIPPED_DUPLICATE");
-                publishEvent(task, "ATTEMPT_SKIPPED", run.getId(), hitRecord.getId(), null, "重复下单尝试");
+                publishEvent(task, "ATTEMPT_SKIPPED", hitRecord.getId(), null, "重复下单尝试");
                 return;
             }
-            runManager.incrementAttemptCount(run.getId());
-            publishEvent(task, "ATTEMPT_CREATED", run.getId(), hitRecord.getId(), attempt.getId(), null);
+            publishEvent(task, "ATTEMPT_CREATED", hitRecord.getId(), attempt.getId(), null);
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
-            skipNoAccountInFlightSlot(task, run, hitRecord, reserved);
+            skipNoAccountInFlightSlot(task, hitRecord, reserved);
             return;
         } catch (Exception e) {
             String message = StrUtil.maxLength(StrUtil.blankToDefault(e.getMessage(), "下单尝试初始化异常"), 500);
@@ -360,8 +372,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
             if (reserved) {
                 settleReservedBuySlot(attempt.getId(), task.getId(), true);
             }
-            publishEvent(task, "ATTEMPT_SUCCESS", run.getId(), hitRecord.getId(), attempt.getId(), null);
-            runManager.incrementSuccessCount(run.getId());
+            publishEvent(task, "ATTEMPT_SUCCESS", hitRecord.getId(), attempt.getId(), null);
             finishHit(hitRecord, "BUY_SUCCESS");
             return;
         }
@@ -373,13 +384,13 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
         finishHit(hitRecord, "BUY_FAILED");
     }
 
-    private void skipNoAccountInFlightSlot(C5SnipingTaskV2 task, C5SnipingTaskRunV2 run,
+    private void skipNoAccountInFlightSlot(C5SnipingTaskV2 task,
                                            C5SnipingHitRecordV2 hitRecord, boolean reserved) {
         if (reserved) {
             taskManager.releaseBuySlot(task.getId());
         }
         finishHit(hitRecord, "NO_ACCOUNT_IN_FLIGHT_SLOT");
-        publishEvent(task, "ATTEMPT_SKIPPED", run.getId(), hitRecord.getId(), null, "账号在途下单数已达上限");
+        publishEvent(task, "ATTEMPT_SKIPPED", hitRecord.getId(), null, "账号在途下单数已达上限");
     }
 
     private TradeOrderRecord createOrderRecord(C5SnipingTaskV2 task, Cs2Goods goods, C5ProductListResponse.ProductDTO listing) {
@@ -452,7 +463,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
         if (attempt != null) {
             C5SnipingTaskV2 task = taskManager.getById(taskId);
             if (task != null) {
-                publishEvent(task, "ATTEMPT_FAILED", attempt.getRunId(), attempt.getHitRecordId(), attempt.getId(), message);
+                publishEvent(task, "ATTEMPT_FAILED", attempt.getHitRecordId(), attempt.getId(), message);
             }
         }
     }
@@ -502,7 +513,7 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                 .update();
     }
 
-    private void publishEvent(C5SnipingTaskV2 task, String eventType, Long runId, Long hitRecordId, Long attemptId, String message) {
+    private void publishEvent(C5SnipingTaskV2 task, String eventType, Long hitRecordId, Long attemptId, String message) {
         C5SnipingTaskV2 latestTask = taskManager.getById(task.getId());
         if (latestTask == null) {
             return;
@@ -511,7 +522,6 @@ public class C5SnipingTaskV2ExecutionServiceImpl implements C5SnipingTaskV2Execu
                 .taskId(latestTask.getId())
                 .eventType(eventType)
                 .occurredAt(LocalDateTime.now())
-                .runId(runId)
                 .hitRecordId(hitRecordId)
                 .attemptId(attemptId)
                 .taskStatus(latestTask.getTaskStatus() == null ? null : latestTask.getTaskStatus().getCode())

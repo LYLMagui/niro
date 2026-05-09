@@ -1,86 +1,33 @@
 package com.niro.web.dto.param;
 
-import com.niro.web.enums.PaymentMethodEnum;
-import jakarta.validation.constraints.NotNull;
+import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 
-/**
- * 用户平台配置保存参数
- *
- * @author liyl
- * @since 2025-12-24
- */
 @Data
+@EqualsAndHashCode(callSuper = false)
 public class UserPlatformSettingsParam {
+    /**
+     * 收款方式
+     */
+    @Schema(description = "收款方式")
+    private String paymentMethod;
 
     /**
-     * 支付方式
+     * 前端使用 RSA 公钥加密后的 C5 App Key
      */
-    @NotNull(message = "支付方式不能为空")
-    private PaymentMethodEnum paymentMethod;
-
-    /**
-     * 企业微信企业ID
-     */
-    private String wecomCorpid;
-
-    /**
-     * 企业微信应用Secret
-     */
-    private String wecomCorpsecret;
-
-    /**
-     * 企业微信应用AgentID
-     */
-    private String wecomAgentid;
-
-    /**
-     * 企业微信接收人
-     */
-    private String wecomTouser;
-
-    /**
-     * 是否开启邮件通知
-     */
-    private Boolean emailEnabled;
-
-    /**
-     * 邮件服务器域名
-     */
-    private String emailHost;
-
-    /**
-     * 邮件服务器端口
-     */
-    private Integer emailPort;
-
-    /**
-     * 邮件发送账号
-     */
-    private String emailAccount;
-
-    /**
-     * 邮件发送密码/授权码
-     */
-    private String emailPassword;
-
-    /**
-     * 邮件接收人
-     */
-    private String emailReceiver;
-
-    /**
-     * RSA-OAEP 加密后的 C5 APP Key。
-     */
+    @Schema(description = "前端使用RSA公钥加密后的C5 App Key")
     private String encryptedC5AppKey;
 
     /**
-     * C5 交易链接
+     * C5交易链接
      */
+    @Schema(description = "C5交易链接")
     private String c5TradeUrl;
 
     /**
-     * Steam 交易链接
+     * Steam交易链接
      */
+    @Schema(description = "Steam交易链接")
     private String steamTradeUrl;
 }

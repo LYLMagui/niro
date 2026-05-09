@@ -55,7 +55,7 @@ public class C5SnipingTaskV2Controller {
     @Operation(summary = "订阅C5扫货2.0运行态事件")
     public SseEmitter subscribeEvents() {
         StpUtil.checkLogin();
-        StpUtil.checkPermission(PermissionConstants.TASK_SCAN_LIST);
+        StpUtil.checkPermission(PermissionConstants.Task.SCAN_LIST);
         return c5SnipingTaskV2EventService.subscribe(StpUtil.getLoginIdAsLong());
     }
 
@@ -65,7 +65,7 @@ public class C5SnipingTaskV2Controller {
      * @param param 创建参数
      */
     @PostMapping
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_CREATE)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.CREATE)
     @Operation(summary = "创建C5扫货2.0任务")
     public void createTask(@RequestBody @Valid C5SnipingTaskV2SaveParam param) {
         c5SnipingTaskV2Service.createTask(param);
@@ -78,7 +78,7 @@ public class C5SnipingTaskV2Controller {
      * @param param 编辑参数
      */
     @PutMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_UPDATE)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.UPDATE)
     @Operation(summary = "编辑C5扫货2.0任务")
     public void updateTask(@Parameter(description = "任务ID") @PathVariable Long id,
                            @RequestBody @Valid C5SnipingTaskV2SaveParam param) {
@@ -92,7 +92,7 @@ public class C5SnipingTaskV2Controller {
      * @return 任务详情
      */
     @GetMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.DETAIL)
     @Operation(summary = "查询C5扫货2.0任务详情")
     public C5SnipingTaskV2DTO getTask(@Parameter(description = "任务ID") @PathVariable Long id) {
         return c5SnipingTaskV2Service.getTask(id);
@@ -105,7 +105,7 @@ public class C5SnipingTaskV2Controller {
      * @return 任务分页
      */
     @GetMapping
-    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
+    @SaCheckPermission(PermissionConstants.Task.SCAN_LIST)
     @Operation(summary = "分页查询C5扫货2.0任务")
     public Page<C5SnipingTaskV2DTO> pageTasks(@Valid C5SnipingTaskV2QueryParam param) {
         return c5SnipingTaskV2Service.pageTasks(param);
@@ -117,7 +117,7 @@ public class C5SnipingTaskV2Controller {
      * @return C5 扫货账号列表
      */
     @GetMapping("/accounts")
-    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
+    @SaCheckPermission(PermissionConstants.Task.SCAN_LIST)
     @Operation(summary = "查询当前用户可用的C5扫货账号")
     public List<C5SnipingAccountDTO> listAvailableC5Accounts() {
         return c5SnipingAccountService.listAvailableAccounts();
@@ -129,7 +129,7 @@ public class C5SnipingTaskV2Controller {
      * @param id 任务 ID
      */
     @PostMapping("/{id}/enable")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_ENABLE)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.ENABLE)
     @Operation(summary = "启用C5扫货2.0任务")
     public void enableTask(@Parameter(description = "任务ID") @PathVariable Long id) {
         c5SnipingTaskV2Service.enableTask(id);
@@ -141,7 +141,7 @@ public class C5SnipingTaskV2Controller {
      * @param id 任务 ID
      */
     @PostMapping("/{id}/disable")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_DISABLE)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.DISABLE)
     @Operation(summary = "停用C5扫货2.0任务")
     public void disableTask(@Parameter(description = "任务ID") @PathVariable Long id) {
         c5SnipingTaskV2Service.disableTask(id);
@@ -153,7 +153,7 @@ public class C5SnipingTaskV2Controller {
      * @param id 任务 ID
      */
     @DeleteMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_DELETE)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.DELETE)
     @Operation(summary = "删除C5扫货2.0任务")
     public void deleteTask(@Parameter(description = "任务ID") @PathVariable Long id) {
         c5SnipingTaskV2Service.deleteTask(id);
@@ -168,7 +168,7 @@ public class C5SnipingTaskV2Controller {
      * @return 命中明细分页
      */
     @GetMapping("/{id}/hits")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.DETAIL)
     @Operation(summary = "查询C5扫货2.0命中明细")
     public Page<C5SnipingHitRecordV2DTO> pageHitRecords(@Parameter(description = "任务ID") @PathVariable Long id,
                                                         @RequestParam(defaultValue = "1") Long page,
@@ -185,7 +185,7 @@ public class C5SnipingTaskV2Controller {
      * @return 下单尝试分页
      */
     @GetMapping("/{id}/buy-attempts")
-    @SaCheckPermission(PermissionConstants.C5_SNIPING_TASK_DETAIL)
+    @SaCheckPermission(PermissionConstants.C5SnipingTask.DETAIL)
     @Operation(summary = "查询C5扫货2.0下单尝试")
     public Page<C5SnipingBuyAttemptV2DTO> pageBuyAttempts(@Parameter(description = "任务ID") @PathVariable Long id,
                                                           @RequestParam(defaultValue = "1") Long page,
