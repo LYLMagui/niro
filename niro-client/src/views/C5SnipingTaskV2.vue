@@ -217,6 +217,10 @@
                       <div class="mt-0.5 truncate text-[11px] text-slate-500">
                         账号：{{ getTaskAccountName(row.accountId) }}
                       </div>
+                      <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 text-[11px] text-slate-500">
+                        <span>最高价：{{ formatPrice(row.maxPrice) }}</span>
+                        <span>频率：{{ formatScanInterval(row.scanIntervalMs) }}</span>
+                      </div>
                     </div>
                   </div>
                   <div class="ml-2 flex shrink-0 items-center gap-1.5">
@@ -392,6 +396,10 @@
                   </t-tooltip>
                   <div class="mt-1 text-sm text-slate-500">
                     绑定账号：{{ getTaskAccountName(row.accountId) }}
+                  </div>
+                  <div class="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-slate-500">
+                    <span>最高价：{{ formatPrice(row.maxPrice) }}</span>
+                    <span>频率：{{ formatScanInterval(row.scanIntervalMs) }}</span>
                   </div>
                   <t-tooltip
                     v-if="row.marketHashName"
@@ -1026,6 +1034,13 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
 
 const formatPrice = (value?: number) =>
   value === undefined || value === null ? "-" : priceFormatter.format(value);
+const formatScanInterval = (value?: number) => {
+  if (value === undefined || value === null) {
+    return "-";
+  }
+  const seconds = value / 1000;
+  return `${Number.isInteger(seconds) ? seconds : seconds.toFixed(1)} 秒/次`;
+};
 const formatDateTime = (value?: string) =>
   value ? dayjs(value).format("YYYY-MM-DD HH:mm:ss") : "-";
 const getDecisionResultLabel = (value?: string) => {
