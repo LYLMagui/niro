@@ -30,185 +30,196 @@
     </PageHeader>
 
     <div
-      ref="pageHostRef"
       class="unbox-record-page relative flex min-h-0 flex-1 flex-col"
       :class="editorVisible ? 'overflow-hidden' : 'overflow-y-auto overscroll-contain'"
     >
-      <section class="grid grid-cols-1 gap-4 py-4 md:grid-cols-2 xl:grid-cols-4">
+      <section class="grid grid-cols-1 gap-3 py-3 md:grid-cols-2 xl:grid-cols-4">
         <!-- 开箱数量 -->
         <div
-          class="relative overflow-hidden rounded-xl border border-blue-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+          class="group relative overflow-hidden rounded-xl border border-blue-100/50 bg-white/60 p-3.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
         >
-          <div class="absolute -top-4 -right-4 text-blue-50/40">
-            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+          <div class="absolute -top-3 -right-3 text-blue-50/50 transition-transform duration-500 group-hover:scale-110">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
               <path
                 d="M21 16.5c0 .38-.21.71-.53.88l-7.97 4.43c-.31.17-.69.17-1 0L3.53 17.38c-.32-.17-.53-.5-.53-.88V7.5c0-.38.21-.71.53-.88l7.97-4.43c.31-.17.69-.17 1 0l7.97 4.43c.32.17.53.5.53.88v9z"
               />
             </svg>
           </div>
-          <div class="relative z-10 flex flex-col gap-1">
+          <div class="relative z-10 flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
               <div
-                class="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600"
+                class="flex h-6 w-6 items-center justify-center rounded-lg bg-blue-50 text-blue-600 shadow-sm shadow-blue-100"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    stroke-width="2"
+                    stroke-width="2.5"
                     d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"
                   />
                 </svg>
               </div>
-              <span class="text-xs font-medium text-slate-500">开箱数量</span>
+              <span class="text-[11px] font-bold tracking-tight text-slate-500 uppercase">开箱数量</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1.5">
-              <span class="font-numeric text-2xl font-bold tracking-tight text-slate-900">
+              <span class="font-numeric text-xl font-black tracking-tight text-slate-900">
                 {{ pageSummary.totalBatches }}
               </span>
-              <span class="text-xs text-slate-400">批次</span>
+              <span class="text-[10px] font-bold text-slate-400">批次</span>
             </div>
-            <p class="text-[11px] text-slate-400">当前筛选结果统计</p>
+            <p class="text-[10px] leading-tight text-slate-400/80">当前筛选结果统计</p>
           </div>
         </div>
 
         <!-- 购买总花费 -->
         <div
-          class="relative overflow-hidden rounded-xl border border-indigo-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+          class="group relative overflow-hidden rounded-xl border border-indigo-100/50 bg-white/60 p-3.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
         >
-          <div class="absolute -top-4 -right-4 text-indigo-50/40">
-            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+          <div class="absolute -top-3 -right-3 text-indigo-50/50 transition-transform duration-500 group-hover:scale-110">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
               <path
                 d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1.41 16.09V20h-2.82v-1.91c-.08-.05-.16-.09-.23-.14-1.25-.8-1.57-1.74-1.59-2.81h1.79c.02.63.2 1.05.74 1.4.38.25.9.43 1.54.43.52 0 1.03-.13 1.37-.39.43-.32.55-.83.33-1.27-.15-.31-.46-.57-1.1-.81l-.99-.37c-1.34-.51-2.43-1.22-2.78-2.6-.18-.71-.12-1.48.25-2.09.34-.57.94-1.03 1.74-1.33V6h2.82v1.89c.14.07.28.16.42.25 1.01.66 1.4 1.54 1.45 2.5h-1.8c-.02-.45-.11-.84-.5-1.12-.35-.25-.85-.43-1.44-.43-.46 0-.89.1-1.18.3-.39.27-.47.74-.32 1.14.12.33.43.58 1.04.81l.99.37c1.39.52 2.37 1.3 2.76 2.61.16.53.18 1.09.06 1.63-.2.91-.77 1.64-1.63 2.03z"
               />
             </svg>
           </div>
-          <div class="relative z-10 flex flex-col gap-1">
+          <div class="relative z-10 flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
               <div
-                class="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600"
+                class="flex h-6 w-6 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600 shadow-sm shadow-indigo-100"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    stroke-width="2"
+                    stroke-width="2.5"
                     d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
                   />
                 </svg>
               </div>
-              <span class="text-xs font-medium text-slate-500">购买总花费</span>
+              <span class="text-[11px] font-bold tracking-tight text-slate-500 uppercase">箱子总成本</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1 text-slate-900">
-              <span class="text-sm font-semibold">¥</span>
-              <span class="font-numeric text-2xl font-bold tracking-tight">
+              <span class="text-xs font-bold opacity-60">¥</span>
+              <span class="font-numeric text-xl font-black tracking-tight">
                 {{ formatCurrency(pageSummary.totalPurchaseCost, { symbol: false }) }}
               </span>
             </div>
-            <p class="text-[11px] text-slate-400">实际购入价格口径汇总</p>
+            <p class="text-[10px] leading-tight text-slate-400/80">实际购入价格口径汇总</p>
           </div>
         </div>
 
         <!-- 总手续费 -->
         <div
-          class="relative overflow-hidden rounded-xl border border-orange-100 bg-white p-4 shadow-sm transition-all hover:shadow-md"
+          class="group relative overflow-hidden rounded-xl border border-orange-100/50 bg-white/60 p-3.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
         >
-          <div class="absolute -top-4 -right-4 text-orange-50/40">
-            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+          <div class="absolute -top-3 -right-3 text-orange-50/50 transition-transform duration-500 group-hover:scale-110">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
               <path
                 d="M11.8 10.9c-2.27-.59-3-1.2-3-2.15 0-1.09 1.01-1.85 2.7-1.85 1.78 0 2.44.85 2.5 2.1h2.21c-.07-1.72-1.12-3.3-3.21-3.81V3h-3v2.16c-1.94.42-3.5 1.68-3.5 3.61 0 2.31 1.91 3.46 4.7 4.13 2.5.6 3 1.48 3 2.41 0 .69-.49 1.79-2.7 1.79-2.06 0-2.87-.92-2.98-2.1h-2.2c.12 2.19 1.76 3.42 3.68 3.83V21h3v-2.15c1.95-.37 3.5-1.5 3.5-3.55 0-2.84-2.43-3.81-4.7-4.4z"
               />
             </svg>
           </div>
-          <div class="relative z-10 flex flex-col gap-1">
+          <div class="relative z-10 flex flex-col gap-0.5">
             <div class="flex items-center gap-2">
               <div
-                class="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-50 text-orange-600"
+                class="flex h-6 w-6 items-center justify-center rounded-lg bg-orange-50 text-orange-600 shadow-sm shadow-orange-100"
               >
-                <svg class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     stroke-linecap="round"
                     stroke-linejoin="round"
-                    stroke-width="2"
+                    stroke-width="2.5"
                     d="M9 14l6-6m-5.5.5h.01m4.99 5h.01M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16l3.5-2 3.5 2 3.5-2 3.5 2z"
                   />
                 </svg>
               </div>
-              <span class="text-xs font-medium text-slate-500">总手续费</span>
+              <span class="text-[11px] font-bold tracking-tight text-slate-500 uppercase">总手续费</span>
             </div>
             <div class="mt-1 flex items-baseline gap-1 text-orange-600">
-              <span class="text-sm font-semibold">¥</span>
-              <span class="font-numeric text-2xl font-bold tracking-tight">
+              <span class="text-xs font-bold opacity-60">¥</span>
+              <span class="font-numeric text-xl font-black tracking-tight">
                 {{ formatCurrency(pageSummary.totalFee, { symbol: false }) }}
               </span>
             </div>
-            <p class="text-[11px] text-slate-400">平台卖出价 1% 估算</p>
+            <p class="text-[10px] leading-tight text-slate-400/80">平台卖出价 1% 估算</p>
           </div>
         </div>
 
         <!-- 总利润 -->
         <div
-          class="relative overflow-hidden rounded-xl border bg-white p-4 shadow-sm transition-all hover:shadow-md"
-          :class="pageSummary.totalActualNetProfit >= 0 ? 'border-emerald-100' : 'border-red-100'"
+          class="group relative overflow-hidden rounded-xl border bg-white/60 p-3.5 shadow-sm backdrop-blur-md transition-all duration-300 hover:-translate-y-0.5 hover:shadow-md"
+          :class="pageSummary.totalActualNetProfit >= 0 ? 'border-emerald-100/50' : 'border-red-100/50'"
         >
           <div
-            class="absolute -top-4 -right-4 opacity-40"
+            class="absolute -top-3 -right-3 opacity-40 transition-transform duration-500 group-hover:scale-110"
             :class="pageSummary.totalActualNetProfit >= 0 ? 'text-emerald-50' : 'text-red-50'"
           >
-            <svg class="h-20 w-20" fill="currentColor" viewBox="0 0 24 24">
+            <svg class="h-16 w-16" fill="currentColor" viewBox="0 0 24 24">
               <path d="M16 6l2.29 2.29-4.88 4.88-4-4L2 16.59 3.41 18l6-6 4 4 6.3-6.29L22 12V6z" />
             </svg>
           </div>
-          <div class="relative z-10 flex flex-col gap-1">
-            <div class="flex items-center gap-2">
-              <div
-                class="flex h-7 w-7 items-center justify-center rounded-lg"
-                :class="
-                  pageSummary.totalActualNetProfit >= 0
-                    ? 'bg-emerald-50 text-emerald-600'
-                    : 'bg-red-50 text-red-600'
-                "
-              >
-                <svg
-                  v-if="pageSummary.totalActualNetProfit >= 0"
-                  class="h-4 w-4"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+          <div class="relative z-10 flex flex-col gap-0.5">
+            <div class="flex items-center justify-between">
+              <div class="flex items-center gap-2">
+                <div
+                  class="flex h-6 w-6 items-center justify-center rounded-lg shadow-sm"
+                  :class="
+                    pageSummary.totalActualNetProfit >= 0
+                      ? 'bg-emerald-50 text-emerald-600 shadow-emerald-100'
+                      : 'bg-red-50 text-red-600 shadow-red-100'
+                  "
                 >
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
-                  />
-                </svg>
-                <svg v-else class="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                    stroke-width="2"
-                    d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"
-                  />
-                </svg>
+                  <svg
+                    v-if="pageSummary.totalActualNetProfit >= 0"
+                    class="h-3.5 w-3.5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.5"
+                      d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6"
+                    />
+                  </svg>
+                  <svg v-else class="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2.5"
+                      d="M13 17h8m0 0v-8m0 8l-8-8-4 4-6-6"
+                    />
+                  </svg>
+                </div>
+                <span class="text-[11px] font-bold tracking-tight text-slate-500 uppercase">预期总利润</span>
               </div>
-              <span class="text-xs font-medium text-slate-500">预期总利润</span>
+              <t-tag
+                v-if="pageSummary.totalActualProfitRate !== null"
+                size="small"
+                :theme="pageSummary.totalActualProfitRate >= 0 ? 'success' : 'danger'"
+                variant="light"
+                class="scale-90"
+              >
+                {{ formatPercent(pageSummary.totalActualProfitRate) }}
+              </t-tag>
             </div>
             <div
               class="mt-1 flex items-baseline gap-1"
               :class="pageSummary.totalActualNetProfit >= 0 ? 'text-emerald-600' : 'text-red-600'"
             >
-              <span class="text-sm font-semibold">¥</span>
-              <span class="font-numeric text-2xl font-bold tracking-tight">
+              <span class="text-xs font-bold opacity-60">¥</span>
+              <span class="font-numeric text-xl font-black tracking-tight">
                 {{ formatCurrency(pageSummary.totalActualNetProfit, { symbol: false }) }}
               </span>
             </div>
-            <p class="text-[11px] text-slate-400">
+            <p class="text-[10px] leading-tight text-slate-400/80">
               {{ pageSummary.totalActualNetProfit >= 0 ? "盈利中" : "亏损中" }}
             </p>
           </div>
         </div>
       </section>
+
 
       <section class="overflow-hidden bg-white">
         <div
@@ -308,32 +319,36 @@
             </template>
 
             <template #actualNetProfit="{ row }">
-              <t-tooltip
-                :content="formatSignedCurrency(row.summary.totalActualNetProfit)"
-                placement="top"
-              >
-                <span
-                  class="font-numeric truncate"
-                  :class="profitClass(row.summary.totalActualNetProfit)"
+              <div class="flex flex-col gap-0.5 py-1">
+                <t-tooltip
+                  :content="formatSignedCurrency(row.summary.totalActualNetProfit)"
+                  placement="top-left"
                 >
-                  {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
-                </span>
-              </t-tooltip>
+                  <span
+                    class="font-numeric truncate text-sm font-semibold"
+                    :class="profitClass(row.summary.totalActualNetProfit)"
+                  >
+                    {{ formatSignedCurrency(row.summary.totalActualNetProfit) }}
+                  </span>
+                </t-tooltip>
+                <div class="flex flex-col gap-0.5">
+                  <div
+                    v-if="row.summary.totalActualNetIncome !== null"
+                    class="truncate text-[12px] font-medium text-slate-500"
+                  >
+                    {{ `到账 ${formatCurrency(row.summary.totalActualNetIncome)}` }}
+                  </div>
+                  <div
+                    v-if="row.summary.totalActualProfitRate !== null"
+                    class="truncate text-[12px] font-medium"
+                    :class="profitClass(row.summary.totalActualProfitRate)"
+                  >
+                    {{ `利润率 ${formatPercent(row.summary.totalActualProfitRate)}` }}
+                  </div>
+                </div>
+              </div>
             </template>
 
-            <template #actualProfitRate="{ row }">
-              <t-tooltip
-                :content="formatPercent(row.summary.totalActualProfitRate)"
-                placement="top"
-              >
-                <span
-                  class="font-numeric truncate"
-                  :class="profitClass(row.summary.totalActualProfitRate ?? 0)"
-                >
-                  {{ formatPercent(row.summary.totalActualProfitRate) }}
-                </span>
-              </t-tooltip>
-            </template>
 
             <template #status="{ row }">
               <t-tag :theme="historyStatusTheme(row.status)" variant="light-outline">
@@ -367,11 +382,11 @@
 
         <div v-if="batchPagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
           <t-pagination
+            v-model="batchPagination.current"
+            v-model:page-size="batchPagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="batchPagination.current"
-            v-model:page-size="batchPagination.pageSize"
             :total="batchPagination.total"
             show-jumper
             @change="handleBatchPageChange"
@@ -387,8 +402,8 @@
       :confirm-btn="null"
       :cancel-btn="null"
       :destroy-on-close="false"
-      :attach="editorDialogAttach"
-      :showInAttachedElement="!isMobile"
+      attach="#app-main-content"
+      :show-in-attached-element="!isMobile"
       :footer="false"
       :header="false"
       :mode="isMobile || isEditorFullscreen ? 'full-screen' : 'modal'"
@@ -419,7 +434,7 @@
               <t-button variant="outline" @click="toggleEditorFullscreen">
                 {{ isEditorFullscreen ? "缩小" : "全屏" }}
               </t-button>
-              <t-button variant="outline" @click="editorVisible = false">取消</t-button>
+              <t-button variant="outline" @click="closeEditor">取消</t-button>
               <t-button
                 theme="primary"
                 :loading="savingBatch"
@@ -432,7 +447,7 @@
                 type="button"
                 class="inline-flex h-8 w-8 items-center justify-center rounded-lg border border-slate-200 text-slate-500 transition-colors hover:border-slate-300 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-sky-500/60 focus-visible:ring-offset-1 focus-visible:outline-none"
                 aria-label="关闭编辑器"
-                @click="editorVisible = false"
+                @click="closeEditor"
               >
                 <svg
                   viewBox="0 0 16 16"
@@ -737,13 +752,21 @@
                     <template #weaponName="{ row: entry }">
                       <div class="flex items-center gap-2" :class="draftCellControlClass">
                         <t-select
-                          v-model="entry.row.weaponName"
+                          :value="entry.row.cs2GoodsId"
                           :class="`flex-1 ${draftSelectFieldClass}`"
                           :disabled="!isRowEditable(entry.row)"
-                          :options="weaponNameOptions"
+                          :loading="rowGoodsLoading"
+                          :options="rowGoodsOptions"
                           clearable
                           filterable
-                          placeholder="请选择饰品名称"
+                          placeholder="输入商品名称查询"
+                          :popup-props="{
+                            overlayInnerStyle: { width: '320px' },
+                            attach: 'body',
+                          }"
+                          @change="(value) => handleRowGoodsChange(entry.row, value)"
+                          @popup-visible-change="handleRowGoodsPopupVisibleChange"
+                          @search="handleRowGoodsSearch"
                         />
                         <t-popup
                           :visible="activeOcrPopupRowId === entry.row.id"
@@ -934,7 +957,7 @@
                                         variant="light"
                                         :theme="getRowC5SnapshotTagTheme(entry.row)"
                                       >
-                                        {{ getRowC5State(entry.row.id).snapshotStatus || "快照" }}
+                                        {{ formatSnapshotStatus(getRowC5State(entry.row.id).snapshotStatus) }}
                                       </t-tag>
                                       <span>{{ getRowC5State(entry.row.id).snapshotMessage }}</span>
                                       <span
@@ -1163,28 +1186,22 @@
                           :content="`到账 ${formatCurrency(entry.metrics.actualNetIncome)}`"
                           placement="top-left"
                         >
-                          <div class="mt-1 truncate text-[14px] font-medium text-slate-500">
-                            {{ `到账 ${formatCurrency(entry.metrics.actualNetIncome)}` }}
+                          <div class="mt-1 flex flex-col gap-0.5">
+                            <div class="truncate text-[13px] font-medium text-slate-500">
+                              {{ `到账 ${formatCurrency(entry.metrics.actualNetIncome)}` }}
+                            </div>
+                            <div
+                              v-if="entry.metrics.actualProfitRate !== null"
+                              class="truncate text-[12px] font-medium"
+                              :class="profitClass(entry.metrics.actualProfitRate)"
+                            >
+                              {{ `利润率 ${formatPercent(entry.metrics.actualProfitRate)}` }}
+                            </div>
                           </div>
                         </t-tooltip>
                       </div>
                     </template>
 
-                    <template #actualProfitRate="{ row: entry }">
-                      <div class="px-1 leading-4">
-                        <t-tooltip
-                          :content="formatPercent(entry.metrics.actualProfitRate)"
-                          placement="top-left"
-                        >
-                          <div
-                            class="font-numeric truncate text-sm font-semibold"
-                            :class="profitClass(entry.metrics.actualProfitRate ?? 0)"
-                          >
-                            {{ formatPercent(entry.metrics.actualProfitRate) }}
-                          </div>
-                        </t-tooltip>
-                      </div>
-                    </template>
 
                     <template #actualFee="{ row: entry }">
                       <div class="px-1 leading-4">
@@ -1333,32 +1350,25 @@
                           :content="formatSignedCurrency(draftSummary.totalActualNetProfit)"
                           placement="top-left"
                         >
-                          <div
-                            class="font-numeric mt-1 truncate text-sm font-semibold"
-                            :class="profitClass(draftSummary.totalActualNetProfit)"
-                          >
-                            {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
+                          <div class="mt-1">
+                            <div
+                              class="font-numeric truncate text-sm font-semibold"
+                              :class="profitClass(draftSummary.totalActualNetProfit)"
+                            >
+                              {{ formatSignedCurrency(draftSummary.totalActualNetProfit) }}
+                            </div>
+                            <div
+                              v-if="draftSummary.totalActualProfitRate !== null"
+                              class="mt-0.5 truncate text-[11px] font-medium"
+                              :class="profitClass(draftSummary.totalActualProfitRate)"
+                            >
+                              {{ `利润率 ${formatPercent(draftSummary.totalActualProfitRate)}` }}
+                            </div>
                           </div>
                         </t-tooltip>
                       </div>
                     </template>
 
-                    <template #footerActualProfitRate>
-                      <div :class="draftTableFooterFixedClass">
-                        <div>总利润率</div>
-                        <t-tooltip
-                          :content="formatPercent(draftSummary.totalActualProfitRate)"
-                          placement="top-left"
-                        >
-                          <div
-                            class="font-numeric mt-1 truncate text-sm font-semibold"
-                            :class="profitClass(draftSummary.totalActualProfitRate ?? 0)"
-                          >
-                            {{ formatPercent(draftSummary.totalActualProfitRate) }}
-                          </div>
-                        </t-tooltip>
-                      </div>
-                    </template>
 
                     <template #footerOperation>
                       <div :class="draftTableFooterFixedClass">
@@ -1422,13 +1432,17 @@
                           <span class="text-sm font-medium text-slate-600">饰品名称</span>
                           <div class="flex items-center gap-2">
                             <t-select
-                              v-model="row.weaponName"
+                              :value="row.cs2GoodsId"
                               :class="`flex-1 ${fieldBaseClass}`"
                               :disabled="!isRowEditable(row)"
-                              :options="weaponNameOptions"
+                              :loading="rowGoodsLoading"
+                              :options="rowGoodsOptions"
                               clearable
                               filterable
-                              placeholder="请选择饰品名称"
+                              placeholder="输入商品名称查询"
+                              @change="(value) => handleRowGoodsChange(row, value)"
+                              @popup-visible-change="handleRowGoodsPopupVisibleChange"
+                              @search="handleRowGoodsSearch"
                             />
                             <t-popup
                               :visible="activeOcrPopupRowId === row.id"
@@ -1613,7 +1627,7 @@
                                           variant="light"
                                           :theme="getRowC5SnapshotTagTheme(row)"
                                         >
-                                          {{ getRowC5State(row.id).snapshotStatus || "快照" }}
+                                          {{ formatSnapshotStatus(getRowC5State(row.id).snapshotStatus) }}
                                         </t-tag>
                                         <span>{{ getRowC5State(row.id).snapshotMessage }}</span>
                                         <span
@@ -1900,7 +1914,7 @@ export default {
 
 <script setup lang="ts">
 import dayjs, { type Dayjs } from "dayjs";
-import { computed, h, onMounted, ref, resolveComponent, watch } from "vue";
+import { computed, h, onActivated, onBeforeUnmount, onMounted, ref, resolveComponent, watch } from "vue";
 import { useElementSize, useWindowSize } from "@vueuse/core";
 import { MessagePlugin } from "tdesign-vue-next";
 import {
@@ -1911,7 +1925,6 @@ import {
   LoadingIcon,
 } from "tdesign-icons-vue-next";
 import type {
-  AttachNode,
   DateRangeValue as TDateRangeValue,
   PageInfo,
   PrimaryTableCol,
@@ -2094,25 +2107,6 @@ const EXTERIOR_OPTIONS = [
   { label: "破损不堪", value: 3 },
   { label: "战痕累累", value: 4 },
 ];
-const BASE_WEAPON_NAME_OPTIONS = [
-  { label: "SCAR-20 | 牢笼", value: "SCAR-20 | 牢笼" },
-  { label: "AUG | 后发制人", value: "AUG | 后发制人" },
-  { label: "P2000 | 红翼", value: "P2000 | 红翼" },
-  { label: "MP9 | 打口碟", value: "MP9 | 打口碟" },
-  { label: "P250 | 牛蛙", value: "P250 | 牛蛙" },
-  { label: "MAG-7 | 震级", value: "MAG-7 | 震级" },
-  { label: "MP5-SD | 专注", value: "MP5-SD | 专注" },
-  { label: "新星 | 目镜", value: "新星 | 目镜" },
-  { label: "M4A1消音版 | 液化", value: "M4A1消音版 | 液化" },
-  { label: "双持贝瑞塔 | 天矢之眼", value: "双持贝瑞塔 | 天矢之眼" },
-  { label: "MAC-10 | 纸老虎", value: "MAC-10 | 纸老虎" },
-  { label: "UMP-45 | 连续体", value: "UMP-45 | 连续体" },
-  { label: "AWP | 可燃冰", value: "AWP | 可燃冰" },
-  { label: "MP7 | 吸烟有害健康", value: "MP7 | 吸烟有害健康" },
-  { label: "格洛克18型 | 镜面马赛克", value: "格洛克18型 | 镜面马赛克" },
-  { label: "M4A4 | 破浪狂飙", value: "M4A4 | 破浪狂飙" },
-  { label: "AK-47 | 流金王朝", value: "AK-47 | 流金王朝" },
-];
 const C5_EXTERIOR_TOTAL_RANGES: Record<number, { min: number; max: number }> = {
   0: { min: 0, max: 0.07 },
   1: { min: 0.07, max: 0.15 },
@@ -2172,11 +2166,6 @@ const dateFormatter = new Intl.DateTimeFormat("zh-CN", {
 const { width } = useWindowSize();
 const isMobile = computed(() => width.value <= 640);
 
-const pageHostRef = ref<HTMLElement | null>(null);
-const editorDialogAttach = computed<AttachNode>(() => {
-  if (isMobile.value) return "body";
-  return () => pageHostRef.value ?? document.body;
-});
 const editorContentRef = ref<HTMLElement | null>(null);
 const batchInfoSectionRef = ref<HTMLElement | null>(null);
 const { height: editorContentHeight } = useElementSize(editorContentRef);
@@ -2213,6 +2202,7 @@ const canEditUnboxDraft = computed(() =>
 );
 
 const editorVisible = ref(false);
+const shouldRestoreEditorVisible = ref(false);
 const isEditorFullscreen = ref(false);
 const editingBatchId = ref<number | null>(null);
 const isBatchInfoCollapsed = ref(true);
@@ -2234,7 +2224,14 @@ const summaryLoading = ref(false);
 const detailLoading = ref(false);
 const savingBatch = ref(false);
 const goodsLoading = ref(false);
+const rowGoodsLoading = ref(false);
 const boxGoodsCatalog = ref<Cs2GoodsOption[]>([]);
+const rowGoodsCatalog = ref<Cs2GoodsOption[]>([]);
+const GOODS_SEARCH_DEBOUNCE_MS = 300;
+let goodsSearchTimer: ReturnType<typeof setTimeout> | undefined;
+let rowGoodsSearchTimer: ReturnType<typeof setTimeout> | undefined;
+let goodsSearchRequestId = 0;
+let rowGoodsSearchRequestId = 0;
 const rowOcrStateMap = ref<Record<string, RowOcrState>>({});
 const rowC5StateMap = ref<Record<string, RowC5State>>({});
 const ocrInputRef = ref<HTMLInputElement | null>(null);
@@ -2286,6 +2283,11 @@ const round = (value: number, digits = 2) => {
   return Math.round((Number.isFinite(value) ? value : 0) * base) / base;
 };
 
+const ceil = (value: number, digits = 2) => {
+  const base = 10 ** digits;
+  return Math.ceil((Number.isFinite(value) ? value : 0) * base) / base;
+};
+
 const formatWearDisplay = (
   value?: number | string | null,
   context?: { fixedNumber?: number | string }
@@ -2310,6 +2312,19 @@ const formatWearDisplay = (
 const LISTING_FEE_RATE = 0.01;
 const TOTAL_FEE_RATE = LISTING_FEE_RATE;
 
+const snapshotStatusMap: Record<string, string> = {
+  SUCCESS: "成功",
+  FAILED: "失败",
+  REFRESHING: "刷新中",
+  PENDING: "排队中",
+  RUNNING: "执行中",
+};
+
+const formatSnapshotStatus = (status?: string) => {
+  if (!status) return "快照";
+  return snapshotStatusMap[status] || status;
+};
+
 const clampDiscount = (value: DiscountValue | null | undefined) => {
   if (value === "" || value === null || value === undefined) return 0;
   const safeValue = Number.isFinite(value) ? value : 0;
@@ -2324,7 +2339,7 @@ function getWearPlaceholder() {
   return editingBatchId.value ? "-" : "";
 }
 
-const getFee = (sellPrice: number) => round(Math.max(sellPrice, 0) * TOTAL_FEE_RATE);
+const getFee = (sellPrice: number) => ceil(Math.max(sellPrice, 0) * TOTAL_FEE_RATE);
 
 const periodOptions: Array<{ label: string; value: PeriodFilter }> = [
   { label: "本周", value: "week" },
@@ -2440,17 +2455,8 @@ const EMPTY_SUMMARY: UnboxRecordSummaryDTO = {
   totalPurchaseCost: 0,
   totalFee: 0,
   totalActualNetProfit: 0,
+  totalActualProfitRate: null,
 };
-
-const weaponNameOptions = computed(() => {
-  const optionMap = new Map(BASE_WEAPON_NAME_OPTIONS.map((item) => [item.value, item]));
-  for (const row of draftBatch.value.rows) {
-    const weaponName = row.weaponName.trim();
-    if (!weaponName || optionMap.has(weaponName)) continue;
-    optionMap.set(weaponName, { label: weaponName, value: weaponName });
-  }
-  return Array.from(optionMap.values());
-});
 
 const draftBatch = ref<UnboxBatch>(createBlankBatch());
 const currentPageBatchSummaryRows = ref<BatchSummaryRow[]>([]);
@@ -2460,36 +2466,86 @@ function normalizeGoodsKeyword(keyword: string) {
   return keyword.trim();
 }
 
+function normalizeGoodsMatchName(value?: string) {
+  return (value ?? "").trim();
+}
+
+function findMatchedRowGoodsOption(items: Cs2GoodsOption[], weaponName: string) {
+  const normalizedName = normalizeGoodsMatchName(weaponName);
+  if (!normalizedName) return undefined;
+  return items.find((item) =>
+    [item.displayName, item.marketHashName].some((name) => normalizeGoodsMatchName(name) === normalizedName)
+  );
+}
+
 function getGoodsOptionLabel(goods: Cs2GoodsOption) {
   return goods.displayName;
 }
 
+function createGoodsFallbackOption(goodsId: number, displayName: string): Cs2GoodsOption {
+  return {
+    id: goodsId,
+    displayName,
+    marketHashName: "",
+    itemType: "",
+    weaponType: "",
+    rarity: "",
+    exteriorName: "",
+    hasExterior: false,
+    imageUrl: "",
+  };
+}
+
 function ensureGoodsInCatalog(boxGoodsId: number | undefined, boxName: string) {
   if (!boxGoodsId || !boxName) return;
-  const exists = boxGoodsCatalog.value.some((item) => item.id === boxGoodsId);
+  const exists = boxGoodsCatalog.value.some((item: Cs2GoodsOption) => item.id === boxGoodsId);
   if (exists) return;
   boxGoodsCatalog.value = [
     {
-      id: boxGoodsId,
-      displayName: boxName,
-      marketHashName: "",
+      ...createGoodsFallbackOption(boxGoodsId, boxName),
       itemType: "case",
-      weaponType: "",
-      rarity: "",
-      exteriorName: "",
-      hasExterior: false,
-      imageUrl: "",
     },
     ...boxGoodsCatalog.value,
   ];
 }
 
+function ensureRowGoodsInCatalog(row: UnboxRow) {
+  if (!row.cs2GoodsId || !row.weaponName.trim()) return;
+  const exists = rowGoodsCatalog.value.some((item: Cs2GoodsOption) => item.id === row.cs2GoodsId);
+  if (exists) return;
+  rowGoodsCatalog.value = [
+    createGoodsFallbackOption(row.cs2GoodsId, row.weaponName.trim()),
+    ...rowGoodsCatalog.value,
+  ];
+}
+
 const goodsOptions = computed(() =>
-  boxGoodsCatalog.value.map((item) => ({
-    label: getGoodsOptionLabel(item),
-    value: item.id,
-  }))
+  boxGoodsCatalog.value.map((item: Cs2GoodsOption) => {
+    const label = getGoodsOptionLabel(item);
+    return {
+      label,
+      value: item.id,
+      title: label,
+    };
+  })
 );
+
+const rowGoodsOptions = computed(() => {
+  const optionMap = new Map<number, { label: string; value: number; title: string }>();
+
+  for (const item of rowGoodsCatalog.value) {
+    const label = getGoodsOptionLabel(item);
+    optionMap.set(item.id, { label, value: item.id, title: label });
+  }
+
+  for (const row of draftBatch.value.rows) {
+    if (!row.cs2GoodsId || !row.weaponName.trim() || optionMap.has(row.cs2GoodsId)) continue;
+    const label = row.weaponName.trim();
+    optionMap.set(row.cs2GoodsId, { label, value: row.cs2GoodsId, title: label });
+  }
+
+  return Array.from(optionMap.values());
+});
 
 function getBatchDisplayName(batch: Pick<UnboxBatch, "date" | "boxName">) {
   if (batch.date && batch.boxName) return `${batch.date} ${batch.boxName}`;
@@ -2867,10 +2923,8 @@ async function resolveRowCs2GoodsId(row: UnboxRow) {
 
   state.resolvingGoodsId = true;
   try {
-    const items = await cs2GoodsApi.getC5TaskOptions(weaponName);
-    const matchedItem = items.find(
-      (item) => item.displayName === weaponName || item.marketHashName === weaponName
-    );
+    const items = await cs2GoodsApi.getUnboxItemOptions(weaponName);
+    const matchedItem = findMatchedRowGoodsOption(items, weaponName);
     row.cs2GoodsId = matchedItem?.id;
     return row.cs2GoodsId ?? null;
   } finally {
@@ -2968,11 +3022,14 @@ function applyRowC5Filters(row: UnboxRow) {
   return true;
 }
 
-async function fetchRowC5Listings(row: UnboxRow, pageNum: number) {
+async function fetchRowC5Listings(row: UnboxRow, pageNum: number, refresh = false) {
   const state = getRowC5State(row.id);
   const query = buildRowC5Query(row, pageNum);
   if (!query) {
     throw new Error("missing cs2GoodsId");
+  }
+  if (refresh) {
+    query.refresh = true;
   }
   const result = await unboxApi.queryC5Listings(query);
   const pageResult: UnboxRecordC5ListingPageResult = result;
@@ -3015,7 +3072,7 @@ async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
   state.errorMessage = "";
   resetRowC5Pagination(state);
   try {
-    await fetchRowC5Listings(row, 1);
+    await fetchRowC5Listings(row, 1, Boolean(options?.force));
     state.status = "success";
   } catch (error) {
     state.status = "error";
@@ -3193,6 +3250,8 @@ async function uploadRowOcrFile(rowId: string, file: File) {
     }
     if (normalized.name) {
       targetRow.weaponName = normalized.name;
+      targetRow.cs2GoodsId = undefined;
+      void resolveRowCs2GoodsId(targetRow);
     }
     targetRow.inGamePrice = normalized.price;
     if (normalized.wear !== null) {
@@ -3320,6 +3379,7 @@ function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
       handlingStatus: row.handlingStatus,
       boxPurchasePrice: round(row.boxPurchasePrice),
       weaponName: row.weaponName.trim(),
+      cs2GoodsId: row.cs2GoodsId,
       inGamePrice: round(row.inGamePrice),
       discount: hasDiscountValue(row.discount) ? clampDiscount(row.discount) : null,
       actualSellPrice: round(row.actualSellPrice),
@@ -3331,16 +3391,48 @@ function buildSaveParam(batch: UnboxBatch): UnboxRecordSaveParam {
 }
 
 async function fetchGoodsOptions(keyword = "") {
+  const requestId = ++goodsSearchRequestId;
   goodsLoading.value = true;
   try {
     const items = await cs2GoodsApi.getUnboxCaseOptions(normalizeGoodsKeyword(keyword));
+    if (requestId !== goodsSearchRequestId) {
+      return;
+    }
     boxGoodsCatalog.value = items;
     ensureGoodsInCatalog(draftBatch.value.boxGoodsId, draftBatch.value.boxName);
   } catch (error) {
+    if (requestId !== goodsSearchRequestId) {
+      return;
+    }
     console.error(error);
     MessagePlugin.error("获取箱子商品失败");
   } finally {
-    goodsLoading.value = false;
+    if (requestId === goodsSearchRequestId) {
+      goodsLoading.value = false;
+    }
+  }
+}
+
+async function fetchRowGoodsOptions(keyword = "") {
+  const requestId = ++rowGoodsSearchRequestId;
+  rowGoodsLoading.value = true;
+  try {
+    const items = await cs2GoodsApi.getUnboxItemOptions(normalizeGoodsKeyword(keyword));
+    if (requestId !== rowGoodsSearchRequestId) {
+      return;
+    }
+    rowGoodsCatalog.value = items;
+    draftBatch.value.rows.forEach(ensureRowGoodsInCatalog);
+  } catch (error) {
+    if (requestId !== rowGoodsSearchRequestId) {
+      return;
+    }
+    console.error(error);
+    MessagePlugin.error("获取商品列表失败");
+  } finally {
+    if (requestId === rowGoodsSearchRequestId) {
+      rowGoodsLoading.value = false;
+    }
   }
 }
 
@@ -3410,11 +3502,64 @@ function handleGoodsPopupVisibleChange(visible: boolean) {
 }
 
 function handleGoodsSearch(keyword: string) {
-  void fetchGoodsOptions(keyword);
+  if (goodsSearchTimer) {
+    clearTimeout(goodsSearchTimer);
+  }
+  goodsSearchTimer = setTimeout(() => {
+    void fetchGoodsOptions(keyword);
+  }, GOODS_SEARCH_DEBOUNCE_MS);
+}
+
+function handleRowGoodsPopupVisibleChange(visible: boolean) {
+  if (!visible || rowGoodsCatalog.value.length > 0 || rowGoodsLoading.value) return;
+  void fetchRowGoodsOptions();
+}
+
+function handleRowGoodsSearch(keyword: string) {
+  if (rowGoodsSearchTimer) {
+    clearTimeout(rowGoodsSearchTimer);
+  }
+  rowGoodsSearchTimer = setTimeout(() => {
+    void fetchRowGoodsOptions(keyword);
+  }, GOODS_SEARCH_DEBOUNCE_MS);
+}
+
+function handleRowGoodsChange(row: UnboxRow, value: SelectProps["value"]) {
+  if (!value) {
+    row.cs2GoodsId = undefined;
+    row.weaponName = "";
+    return;
+  }
+
+  const goodsId = Number(value);
+  if (!Number.isFinite(goodsId)) {
+    row.cs2GoodsId = undefined;
+    row.weaponName = "";
+    return;
+  }
+
+  const selected = rowGoodsCatalog.value.find((item) => item.id === goodsId);
+  row.weaponName = selected?.displayName ?? row.weaponName;
+  row.cs2GoodsId = goodsId;
 }
 
 onMounted(() => {
   void loadBatchPageAndSummary();
+});
+
+onBeforeUnmount(() => {
+  if (goodsSearchTimer) {
+    clearTimeout(goodsSearchTimer);
+  }
+  if (rowGoodsSearchTimer) {
+    clearTimeout(rowGoodsSearchTimer);
+  }
+});
+
+onActivated(() => {
+  if (shouldRestoreEditorVisible.value) {
+    editorVisible.value = true;
+  }
 });
 
 function isRowEditable(row: UnboxRow) {
@@ -3575,25 +3720,12 @@ const batchColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "actualNetProfit",
     title: createTooltipTitle("总利润", "单次开箱扣除手续费后的总利润", "总利润说明"),
-    width: 130,
+    width: 150,
     cell: "actualNetProfit",
     align: "left",
     sorter: (a, b) =>
       sortableNumber(a.summary.totalActualNetProfit) -
       sortableNumber(b.summary.totalActualNetProfit),
-    sortType: "all",
-    className: summaryTableBodyClass,
-    thClassName: summaryTableHeaderClass,
-  },
-  {
-    colKey: "actualProfitRate",
-    title: createTooltipTitle("总利润率", "单次开箱的总利润率", "总利润率说明"),
-    width: 120,
-    cell: "actualProfitRate",
-    align: "left",
-    sorter: (a, b) =>
-      sortableNumber(a.summary.totalActualProfitRate) -
-      sortableNumber(b.summary.totalActualProfitRate),
     sortType: "all",
     className: summaryTableBodyClass,
     thClassName: summaryTableHeaderClass,
@@ -3687,8 +3819,14 @@ watch(
       if (!previousInvalidationKey) {
         return;
       }
-      const previousPayload = JSON.parse(previousInvalidationKey) as { weaponName?: string };
-      if (previousPayload.weaponName !== row.weaponName.trim()) {
+      const previousPayload = JSON.parse(previousInvalidationKey) as {
+        weaponName?: string;
+        cs2GoodsId?: number;
+      };
+      if (
+        previousPayload.weaponName !== row.weaponName.trim() &&
+        previousPayload.cs2GoodsId === row.cs2GoodsId
+      ) {
         row.cs2GoodsId = undefined;
       }
     });
@@ -3887,8 +4025,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "boxPurchasePrice",
     title: "箱子购入价",
-    width: 132,
-    minWidth: 132,
+    width: 100,
+    minWidth: 100,
     cell: "boxPurchasePrice",
     foot: "footerBoxPurchasePrice",
     align: "left",
@@ -3909,8 +4047,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "weaponName",
     title: "饰品名称",
-    width: 192,
-    minWidth: 192,
+    width: 240,
+    minWidth: 140,
     cell: "weaponName",
     foot: "footerWeaponName",
     align: "left",
@@ -3920,8 +4058,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "inGamePrice",
     title: "游戏买入价",
-    width: 126,
-    minWidth: 126,
+    width: 110,
+    minWidth: 100,
     cell: "inGamePrice",
     foot: "footerInGamePrice",
     align: "left",
@@ -3942,8 +4080,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "wear",
     title: "磨损",
-    width: 132,
-    minWidth: 132,
+    width: 140,
+    minWidth: 110,
     cell: "wear",
     align: "left",
     className: draftTableBodyClass,
@@ -3952,8 +4090,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "exterior",
     title: "外观",
-    width: 124,
-    minWidth: 124,
+    width: 120,
+    minWidth: 100,
     cell: "exterior",
     align: "left",
     className: draftTableBodyClass,
@@ -3962,8 +4100,8 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "purchaseCost",
     title: purchaseCostTitle,
-    width: 118,
-    minWidth: 118,
+    width: 100,
+    minWidth: 100,
     cell: "purchaseCost",
     foot: "footerPurchaseCost",
     align: "left",
@@ -3995,28 +4133,13 @@ const draftTableColumns = computed<PrimaryTableCol[]>(() => [
   {
     colKey: "actualNetProfit",
     title: actualNetProfitTitle,
-    width: 116,
-    minWidth: 116,
+    width: 140,
+    minWidth: 140,
     cell: "actualNetProfit",
     foot: "footerActualNetProfit",
     align: "left",
     sorter: (a, b) =>
       sortableNumber(a.metrics.actualNetProfit) - sortableNumber(b.metrics.actualNetProfit),
-    sortType: "all",
-    fixed: "right",
-    className: draftTableFixedBodyClass,
-    thClassName: draftTableHeaderClass,
-  },
-  {
-    colKey: "actualProfitRate",
-    title: actualProfitRateTitle,
-    width: 108,
-    minWidth: 108,
-    cell: "actualProfitRate",
-    foot: "footerActualProfitRate",
-    align: "left",
-    sorter: (a, b) =>
-      sortableNumber(a.metrics.actualProfitRate) - sortableNumber(b.metrics.actualProfitRate),
     sortType: "all",
     fixed: "right",
     className: draftTableFixedBodyClass,
@@ -4093,7 +4216,10 @@ function formatPercent(value: number | null) {
 }
 
 function formatSnapshotTime(value?: string | null) {
-  return value ? value.replace("T", " ").slice(0, 16) : "--";
+  if (!value || value.startsWith("1970-01-01")) {
+    return "暂无";
+  }
+  return value.replace("T", " ").slice(0, 16);
 }
 
 function getRowC5SnapshotTagTheme(row: UnboxRow) {
@@ -4101,7 +4227,8 @@ function getRowC5SnapshotTagTheme(row: UnboxRow) {
   if (state.snapshotStale) return "warning";
   if (state.snapshotStatus === "SUCCESS") return "success";
   if (state.snapshotStatus === "FAILED") return "danger";
-  if (state.snapshotStatus === "REFRESHING") return "primary";
+  if (state.snapshotStatus === "REFRESHING" || state.snapshotStatus === "RUNNING") return "primary";
+  if (state.snapshotStatus === "PENDING") return "warning";
   return "default";
 }
 
@@ -4133,6 +4260,16 @@ function toggleBatchInfoCollapsed() {
   isBatchInfoCollapsed.value = !isBatchInfoCollapsed.value;
 }
 
+function showEditor() {
+  shouldRestoreEditorVisible.value = true;
+  editorVisible.value = true;
+}
+
+function closeEditor() {
+  shouldRestoreEditorVisible.value = false;
+  editorVisible.value = false;
+}
+
 function openCreateEditor() {
   if (!canCreateUnboxRecord.value) {
     return;
@@ -4144,7 +4281,7 @@ function openCreateEditor() {
   ensureGoodsInCatalog(draftBatch.value.boxGoodsId, draftBatch.value.boxName);
   isEditorFullscreen.value = false;
   isBatchInfoCollapsed.value = false;
-  editorVisible.value = true;
+  showEditor();
 }
 
 async function openEditEditor(batchId: number) {
@@ -4162,7 +4299,7 @@ async function openEditEditor(batchId: number) {
     ensureGoodsInCatalog(nextBatch.boxGoodsId, nextBatch.boxName);
     isEditorFullscreen.value = false;
     isBatchInfoCollapsed.value = true;
-    editorVisible.value = true;
+    showEditor();
   } catch (error) {
     console.error(error);
     MessagePlugin.error("获取批次详情失败");
@@ -4198,7 +4335,7 @@ async function saveDraftBatch() {
       await unboxApi.create(payload);
       MessagePlugin.success("批次已创建");
     }
-    editorVisible.value = false;
+    closeEditor();
     await refreshCurrentBatchPageAndSummary();
   } catch (error) {
     console.error(error);
@@ -4441,5 +4578,8 @@ function handleRemoveRow(id: string) {
   overflow: visible;
   border-top-left-radius: 0;
   border-top-right-radius: 0;
+}
+.font-numeric {
+  font-variant-numeric: tabular-nums;
 }
 </style>

@@ -8,6 +8,12 @@ export const cs2GoodsApi = {
     });
   },
 
+  getUnboxItemOptions(keyword?: string) {
+    return request.get<Cs2GoodsOption[]>("/cs2-goods/unbox-item-options", {
+      params: keyword ? { keyword } : undefined,
+    });
+  },
+
   getC5TaskOptions(keyword?: string) {
     return request.get<Cs2GoodsOption[]>("/cs2-goods/c5-task-options", {
       params: keyword ? { keyword } : undefined,

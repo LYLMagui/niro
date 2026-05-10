@@ -91,6 +91,18 @@ public class C5SnipingAccountController {
     }
 
     /**
+     * 异步刷新 C5 扫货账号余额并通过任务 SSE 推送。
+     *
+     * @param param 余额刷新参数
+     */
+    @PostMapping("/refresh-balance/async")
+    @SaCheckPermission(PermissionConstants.C5SnipingAccount.DETAIL)
+    @Operation(summary = "异步刷新C5扫货2.0账号余额")
+    public void refreshBalanceAsync(@RequestBody @Valid C5SnipingAccountBalanceRefreshParam param) {
+        c5SnipingAccountService.refreshBalanceAsync(param);
+    }
+
+    /**
      * 获取 AppKey 字段加密公钥。
      *
      * @return 公钥信息

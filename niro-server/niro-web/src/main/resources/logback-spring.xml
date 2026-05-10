@@ -28,6 +28,24 @@
         </encoder>
     </appender>
 
+    <!-- SDK 文件日志：后端日志目录下 sdk 子目录，按日期轮转 -->
+    <appender name="SDK_FILE" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <fileNamePattern>${LOG_PATH}/sdk/sdk.%d{yyyy-MM-dd}.log</fileNamePattern>
+            <maxHistory>30</maxHistory>
+            <totalSizeCap>1GB</totalSizeCap>
+        </rollingPolicy>
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>%d{yyyy-MM-dd HH:mm:ss.SSS} %-5level [%thread] %logger{39} [%X{traceId}] [%X{c5TraceId}] - %msg%n${LOG_EXCEPTION_CONVERSION_WORD:-%wEx}</pattern>
+            <charset>${consoleCharset}</charset>
+        </encoder>
+    </appender>
+
+    <logger name="com.niro.sdk" level="DEBUG" additivity="false">
+        <appender-ref ref="CONSOLE"/>
+        <appender-ref ref="SDK_FILE"/>
+    </logger>
+
     <!-- 全环境输出 Console 和 FILE -->
     <root level="INFO">
         <appender-ref ref="CONSOLE"/>

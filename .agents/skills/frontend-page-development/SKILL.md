@@ -1,8 +1,8 @@
 ---
 name: frontend-page-development
 description: >
-  指导前端页面、Vue 视图、布局结构、UI 组件、表单、表格、弹窗、抽屉、详情页、列表页和响应式适配的设计、实现、改造与审查。
-  Use when 用户要求修改前端页面、重构布局、优化 UI、补交互组件、改造 Vue 页面、调整样式、实现响应式适配，或让 AI 处理页面结构、样式、组件和交互。
+  指导前端页面、Vue 视图、布局结构、UI 组件、表单、表格、弹窗、抽屉、详情页、列表页、图标选型和响应式适配的设计、实现、改造与审查。
+  Use when 用户要求修改前端页面、重构布局、优化 UI、补交互组件、选择或替换图标、改造 Vue 页面、调整样式、实现响应式适配，或让 AI 处理页面结构、样式、组件和交互。
 metadata:
   tags: frontend, ui, vue, page-development
   platforms: Claude
@@ -23,6 +23,8 @@ metadata:
 - `frontend-design`
 - `ui-ux-pro-max`
 - `tailwind-design-system`
+- `ui-design-brain`
+- `better-icons`
 
 [//]: # (- `web-design-guidelines`)
 
@@ -56,6 +58,8 @@ metadata:
 - 先理解业务目标，再动 UI。
 - 先读现有代码和页面上下文，避免凭空重写。
 - 优先复用现有设计模式、组件模式和样式约定，不凭喜好另起炉灶。
+- 页面结构、复杂组件组合或视觉质量要求较高时，必须结合 `ui-design-brain` 的组件模式、设计原则和反模式检查，不生成模板化 AI UI。
+- 涉及图标选型、替换、补充 SVG 或操作/状态图标时，必须结合 `better-icons` 搜索和获取图标，不凭记忆手写来源不明的 SVG。
 - 视觉、交互、代码实现一起考虑，不做只好看但难维护的页面。
 - 涉及 UI 组件时，先查组件文档和属性，再写代码。
 - 涉及 TDesign 组件时，优先使用 `tdesign-mcp-server` 查询官方组件API和使用方式，不凭印象猜组件 API。
@@ -103,8 +107,14 @@ metadata:
 - `frontend-design`：做布局和视觉方向收敛
 - `ui-ux-pro-max`：做风格、排版、交互质量判断
 - `tailwind-design-system`：做样式系统约束
+- `ui-design-brain`：做真实组件模式、布局层级、状态设计和反模式检查
 
-### Step 4: Check component APIs before coding
+使用 `ui-design-brain` 时，按以下顺序吸收结论：
+- 先识别页面需要的组件类型：导航、表单、表格、卡片、弹窗、抽屉、空态、骨架屏等。
+- 再套用组件最佳实践：单列 Form、Table 数字右对齐、Modal 需要关闭路径、Empty state 需要说明和 CTA、Skeleton 优先于 Spinner。
+- 最后检查反模式：彩虹状态 Tag、无解释禁用按钮、placeholder-only 表单、等权重按钮、桌面端汉堡菜单等。
+
+### Step 4: Check component APIs and icons before coding
 如果当前项目使用了 TDesign 组件，至少做下面之一：
 
 - 查询组件列表，确认是否已有合适组件
@@ -119,6 +129,14 @@ metadata:
 - 导航：Tabs / Menu / Breadcrumb / Steps
 
 如果项目明确不用 TDesign，就遵循项目现有组件体系；但只要要用 TDesign，就必须先查官方文档和 MCP。
+
+如果页面涉及图标，必须先做图标语义和风格判断：
+
+- 明确图标用途：导航、操作、状态、提示、空态插画或装饰。
+- 优先选择与项目视觉一致的图标集，例如 `lucide`、`mdi`、`heroicons`、`tabler`。
+- 使用 `better-icons search <query> --limit <n>` 搜索候选，使用 `better-icons get <icon-id>` 获取 SVG。
+- 图标颜色默认跟随文本或主题色，优先使用 `currentColor`；不要硬编码无法适配主题的颜色。
+- 不要手写来源不明的 SVG；不要混用多个风格明显冲突的图标集。
 
 ### Step 5: Implement with minimal disruption
 - 修改已有页面时，优先在现有结构上改
@@ -140,6 +158,8 @@ metadata:
 - 是否有移动端横向滚动
 - 是否有只靠颜色传达状态的问题
 - 是否有 loading / empty / error 状态缺失
+- 图标语义是否准确、尺寸是否统一、颜色是否跟随主题、风格是否一致
+- 是否存在来源不明、不可维护或无法主题化的内联 SVG
 
 [//]: # (必需调用 `web-design-guidelines` 做 review。)
 
@@ -149,9 +169,10 @@ metadata:
 - “帮我把这个 Vue 页面改得更好看一点，并补全移动端适配”
 - “把这个列表页改成筛选 + 表格 + 详情抽屉的结构”
 
-### Example 2: New page or feature block
+### Example 2: New page, feature block or icon usage
 - “新建一个任务详情页，要有基础信息、执行记录和操作区”
 - “用 TDesign 给这个页面补一个弹窗和表单”
+- “给这些操作按钮换一组更统一的图标”
 
 ### Example 3: UI review
 - “检查一下这个前端页面的 UI 和可访问性问题”
@@ -163,15 +184,19 @@ metadata:
 2. description 只写触发条件，不把工作流和依赖 skill 塞进 frontmatter。
 3. 前置依赖先确认安装；只有任务确实需要对应能力且缺失时，才用 `find-skills` 补齐。
 4. 需要设计方向时调用 `frontend-design`、`ui-ux-pro-max`、`tailwind-design-system` 辅助判断，必须优先使用`tailwind-design-system`编写css，如果无法实现再使用传统的css。
+5. 页面结构、组件组合或交互状态复杂时，必须结合 `ui-design-brain` 做组件模式选择、状态设计和反模式检查，不输出泛化模板 UI。
+6. 涉及图标时，必须使用 `better-icons` 做搜索和获取；优先复用同一图标集，默认使用 `currentColor`，避免不可主题化的硬编码 SVG。
 
-[//]: # (5. 需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。)
-6. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
+[//]: # (需要做 UI 规范和可访问性检查时调用 `web-design-guidelines`。)
+7. 只要涉及 TDesign 组件选型、属性、插槽、事件或 DOM 结构，就先走 `tdesign-mcp-server`，并且修改组件样式时，必须优先检查是否有对应的属性，优先使用属性控制组件样式。
 
 ## References
 
 - `frontend-design`
 - `tailwind-design-system`
 - `ui-ux-pro-max`
+- `ui-design-brain`
+- `better-icons`
 
 [//]: # (- `web-design-guidelines`)
 - `tdesign-mcp-server`

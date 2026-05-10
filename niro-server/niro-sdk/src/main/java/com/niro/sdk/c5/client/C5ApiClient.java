@@ -64,7 +64,7 @@ public class C5ApiClient {
      * @param config C5 配置信息
      */
     public C5ApiClient(C5Config config) {
-        // 初始化核心引擎 (单例 HttpClient，线程安全)
+        // 初始化核心引擎（单例 OkHttpClient，线程安全）
         this.executor = new C5HttpExecutor(config);
 
         // 初始化各功能模块

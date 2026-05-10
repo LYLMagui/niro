@@ -46,7 +46,10 @@ export const c5InventoryApi = {
   },
 
   refreshMarketReferences(data: C5InventoryMarketReferenceParam) {
-    return request.post<C5InventoryMarketReferencePageResult>(`${baseUrl}/market-references/refresh`, data);
+    return request.post<C5InventoryMarketReferencePageResult>(
+      `${baseUrl}/market-references/refresh`,
+      data
+    );
   },
 
   calculateListingFee(data: C5InventoryListingFeeCalculateParam) {

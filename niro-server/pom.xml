@@ -35,6 +35,7 @@
         <kafka.version>3.0.13</kafka.version>
         <okhttp.version>4.12.0</okhttp.version>
         <jackson.version>2.16.0</jackson.version>
+        <fastjson2.version>2.0.53</fastjson2.version>
         <gson.version>2.10.1</gson.version>
         <jwt.version>0.12.3</jwt.version>
         <validation.version>3.0.2</validation.version>
@@ -131,6 +132,18 @@
                 <version>${hutool.version}</version>
             </dependency>
 
+            <!-- OkHttp -->
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>logging-interceptor</artifactId>
+                <version>${okhttp.version}</version>
+            </dependency>
+
             <!-- 数据库相关 -->
             <!-- PostgreSQL驱动 -->
             <dependency>
@@ -178,6 +191,13 @@
             </dependency>
 
             <!-- JSON处理 -->
+            <!-- FastJSON -->
+            <dependency>
+                <groupId>com.alibaba.fastjson2</groupId>
+                <artifactId>fastjson2</artifactId>
+                <version>${fastjson2.version}</version>
+            </dependency>
+
             <!-- Gson -->
             <dependency>
                 <groupId>com.google.code.gson</groupId>

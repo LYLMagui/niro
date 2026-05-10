@@ -20,7 +20,7 @@ public class C5Config {
     private String baseUrl = "https://openapi.c5game.com";
 
     /**
-     * 单次请求超时（秒），影响每个 HttpRequest 的 timeout 设置
+     * 单次请求超时（秒），影响每个 OkHttp Call 的 timeout 设置
      */
     private int requestTimeoutSeconds = 60;
 }

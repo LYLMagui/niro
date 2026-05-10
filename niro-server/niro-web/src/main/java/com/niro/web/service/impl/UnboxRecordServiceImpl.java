@@ -14,6 +14,7 @@ import com.niro.web.dto.UnboxRecordItemDTO;
 import com.niro.web.dto.UnboxRecordPageDTO;
 import com.niro.web.dto.UnboxRecordSummaryDTO;
 import com.niro.web.dto.param.C5MarketPriceSnapshotReferenceParam;
+import com.niro.web.dto.param.C5MarketPriceSnapshotRefreshRequestParam;
 import com.niro.web.dto.param.UnboxRecordC5ListingQueryParam;
 import com.niro.web.dto.param.UnboxRecordItemParam;
 import com.niro.web.dto.param.UnboxRecordSaveParam;
@@ -35,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -45,6 +47,14 @@ import java.util.stream.Collectors;
 @Service
 @RequiredArgsConstructor
 public class UnboxRecordServiceImpl implements UnboxRecordService {
+
+    private static final String[] C5_EXTERIOR_MARKET_HASH_SUFFIXES = {
+            "Factory New",
+            "Minimal Wear",
+            "Field-Tested",
+            "Well-Worn",
+            "Battle-Scarred"
+    };
 
     private final UnboxRecordMapperManager unboxRecordMapperManager;
     private static final BigDecimal HUNDRED = new BigDecimal("100");
@@ -97,6 +107,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         summary.setTotalPurchaseCost(scaleAmount(totalPurchaseCost));
         summary.setTotalFee(scaleAmount(totalFee));
         summary.setTotalActualNetProfit(scaleAmount(totalActualNetProfit));
+        summary.setTotalActualProfitRate(getActualProfitRate(totalPurchaseCost, totalActualNetProfit));
         return summary;
     }
 
@@ -108,6 +119,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         }
 
         Map<Long, List<UnboxRecordItemDTO>> itemMap = getItemDtoMap(records);
+        fillItemCs2GoodsIds(itemMap.values().stream().flatMap(List::stream).toList());
         return records.stream()
                 .map(record -> toDto(record, itemMap.getOrDefault(record.getId(), List.of())))
                 .toList();
@@ -119,6 +131,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         List<UnboxRecordItemDTO> items = unboxRecordItemMapperManager.listByRecordId(id).stream()
                 .map(this::toItemDto)
                 .toList();
+        fillItemCs2GoodsIds(items);
         return toDto(record, items);
     }
 
@@ -130,30 +143,49 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
 
         Cs2Goods goods = cs2GoodsMapperManager.getEnabledById(param.getCs2GoodsId());
         Assert.notNull(goods, "未找到匹配的饰品");
-        String marketHashName = StrUtil.trim(goods.getMarketHashName());
+        String marketHashName = resolveC5MarketHashName(goods, param.getExterior());
         Assert.notBlank(marketHashName, "未找到对应饰品的 marketHashName");
 
-        C5MarketPriceSnapshotReferenceParam referenceParam = new C5MarketPriceSnapshotReferenceParam();
-        referenceParam.setMarketHashName(marketHashName);
-        referenceParam.setWearMin(param.getWearMin());
-        referenceParam.setWearMax(param.getWearMax());
-        referenceParam.setCurrentWear(resolveCurrentWear(param));
-        referenceParam.setDisplayMode(C5MarketPriceSnapshotDisplayModeEnum.WEAR_NEAREST.name());
-        referenceParam.setLimit(5);
-        C5MarketPriceSnapshotReferenceDTO reference = marketPriceSnapshotService.getReference(referenceParam);
+        C5MarketPriceSnapshotReferenceDTO reference;
+        if (Boolean.TRUE.equals(param.getRefresh())) {
+            C5MarketPriceSnapshotRefreshRequestParam refreshParam = new C5MarketPriceSnapshotRefreshRequestParam();
+            refreshParam.setMarketHashName(marketHashName);
+            refreshParam.setWearMin(param.getWearMin());
+            refreshParam.setWearMax(param.getWearMax());
+            refreshParam.setPageNum(param.getPageNum());
+            refreshParam.setLimit(param.getPageSize());
+            reference = marketPriceSnapshotService.requestRefresh(refreshParam);
+        } else {
+            reference = queryC5ListingSnapshot(marketHashName, param);
+        }
+        if (Boolean.TRUE.equals(param.getRefresh())) {
+            reference = queryC5ListingSnapshot(marketHashName, param);
+        }
 
         UnboxRecordC5ListingPageDTO dto = new UnboxRecordC5ListingPageDTO();
         dto.setRecords(reference.getRecords().stream()
-                .map(listing -> toC5ListingVO(listing, goods))
+                .map(listing -> toC5ListingVO(listing, goods, marketHashName))
                 .toList());
-        dto.setPageNum(1);
-        dto.setPageSize(5);
+        dto.setPageNum(reference.getPageNum());
+        dto.setPageSize(reference.getPageSize());
         dto.setHasMore(Boolean.TRUE.equals(reference.getHasMore()));
         dto.setSnapshotStatus(reference.getSnapshotStatus());
         dto.setLastSuccessTime(reference.getLastSuccessTime());
         dto.setStale(reference.getStale());
         dto.setMessage(reference.getMessage());
         return dto;
+    }
+
+    private C5MarketPriceSnapshotReferenceDTO queryC5ListingSnapshot(String marketHashName, UnboxRecordC5ListingQueryParam param) {
+        C5MarketPriceSnapshotReferenceParam referenceParam = new C5MarketPriceSnapshotReferenceParam();
+        referenceParam.setMarketHashName(marketHashName);
+        referenceParam.setWearMin(param.getWearMin());
+        referenceParam.setWearMax(param.getWearMax());
+        referenceParam.setCurrentWear(resolveCurrentWear(param));
+        referenceParam.setDisplayMode(C5MarketPriceSnapshotDisplayModeEnum.WEAR_NEAREST.name());
+        referenceParam.setPageNum(param.getPageNum());
+        referenceParam.setLimit(param.getPageSize());
+        return marketPriceSnapshotService.getReference(referenceParam);
     }
 
     @Override
@@ -231,7 +263,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
 
     
 
-    private UnboxRecordC5ListingVO toC5ListingVO(C5MarketPriceSnapshotListingDTO listing, Cs2Goods goods) {
+    private UnboxRecordC5ListingVO toC5ListingVO(C5MarketPriceSnapshotListingDTO listing, Cs2Goods goods, String marketHashName) {
         UnboxRecordC5ListingVO vo = new UnboxRecordC5ListingVO();
         vo.setProductId(listing.getProductId());
         vo.setPrice(listing.getPrice());
@@ -240,9 +272,20 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         vo.setWear(listing.getWear());
         vo.setDelivery(listing.getDelivery());
         vo.setImageUrl(StrUtil.blankToDefault(listing.getImageUrl(), goods.getImageUrl()));
-        vo.setMarketHashName(goods.getMarketHashName());
-        vo.setItemName(StrUtil.blankToDefault(goods.getDisplayName(), goods.getMarketHashName()));
+        vo.setMarketHashName(marketHashName);
+        vo.setItemName(StrUtil.blankToDefault(goods.getDisplayName(), marketHashName));
         return vo;
+    }
+
+    private String resolveC5MarketHashName(Cs2Goods goods, Integer exterior) {
+        String baseName = StrUtil.trim(goods.getBaseName());
+        if (StrUtil.isBlank(baseName)) {
+            return StrUtil.trim(goods.getMarketHashName());
+        }
+        if (exterior == null) {
+            return baseName;
+        }
+        return StrUtil.format("{} ({})", baseName, C5_EXTERIOR_MARKET_HASH_SUFFIXES[exterior]);
     }
 
     private BigDecimal resolveCurrentWear(UnboxRecordC5ListingQueryParam param) {
@@ -301,6 +344,20 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         return getItemEntityMap(records).entrySet().stream()
                 .collect(Collectors.toMap(Map.Entry::getKey,
                         entry -> entry.getValue().stream().map(this::toItemDto).toList()));
+    }
+
+    private void fillItemCs2GoodsIds(List<UnboxRecordItemDTO> items) {
+        if (CollUtil.isEmpty(items)) {
+            return;
+        }
+        List<String> weaponNames = items.stream()
+                .map(UnboxRecordItemDTO::getWeaponName)
+                .map(this::normalizeText)
+                .filter(StrUtil::isNotBlank)
+                .distinct()
+                .toList();
+        Map<String, Long> goodsIdMap = cs2GoodsMapperManager.mapUnboxItemIdsByDisplayName(weaponNames);
+        items.forEach(item -> item.setCs2GoodsId(goodsIdMap.get(normalizeText(item.getWeaponName()))));
     }
 
     private UnboxRecordItem toItemEntity(Long recordId, UnboxRecordItemParam item, Integer sortNo, LocalDateTime now) {

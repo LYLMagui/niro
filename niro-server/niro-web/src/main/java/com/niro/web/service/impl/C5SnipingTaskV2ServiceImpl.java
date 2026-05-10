@@ -116,12 +116,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         return toTaskDTO(requireOwnedTask(id));
     }
 
-    /**
-     * 分页查询任务列表。
-     *
-     * @param param 查询参数
-     * @return 任务分页
-     */
     @Override
     public Page<C5SnipingTaskV2DTO> pageTasks(C5SnipingTaskV2QueryParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -329,6 +323,7 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
                 .hitRecordId(hitRecordId)
                 .attemptId(attemptId)
                 .taskStatus(taskStatus == null ? null : taskStatus.getCode())
+                .finishedAt(task.getFinishedAt())
                 .stopRequested(task.getStopRequested())
                 .successBuyCount(task.getSuccessBuyCount())
                 .reservedBuyCount(task.getReservedBuyCount())

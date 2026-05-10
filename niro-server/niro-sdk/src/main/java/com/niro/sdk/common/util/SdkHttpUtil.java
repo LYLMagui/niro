@@ -20,6 +20,8 @@ import java.util.stream.Collectors;
  */
 public final class SdkHttpUtil {
 
+    private static final int PARAM_VALUE_LIMIT = 128;
+
     /**
      * 根据完整 URL 和查询参数构建 URI，自动忽略 null 值参数。
      */
@@ -71,27 +73,27 @@ public final class SdkHttpUtil {
     }
 
     /**
-     * 汇总 query 和 body 参数 key，用于安全日志输出。
+     * 汇总 query 和 body 参数，用于安全日志输出。
      */
     public static String summarizeParams(Map<String, Object> queryParams, Map<String, Object> bodyParams,
                                          Set<String> sensitiveKeys) {
         List<String> parts = new ArrayList<>(2);
         if (!queryParams.isEmpty()) {
-            parts.add("query=" + safeKeys(queryParams, sensitiveKeys));
+            parts.add("query=" + safeValues(queryParams, sensitiveKeys));
         }
         if (!bodyParams.isEmpty()) {
-            parts.add("body=" + safeKeys(bodyParams, sensitiveKeys));
+            parts.add("body=" + safeValues(bodyParams, sensitiveKeys));
         }
-        return String.join(", ", parts);
+        return parts.isEmpty() ? "params={}" : String.join(", ", parts);
     }
 
     /**
-     * 输出参数 key 列表，并对敏感 key 使用占位符脱敏。
+     * 输出参数 key-value，并对敏感 key 使用占位符脱敏。
      */
-    public static String safeKeys(Map<String, Object> map, Set<String> sensitiveKeys) {
-        return map.keySet().stream()
-                .map(k -> sensitiveKeys.contains(k.toLowerCase(Locale.ROOT)) ? k + "=***" : k)
-                .collect(Collectors.joining(",", "[", "]"));
+    public static String safeValues(Map<String, Object> map, Set<String> sensitiveKeys) {
+        return map.entrySet().stream()
+                .map(entry -> entry.getKey() + "=" + safeValue(entry.getKey(), entry.getValue(), sensitiveKeys))
+                .collect(Collectors.joining(",", "{", "}"));
     }
 
     /**
@@ -118,6 +120,21 @@ public final class SdkHttpUtil {
      */
     public static long elapsedMs(long startNs, long nanosPerMilli) {
         return (System.nanoTime() - startNs) / nanosPerMilli;
+    }
+
+    private static String safeValue(String key, Object value, Set<String> sensitiveKeys) {
+        if (sensitiveKeys.contains(key.toLowerCase(Locale.ROOT))) {
+            return maskSensitiveValue(value);
+        }
+        return String.valueOf(value);
+    }
+
+    private static String maskSensitiveValue(Object value) {
+        String text = String.valueOf(value);
+        if (text.length() <= 4) {
+            return "***";
+        }
+        return "***" + text.substring(text.length() - 4) + "(len=" + text.length() + ")";
     }
 
     private SdkHttpUtil() {

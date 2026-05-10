@@ -1,25 +1,22 @@
 export type C5SnipingTaskV2StopMode = "BUY_COUNT" | "BALANCE_GUARD";
 export type C5SnipingTaskV2BalanceGuardMode = "MAX_PRICE" | "RESERVE_BALANCE";
-export type C5SnipingTaskV2Status =
-  | "DRAFT"
-  | "RUNNING"
-  | "STOPPED"
-  | "COMPLETED"
-  | "ERROR";
+export type C5SnipingTaskV2Status = "DRAFT" | "RUNNING" | "STOPPED" | "COMPLETED" | "ERROR";
 
 export interface C5SnipingTaskV2EventPayload {
-  taskId: number;
+  taskId?: number;
   eventType: string;
   occurredAt: string;
   hitRecordId?: number;
   attemptId?: number;
   taskStatus?: C5SnipingTaskV2Status | string;
+  finishedAt?: string;
   stopRequested?: boolean;
   successBuyCount?: number;
   reservedBuyCount?: number;
   hitCount?: number;
   lastErrorMessage?: string;
   message?: string;
+  accountBalance?: C5SnipingTaskV2AccountBalance;
 }
 
 export interface C5SnipingTaskV2Item {
@@ -60,6 +57,19 @@ export interface C5SnipingTaskV2QueryParam {
   accountId?: number;
 }
 
+export interface C5SnipingTaskV2AccountBalance {
+  accountId: number;
+  accountName?: string;
+  success: boolean;
+  balance?: number;
+  moneyAmount?: number;
+  pendingBalance?: number;
+  depositAmount?: number;
+  creditMoney?: number;
+  creditDeposit?: number;
+  message?: string;
+}
+
 export interface C5SnipingTaskV2SaveParam {
   id?: number;
   copySourceTaskId?: number;
@@ -83,6 +93,7 @@ export interface C5SnipingHitRecordV2Item {
   listingPrice?: number;
   paintwear?: number;
   decisionResult?: string;
+  buyFailureReason?: string;
   hitAt?: string;
   createTime?: string;
 }

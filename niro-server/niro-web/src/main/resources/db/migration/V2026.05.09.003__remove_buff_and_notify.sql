@@ -29,8 +29,7 @@ with removed_resources as (
         'system:notify:send',
         'system:goods:sync'
     )
-       or component_path = 'goods'
-       or route_path in ('goods-list', '/goods-list')
+       or page_key = 'GoodsList'
 )
 delete from public.role_resource_draft rr
 where rr.resource_id in (select id from removed_resources);
@@ -56,8 +55,7 @@ where resource_key in (
     'system:notify:send',
     'system:goods:sync'
 )
-   or component_path = 'goods'
-   or route_path in ('goods-list', '/goods-list');
+   or page_key = 'GoodsList';
 
 with removed_published_resources as (
     select id
@@ -82,8 +80,7 @@ with removed_published_resources as (
         'system:notify:send',
         'system:goods:sync'
     )
-       or component_path = 'goods'
-       or route_path in ('goods-list', '/goods-list')
+       or page_key = 'GoodsList'
 )
 delete from public.role_resource_published rrp
 where rrp.resource_id in (select id from removed_published_resources);
@@ -109,8 +106,7 @@ where resource_key in (
     'system:notify:send',
     'system:goods:sync'
 )
-   or component_path = 'goods'
-   or route_path in ('goods-list', '/goods-list');
+   or page_key = 'GoodsList';
 
 alter table if exists public.user_platform_setting drop column if exists wecom_corpid;
 alter table if exists public.user_platform_setting drop column if exists wecom_corpsecret;

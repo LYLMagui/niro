@@ -17,4 +17,6 @@ public class UnboxRecordSummaryDTO {
     private BigDecimal totalFee;
 
     private BigDecimal totalActualNetProfit;
+
+    private BigDecimal totalActualProfitRate;
 }

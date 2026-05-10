@@ -1,7 +1,5 @@
 package com.niro.web.config;
 
-import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.config.C5Config;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;

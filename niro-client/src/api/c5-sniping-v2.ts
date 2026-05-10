@@ -34,6 +34,10 @@ export const c5SnipingV2Api = {
     return request.get<C5SnipingAccount[]>(`${baseUrl}/accounts`);
   },
 
+  refreshAccountBalances(accountIds: number[]) {
+    return request.post<void>("/api/c5/sniping/v2/accounts/refresh-balance/async", { accountIds });
+  },
+
   enable(id: number) {
     return request.post<void>(`${baseUrl}/${id}/enable`);
   },

@@ -154,8 +154,9 @@
         </div>
 
         <t-content
-          class="erp-main-content min-h-0 flex-1"
-          :class="activeValue === 'LogsNew' ? 'overflow-hidden' : 'overflow-y-auto'"
+          id="app-main-content"
+          class="erp-main-content relative min-h-0 flex-1"
+          :class="['LogsNew', 'C5SnipingTaskV2', 'OrderRecord'].includes(activeValue) ? 'overflow-hidden' : 'overflow-y-auto'"
         >
           <router-view v-slot="{ Component, route: r }">
             <keep-alive :include="keepAliveNames">
@@ -239,7 +240,19 @@ const displayTabs = computed<PageTab[]>(() => {
 });
 
 const keepAliveNames = computed(() => {
-  return pageTabs.value.filter((tab) => tab.keepAlive).map((tab) => tab.key);
+  const names = new Set<string>();
+  for (const tab of pageTabs.value) {
+    if (!tab.keepAlive) {
+      continue;
+    }
+
+    names.add(tab.key);
+    const matchedRoute = router.resolve(tab.fullPath);
+    if (matchedRoute.name) {
+      names.add(String(matchedRoute.name));
+    }
+  }
+  return Array.from(names);
 });
 
 watch(

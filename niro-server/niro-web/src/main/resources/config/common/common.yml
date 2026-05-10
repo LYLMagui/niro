@@ -37,6 +37,11 @@ niro:
       cooldown-seconds: 60
       # 单邮箱每日发送上限
       daily-limit: 10
+  security:
+    app-key:
+      aes-key: ${NIRO_SECURITY_APP_KEY_AES_KEY:}
+      rsa-public-key: ${NIRO_SECURITY_APP_KEY_RSA_PUBLIC_KEY:}
+      rsa-private-key: ${NIRO_SECURITY_APP_KEY_RSA_PRIVATE_KEY:}
 
 c5:
   base-url: https://openapi.c5game.com

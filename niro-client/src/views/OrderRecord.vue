@@ -11,32 +11,15 @@
     <PageHeader title="订单记录">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"
+          />
         </svg>
       </template>
       <template #extra>
-        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
-          <t-button
-            v-if="canTriggerC5Sync"
-            variant="outline"
-            size="small"
-            theme="primary"
-            :loading="c5SyncLoading"
-            @click="handleC5Sync"
-          >
-            <template #icon><t-icon name="refresh" :class="{ 'animate-spin': c5SyncLoading }" /></template>
-            同步
-          </t-button>
-          <t-button
-            variant="outline"
-            size="small"
-            theme="default"
-            @click="showAdvancedFilters = !showAdvancedFilters"
-          >
-            <template #icon><t-icon :name="showAdvancedFilters ? 'chevron-up' : 'filter'" /></template>
-            {{ showAdvancedFilters ? '收起' : '筛选' }}
-          </t-button>
-        </div>
         <div v-if="!isMobile" class="flex flex-col items-end">
           <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
             订单总数
@@ -49,231 +32,243 @@
       </template>
     </PageHeader>
 
-    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+    <div :class="['flex flex-col bg-white', isMobile ? 'gap-2 pt-0 pb-4' : 'px-0 py-4 gap-6']">
       <!-- 移动端统计数据条 -->
       <div
         v-if="isMobile"
-        class="mx-0 flex items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-xs"
+        class="mx-0 flex items-center justify-between rounded-lg bg-slate-100/80 px-3 py-2 text-xs shadow-sm"
       >
         <div class="flex items-center gap-1.5">
-          <span class="text-slate-400">订单总数:</span>
-          <span class="font-bold text-slate-700">{{ pagination.total }} 单</span>
+          <span class="text-slate-500 font-medium">订单总数:</span>
+          <span class="font-bold text-slate-900">{{ pagination.total }} 单</span>
+        </div>
+        <div class="flex items-center gap-2">
+          <t-button
+            v-if="canTriggerC5Sync"
+            variant="base"
+            size="small"
+            theme="primary"
+            :loading="c5SyncLoading"
+            @click="handleC5Sync"
+          >
+            <template #icon>
+              <t-icon name="refresh" :class="{ 'animate-spin': c5SyncLoading }" />
+            </template>
+            同步
+          </t-button>
+          <t-button
+            variant="outline"
+            size="small"
+            theme="default"
+            @click="showAdvancedFilters = !showAdvancedFilters"
+          >
+            <template #icon>
+              <t-icon :name="showAdvancedFilters ? 'chevron-up' : 'filter'" />
+            </template>
+            {{ showAdvancedFilters ? "收起" : "筛选" }}
+          </t-button>
         </div>
       </div>
       <section class="overflow-hidden bg-white">
-      <t-tabs
-        v-model="activeTab"
-        class="jsh-tabs border-b border-slate-200 bg-white px-4"
-        @change="handleTabChange"
-      >
-        <t-tab-panel :value="0" label="全部" />
-        <t-tab-panel :value="1" label="成功" />
-        <t-tab-panel :value="2" label="失败" />
-        <t-tab-panel :value="3" label="取消" />
-      </t-tabs>
-
-      <div class="flex flex-col gap-3 bg-white px-0 py-4">
-        <div
-          v-if="!isMobile || showAdvancedFilters"
-          :class="[
-            'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
-            showAdvancedFilters
-              ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,220px)_minmax(0,320px)_auto]'
-              : 'xl:grid-cols-[minmax(0,280px)_auto]',
-          ]"
+        <t-tabs
+          v-model="activeTab"
+          class="jsh-tabs border-b border-slate-200 bg-white px-4"
+          @change="handleTabChange"
         >
-          <label class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
-            <span class="jsh-label text-sm font-medium text-slate-700">订单关键词</span>
-            <t-input
-              v-model="queryParams.keyword"
-              placeholder="请输入商品名/C5订单号"
-              clearable
-              class="jsh-filter-input"
-              :class="toolbarFieldClass"
-              @enter="handleSearch"
-              @clear="handleKeywordClear"
-            />
-          </label>
+          <t-tab-panel :value="0" label="全部" />
+          <t-tab-panel :value="1" label="成功" />
+          <t-tab-panel :value="2" label="失败" />
+          <t-tab-panel :value="3" label="取消" />
+        </t-tabs>
 
-          <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
-            <span class="jsh-label text-sm font-medium text-slate-700">账号</span>
-            <t-select
-              v-model="queryParams.accountId"
-              clearable
-              filterable
-              :loading="accountsLoading"
-              :options="accountSelectOptions"
-              placeholder="请选择 C5 账号"
-              class="jsh-filter-select"
-              :class="toolbarFieldClass"
-              @change="handleSearch"
-            />
-          </label>
+        <div class="flex flex-col gap-3 bg-white px-0 py-4">
+          <div
+            v-if="!isMobile || showAdvancedFilters"
+            :class="[
+              'jsh-filter-layout grid grid-cols-1 gap-3 xl:items-end',
+              showAdvancedFilters
+                ? 'xl:grid-cols-[minmax(0,280px)_minmax(0,220px)_minmax(0,320px)_auto]'
+                : 'xl:grid-cols-[minmax(0,280px)_auto]',
+            ]"
+          >
+            <label class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+              <span class="jsh-label text-sm font-medium text-slate-700">订单关键词</span>
+              <t-input
+                v-model="queryParams.keyword"
+                placeholder="请输入商品名/C5订单号"
+                clearable
+                class="jsh-filter-input"
+                :class="toolbarFieldClass"
+                @enter="handleSearch"
+                @clear="handleKeywordClear"
+              />
+            </label>
 
-          <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
-            <span class="jsh-label text-sm font-medium text-slate-700">订单日期</span>
-            <t-date-range-picker
-              v-model="dateRange"
-              clearable
-              value-type="YYYY-MM-DD"
-              format="YYYY-MM-DD"
-              class="jsh-filter-select"
-              :class="toolbarFieldClass"
-              :placeholder="['开始日期', '结束日期']"
-              @change="handleDateRangeChange"
-            />
-          </label>
+            <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+              <span class="jsh-label text-sm font-medium text-slate-700">账号</span>
+              <t-select
+                v-model="queryParams.accountId"
+                clearable
+                filterable
+                :loading="accountsLoading"
+                :options="accountSelectOptions"
+                placeholder="请选择 C5 账号"
+                class="jsh-filter-select"
+                :class="toolbarFieldClass"
+                @change="handleSearch"
+              />
+            </label>
+
+            <label v-if="showAdvancedFilters" class="jsh-filter-item flex min-w-0 flex-col gap-1.5">
+              <span class="jsh-label text-sm font-medium text-slate-700">订单日期</span>
+              <t-date-range-picker
+                v-model="dateRange"
+                clearable
+                value-type="YYYY-MM-DD"
+                format="YYYY-MM-DD"
+                class="jsh-filter-select"
+                :class="toolbarFieldClass"
+                :placeholder="['开始日期', '结束日期']"
+                @change="handleDateRangeChange"
+              />
+            </label>
+
+            <div class="jsh-filter-actions flex flex-wrap items-center gap-2">
+              <t-button
+                v-permission="PermissionConstant.TASK_RECORD_LIST"
+                theme="primary"
+                class="jsh-action-btn jsh-action-btn--primary"
+                @click="handleSearch"
+              >
+                查询
+              </t-button>
+              <t-button
+                v-permission="PermissionConstant.TASK_RECORD_LIST"
+                variant="outline"
+                theme="default"
+                class="jsh-action-btn"
+                @click="handleReset"
+              >
+                重置
+              </t-button>
+              <button type="button" class="jsh-expand-link" @click="toggleAdvancedFilters">
+                {{ showAdvancedFilters ? "收起" : "展开" }}
+              </button>
+            </div>
+          </div>
+
+          <div v-if="isMobile" class="order-status-filter">
+            <span class="order-status-filter__label">订单状态：</span>
+            <div class="order-status-filter__options">
+              <button
+                v-for="item in mobileStatusOptions"
+                :key="item.value"
+                type="button"
+                class="order-status-filter__option"
+                :class="{ 'order-status-filter__option--active': activeTab === item.value }"
+                @click="handleTabChange(item.value)"
+              >
+                {{ item.label }}
+              </button>
+            </div>
+          </div>
 
           <div
-            class="jsh-filter-actions flex flex-wrap items-center gap-2"
+            class="jsh-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between"
           >
-            <t-button
-              v-permission="PermissionConstant.TASK_RECORD_LIST"
-              theme="primary"
-              class="jsh-action-btn jsh-action-btn--primary"
-              @click="handleSearch"
-            >
-              查询
-            </t-button>
-            <t-button
-              v-permission="PermissionConstant.TASK_RECORD_LIST"
-              variant="outline"
-              theme="default"
-              class="jsh-action-btn"
-              @click="handleReset"
-            >
-              重置
-            </t-button>
-            <button type="button" class="jsh-expand-link" @click="toggleAdvancedFilters">
-              {{ showAdvancedFilters ? "收起" : "展开" }}
-            </button>
-          </div>
-        </div>
-
-        <div v-if="isMobile" class="order-status-filter">
-          <span class="order-status-filter__label">订单状态：</span>
-          <div class="order-status-filter__options">
-            <button
-              v-for="item in mobileStatusOptions"
-              :key="item.value"
-              type="button"
-              class="order-status-filter__option"
-              :class="{ 'order-status-filter__option--active': activeTab === item.value }"
-              @click="handleTabChange(item.value)"
-            >
-              {{ item.label }}
-            </button>
-          </div>
-        </div>
-
-        <div class="jsh-toolbar flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="order-toolbar-main flex min-w-0 flex-1 flex-wrap items-center gap-2">
-            <div
-              class="table-operator flex flex-wrap items-center gap-2"
-              :class="{ 'table-operator--mobile': isMobile }"
-            >
+            <div class="order-toolbar-main flex min-w-0 flex-1 flex-wrap items-center gap-2">
               <div
-                v-if="canTriggerC5Sync"
-                class="order-sync-control flex items-center gap-2"
-                :class="{ 'order-sync-control--mobile': isMobile }"
+                class="table-operator flex flex-wrap items-center gap-2"
+                :class="{ 'table-operator--mobile': isMobile }"
               >
-                <span class="order-sync-control__label">同步账号</span>
-                <t-select
-                  v-model="selectedSyncAccountId"
-                  clearable
-                  filterable
-                  class="order-sync-control__account-select"
-                  :class="toolbarCompactFieldClass"
-                  :disabled="c5SyncLoading"
-                  :loading="accountsLoading"
-                  :options="accountSelectOptions"
-                  placeholder="请选择账号"
-                  aria-label="同步账号"
-                />
-                <span class="order-sync-control__label">同步范围</span>
-                <t-select
-                  v-model="selectedSyncRange"
-                  class="order-sync-control__select"
-                  :class="toolbarCompactFieldClass"
-                  :disabled="c5SyncLoading"
-                  :options="syncRangeOptions"
-                  aria-label="同步范围"
-                />
+                <div
+                  v-if="canTriggerC5Sync"
+                  class="order-sync-control flex items-center gap-2"
+                  :class="{ 'order-sync-control--mobile': isMobile }"
+                >
+                  <span class="order-sync-control__label">同步账号</span>
+                  <t-select
+                    v-model="selectedSyncAccountId"
+                    clearable
+                    filterable
+                    class="order-sync-control__account-select"
+                    :class="toolbarCompactFieldClass"
+                    :disabled="c5SyncLoading"
+                    :loading="accountsLoading"
+                    :options="accountSelectOptions"
+                    placeholder="请选择账号"
+                    aria-label="同步账号"
+                  />
+                  <span class="order-sync-control__label">同步范围</span>
+                  <t-select
+                    v-model="selectedSyncRange"
+                    class="order-sync-control__select"
+                    :class="toolbarCompactFieldClass"
+                    :disabled="c5SyncLoading"
+                    :options="syncRangeOptions"
+                    aria-label="同步范围"
+                  />
+                  <t-popconfirm
+                    :content="syncConfirmContent"
+                    :disabled="!shouldConfirmFullHistorySync"
+                    placement="top"
+                    theme="warning"
+                    cancel-btn="取消"
+                    :confirm-btn="{ content: '确认同步', theme: 'warning' }"
+                    :popup-props="syncConfirmPopupProps"
+                    @confirm="handleConfirmFullHistorySync"
+                  >
+                    <t-button
+                      variant="outline"
+                      theme="default"
+                      class="jsh-action-btn"
+                      :loading="c5SyncLoading"
+                      :disabled="c5SyncLoading"
+                      @click="handleC5Sync"
+                    >
+                      {{ isMobile ? "同步订单" : "同步 C5 订单" }}
+                    </t-button>
+                  </t-popconfirm>
+                </div>
+
                 <t-popconfirm
-                  :content="syncConfirmContent"
-                  :disabled="!shouldConfirmFullHistorySync"
-                  placement="top"
-                  theme="warning"
-                  cancel-btn="取消"
-                  :confirm-btn="{ content: '确认同步', theme: 'warning' }"
-                  :popup-props="syncConfirmPopupProps"
-                  @confirm="handleConfirmFullHistorySync"
+                  v-if="canDeleteOrderRecord"
+                  content="确认批量删除勾选订单吗？"
+                  @confirm="handleBatchDelete"
                 >
                   <t-button
                     variant="outline"
                     theme="default"
                     class="jsh-action-btn"
-                    :loading="c5SyncLoading"
-                    :disabled="c5SyncLoading"
-                    @click="handleC5Sync"
+                    :disabled="selectedRowKeys.length === 0"
                   >
-                    {{ isMobile ? "同步订单" : "同步 C5 订单" }}
+                    批量删除
                   </t-button>
                 </t-popconfirm>
               </div>
 
-              <t-popconfirm
-                v-if="canDeleteOrderRecord"
-                content="确认批量删除勾选订单吗？"
-                @confirm="handleBatchDelete"
-              >
-                <t-button
-                  variant="outline"
-                  theme="default"
-                  class="jsh-action-btn"
-                  :disabled="selectedRowKeys.length === 0"
-                >
-                  批量删除
-                </t-button>
-              </t-popconfirm>
             </div>
 
             <div
-              class="order-overview-inline flex min-w-0 flex-1 flex-wrap items-center gap-2"
-              :class="{ 'order-overview-inline--mobile': isMobile }"
+              class="text-xs text-slate-500"
+              :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'"
             >
-              <div
-                v-for="item in orderSummaryCards"
-                :key="item.key"
-                class="order-overview-pill inline-flex h-7 items-center gap-1 rounded-[6px] px-2.5"
-                :class="item.pillClass"
+              <t-tag theme="primary" variant="light" class="selection-summary__count rounded-[2px]">
+                已选择 {{ selectedRowKeys.length }} 项
+              </t-tag>
+              <t-button
+                variant="outline"
+                theme="default"
+                class="jsh-action-btn"
+                :disabled="selectedRowKeys.length === 0"
+                @click="clearSelection"
               >
-                <span class="text-[12px] leading-none">{{ item.label }}</span>
-                <span class="text-[14px] leading-none font-semibold">{{ item.value }}</span>
-              </div>
+                清空勾选
+              </t-button>
             </div>
           </div>
-
-          <div
-            class="text-xs text-slate-500"
-            :class="isMobile ? 'task-selection-summary' : 'flex items-center gap-2.5'"
-          >
-            <t-tag theme="primary" variant="light" class="selection-summary__count rounded-[2px]">
-              已选择 {{ selectedRowKeys.length }} 项
-            </t-tag>
-            <t-button
-              variant="outline"
-              theme="default"
-              class="jsh-action-btn"
-              :disabled="selectedRowKeys.length === 0"
-              @click="clearSelection"
-            >
-              清空勾选
-            </t-button>
-          </div>
         </div>
-      </div>
-    </section>
+      </section>
     </div>
 
     <div
@@ -290,6 +285,7 @@
             :data="dataList"
             :columns="columns"
             :loading="loading"
+            :loading-props="{ indicator: false }"
             :pagination="undefined"
             :selected-row-keys="selectedRowKeys"
             select-on-row-click
@@ -302,6 +298,17 @@
             @sort-change="onSortChange"
             @select-change="handleSelectChange"
           >
+            <template #loading>
+              <div class="flex flex-col items-center justify-center gap-3 py-10">
+                <t-loading size="medium">
+                  <template #indicator>
+                    <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                  </template>
+                </t-loading>
+                <span class="text-sm text-slate-500">订单数据加载中...</span>
+              </div>
+            </template>
+
             <template #empty>
               <div class="jsh-ledger-empty">
                 <t-empty description="暂无订单记录" />
@@ -398,7 +405,11 @@
 
             <template #operation="{ row }">
               <div v-permission="PermissionConstant.TASK_RECORD_LIST" class="niro-table-actions">
-                <t-popconfirm v-if="canDeleteOrderRecord" content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
+                <t-popconfirm
+                  v-if="canDeleteOrderRecord"
+                  content="确认删除该订单记录吗？"
+                  @confirm="handleDelete(row.id)"
+                >
                   <t-button
                     variant="outline"
                     size="small"
@@ -538,7 +549,11 @@
               class="order-mobile-card__actions"
               @click.stop
             >
-              <t-popconfirm v-if="canDeleteOrderRecord" content="确认删除该订单记录吗？" @confirm="handleDelete(row.id)">
+              <t-popconfirm
+                v-if="canDeleteOrderRecord"
+                content="确认删除该订单记录吗？"
+                @confirm="handleDelete(row.id)"
+              >
                 <t-button
                   variant="outline"
                   theme="danger"
@@ -553,9 +568,9 @@
 
           <div v-if="!loading && pagination.total > 0" class="order-mobile__pagination">
             <t-pagination
-              theme="simple"
               v-model="pagination.current"
               v-model:page-size="pagination.pageSize"
+              theme="simple"
               :total="pagination.total"
               :show-page-size="false"
               :total-content="false"
@@ -582,6 +597,7 @@ import {
   type TableInstanceFunctions,
   type TableSort,
   type TagProps,
+  Icon as tIcon,
 } from "tdesign-vue-next";
 import { CheckCircleIcon, CloseCircleIcon } from "tdesign-icons-vue-next";
 import PageFrame from "@/components/PageFrame.vue";
@@ -633,7 +649,9 @@ const { width } = useWindowSize();
 
 const canViewOrderRecord = computed(() => hasPermission(PermissionConstant.TASK_RECORD_LIST));
 const canTriggerC5Sync = computed(() => hasButtonPermission(PermissionConstant.ORDER_C5_SYNC));
-const canDeleteOrderRecord = computed(() => hasButtonPermission(PermissionConstant.ORDER_RECORD_DELETE));
+const canDeleteOrderRecord = computed(() =>
+  hasButtonPermission(PermissionConstant.ORDER_RECORD_DELETE)
+);
 const isMobile = computed(() => width.value <= 768);
 
 const loading = ref(false);
@@ -821,51 +839,7 @@ const syncConfirmPopupProps = {
   },
 };
 
-const orderSummaryCards = computed<SummaryCard[]>(() => {
-  const summary = dataList.value.reduce(
-    (acc, item) => {
-      acc.total += 1;
-      if (SUCCESS_STATUSES.has(item.status)) {
-        acc.success += 1;
-      }
-      if (FAILURE_STATUSES.has(item.status)) {
-        acc.failure += 1;
-      }
-      if (item.status === 3) {
-        acc.canceled += 1;
-      }
-      return acc;
-    },
-    { total: 0, success: 0, failure: 0, canceled: 0 }
-  );
 
-  return [
-    {
-      key: "all",
-      label: "全部",
-      value: summary.total,
-      pillClass: "bg-[#f5f7fa] text-[#606266] border border-[#e4e7ed]",
-    },
-    {
-      key: "success",
-      label: "成功",
-      value: summary.success,
-      pillClass: "bg-[#f0fdf4] text-[#16a34a] border border-[#bbf7d0]",
-    },
-    {
-      key: "failure",
-      label: "失败",
-      value: summary.failure,
-      pillClass: "bg-[#fef2f2] text-[#ef4444] border border-[#fecaca]",
-    },
-    {
-      key: "cancel",
-      label: "取消",
-      value: summary.canceled,
-      pillClass: "bg-[#f5f3ff] text-[#7c3aed] border border-[#ddd6fe]",
-    },
-  ];
-});
 
 const formatPrice = (value?: number | string | null) => {
   if (value === undefined || value === null || value === "") {
@@ -1166,7 +1140,9 @@ const getSelectedSyncAccountId = () => {
 };
 
 const warnMissingSyncAccount = () => {
-  MessagePlugin.warning(accountSelectOptions.value.length > 0 ? "请选择同步账号" : "请先配置/选择 C5 账号");
+  MessagePlugin.warning(
+    accountSelectOptions.value.length > 0 ? "请选择同步账号" : "请先配置/选择 C5 账号"
+  );
 };
 
 const handleConfirmFullHistorySync = async () => {

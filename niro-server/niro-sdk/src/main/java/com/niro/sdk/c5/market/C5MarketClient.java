@@ -1,10 +1,11 @@
 package com.niro.sdk.c5.market;
 
 import cn.hutool.http.Method;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.alibaba.fastjson2.TypeReference;
 import com.niro.sdk.c5.client.core.C5HttpExecutor;
 import com.niro.sdk.c5.constant.C5GameAPI;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
@@ -13,6 +14,7 @@ import java.util.concurrent.CompletableFuture;
  * C5 市场 / 商品相关接口
  */
 @RequiredArgsConstructor
+@Slf4j
 public class C5MarketClient {
 
 

@@ -53,6 +53,7 @@ export interface UnboxRecordSummaryDTO {
   totalPurchaseCost: number;
   totalFee: number;
   totalActualNetProfit: number;
+  totalActualProfitRate: number | null;
 }
 
 export type UnboxRecordPageResult = PageResult<UnboxRecordPageDTO>;
@@ -61,6 +62,7 @@ export interface UnboxRecordItemParam {
   handlingStatus: DraftHandlingStatus;
   boxPurchasePrice: number;
   weaponName: string;
+  cs2GoodsId?: number;
   inGamePrice: number;
   discount: number | null;
   actualSellPrice: number;
@@ -91,6 +93,7 @@ export interface UnboxRecordC5ListingQueryParam {
   exterior?: number | null;
   pageNum: number;
   pageSize: number;
+  refresh?: boolean;
 }
 
 export interface UnboxRecordC5Listing {

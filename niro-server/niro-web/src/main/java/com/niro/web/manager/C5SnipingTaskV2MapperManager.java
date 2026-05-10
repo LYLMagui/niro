@@ -89,8 +89,8 @@ public class C5SnipingTaskV2MapperManager extends ServiceImpl<C5SnipingTaskV2Map
                 .eq(taskStatus != null && !taskStatus.isBlank(), C5SnipingTaskV2::getTaskStatus, taskStatus)
                 .and(keyword != null && !keyword.isBlank(), wrapper -> wrapper.like(C5SnipingTaskV2::getName, keyword))
                 .eq(C5SnipingTaskV2::getDelFlag, 0)
-                .orderByDesc(C5SnipingTaskV2::getPriority)
-                .orderByAsc(C5SnipingTaskV2::getUpdateTime)
+                .orderByDesc(C5SnipingTaskV2::getCreateTime)
+                .orderByDesc(C5SnipingTaskV2::getId)
                 .page(new Page<>(page, pageSize));
     }
 

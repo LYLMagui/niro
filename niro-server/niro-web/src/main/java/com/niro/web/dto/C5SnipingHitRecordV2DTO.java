@@ -15,6 +15,7 @@ public class C5SnipingHitRecordV2DTO {
     private BigDecimal listingPrice;
     private BigDecimal paintwear;
     private String decisionResult;
+    private String buyFailureReason;
     private LocalDateTime hitAt;
     private LocalDateTime createTime;
 }

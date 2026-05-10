@@ -13,5 +13,7 @@ public interface Cs2GoodsService extends IService<Cs2Goods> {
 
     List<Cs2GoodsOptionDTO> listUnboxCaseOptions(String keyword);
 
+    List<Cs2GoodsOptionDTO> listUnboxItemOptions(String keyword);
+
     List<Cs2GoodsOptionDTO> listC5TaskOptions(String keyword);
 }

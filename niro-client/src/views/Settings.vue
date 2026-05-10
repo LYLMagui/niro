@@ -33,7 +33,9 @@
             <t-form-item label="C5 AppKey" name="c5AppKeyPlain" class="md:col-span-2">
               <t-input
                 v-model="c5AppKeyPlain"
-                :placeholder="formData.hasC5AppKey ? '留空则不修改当前 AppKey' : '请输入 C5 平台 AppKey'"
+                :placeholder="
+                  formData.hasC5AppKey ? '留空则不修改当前 AppKey' : '请输入 C5 平台 AppKey'
+                "
                 type="password"
                 clearable
                 @blur="(value: string | number) => handlePlainAppKeyTrim(String(value))"

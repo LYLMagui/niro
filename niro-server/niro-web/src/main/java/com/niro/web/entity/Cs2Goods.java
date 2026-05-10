@@ -22,6 +22,8 @@ public class Cs2Goods {
 
     private String displayName;
 
+    private String baseDisplayName;
+
     private String baseName;
 
     private String shortName;

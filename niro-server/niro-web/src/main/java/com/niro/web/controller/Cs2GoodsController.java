@@ -32,6 +32,13 @@ public class Cs2GoodsController {
         return cs2GoodsService.listUnboxCaseOptions(keyword);
     }
 
+    @GetMapping("/unbox-item-options")
+    @SaCheckPermission(PermissionConstants.SystemResource.GOODS_LIST)
+    @Operation(summary = "获取开箱记录饰品商品选项")
+    public List<Cs2GoodsOptionDTO> listUnboxItemOptions(@RequestParam(name = "keyword", required = false) String keyword) {
+        return cs2GoodsService.listUnboxItemOptions(keyword);
+    }
+
     @GetMapping("/c5-task-options")
     @SaCheckPermission(PermissionConstants.Task.SCAN_LIST)
     @Operation(summary = "获取 C5 任务商品选项")

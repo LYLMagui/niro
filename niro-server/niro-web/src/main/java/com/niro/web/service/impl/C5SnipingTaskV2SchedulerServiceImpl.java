@@ -383,6 +383,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
                 .hitRecordId(hitRecordId)
                 .attemptId(attemptId)
                 .taskStatus(taskStatus == null ? null : taskStatus.getCode())
+                .finishedAt(task.getFinishedAt())
                 .stopRequested(task.getStopRequested())
                 .successBuyCount(task.getSuccessBuyCount())
                 .reservedBuyCount(task.getReservedBuyCount())

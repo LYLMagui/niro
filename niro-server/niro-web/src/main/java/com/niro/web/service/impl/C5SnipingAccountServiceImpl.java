@@ -21,9 +21,13 @@ import com.niro.web.enums.C5SnipingAccountStatusEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
+import com.niro.web.dto.C5SnipingTaskV2EventDTO;
+import com.niro.web.enums.C5SnipingTaskV2EventTypeEnum;
 import com.niro.web.service.AppKeyCryptoService;
 import com.niro.web.service.C5ApiClientService;
 import com.niro.web.service.C5SnipingAccountService;
+import com.niro.web.service.C5SnipingTaskV2EventService;
+import jakarta.annotation.PreDestroy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -34,6 +38,8 @@ import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
@@ -52,6 +58,13 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
     private final C5SnipingTaskV2MapperManager taskManager;
     private final C5ApiClientService c5ApiClientService;
     private final AppKeyCryptoService appKeyCryptoService;
+    private final C5SnipingTaskV2EventService c5SnipingTaskV2EventService;
+    private final ExecutorService balanceRefreshExecutor = Executors.newSingleThreadExecutor();
+
+    @PreDestroy
+    public void destroy() {
+        balanceRefreshExecutor.shutdownNow();
+    }
 
     /**
      * 查询当前用户的 C5 扫货账号列表。
@@ -178,14 +191,43 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         checkAndUpdate(account);
     }
 
+    @Override
+    public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(C5SnipingAccountBalanceRefreshParam param) {
+        Assert.notNull(param, "余额刷新参数不能为空");
+        return refreshBalanceByAccountIds(param.getAccountIds());
+    }
+
     /**
-     * 批量刷新当前用户 C5 扫货账号余额。
+     * 按当前用户账号 ID 刷新余额。
      *
-     * @param param 余额刷新参数
+     * @param accountIds 账号 ID 列表
      * @return 余额刷新结果列表
      */
     @Override
-    public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(C5SnipingAccountBalanceRefreshParam param) {
+    public List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalanceByAccountIds(List<Long> accountIds) {
+        Assert.notEmpty(accountIds, "账号ID列表不能为空");
+
+        Long userId = StpUtil.getLoginIdAsLong();
+        List<Long> distinctAccountIds = accountIds.stream()
+                .filter(id -> id != null)
+                .collect(Collectors.toCollection(LinkedHashSet::new))
+                .stream()
+                .collect(Collectors.toList());
+        Assert.notEmpty(distinctAccountIds, "账号ID列表不能为空");
+
+        Map<Long, C5SnipingAccount> accountMap = accountManager.mapByUserIdAndIds(userId, distinctAccountIds);
+        return distinctAccountIds.stream()
+                .map(accountId -> refreshSingleBalance(accountId, accountMap.get(accountId)))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * 异步刷新当前用户 C5 扫货账号余额并通过 SSE 推送。
+     *
+     * @param param 余额刷新参数
+     */
+    @Override
+    public void refreshBalanceAsync(C5SnipingAccountBalanceRefreshParam param) {
         Assert.notNull(param, "余额刷新参数不能为空");
         Assert.notEmpty(param.getAccountIds(), "账号ID列表不能为空");
 
@@ -196,11 +238,8 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
                 .stream()
                 .collect(Collectors.toList());
         Assert.notEmpty(accountIds, "账号ID列表不能为空");
-
         Map<Long, C5SnipingAccount> accountMap = accountManager.mapByUserIdAndIds(userId, accountIds);
-        return accountIds.stream()
-                .map(accountId -> refreshSingleBalance(accountId, accountMap.get(accountId)))
-                .collect(Collectors.toList());
+        balanceRefreshExecutor.execute(() -> refreshBalanceAndPublish(userId, accountIds, accountMap));
     }
 
     /**
@@ -268,6 +307,31 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
             result.setBalance(account.getBalance());
             result.setMessage(StrUtil.blankToDefault(e.getErrorMsg(), "刷新失败"));
             return result;
+        }
+    }
+
+    private void refreshBalanceAndPublish(Long userId, List<Long> accountIds, Map<Long, C5SnipingAccount> accountMap) {
+        for (int i = 0; i < accountIds.size(); i++) {
+            Long accountId = accountIds.get(i);
+            C5SnipingAccountBalanceRefreshResultDTO result = refreshSingleBalance(accountId, accountMap.get(accountId));
+            c5SnipingTaskV2EventService.publish(userId, C5SnipingTaskV2EventDTO.builder()
+                    .eventType(C5SnipingTaskV2EventTypeEnum.ACCOUNT_BALANCE_REFRESHED.getCode())
+                    .occurredAt(LocalDateTime.now())
+                    .accountBalance(result)
+                    .build());
+            if (i < accountIds.size() - 1 && !waitBalanceRefreshInterval()) {
+                return;
+            }
+        }
+    }
+
+    private boolean waitBalanceRefreshInterval() {
+        try {
+            Thread.sleep(1000L);
+            return true;
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            return false;
         }
     }
 
