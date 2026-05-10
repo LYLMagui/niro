@@ -742,6 +742,7 @@
                               ? getDraftStatusButtonActiveClass(option.value)
                               : 'text-slate-500',
                           ]"
+                          :disabled="!canEditUnboxDraft"
                           @click="setHandlingStatus(entry.row, option.value)"
                         >
                           {{ option.label }}
@@ -1422,6 +1423,7 @@
                                   ? getDraftStatusButtonActiveClass(option.value)
                                   : 'text-slate-500',
                               ]"
+                              :disabled="!canEditUnboxDraft"
                               @click="setHandlingStatus(row, option.value)"
                             >
                               {{ option.label }}
@@ -3880,6 +3882,9 @@ function getDraftStatusButtonActiveClass(status: SelectableDraftHandlingStatus) 
 }
 
 function setHandlingStatus(row: UnboxRow, handlingStatus: SelectableDraftHandlingStatus) {
+  if (!canEditUnboxDraft.value) {
+    return;
+  }
   const nextHandlingStatus = row.handlingStatus === handlingStatus ? "pending" : handlingStatus;
   row.handlingStatus = nextHandlingStatus;
 

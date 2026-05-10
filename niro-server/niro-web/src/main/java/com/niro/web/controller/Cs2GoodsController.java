@@ -1,6 +1,7 @@
 package com.niro.web.controller;
 
 import cn.dev33.satoken.annotation.SaCheckPermission;
+import cn.dev33.satoken.annotation.SaMode;
 import com.niro.web.constant.PermissionConstants;
 import com.niro.web.dto.Cs2GoodsOptionDTO;
 import com.niro.web.service.Cs2GoodsService;
@@ -26,14 +27,14 @@ public class Cs2GoodsController {
     private final Cs2GoodsService cs2GoodsService;
 
     @GetMapping("/unbox-case-options")
-    @SaCheckPermission(PermissionConstants.SystemResource.GOODS_LIST)
+    @SaCheckPermission(value = {PermissionConstants.UnboxRecord.CREATE, PermissionConstants.UnboxRecord.UPDATE}, mode = SaMode.OR)
     @Operation(summary = "获取开箱记录箱子商品选项")
     public List<Cs2GoodsOptionDTO> listUnboxCaseOptions(@RequestParam(name = "keyword", required = false) String keyword) {
         return cs2GoodsService.listUnboxCaseOptions(keyword);
     }
 
     @GetMapping("/unbox-item-options")
-    @SaCheckPermission(PermissionConstants.SystemResource.GOODS_LIST)
+    @SaCheckPermission(value = {PermissionConstants.UnboxRecord.CREATE, PermissionConstants.UnboxRecord.UPDATE}, mode = SaMode.OR)
     @Operation(summary = "获取开箱记录饰品商品选项")
     public List<Cs2GoodsOptionDTO> listUnboxItemOptions(@RequestParam(name = "keyword", required = false) String keyword) {
         return cs2GoodsService.listUnboxItemOptions(keyword);
