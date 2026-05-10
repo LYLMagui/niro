@@ -16,7 +16,6 @@ public class C5SnipingBuyAttemptV2 {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long taskId;
-    private Long runId;
     private Long hitRecordId;
     private Long accountId;
     private String listingId;

@@ -1,6 +1,5 @@
 package com.niro.sdk.c5.order;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import lombok.Data;
 import java.math.BigDecimal;
 import java.util.Map;
@@ -12,7 +11,6 @@ import java.time.format.DateTimeFormatter;
  * C5 订单详情响应 (v2)
  */
 @Data
-@JsonIgnoreProperties(ignoreUnknown = true)
 public class C5OrderDetailResponse {
     /**
      * 订单号
@@ -75,7 +73,6 @@ public class C5OrderDetailResponse {
     private Map<String, Object> assetInfo;
 
     @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class OpenItemInfo {
         private String itemId;
         private Integer appId;
@@ -85,7 +82,6 @@ public class C5OrderDetailResponse {
     }
     
     @Data
-    @JsonIgnoreProperties(ignoreUnknown = true)
     public static class OfferInfoDTO {
         private String transferId;
         private String tradeOfferId;

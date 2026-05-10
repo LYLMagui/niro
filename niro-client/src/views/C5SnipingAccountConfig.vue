@@ -18,27 +18,6 @@
         </svg>
       </template>
       <template #extra>
-        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
-          <t-button
-            v-permission="PermissionConstant.ACCOUNT_MANAGE_ADD"
-            variant="outline"
-            size="small"
-            theme="primary"
-            @click="handleAdd"
-          >
-            <template #icon><t-icon name="plus" /></template>
-            新增
-          </t-button>
-          <t-button
-            variant="outline"
-            size="small"
-            theme="default"
-            @click="showFilters = !showFilters"
-          >
-            <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
-            {{ showFilters ? '收起' : '筛选' }}
-          </t-button>
-        </div>
         <div v-if="!isMobile && accounts.length > 0" class="flex flex-col items-end">
           <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
             C5 资金总资产
@@ -55,38 +34,72 @@
       </template>
     </PageHeader>
 
-    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+    <div :class="['flex flex-col bg-white', isMobile ? 'gap-2 pt-0 pb-4' : 'px-0 py-4 gap-6']">
       <!-- 移动端统计数据条 -->
       <div
-        v-if="isMobile && accounts.length > 0"
-        class="mx-0 flex items-center justify-between rounded-lg bg-orange-50/50 px-3 py-2 text-xs"
+        v-if="isMobile"
+        class="mx-0 flex items-center justify-between rounded-lg bg-orange-50 px-3 py-2 text-xs shadow-sm"
       >
         <div class="flex items-center gap-1.5">
-          <span class="text-orange-400">总资产:</span>
-          <span class="font-bold text-orange-600">
-            {{ formatCurrency(totalAssetBalance) }}
-          </span>
+          <template v-if="accounts.length > 0">
+            <span class="text-orange-500 font-medium">总资产:</span>
+            <span class="font-bold text-orange-600">
+              {{ formatCurrency(totalAssetBalance) }}
+            </span>
+          </template>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <t-button
+            v-if="canCreateAccount"
+            variant="base"
+            size="small"
+            theme="primary"
+            @click="openCreateDialog"
+          >
+            <template #icon><t-icon name="plus" /></template>
+            新增
+          </t-button>
+          <t-button
+            v-if="canReadAccountDetail"
+            variant="outline"
+            size="small"
+            theme="primary"
+            :loading="refreshBalanceLoading"
+            :disabled="!accounts.length"
+            @click="onRefreshBalance"
+          >
+            <template #icon><t-icon name="refresh" :class="{ 'animate-spin': refreshBalanceLoading }" /></template>
+            刷新
+          </t-button>
+          <t-button
+            variant="outline"
+            size="small"
+            theme="default"
+            @click="showFilters = !showFilters"
+          >
+            <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
+            {{ showFilters ? "收起" : "筛选" }}
+          </t-button>
         </div>
       </div>
 
-
-      <section class="overflow-hidden bg-white">
+      <section v-if="!isMobile || showFilters" class="overflow-hidden bg-white">
         <div :class="['flex flex-col px-0 py-4', isMobile ? 'gap-2' : 'gap-3']">
-        <div
-          v-if="!isMobile || showFilters"
-          class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_auto] xl:items-end"
-        >
-          <label class="flex min-w-0 flex-col gap-1.5">
-            <span class="text-sm font-medium text-slate-700">账号名称</span>
-            <t-input
-              v-model="queryParams.keyword"
-              placeholder="搜索账号名称"
-              clearable
-              class="w-full"
-              @enter="fetchData"
-            />
-          </label>
-          <!-- <label class="flex min-w-0 flex-col gap-1.5">
+          <div
+            class="grid grid-cols-1 gap-3 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_auto] xl:items-end"
+          >
+            <label class="flex min-w-0 flex-col gap-1.5">
+              <span class="text-sm font-medium text-slate-700">账号名称</span>
+              <t-input
+                v-model="queryParams.keyword"
+                placeholder="搜索账号名称"
+                clearable
+                class="w-full"
+                @enter="fetchData"
+              />
+            </label>
+            <!-- <label class="flex min-w-0 flex-col gap-1.5">
             <span class="text-sm font-medium text-slate-700">状态</span>
             <t-select
               v-model="queryParams.status"
@@ -96,56 +109,60 @@
               class="w-full"
             />
           </label> -->
-          <div class="flex flex-wrap items-center gap-2">
-            <t-button theme="primary" class="c5-sniping-account-action-btn" @click="fetchData">
-              查询
-            </t-button>
-            <t-button
-              variant="outline"
-              theme="default"
-              class="c5-sniping-account-action-btn"
-              @click="resetQuery"
-            >
-              重置
-            </t-button>
+            <div class="flex flex-wrap items-center gap-2">
+              <t-button theme="primary" class="c5-sniping-account-action-btn" @click="fetchData">
+                查询
+              </t-button>
+              <t-button
+                variant="outline"
+                theme="default"
+                class="c5-sniping-account-action-btn"
+                @click="resetQuery"
+              >
+                重置
+              </t-button>
+            </div>
           </div>
-        </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-          <div class="flex flex-wrap items-center gap-2">
-            <t-button
-              v-if="canCreateAccount"
-              theme="primary"
-              class="c5-sniping-account-action-btn"
-              @click="openCreateDialog"
-            >
-              新增扫货账号
-            </t-button>
-            <t-button
-              v-if="canReadAccountDetail"
-              variant="outline"
-              theme="primary"
-              class="c5-sniping-account-action-btn"
-              :loading="refreshBalanceLoading"
-              :disabled="!accounts.length"
-              @click="onRefreshBalance"
-            >
-              刷新余额
-            </t-button>
+          <div v-if="!isMobile" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+            <div class="flex flex-wrap items-center gap-2">
+              <t-button
+                v-if="canCreateAccount"
+                theme="primary"
+                class="c5-sniping-account-action-btn"
+                @click="openCreateDialog"
+              >
+                新增扫货账号
+              </t-button>
+              <t-button
+                v-if="canReadAccountDetail"
+                variant="outline"
+                theme="primary"
+                class="c5-sniping-account-action-btn"
+                :loading="refreshBalanceLoading"
+                :disabled="!accounts.length"
+                @click="onRefreshBalance"
+              >
+                刷新余额
+              </t-button>
+            </div>
           </div>
-        </div>
         </div>
       </section>
     </div>
-
 
     <div class="relative min-h-0 flex-1">
       <div class="relative flex h-full min-h-0 flex-col overflow-hidden bg-white">
         <div class="min-h-0 flex-1 overflow-hidden">
           <!-- 移动端卡片视图 -->
           <div v-if="isMobile" class="h-full overflow-y-auto bg-slate-50 p-3">
-            <div v-if="listLoading" class="flex h-32 items-center justify-center">
-              <t-loading size="medium" text="加载中..." />
+            <div v-if="listLoading" class="flex h-32 flex-col items-center justify-center gap-3">
+              <t-loading size="medium">
+                <template #indicator>
+                  <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                </template>
+              </t-loading>
+              <span class="text-sm text-slate-500">加载账号中...</span>
             </div>
             <div v-else-if="pagedAccounts.length === 0" class="py-8">
               <t-empty description="暂无扫货账号" />
@@ -157,7 +174,9 @@
                 class="flex flex-col overflow-hidden rounded-lg bg-white shadow-sm ring-1 ring-slate-100"
               >
                 <!-- 头部：账号名称 -->
-                <div class="flex items-center justify-between border-b border-slate-100 p-3 bg-slate-50/50">
+                <div
+                  class="flex items-center justify-between border-b border-slate-100 bg-slate-50/50 p-3"
+                >
                   <div class="min-w-0 flex-1">
                     <div class="truncate text-sm font-bold text-slate-800">
                       {{ row.accountName }}
@@ -229,16 +248,24 @@
                   </div>
 
                   <!-- 密钥和配置信息 -->
-                  <div class="mt-2 flex flex-col gap-1.5 rounded bg-slate-50 p-2 text-[11px] text-slate-500">
+                  <div
+                    class="mt-2 flex flex-col gap-1.5 rounded bg-slate-50 p-2 text-[11px] text-slate-500"
+                  >
                     <div class="flex items-center justify-between gap-2">
                       <span class="shrink-0 text-slate-400">AppKey:</span>
                       <div class="flex min-w-0 flex-1 items-center justify-end gap-1">
-                        <span class="truncate font-mono text-slate-700">{{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}</span>
+                        <span class="truncate font-mono text-slate-700">
+                          {{
+                            row.id
+                              ? revealedAppKeys[row.id] || row.c5AppKeyMasked || "-"
+                              : row.c5AppKeyMasked || "-"
+                          }}
+                        </span>
                         <t-button
                           v-if="canReadAccountDetail && row.hasC5AppKey"
                           variant="text"
                           theme="primary"
-                          class="!p-0 h-4 text-[10px]"
+                          class="h-4 !p-0 text-[10px]"
                           :loading="revealingAccountId === row.id"
                           @click="revealRowAppKey(row)"
                         >
@@ -248,17 +275,23 @@
                     </div>
                     <div class="flex items-center justify-between gap-2">
                       <span class="shrink-0 text-slate-400">Steam ID:</span>
-                      <span class="truncate font-mono text-slate-700">{{ row.steamId || "-" }}</span>
+                      <span class="truncate font-mono text-slate-700">
+                        {{ row.steamId || "-" }}
+                      </span>
                     </div>
                     <div class="flex items-center justify-between gap-2">
                       <span class="shrink-0 text-slate-400">交易链接:</span>
-                      <span class="truncate font-mono text-slate-700">{{ row.steamTradeUrl || "-" }}</span>
+                      <span class="truncate font-mono text-slate-700">
+                        {{ row.steamTradeUrl || "-" }}
+                      </span>
                     </div>
                   </div>
                 </div>
 
                 <!-- 底部操作区 -->
-                <div class="flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-50 bg-slate-50/50 p-2">
+                <div
+                  class="flex flex-wrap items-center justify-end gap-1.5 border-t border-slate-50 bg-slate-50/50 p-2"
+                >
                   <t-button
                     v-if="canUpdateAccount"
                     variant="outline"
@@ -291,11 +324,7 @@
                     content="确定删除该账号吗？"
                     @confirm="onDeleteAccount(row)"
                   >
-                    <t-button
-                      variant="outline"
-                      theme="danger"
-                      class="h-7 px-2 text-xs"
-                    >
+                    <t-button variant="outline" theme="danger" class="h-7 px-2 text-xs">
                       删除
                     </t-button>
                   </t-popconfirm>
@@ -310,10 +339,21 @@
             :data="pagedAccounts"
             :columns="columns"
             :loading="listLoading"
+            :loading-props="{ indicator: false }"
             :pagination="undefined"
             hover
             class="c5-sniping-account-table w-full bg-white"
           >
+            <template #loading>
+              <div class="flex flex-col items-center justify-center gap-3 py-10">
+                <t-loading size="medium">
+                  <template #indicator>
+                    <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                  </template>
+                </t-loading>
+                <span class="text-sm text-slate-500">正在拉取账号列表...</span>
+              </div>
+            </template>
             <template #empty>
               <div class="py-8">
                 <t-empty description="暂无扫货账号" />
@@ -342,7 +382,11 @@
                   placement="top-left"
                 >
                   <div class="min-w-0 flex-1 truncate font-mono text-[14px] text-slate-700">
-                    {{ revealedAppKeys[row.id] || row.c5AppKeyMasked || "-" }}
+                    {{
+                      row.id
+                        ? revealedAppKeys[row.id] || row.c5AppKeyMasked || "-"
+                        : row.c5AppKeyMasked || "-"
+                    }}
                   </div>
                 </t-tooltip>
                 <t-button
@@ -483,11 +527,11 @@
 
         <div class="border-t border-slate-200 px-4 py-3">
           <t-pagination
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="pagination.current"
-            v-model:page-size="pagination.pageSize"
             :total="filteredAccounts.length"
             :page-size-options="pageSizeOptions"
             show-jumper
@@ -519,10 +563,21 @@
           :data="detailTasks"
           :columns="detailTaskColumns"
           :loading="detailLoading"
+          :loading-props="{ indicator: false }"
           :pagination="undefined"
           hover
           class="w-full bg-white"
         >
+          <template #loading>
+            <div class="flex flex-col items-center justify-center gap-3 py-10">
+              <t-loading size="medium">
+                <template #indicator>
+                  <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                </template>
+              </t-loading>
+              <span class="text-sm text-slate-500">正在查询关联任务...</span>
+            </div>
+          </template>
           <template #empty>
             <div class="py-8">
               <t-empty description="暂无绑定任务" />
@@ -579,11 +634,11 @@
           class="mt-3 flex justify-end"
         >
           <t-pagination
+            v-model="detailPagination.current"
+            v-model:page-size="detailPagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="detailPagination.current"
-            v-model:page-size="detailPagination.pageSize"
             :total="detailPagination.total"
             :page-size-options="detailPageSizeOptions"
             show-jumper
@@ -687,13 +742,13 @@ import {
   type PageInfo,
   type PrimaryTableCol,
   type SubmitContext,
+  Icon as tIcon,
 } from "tdesign-vue-next";
 import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { c5SnipingV2Api } from "@/api/c5-sniping-v2";
 import PageFrame from "@/components/PageFrame.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
-// import { BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
@@ -753,11 +808,6 @@ const priceFormatter = new Intl.NumberFormat("zh-CN", {
   minimumFractionDigits: 0,
   maximumFractionDigits: 2,
 });
-
-// const statusOptions = Object.entries(BuffAccountStatusMap).map(([value, meta]) => ({
-//   label: meta.label,
-//   value,
-// }));
 
 const accountFormData = reactive<AccountFormData>({
   accountName: "",
@@ -992,7 +1042,6 @@ const getTaskStatusMeta = (status?: string) => {
     }
   > = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
-    READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
       label: "扫描中",
       theme: "success",

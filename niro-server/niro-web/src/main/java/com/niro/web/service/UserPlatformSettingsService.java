@@ -36,11 +36,4 @@ public interface UserPlatformSettingsService extends IService<UserPlatformSettin
      * @return 明文 AppKey
      */
     String decryptC5AppKey(UserPlatformSettings settings);
-
-    /**
-     * 发送测试通知
-     *
-     * @param userId 用户ID
-     */
-    void sendTestNotify(Long userId);
 }

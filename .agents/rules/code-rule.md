@@ -2,6 +2,11 @@
 trigger: always_on
 ---
 
+# CLAUDE.md
+
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+
+
 ## [启动协议]
 每轮**新会话开始时**，首要动作**必须**且只能是：
 - 调用 nocturne-memory：`read_memory("system://boot")`。
@@ -150,7 +155,7 @@ niro/
 - **niro-web**: 业务逻辑、API 接口、定时任务、消息队列
 - **niro-sdk**: 第三方平台 API 封装（C5Game 等）
 
-## gemini 工作规范
+## Claude Code 工作规范
 
 **权衡：** 这些准则偏向谨慎而非速度。对于琐碎任务，请自行判断。
 
@@ -332,7 +337,6 @@ niro/
 ### Skills 使用原则
 - 任务明显匹配某个 skill 时，优先使用对应 skill
 - **只要任务涉及后端代码编写、修改、重构、规范化，尤其是 Controller / Service / MapperManager / Mapper / Entity、DTO / VO / Param、接口返回值、MyBatis-Plus 查询等内容时，必须优先使用 `backend-development-standard` skill，不得跳过。在进行后端代码review时，也必须遵循这个原则**
-- **每轮回复末尾必须输出具体的上下文占用明细，格式固定为：`上下文占用：当前会话上下文 <已用K>K/<总上下文窗口K>K；80% 阈值：<阈值K>`。其中 `<已用K>`、`<总上下文窗口K>` 和 `<阈值K>` 只填写数字，`<总上下文窗口K>` 必须是当前模型的真实总上下文窗口，单位统一按 K 计算；`<阈值K>` 必须按 `<总上下文窗口K>` 的 80% 自动计算；若当前状态为已达阈值，必须先使用 `context-compression` skill 做上下文总结，再触发 `/compact` 压缩上下文，顺序不得颠倒。**
 - 任务涉及 Nocturne Memory 的结构调整、去重、迁移、priority/disclosure 设计、触发词维护或巡检时，必须使用skill `memory-maintenance`
 
 

@@ -31,12 +31,8 @@ public class C5SnipingTaskV2 {
     private Integer priority;
     private Long scanIntervalMs;
     private C5SnipingTaskV2StatusEnum taskStatus;
-    private Long latestRunId;
     private Boolean stopRequested;
     private LocalDateTime stopRequestedAt;
-    private LocalDateTime nextScanAt;
-    private String leaseOwner;
-    private LocalDateTime leaseUntil;
     private Integer successBuyCount;
     private Integer reservedBuyCount;
     private Integer hitCount;
@@ -45,4 +41,5 @@ public class C5SnipingTaskV2 {
     private Integer delFlag;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
+    private LocalDateTime finishedAt;
 }

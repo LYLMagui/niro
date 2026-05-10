@@ -30,12 +30,11 @@ public class C5SnipingTaskV2DTO {
     private String taskStatus;
     private Boolean stopRequested;
     private LocalDateTime stopRequestedAt;
-    private LocalDateTime nextScanAt;
     private Integer successBuyCount;
     private Integer reservedBuyCount;
     private Integer hitCount;
     private String lastErrorMessage;
     private LocalDateTime createTime;
     private LocalDateTime updateTime;
-    private C5SnipingTaskV2RunSummaryDTO latestRun;
+    private LocalDateTime finishedAt;
 }

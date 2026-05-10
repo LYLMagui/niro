@@ -40,7 +40,7 @@ public class C5OrderSyncController {
      * @return 同步结果
      */
     @PostMapping("/trigger")
-    @SaCheckPermission(PermissionConstants.ORDER_C5_SYNC)
+    @SaCheckPermission(PermissionConstants.OrderRecord.C5_SYNC)
     @Operation(summary = "手动同步 C5 订单", description = "手动触发指定 C5 账号订单同步任务")
     public String triggerSync(
             @Parameter(description = "C5 扫货独立账号 ID")

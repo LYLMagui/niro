@@ -1,5 +1,5 @@
 import request from "@/utils/request";
-import type { PageResult } from "@/types/goods";
+import type { PageResult } from "@/types/page";
 import type {
   TradeOrderRecord,
   OrderQueryParam,

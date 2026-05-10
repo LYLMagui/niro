@@ -36,7 +36,7 @@ public class TradeOrderController {
 
     @Operation(summary = "分页查询订单记录")
     @GetMapping("/page")
-    @SaCheckPermission(PermissionConstants.TASK_RECORD_LIST)
+    @SaCheckPermission(PermissionConstants.Task.RECORD_LIST)
     public Page<TradeOrderRecordDTO> getOrderRecordPage(
             @RequestParam(defaultValue = "1") Integer page,
             @RequestParam(defaultValue = "20") Integer pageSize,
@@ -54,7 +54,7 @@ public class TradeOrderController {
 
     @Operation(summary = "删除订单记录")
     @DeleteMapping("/{id}")
-    @SaCheckPermission(PermissionConstants.ORDER_RECORD_DELETE)
+    @SaCheckPermission(PermissionConstants.OrderRecord.DELETE)
     public void deleteOrderRecord(@PathVariable Long id) {
         Long userId = StpUtil.getLoginIdAsLong();
         tradeOrderRecordService.deleteOrderRecord(userId, id);
@@ -62,7 +62,7 @@ public class TradeOrderController {
 
     @Operation(summary = "批量删除订单记录")
     @PostMapping("/batch-delete")
-    @SaCheckPermission(PermissionConstants.ORDER_RECORD_DELETE)
+    @SaCheckPermission(PermissionConstants.OrderRecord.DELETE)
     public void batchDeleteOrderRecord(@RequestBody TradeOrderBatchDeleteParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         tradeOrderRecordService.batchDeleteOrderRecord(userId, param.getIds());
@@ -70,14 +70,14 @@ public class TradeOrderController {
 
     @Operation(summary = "更新订单记录")
     @PutMapping
-    @SaCheckPermission(PermissionConstants.ORDER_RECORD_UPDATE)
+    @SaCheckPermission(PermissionConstants.OrderRecord.UPDATE)
     public void updateOrderRecord(@RequestBody TradeOrderRecordDTO dto) {
         tradeOrderRecordService.updateOrderRecord(dto);
     }
 
     @Operation(summary = "获取库存看板数据")
     @GetMapping("/inventory")
-    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    @SaCheckPermission(PermissionConstants.Task.INVENTORY_VIEW)
     public List<InventoryItemDTO> getInventoryItems(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,
@@ -88,7 +88,7 @@ public class TradeOrderController {
 
     @Operation(summary = "获取购买统计汇总")
     @GetMapping("/purchase-stats/summary")
-    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    @SaCheckPermission(PermissionConstants.Task.INVENTORY_VIEW)
     public PurchaseStatsSummaryDTO getPurchaseStatsSummary(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,
@@ -99,7 +99,7 @@ public class TradeOrderController {
 
     @Operation(summary = "获取购买统计趋势")
     @GetMapping("/purchase-stats/trend")
-    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    @SaCheckPermission(PermissionConstants.Task.INVENTORY_VIEW)
     public List<PurchaseStatsTrendDTO> getPurchaseStatsTrend(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,
@@ -110,7 +110,7 @@ public class TradeOrderController {
 
     @Operation(summary = "获取购买统计商品明细")
     @GetMapping("/purchase-stats/items")
-    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    @SaCheckPermission(PermissionConstants.Task.INVENTORY_VIEW)
     public List<PurchaseStatsItemDTO> getPurchaseStatsItems(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,
@@ -121,7 +121,7 @@ public class TradeOrderController {
 
     @Operation(summary = "获取购买统计按时间拆分明细")
     @GetMapping("/purchase-stats/split-items")
-    @SaCheckPermission(PermissionConstants.TASK_INVENTORY_VIEW)
+    @SaCheckPermission(PermissionConstants.Task.INVENTORY_VIEW)
     public List<PurchaseStatsSplitItemDTO> getPurchaseStatsSplitItems(
             @RequestParam(required = false) String keyword,
             @RequestParam(required = false) String startDate,

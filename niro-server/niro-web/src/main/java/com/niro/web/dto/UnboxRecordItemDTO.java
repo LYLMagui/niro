@@ -21,6 +21,11 @@ public class UnboxRecordItemDTO {
 
     private String weaponName;
 
+    /**
+     * CS2 商品 ID。
+     */
+    private Long cs2GoodsId;
+
     private BigDecimal inGamePrice;
 
     private BigDecimal discount;

@@ -1,35 +1,52 @@
 package com.niro.sdk.c5.client.core;
 
-import java.net.http.HttpClient;
+import lombok.extern.slf4j.Slf4j;
+import okhttp3.OkHttpClient;
+import okhttp3.logging.HttpLoggingInterceptor;
+
 import java.time.Duration;
-import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
+import java.util.regex.Pattern;
 
 /**
- * C5 HTTP 客户端单例持有者
- * <p>
- * 全局共享一个 {@link HttpClient}：
- * <ul>
- *   <li>避免每个 {@code C5HttpExecutor} 实例新建一份连接池与虚拟线程池；</li>
- *   <li>{@code HttpClient} 自身按 host 维度复用 HTTP/2 连接，多账号场景共享同一实例不会串数据；</li>
- *   <li>采用 JDK 21 虚拟线程执行器承载 IO，连接超时固定 10s（业务级超时由请求级 {@code requestTimeoutSeconds} 控制）。</li>
- * </ul>
+ * C5 HTTP 客户端单例持有者。
  */
+@Slf4j
 public final class C5HttpClientHolder {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
+    private static final Pattern SENSITIVE_QUERY_PATTERN = Pattern.compile(
+            "(?i)([?&](?:app-key|appkey|token|apisecret|secret|sign|signature|password)=)[^&\\s]+"
+    );
 
     private static final class Holder {
-        private static final HttpClient INSTANCE = HttpClient.newBuilder()
-                .executor(Executors.newVirtualThreadPerTaskExecutor())
-                .connectTimeout(CONNECT_TIMEOUT)
-                .version(HttpClient.Version.HTTP_2)
+        private static final OkHttpClient INSTANCE = new OkHttpClient.Builder()
+                .connectTimeout(CONNECT_TIMEOUT.toSeconds(), TimeUnit.SECONDS)
+                .addInterceptor(new C5SdkLoggingInterceptor())
+                .addNetworkInterceptor(httpLoggingInterceptor())
                 .build();
     }
 
     private C5HttpClientHolder() {
     }
 
-    public static HttpClient getInstance() {
+    public static OkHttpClient getInstance() {
         return Holder.INSTANCE;
+    }
+
+    private static HttpLoggingInterceptor httpLoggingInterceptor() {
+        HttpLoggingInterceptor interceptor = new HttpLoggingInterceptor(
+                message -> log.debug("OkHttp {}", redactSensitiveQuery(message))
+        );
+        interceptor.redactHeader("Authorization");
+        interceptor.redactHeader("Cookie");
+        interceptor.redactHeader("Set-Cookie");
+        interceptor.redactHeader("app-key");
+        interceptor.setLevel(log.isDebugEnabled() ? HttpLoggingInterceptor.Level.BASIC : HttpLoggingInterceptor.Level.NONE);
+        return interceptor;
+    }
+
+    private static String redactSensitiveQuery(String message) {
+        return SENSITIVE_QUERY_PATTERN.matcher(message).replaceAll("$1***");
     }
 }

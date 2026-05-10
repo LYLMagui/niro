@@ -1,7 +1,7 @@
 package com.niro.sdk.c5.trade;
 
 import cn.hutool.http.Method;
-import com.fasterxml.jackson.core.type.TypeReference;
+import com.alibaba.fastjson2.TypeReference;
 import com.niro.sdk.c5.client.core.C5HttpExecutor;
 import com.niro.sdk.c5.constant.C5GameAPI;
 import com.niro.sdk.c5.order.C5OrderDetailRequest;

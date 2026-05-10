@@ -3,6 +3,7 @@ package com.niro.web.dto.param;
 import io.swagger.v3.oas.annotations.media.Schema;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import lombok.Data;
@@ -30,6 +31,10 @@ public class UnboxRecordC5ListingQueryParam {
     @Schema(description = "磨损区间最大值，取值范围0到1")
     private BigDecimal wearMax;
 
+    @Min(value = 0, message = "外观不能小于0")
+    @Max(value = 4, message = "外观不能大于4")
+    @Schema(description = "外观，0=Factory New，1=Minimal Wear，2=Field-Tested，3=Well-Worn，4=Battle-Scarred")
+    private Integer exterior;
 
     @NotNull(message = "页码不能为空")
     @Min(value = 1, message = "页码必须大于0")
@@ -40,4 +45,9 @@ public class UnboxRecordC5ListingQueryParam {
     @Min(value = 1, message = "每页数量必须大于0")
     @Schema(description = "每页数量")
     private Integer pageSize;
+
+    /**
+     * 是否强制刷新本地 C5 价格快照。
+     */
+    private Boolean refresh;
 }

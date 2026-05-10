@@ -54,6 +54,14 @@ public interface C5SnipingAccountService {
     List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalance(C5SnipingAccountBalanceRefreshParam param);
 
     /**
+     * 按当前用户账号 ID 刷新余额。
+     *
+     * @param accountIds 账号 ID 列表
+     * @return 余额刷新结果列表
+     */
+    List<C5SnipingAccountBalanceRefreshResultDTO> refreshBalanceByAccountIds(List<Long> accountIds);
+
+    /**
      * 检测单个 C5 扫货账号配置。
      *
      * @param id 账号 ID
@@ -83,4 +91,11 @@ public interface C5SnipingAccountService {
      * @return 明文 AppKey
      */
     String decryptAccountAppKey(C5SnipingAccount account);
+
+    /**
+     * 异步刷新当前用户 C5 扫货账号余额并通过 SSE 推送。
+     *
+     * @param param 余额刷新参数
+     */
+    void refreshBalanceAsync(C5SnipingAccountBalanceRefreshParam param);
 }

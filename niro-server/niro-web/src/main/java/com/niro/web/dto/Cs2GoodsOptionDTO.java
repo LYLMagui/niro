@@ -16,6 +16,9 @@ public class Cs2GoodsOptionDTO {
     @Schema(description = "商品展示名称")
     private String displayName;
 
+    @Schema(description = "不带外观的展示名称")
+    private String baseDisplayName;
+
     @Schema(description = "Steam 市场 hash 名称")
     private String marketHashName;
 

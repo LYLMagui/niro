@@ -1,36 +1,22 @@
 export type C5SnipingTaskV2StopMode = "BUY_COUNT" | "BALANCE_GUARD";
 export type C5SnipingTaskV2BalanceGuardMode = "MAX_PRICE" | "RESERVE_BALANCE";
-export type C5SnipingTaskV2Status =
-  | "DRAFT"
-  | "READY"
-  | "RUNNING"
-  | "STOPPED"
-  | "COMPLETED"
-  | "ERROR";
-export type C5SnipingTaskV2RunStatus = "RUNNING" | "STOPPED" | "COMPLETED" | "ERROR";
+export type C5SnipingTaskV2Status = "DRAFT" | "RUNNING" | "STOPPED" | "COMPLETED" | "ERROR";
 
 export interface C5SnipingTaskV2EventPayload {
-  taskId: number;
+  taskId?: number;
   eventType: string;
   occurredAt: string;
-  runId?: number;
   hitRecordId?: number;
   attemptId?: number;
   taskStatus?: C5SnipingTaskV2Status | string;
+  finishedAt?: string;
   stopRequested?: boolean;
   successBuyCount?: number;
   reservedBuyCount?: number;
   hitCount?: number;
   lastErrorMessage?: string;
   message?: string;
-}
-
-export interface C5SnipingTaskV2RunSummary {
-  id: number;
-  runStatus: string;
-  stopReason?: string;
-  startedAt?: string;
-  finishedAt?: string;
+  accountBalance?: C5SnipingTaskV2AccountBalance;
 }
 
 export interface C5SnipingTaskV2Item {
@@ -58,10 +44,9 @@ export interface C5SnipingTaskV2Item {
   lastErrorMessage?: string;
   stopRequested?: boolean;
   stopRequestedAt?: string;
-  nextScanAt?: string;
   createTime?: string;
   updateTime?: string;
-  latestRun?: C5SnipingTaskV2RunSummary;
+  finishedAt?: string;
 }
 
 export interface C5SnipingTaskV2QueryParam {
@@ -70,6 +55,19 @@ export interface C5SnipingTaskV2QueryParam {
   keyword?: string;
   taskStatus?: string;
   accountId?: number;
+}
+
+export interface C5SnipingTaskV2AccountBalance {
+  accountId: number;
+  accountName?: string;
+  success: boolean;
+  balance?: number;
+  moneyAmount?: number;
+  pendingBalance?: number;
+  depositAmount?: number;
+  creditMoney?: number;
+  creditDeposit?: number;
+  message?: string;
 }
 
 export interface C5SnipingTaskV2SaveParam {
@@ -95,6 +93,7 @@ export interface C5SnipingHitRecordV2Item {
   listingPrice?: number;
   paintwear?: number;
   decisionResult?: string;
+  buyFailureReason?: string;
   hitAt?: string;
   createTime?: string;
 }

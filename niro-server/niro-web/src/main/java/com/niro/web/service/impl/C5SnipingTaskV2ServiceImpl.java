@@ -10,27 +10,24 @@ import com.niro.web.dto.C5SnipingBuyAttemptV2DTO;
 import com.niro.web.dto.C5SnipingHitRecordV2DTO;
 import com.niro.web.dto.C5SnipingTaskV2DTO;
 import com.niro.web.dto.C5SnipingTaskV2EventDTO;
-import com.niro.web.dto.C5SnipingTaskV2RunSummaryDTO;
 import com.niro.web.dto.param.C5SnipingTaskV2QueryParam;
 import com.niro.web.dto.param.C5SnipingTaskV2SaveParam;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.C5SnipingBuyAttemptV2;
 import com.niro.web.entity.C5SnipingHitRecordV2;
-import com.niro.web.entity.C5SnipingTaskRunV2;
 import com.niro.web.entity.C5SnipingTaskV2;
 import com.niro.web.entity.Cs2Goods;
-import com.niro.web.enums.C5SnipingTaskRunV2StatusEnum;
 import com.niro.web.enums.C5SnipingTaskV2BalanceGuardModeEnum;
 import com.niro.web.enums.C5SnipingTaskV2StatusEnum;
 import com.niro.web.enums.C5SnipingTaskV2StopModeEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingBuyAttemptV2MapperManager;
 import com.niro.web.manager.C5SnipingHitRecordV2MapperManager;
-import com.niro.web.manager.C5SnipingTaskRunV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
 import com.niro.web.manager.Cs2GoodsMapperManager;
 import com.niro.web.service.C5SnipingTaskV2EventService;
 import com.niro.web.service.C5SnipingTaskV2Service;
+import com.niro.web.service.C5SnipingTaskV2SchedulerService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -54,12 +51,12 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
     private static final long MIN_SCAN_INTERVAL_MS = 1000L;
 
     private final C5SnipingTaskV2MapperManager taskManager;
-    private final C5SnipingTaskRunV2MapperManager runManager;
     private final C5SnipingHitRecordV2MapperManager hitRecordManager;
     private final C5SnipingBuyAttemptV2MapperManager buyAttemptManager;
     private final Cs2GoodsMapperManager cs2GoodsMapperManager;
     private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
     private final C5SnipingTaskV2EventService eventService;
+    private final C5SnipingTaskV2SchedulerService schedulerService;
 
     /**
      * 创建扫货 2.0 任务，默认进入 DRAFT。
@@ -77,8 +74,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         fillTaskConfig(task, param);
         task.setUserId(userId);
         task.setTaskStatus(C5SnipingTaskV2StatusEnum.DRAFT);
-        task.setStopRequested(false);
-        task.setNextScanAt(LocalDateTime.now());
         task.setSuccessBuyCount(0);
         task.setReservedBuyCount(0);
         task.setHitCount(0);
@@ -121,12 +116,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         return toTaskDTO(requireOwnedTask(id));
     }
 
-    /**
-     * 分页查询任务列表。
-     *
-     * @param param 查询参数
-     * @return 任务分页
-     */
     @Override
     public Page<C5SnipingTaskV2DTO> pageTasks(C5SnipingTaskV2QueryParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
@@ -146,7 +135,7 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
     }
 
     /**
-     * 启用任务，DRAFT/STOPPED/ERROR 转为 READY。
+     * 启用任务，DRAFT/STOPPED/ERROR 转为 RUNNING 并启动本地循环。
      *
      * @param id 任务 ID
      */
@@ -159,11 +148,13 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         boolean updated = taskManager.enableTask(task.getId(), List.of(C5SnipingTaskV2StatusEnum.DRAFT,
                 C5SnipingTaskV2StatusEnum.STOPPED, C5SnipingTaskV2StatusEnum.ERROR));
         Assert.isTrue(updated, "启用任务失败");
-        publishTaskEvent(taskManager.getById(task.getId()), "TASK_ENABLED", null, null, null, C5SnipingTaskV2StatusEnum.READY, null);
+        C5SnipingTaskV2 latestTask = taskManager.getById(task.getId());
+        publishTaskEvent(latestTask, "TASK_RUNNING", null, null, C5SnipingTaskV2StatusEnum.RUNNING, null);
+        schedulerService.startTaskAsync(latestTask);
     }
 
     /**
-     * 停用任务：READY 直接停止，RUNNING 仅提交停止请求，由执行安全点收尾。
+     * 停用任务：RUNNING 仅提交停止请求，由执行安全点收尾。
      *
      * @param id 任务 ID
      */
@@ -171,20 +162,10 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
     @Transactional(rollbackFor = Exception.class)
     public void disableTask(Long id) {
         C5SnipingTaskV2 task = requireOwnedTask(id);
-        Assert.isTrue(List.of(C5SnipingTaskV2StatusEnum.READY, C5SnipingTaskV2StatusEnum.RUNNING).contains(task.getTaskStatus()), "仅待运行或运行中任务可停用");
-        if (C5SnipingTaskV2StatusEnum.READY.equals(task.getTaskStatus())) {
-            boolean updated = taskManager.markTaskStatus(task.getId(), C5SnipingTaskV2StatusEnum.READY, C5SnipingTaskV2StatusEnum.STOPPED);
-            Assert.isTrue(updated, "停用任务失败");
-            taskManager.clearStopRequest(task.getId());
-            runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "MANUAL_STOP", null);
-            taskManager.clearReservedBuyCountIfNoUnsettledAttempt(task.getId());
-            publishTaskEvent(taskManager.getById(task.getId()), "TASK_DISABLED", null, null, null, C5SnipingTaskV2StatusEnum.STOPPED, null);
-            return;
-        }
-
+        Assert.isTrue(C5SnipingTaskV2StatusEnum.RUNNING.equals(task.getTaskStatus()), "仅运行中任务可停用");
         boolean updated = taskManager.requestStop(task.getId());
         Assert.isTrue(updated, "提交停用请求失败");
-        publishTaskEvent(taskManager.getById(task.getId()), "TASK_DISABLE_REQUESTED", task.getLatestRunId(), null, null, task.getTaskStatus(), null);
+        publishTaskEvent(taskManager.getById(task.getId()), "TASK_DISABLE_REQUESTED", null, null, task.getTaskStatus(), null);
     }
 
     /**
@@ -204,7 +185,7 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
                 .setSql("version = version + 1")
                 .update();
         Assert.isTrue(updated, "删除任务失败");
-        publishTaskEvent(taskManager.getById(task.getId()), "TASK_DELETED", task.getLatestRunId(), null, null, task.getTaskStatus(), null);
+        publishTaskEvent(taskManager.getById(task.getId()), "TASK_DELETED", null, null, task.getTaskStatus(), null);
     }
 
     /**
@@ -330,7 +311,7 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
         return task;
     }
 
-    private void publishTaskEvent(C5SnipingTaskV2 task, String eventType, Long runId, Long hitRecordId, Long attemptId,
+    private void publishTaskEvent(C5SnipingTaskV2 task, String eventType, Long hitRecordId, Long attemptId,
                                   C5SnipingTaskV2StatusEnum taskStatus, String message) {
         if (task == null) {
             return;
@@ -339,10 +320,10 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
                 .taskId(task.getId())
                 .eventType(eventType)
                 .occurredAt(LocalDateTime.now())
-                .runId(runId)
                 .hitRecordId(hitRecordId)
                 .attemptId(attemptId)
                 .taskStatus(taskStatus == null ? null : taskStatus.getCode())
+                .finishedAt(task.getFinishedAt())
                 .stopRequested(task.getStopRequested())
                 .successBuyCount(task.getSuccessBuyCount())
                 .reservedBuyCount(task.getReservedBuyCount())
@@ -364,16 +345,6 @@ public class C5SnipingTaskV2ServiceImpl implements C5SnipingTaskV2Service {
             dto.setMarketHashName(goods.getMarketHashName());
             dto.setHasExterior(goods.getHasExterior());
         }
-        dto.setLatestRun(toRunSummary(runManager.findLatestByTaskId(task.getId())));
-        return dto;
-    }
-
-    private C5SnipingTaskV2RunSummaryDTO toRunSummary(C5SnipingTaskRunV2 run) {
-        if (run == null) {
-            return null;
-        }
-        C5SnipingTaskV2RunSummaryDTO dto = BeanUtil.copyProperties(run, C5SnipingTaskV2RunSummaryDTO.class);
-        dto.setRunStatus(run.getRunStatus() == null ? null : run.getRunStatus().getCode());
         return dto;
     }
 

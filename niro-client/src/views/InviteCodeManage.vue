@@ -334,11 +334,11 @@
 
         <div v-if="pagination.total > 0" class="bg-white px-4 py-3">
           <t-pagination
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="pagination.current"
-            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
             show-jumper
             @change="onPageChange"
@@ -457,11 +457,11 @@
 
         <div v-if="!loading && pagination.total > 0" class="invite-mobile__pagination">
           <t-pagination
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="pagination.current"
-            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
             :total-content="false"
             show-jumper

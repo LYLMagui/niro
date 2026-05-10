@@ -4,7 +4,6 @@ import cn.hutool.core.bean.BeanUtil;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.date.DateUtil;
 import cn.hutool.core.util.StrUtil;
-import cn.hutool.http.HtmlUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
@@ -18,21 +17,14 @@ import com.niro.web.dto.PurchaseStatsSplitItemDTO;
 import com.niro.web.dto.PurchaseStatsSummaryDTO;
 import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
-import com.niro.web.entity.UserPlatformSettings;
-import com.niro.web.entity.BuffAccount;
-import com.niro.web.entity.BuffGoods;
-import com.niro.web.entity.BuffScanTask;
 import com.niro.web.entity.C5SnipingAccount;
-import com.niro.web.entity.C5SnipingTaskV2;
 import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
-import com.niro.web.manager.BuffAccountMapperManager;
-import com.niro.web.manager.BuffScanTaskMapperManager;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
-import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
-import com.niro.web.service.BuffGoodsService;
+import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.TradeOrderRecordService;
 import com.niro.web.service.UserPlatformSettingsService;
 import lombok.RequiredArgsConstructor;
@@ -43,8 +35,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URLDecoder;
-import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -71,30 +61,13 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
     private static final BigDecimal ZERO_AMOUNT = BigDecimal.ZERO.setScale(2, RoundingMode.HALF_UP);
     private static final String DEFAULT_STATS_IMAGE = "/images/goods-placeholder.svg";
 
-    private final BuffAccountMapperManager buffAccountMapperManager;
     private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
-    private final UserPlatformSettingsService userPlatformSettingsService;
-    private final BuffGoodsService buffGoodsService;
-    private final BuffScanTaskMapperManager buffScanTaskMapperManager;
     private final C5SnipingTaskV2MapperManager c5SnipingTaskV2MapperManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
+    private final UserPlatformSettingsService userPlatformSettingsService;
 
     @Value("${c5.base-url:https://openapi.c5game.com}")
     private String c5BaseUrl;
-
-    private String normalizeName(String name) {
-        if (StrUtil.isBlank(name)) {
-            return null;
-        }
-        try {
-            name = URLDecoder.decode(name, StandardCharsets.UTF_8);
-        } catch (Exception e) {
-            // ignore
-        }
-        name = HtmlUtil.unescape(name);
-        name = name.replaceAll("[\\u00A0\\s]+", " ");
-        return StrUtil.trim(name);
-    }
 
     private LocalDateTime parseStartDate(String startDate) {
         if (StrUtil.isBlank(startDate)) {
@@ -132,51 +105,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         LocalDateTime startDateTime = parseStartDate(startDate);
         LocalDateTime endDateTime = parseEndDate(endDate);
         return tradeOrderRecordMapperManager.listSuccessfulPurchaseRecords(userId, keyword, startDateTime, endDateTime);
-    }
-
-    private BuffGoods findBuffGoods(String marketHashName, String c5GoodsName) {
-        String normalizedName = normalizeName(marketHashName);
-        if (normalizedName == null) {
-            return null;
-        }
-
-        BuffGoods goods = buffGoodsService.lambdaQuery()
-                .eq(BuffGoods::getMarketHashName, normalizedName)
-                .last("limit 1")
-                .one();
-        if (goods != null) {
-            return goods;
-        }
-
-        goods = buffGoodsService.lambdaQuery()
-                .apply("lower(market_hash_name) = {0}", normalizedName.toLowerCase())
-                .last("limit 1")
-                .one();
-        if (goods != null) {
-            return goods;
-        }
-
-        if (StrUtil.isNotBlank(c5GoodsName) && c5GoodsName.matches("^[\\x00-\\x7F]+$")) {
-            String normalizedC5Name = normalizeName(c5GoodsName);
-            if (StrUtil.isNotBlank(normalizedC5Name)) {
-                goods = buffGoodsService.lambdaQuery()
-                        .eq(BuffGoods::getMarketHashName, normalizedC5Name)
-                        .last("limit 1")
-                        .one();
-                if (goods != null) {
-                    return goods;
-                }
-
-                goods = buffGoodsService.lambdaQuery()
-                        .apply("lower(market_hash_name) = {0}", normalizedC5Name.toLowerCase())
-                        .last("limit 1")
-                        .one();
-                if (goods != null) {
-                    return goods;
-                }
-            }
-        }
-        return null;
     }
 
     private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
@@ -226,33 +154,17 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
             }
 
             TradeOrderRecord record = new TradeOrderRecord();
-            record.setPlatform(json.getStr("platform", PlatformEnum.BUFF.getCode()));
+            record.setPlatform(json.getStr("platform", PlatformEnum.C5.getCode()));
             record.setUserId(json.getLong("userId", 0L));
             record.setTaskId(json.getLong("taskId", 0L));
             record.setAccountId(json.getLong("accountId", 0L));
-            record.setGoodsName(json.getStr("goodsName", ""));
             String marketHashName = json.getStr("marketHashName", "");
             if (StrUtil.isNotBlank(marketHashName)) {
                 marketHashName = StrUtil.trim(marketHashName);
             }
             record.setMarketHashName(marketHashName);
-
-            String goodsName = json.getStr("goodsName", "");
-            String goodsImg = json.getStr("goodsImg", "");
-
-            BuffGoods goods = findBuffGoods(marketHashName, goodsName);
-            if (goods != null) {
-                goodsName = goods.getName();
-                record.setMarketHashName(goods.getMarketHashName());
-                if (StrUtil.isBlank(goodsImg)) {
-                    goodsImg = goods.getIconUrl();
-                }
-            } else {
-                log.warn("C5订单上报-未找到本地商品信息: marketHashName={}, c5GoodsName={}, orderId={}",
-                        marketHashName, goodsName, orderId);
-            }
-            record.setGoodsName(goodsName);
-            record.setGoodsImg(goodsImg);
+            record.setGoodsName(json.getStr("goodsName", ""));
+            record.setGoodsImg(json.getStr("goodsImg", ""));
             record.setOrderId(orderId);
             record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
             record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
@@ -331,36 +243,18 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
 
         Page<TradeOrderRecordDTO> dtoPage = new Page<>(pageNum, pageSize, result.getTotal());
         List<TradeOrderRecord> records = result.getRecords();
-        Map<Long, BuffAccount> buffAccountMap = buildBuffAccountMap(userId, records);
         Map<Long, C5SnipingAccount> c5AccountMap = buildC5AccountMap(userId, records);
         Map<String, String> taskNameMap = buildTaskNameMap(userId, records);
 
         List<TradeOrderRecordDTO> dtoList = records.stream().map(item -> {
             TradeOrderRecordDTO dto = BeanUtil.copyProperties(item, TradeOrderRecordDTO.class);
             dto.setTaskName(taskNameMap.get(buildTaskKey(item.getPlatform(), item.getTaskId())));
-            fillAccountName(dto, item, buffAccountMap, c5AccountMap);
+            fillAccountName(dto, item, c5AccountMap);
             return dto;
         }).collect(Collectors.toList());
 
         dtoPage.setRecords(dtoList);
         return dtoPage;
-    }
-
-    /**
-     * 构建当前分页内 BUFF 账号映射。
-     *
-     * @param userId 用户 ID
-     * @param records 当前页订单记录
-     * @return BUFF 账号 ID 到账号实体的映射
-     */
-    private Map<Long, BuffAccount> buildBuffAccountMap(Long userId, List<TradeOrderRecord> records) {
-        List<Long> accountIds = records.stream()
-                .filter(record -> PlatformEnum.BUFF.getCode().equals(record.getPlatform()))
-                .map(TradeOrderRecord::getAccountId)
-                .filter(id -> id != null && id > 0)
-                .distinct()
-                .collect(Collectors.toList());
-        return buffAccountMapperManager.mapByUserIdAndIds(userId, accountIds);
     }
 
     /**
@@ -379,22 +273,11 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         return c5SnipingAccountMapperManager.mapByUserIdAndIds(userId, accountIds);
     }
 
-    /**
-     * 构建当前分页内任务名称映射。
-     *
-     * @param userId 用户 ID
-     * @param records 当前页订单记录
-     * @return 平台与任务 ID 组合键到任务名称的映射
-     */
     private Map<String, String> buildTaskNameMap(Long userId, List<TradeOrderRecord> records) {
         Map<String, String> taskNameMap = new LinkedHashMap<>();
         List<Long> c5TaskIds = collectTaskIds(records, PlatformEnum.C5.getCode());
         c5SnipingTaskV2MapperManager.mapByUserIdAndIds(userId, c5TaskIds)
                 .forEach((taskId, task) -> taskNameMap.put(buildTaskKey(PlatformEnum.C5.getCode(), taskId), task.getName()));
-
-        List<Long> buffTaskIds = collectTaskIds(records, PlatformEnum.BUFF.getCode());
-        buffScanTaskMapperManager.mapByUserIdAndIds(userId, buffTaskIds)
-                .forEach((taskId, task) -> taskNameMap.put(buildTaskKey(PlatformEnum.BUFF.getCode(), taskId), task.getName()));
         return taskNameMap;
     }
 
@@ -428,33 +311,15 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         return platform + ":" + taskId;
     }
 
-    /**
-     * 按订单平台回填账号名称。
-     *
-     * @param dto 订单 DTO
-     * @param record 订单记录
-     * @param buffAccountMap BUFF 账号映射
-     * @param c5AccountMap C5 独立账号映射
-     */
     private void fillAccountName(TradeOrderRecordDTO dto, TradeOrderRecord record,
-                                 Map<Long, BuffAccount> buffAccountMap,
                                  Map<Long, C5SnipingAccount> c5AccountMap) {
         Long accountId = record.getAccountId();
-        if (accountId == null || accountId <= 0) {
+        if (accountId == null || accountId <= 0 || !PlatformEnum.C5.getCode().equals(record.getPlatform())) {
             return;
         }
-        if (PlatformEnum.C5.getCode().equals(record.getPlatform())) {
-            C5SnipingAccount account = c5AccountMap.get(accountId);
-            if (account != null) {
-                dto.setAccountName(account.getAccountName());
-            }
-            return;
-        }
-        if (PlatformEnum.BUFF.getCode().equals(record.getPlatform())) {
-            BuffAccount account = buffAccountMap.get(accountId);
-            if (account != null) {
-                dto.setAccountName(account.getAccountName());
-            }
+        C5SnipingAccount account = c5AccountMap.get(accountId);
+        if (account != null) {
+            dto.setAccountName(account.getAccountName());
         }
     }
 

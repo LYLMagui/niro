@@ -11,7 +11,7 @@ services:
     volumes:
       - ${SERENA_PROJECT_PATH:-D:/MySpace/niro}:/workspace/project
       - ${SERENA_GLOBAL_CONFIG_PATH:-D:/Environment/SoftWare/MCP/Serena/config}:/workspace/serena/config
-      - D:/Environment/Maven/maven-3.9.12/conf:/root/.m2
+      - ./settings.xml:/root/.m2/settings.xml:ro
       - D:/Environment/Maven/maven-library:/root/.m2/repository
     entrypoint: [ "/bin/bash", "-lc" ]
     command:

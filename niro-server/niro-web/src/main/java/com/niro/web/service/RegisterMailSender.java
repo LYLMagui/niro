@@ -17,7 +17,6 @@ import java.io.UnsupportedEncodingException;
  * 系统邮件发送服务
  *
  * 用于注册验证码等系统级邮件发送，使用 spring-boot-starter-mail 自动装配的 JavaMailSender；
- * 不与 {@link EmailNotifyService} 共用配置（后者读取用户自己的 SMTP）。
  */
 @Slf4j
 @Service

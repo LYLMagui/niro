@@ -19,12 +19,12 @@ public class C5SnipingHitRecordV2 {
     @TableId(type = IdType.AUTO)
     private Long id;
     private Long taskId;
-    private Long runId;
     private Long accountId;
     private String listingId;
     private BigDecimal listingPrice;
     private BigDecimal paintwear;
     private String decisionResult;
+    private String buyFailureReason;
     @TableField(typeHandler = PostgresJsonTypeHandler.class, jdbcType = JdbcType.OTHER)
     private Map<String, Object> itemSnapshotJson;
     private LocalDateTime hitAt;

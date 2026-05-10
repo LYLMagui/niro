@@ -15,7 +15,6 @@ import com.niro.sdk.c5.order.C5BuyerStatusResponse.OrderBuyDTO;
 import com.niro.sdk.c5.order.C5OrderDetailResponse;
 import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.dto.C5OrderManualSyncMessage;
-import com.niro.web.entity.BuffGoods;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.entity.UserPlatformSettings;
@@ -23,7 +22,6 @@ import com.niro.web.enums.PlatformEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
-import com.niro.web.service.BuffGoodsService;
 import com.niro.web.service.C5OrderSyncService;
 import com.niro.web.service.C5SnipingAccountService;
 import com.niro.web.service.TradeOrderRecordService;
@@ -76,7 +74,6 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
     private final UserPlatformSettingsService userPlatformSettingsService;
     private final C5SnipingAccountService c5SnipingAccountService;
-    private final BuffGoodsService buffGoodsService;
     private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
     private final RedissonClient redissonClient;
     private final RocketMqHelper rocketMqHelper;
@@ -423,38 +420,12 @@ public class C5OrderSyncServiceImpl implements C5OrderSyncService {
             String goodsName = StrUtil.trimToEmpty(detail.getOpenItemInfo().getName());
             String goodsImg = StrUtil.trimToEmpty(detail.getOpenItemInfo().getImageUrl());
 
-            BuffGoods goods = findBuffGoods(marketHashName, goodsName);
-            if (goods != null) {
-                record.setMarketHashName(StrUtil.blankToDefault(goods.getMarketHashName(), marketHashName));
-                record.setGoodsName(StrUtil.blankToDefault(goods.getName(), goodsName));
-                record.setGoodsImg(StrUtil.blankToDefault(goods.getIconUrl(), goodsImg));
-                return;
-            }
-
             record.setMarketHashName(marketHashName);
             record.setGoodsName(StrUtil.blankToDefault(goodsName, marketHashName));
             record.setGoodsImg(goodsImg);
         } catch (Exception e) {
             log.warn("同步 C5 订单时预取详情失败, orderId={}", order.getOrderId(), e);
         }
-    }
-
-    private BuffGoods findBuffGoods(String marketHashName, String goodsName) {
-        if (StrUtil.isNotBlank(marketHashName)) {
-            BuffGoods goods = buffGoodsService.lambdaQuery()
-                    .eq(BuffGoods::getMarketHashName, marketHashName)
-                    .one();
-            if (goods != null) {
-                return goods;
-            }
-        }
-
-        if (StrUtil.isNotBlank(goodsName)) {
-            return buffGoodsService.lambdaQuery()
-                    .eq(BuffGoods::getName, goodsName)
-                    .one();
-        }
-        return null;
     }
 
     /**

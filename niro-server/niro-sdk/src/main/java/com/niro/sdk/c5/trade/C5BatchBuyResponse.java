@@ -1,6 +1,6 @@
 package com.niro.sdk.c5.trade;
 
-import com.fasterxml.jackson.annotation.JsonProperty;
+import com.alibaba.fastjson2.annotation.JSONField;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -21,10 +21,10 @@ public class C5BatchBuyResponse {
         private String outTradeNo;
         private BigDecimal amount;
         
-        @JsonProperty("code")
+        @JSONField(name = "code")
         private Integer errorCode;
         
-        @JsonProperty("msg")
+        @JSONField(name = "msg")
         private String errorMsg;
     }
 

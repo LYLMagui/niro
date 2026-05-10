@@ -53,7 +53,7 @@ public class LogController {
      * 根据 TraceID 查询日志
      */
     @GetMapping("/search")
-    @SaCheckPermission(PermissionConstants.LOG_LIST)
+    @SaCheckPermission(PermissionConstants.SystemResource.LOG_LIST)
     @Operation(summary = "全链路日志查询")
     public List<Map<String, Object>> searchLogs(@RequestParam String traceId) {
         return logService.queryLogsByTraceId(traceId);
@@ -91,7 +91,7 @@ public class LogController {
     }
 
     @GetMapping(value = "/stream", produces = MediaType.TEXT_EVENT_STREAM_VALUE)
-    @SaCheckPermission(PermissionConstants.LOG_LIST)
+    @SaCheckPermission(PermissionConstants.SystemResource.LOG_LIST)
     @Operation(summary = "实时日志流 (SSE)")
     public Flux<ServerSentEvent<String>> streamLogs() {
         // 1. 构建初始快照流 (最后 100 行)

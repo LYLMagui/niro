@@ -7,7 +7,7 @@
     mobile-content-class="px-3 pt-3 pb-0"
   >
     <section class="overflow-hidden bg-white">
-      <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
+      <div :class="['flex flex-col bg-white', isMobile ? 'gap-2 pt-0 pb-4' : 'px-0 py-4 gap-6']">
         <PageHeader title="库存管理">
           <template #icon>
             <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -20,31 +20,6 @@
             </svg>
           </template>
           <template #extra>
-            <div v-if="isMobile" class="flex items-center gap-2 mr-1">
-              <t-button
-                v-if="canRefreshInventory"
-                variant="outline"
-                size="small"
-                theme="primary"
-                :loading="refreshing"
-                :disabled="loading || refreshableAccounts.length === 0"
-                @click="handleRefresh"
-              >
-                <template #icon>
-                  <t-icon name="refresh" :class="{ 'animate-spin': refreshing }" />
-                </template>
-                刷新
-              </t-button>
-              <t-button
-                variant="outline"
-                size="small"
-                theme="default"
-                @click="showFilters = !showFilters"
-              >
-                <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
-                {{ showFilters ? '收起' : '筛选' }}
-              </t-button>
-            </div>
             <div v-if="!isMobile" class="flex items-center gap-4">
               <div class="flex flex-col items-end">
                 <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
@@ -71,18 +46,45 @@
         <!-- 移动端统计数据条 -->
         <div
           v-if="isMobile"
-          class="flex items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-xs"
+          class="flex items-center justify-between rounded-lg bg-slate-100/80 px-3 py-2 text-xs shadow-sm"
         >
-          <div class="flex items-center gap-1.5">
-            <span class="text-slate-400">总量:</span>
-            <span class="font-bold text-slate-700">{{ totalCount }} 件</span>
+          <div class="flex items-center gap-2">
+            <div class="flex items-center gap-1">
+              <span class="text-slate-500 font-medium">总量:</span>
+              <span class="font-bold text-slate-900">{{ totalCount }}</span>
+            </div>
+            <div class="h-3 w-[1px] bg-slate-200"></div>
+            <div class="flex items-center gap-1">
+              <span class="text-slate-400">估值:</span>
+              <span class="font-bold text-rose-500">{{ formatCurrency(totalValuation) }}</span>
+            </div>
           </div>
-          <div class="flex items-center gap-1.5">
-            <span class="text-slate-400">估值:</span>
-            <span class="font-bold text-rose-500">{{ formatCurrency(totalValuation) }}</span>
+          <div class="flex items-center gap-2">
+            <t-button
+              v-if="canRefreshInventory"
+              variant="base"
+              size="small"
+              theme="primary"
+              :loading="refreshing"
+              :disabled="loading || refreshableAccounts.length === 0"
+              @click="handleRefresh"
+            >
+              <template #icon>
+                <t-icon name="refresh" :class="{ 'animate-spin': refreshing }" />
+              </template>
+              刷新
+            </t-button>
+            <t-button
+              variant="outline"
+              size="small"
+              theme="default"
+              @click="showFilters = !showFilters"
+            >
+              <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
+              {{ showFilters ? "收起" : "筛选" }}
+            </t-button>
           </div>
         </div>
-
 
         <div
           v-if="!isMobile || showFilters"
@@ -146,8 +148,13 @@
     </section>
 
     <div class="relative -mx-4 min-h-0 flex-1 overflow-y-auto bg-white px-4 py-4">
-      <div v-if="loading" class="flex h-64 items-center justify-center">
-        <t-loading size="medium" text="加载库存中..." />
+      <div v-if="loading" class="flex h-64 flex-col items-center justify-center gap-3">
+        <t-loading size="medium">
+          <template #indicator>
+            <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+          </template>
+        </t-loading>
+        <span class="text-sm text-slate-500">加载库存中...</span>
       </div>
 
       <div
@@ -157,8 +164,8 @@
         <div
           v-for="item in inventory"
           :key="getItemKey(item)"
-          :class="['group relative', item.ifTradable ? 'cursor-pointer' : 'cursor-default']"
-          @click="item.ifTradable && handleOpenSellDrawer(item)"
+          :class="['group relative', (item.ifTradable && item.inventoryStatus !== 'LISTING') ? 'cursor-pointer' : 'cursor-default']"
+          @click="item.ifTradable && item.inventoryStatus !== 'LISTING' && handleOpenSellDrawer(item)"
         >
           <!-- 堆叠效果底层 (更明显的叠层感) -->
           <div
@@ -176,7 +183,7 @@
           >
             <!-- 悬浮快捷上架按钮 (仅在桌面端显示) -->
             <div
-              v-if="item.ifTradable"
+              v-if="item.ifTradable && item.inventoryStatus !== 'LISTING'"
               class="pointer-events-none absolute inset-0 z-40 hidden items-center justify-center bg-slate-900/0 opacity-0 transition-all duration-300 group-hover:bg-slate-900/5 group-hover:opacity-100 lg:flex"
             >
               <t-button
@@ -210,6 +217,14 @@
                 暂无图片
               </div>
 
+              <t-checkbox
+                v-model="selectedItemIds"
+                :value="getItemKey(item)"
+                :disabled="item.inventoryStatus === 'LISTING'"
+                class="absolute top-2 left-2 z-50 !m-0"
+                @click.stop
+              />
+
               <!-- 左上角：磨损等级标签 -->
               <div v-if="shouldShowWear(item)" class="absolute top-0 left-0 z-30">
                 <div
@@ -220,10 +235,17 @@
                 </div>
               </div>
 
-              <!-- 右上角：冷却状态 -->
+              <!-- 右上角：状态标识 -->
               <div class="absolute top-1.5 right-1.5 z-30 flex flex-col items-end gap-1">
                 <div
-                  v-if="!item.ifTradable"
+                  v-if="item.inventoryStatus === 'LISTING'"
+                  class="flex items-center gap-0.5 rounded-full bg-blue-600 px-1.5 py-0.5 text-[10px] text-white shadow-sm"
+                >
+                  <t-icon name="shop" size="12px" />
+                  <span>上架中</span>
+                </div>
+                <div
+                  v-else-if="!item.ifTradable"
                   class="flex items-center gap-0.5 rounded-full bg-black/30 px-1.5 py-0.5 text-[10px] text-white backdrop-blur-[2px]"
                 >
                   <t-icon name="time" size="12px" />
@@ -287,10 +309,10 @@
                   <span
                     :class="[
                       'shrink-0 text-[10px]',
-                      item.ifTradable ? 'text-emerald-600' : 'text-slate-500',
+                      item.inventoryStatus === 'LISTING' ? 'text-blue-600' : (item.ifTradable ? 'text-emerald-600' : 'text-slate-500'),
                     ]"
                   >
-                    {{ item.ifTradable ? "可交易" : "冷却中" }}
+                    {{ item.inventoryStatus === 'LISTING' ? '上架中' : (item.ifTradable ? "可交易" : "冷却中") }}
                   </span>
                 </div>
 
@@ -312,11 +334,11 @@
 
       <div v-if="pagination.total > 0" class="mt-4 flex justify-center pb-4">
         <t-pagination
-            :size="isMobile ? 'small' : 'medium'"
-            :theme="isMobile ? 'simple' : 'default'"
-            :show-page-size="isMobile ? false : undefined"
           v-model="pagination.current"
           v-model:page-size="pagination.pageSize"
+          :size="isMobile ? 'small' : 'medium'"
+          :theme="isMobile ? 'simple' : 'default'"
+          :show-page-size="isMobile ? false : undefined"
           :total="pagination.total"
           :page-size-options="pageSizeOptions"
           :disabled="loading"
@@ -448,7 +470,18 @@
                 height="100%"
                 class="sub-item-pricing-table"
                 :loading="inventoryItemsLoading"
+                :loading-props="{ indicator: false }"
               >
+                <template #loading>
+                  <div class="flex flex-col items-center justify-center gap-3 py-10">
+                    <t-loading size="medium">
+                      <template #indicator>
+                        <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                      </template>
+                    </t-loading>
+                    <span class="text-sm text-slate-500">正在获取报价信息...</span>
+                  </div>
+                </template>
                 <template #selection="{ row }">
                   <t-checkbox
                     :disabled="!row.ifTradable"
@@ -653,7 +686,7 @@
                     class="flex flex-wrap items-center gap-2 text-[11px] text-slate-500"
                   >
                     <t-tag size="small" variant="light" :theme="marketSnapshotTagTheme">
-                      {{ marketSnapshotStatus || "快照" }}
+                      {{ formatSnapshotStatus(marketSnapshotStatus) }}
                     </t-tag>
                     <span>{{ marketSnapshotMessage }}</span>
                     <span v-if="marketSnapshotLastSuccessTime" class="text-slate-400">
@@ -780,7 +813,12 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from "vue";
 import { useWindowSize } from "@vueuse/core";
-import { MessagePlugin, type PageInfo, type PrimaryTableCol } from "tdesign-vue-next";
+import {
+  MessagePlugin,
+  type PageInfo,
+  type PrimaryTableCol,
+  Icon as tIcon,
+} from "tdesign-vue-next";
 import { c5InventoryApi } from "@/api/c5-inventory";
 import { c5SnipingAccountApi } from "@/api/c5-sniping-account";
 import { PermissionConstant } from "@/constant/PermissionConstant";
@@ -810,6 +848,7 @@ const loading = ref(false);
 const accountLoading = ref(false);
 const refreshing = ref(false);
 const selectedAccountId = ref<number>(ALL_ACCOUNT_VALUE);
+const selectedItemIds = ref<string[]>([]);
 const searchKeyword = ref("");
 const activeTab = ref<C5InventoryStatusFilter>("all");
 const accounts = ref<C5SnipingAccount[]>([]);
@@ -833,6 +872,17 @@ const sellPrice = ref("");
 const mockMarketPrices = ref<C5InventoryMarketReference[]>([]);
 const marketSnapshotMessage = ref("");
 const marketSnapshotStatus = ref("");
+const snapshotStatusMap: Record<string, string> = {
+  SUCCESS: "成功",
+  FAILED: "失败",
+  REFRESHING: "刷新中",
+  PENDING: "排队中",
+  RUNNING: "执行中",
+};
+const formatSnapshotStatus = (status?: string) => {
+  if (!status) return "快照";
+  return snapshotStatusMap[status] || status;
+};
 const marketSnapshotLastSuccessTime = ref<string | null>(null);
 const marketSnapshotStale = ref(false);
 const mockSubItems = ref<C5InventoryAsset[]>([]);
@@ -880,6 +930,16 @@ const getWearName = (wear: number) => {
 };
 
 const formatAssetWear = (wear?: number) => (typeof wear === "number" ? wear.toFixed(15) : "-");
+
+const handleSelectAllChange = (val: boolean) => {
+  if (val) {
+    selectedItemIds.value = inventory.value
+      .filter((item) => item.inventoryStatus !== "LISTING")
+      .map((item) => getItemKey(item));
+  } else {
+    selectedItemIds.value = [];
+  }
+};
 
 const applyGlobalPriceToSelected = () => {
   if (!sellPrice.value) return;
@@ -1022,7 +1082,9 @@ const marketSnapshotTagTheme = computed(() => {
   if (marketSnapshotStale.value) return "warning";
   if (marketSnapshotStatus.value === "SUCCESS") return "success";
   if (marketSnapshotStatus.value === "FAILED") return "danger";
-  if (marketSnapshotStatus.value === "REFRESHING") return "primary";
+  if (marketSnapshotStatus.value === "REFRESHING" || marketSnapshotStatus.value === "RUNNING")
+    return "primary";
+  if (marketSnapshotStatus.value === "PENDING") return "warning";
   return "default";
 });
 
@@ -1049,7 +1111,7 @@ const marketRefColumns: PrimaryTableCol[] = [
 ];
 
 const handleOpenSellDrawer = async (item: C5InventoryItem) => {
-  if (!item.ifTradable) return;
+  if (!item.ifTradable || item.inventoryStatus === "LISTING") return;
   sellingItem.value = item;
   sellPrice.value = (item.price || 0).toString();
   queryTargetItem.value = null;
@@ -1251,7 +1313,6 @@ watch(marketRangeKey, (newVal) => {
     refreshMarketReferences(true);
   }
 });
-
 
 const handleMarketNextPage = () => {
   if (!marketHasMore.value || marketLoading.value) return;
@@ -1593,6 +1654,16 @@ const handleRefresh = async () => {
     MessagePlugin.error("刷新失败，请稍后重试");
   } finally {
     refreshing.value = false;
+  }
+};
+
+const handleBatchSell = () => {
+  if (selectedItemIds.value.length === 0) return;
+  const items = inventory.value.filter((item) =>
+    selectedItemIds.value.includes(getItemKey(item))
+  );
+  if (items.length > 0) {
+    handleOpenSellDrawer(items[0]);
   }
 };
 

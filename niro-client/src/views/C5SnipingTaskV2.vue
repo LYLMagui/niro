@@ -1,11 +1,12 @@
 <template>
-  <PageFrame
-    :is-mobile="isMobile"
-    body-class="c5-sniping-v2-body"
-    desktop-outer-class="!p-0"
-    desktop-content-class="px-4 pt-0 pb-0"
-    mobile-content-class="px-3 pt-3 pb-0"
-  >
+    <PageFrame
+      :is-mobile="isMobile"
+      body-class="c5-sniping-v2-body"
+      mobile-body-class="overflow-hidden"
+      desktop-outer-class="!p-0"
+      desktop-content-class="px-4 pt-0 pb-0"
+      mobile-content-class="px-3 pt-3 pb-0"
+    >
     <PageHeader title="C5 扫货任务">
       <template #icon>
         <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -18,16 +19,62 @@
         </svg>
       </template>
       <template #extra>
-        <div v-if="isMobile" class="flex items-center gap-2 mr-1">
+        <div v-if="!isMobile" class="flex items-center gap-6">
+          <div v-for="account in accountBalances" :key="account.accountId" class="flex flex-col items-end">
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              <span class="text-blue-600/90 font-extrabold">{{ account.accountName }}</span> 扫货可用余额
+            </span>
+            <div class="flex items-baseline gap-1">
+              <span class="text-[10px] font-bold text-orange-500/80 italic">¥</span>
+              <span class="font-numeric text-base font-bold text-orange-500 tabular-nums">
+                {{ formatPrice(account.moneyAmount ?? account.balance).replace("¥", "") }}
+              </span>
+            </div>
+          </div>
+          <div v-if="accountBalances.length > 0" class="h-8 w-px bg-slate-200 mx-1"></div>
+          <div class="flex flex-col items-end">
+            <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
+              任务总数
+            </span>
+            <span class="font-numeric text-base font-bold text-slate-900">
+              {{ pagination.total }}
+              <small class="text-[10px] font-medium text-slate-400">项</small>
+            </span>
+          </div>
+        </div>
+      </template>
+    </PageHeader>
+
+    <div :class="['flex flex-col bg-white', isMobile ? 'gap-2 pt-0' : 'px-0 py-4 gap-6']">
+      <!-- 移动端统计数据条 -->
+      <div
+        v-if="isMobile"
+        class="mx-0 flex items-center justify-between rounded-lg bg-slate-100/80 px-3 py-2 text-xs shadow-sm"
+      >
+        <div class="flex flex-col gap-1 overflow-hidden">
+          <div class="flex items-center gap-1.5">
+            <span class="text-slate-500 font-medium whitespace-nowrap">任务总数:</span>
+            <span class="font-bold text-slate-900">{{ pagination.total }} 项</span>
+          </div>
+          <div v-if="accountBalances.length > 0" class="flex flex-wrap gap-x-3 gap-y-1">
+            <div v-for="account in accountBalances" :key="account.accountId" class="flex items-center gap-1">
+              <span class="text-slate-400 whitespace-nowrap">
+                <span class="font-bold text-slate-700">{{ account.accountName }}</span> 扫货可用:
+              </span>
+              <span class="font-bold text-orange-600">{{ formatPrice(account.moneyAmount ?? account.balance) }}</span>
+            </div>
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
           <t-button
             v-if="canCreateTask"
-            variant="outline"
+            variant="base"
             size="small"
             theme="primary"
             @click="openCreateDialog"
           >
             <template #icon><t-icon name="plus" /></template>
-            新增
+            新增任务
           </t-button>
           <t-button
             variant="outline"
@@ -36,37 +83,13 @@
             @click="showFilters = !showFilters"
           >
             <template #icon><t-icon :name="showFilters ? 'chevron-up' : 'filter'" /></template>
-            {{ showFilters ? '收起' : '筛选' }}
+            {{ showFilters ? "收起" : "筛选" }}
           </t-button>
         </div>
-        <div v-if="!isMobile" class="flex flex-col items-end">
-          <span class="text-[10px] font-bold tracking-wider text-slate-400 uppercase">
-            任务总数
-          </span>
-          <span class="font-numeric text-base font-bold text-slate-900">
-            {{ pagination.total }}
-            <small class="text-[10px] font-medium text-slate-400">项</small>
-          </span>
-        </div>
-      </template>
-    </PageHeader>
-
-    <div :class="['flex flex-col bg-white px-0 py-4', isMobile ? 'gap-3' : 'gap-6']">
-      <!-- 移动端统计数据条 -->
-      <div
-        v-if="isMobile"
-        class="mx-0 flex items-center justify-between rounded-lg bg-slate-50/80 px-3 py-2 text-xs"
-      >
-        <div class="flex items-center gap-1.5">
-          <span class="text-slate-400">任务总数:</span>
-          <span class="font-bold text-slate-700">{{ pagination.total }} 项</span>
-        </div>
       </div>
-      <div class="flex flex-col gap-3 px-0 py-4">
-        <div
-          v-if="!isMobile || showFilters"
-          class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_minmax(0,160px)_auto] xl:items-end"
-        >
+
+      <div v-if="!isMobile || showFilters" class="flex flex-col gap-3 px-0 py-4">
+        <div class="grid grid-cols-1 gap-4 xl:grid-cols-[minmax(0,280px)_minmax(0,200px)_minmax(0,160px)_auto] xl:items-end">
           <label class="flex min-w-0 flex-col gap-1.5">
             <span class="text-sm font-medium text-slate-700">任务关键词</span>
             <t-input
@@ -135,7 +158,7 @@
           </div>
         </div>
 
-        <div class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+        <div v-if="!isMobile" class="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
           <div class="flex flex-wrap items-center gap-2">
             <t-button
               v-if="canCreateTask"
@@ -150,18 +173,29 @@
       </div>
     </div>
 
-    <div class="relative min-h-0 flex-1">
-      <div class="relative flex h-full min-h-0 flex-col overflow-hidden">
-        <div class="min-h-0 flex-1 overflow-hidden">
+    <div class="relative min-h-0 flex-1 flex flex-col">
+      <div class="relative flex flex-1 min-h-0 flex-col overflow-hidden">
+        <div class="min-h-0 flex-1 flex flex-col overflow-hidden">
           <!-- 移动端卡片视图 -->
-          <div v-if="isMobile" class="h-full overflow-y-auto bg-slate-50 p-3">
-            <div v-if="loading" class="flex h-32 items-center justify-center">
-              <t-loading size="medium" text="加载中..." />
+          <div v-if="isMobile" class="flex-1 overflow-y-auto overscroll-contain bg-slate-50 p-3">
+            <div
+              v-if="loading"
+              class="flex h-full min-h-[200px] flex-col items-center justify-center gap-3"
+            >
+              <t-loading size="medium">
+                <template #indicator>
+                  <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                </template>
+              </t-loading>
+              <span class="text-sm text-slate-500">加载任务中...</span>
             </div>
-            <div v-else-if="dataList.length === 0" class="py-8">
-              <t-empty description="暂无扫货任务" />
+            <div
+              v-else-if="dataList.length === 0"
+              class="flex flex-1 flex-col items-center justify-center py-12 opacity-80"
+            >
+              <t-empty description="暂无扫货任务" class="!m-0" />
             </div>
-            <div v-else class="flex flex-col gap-3">
+            <div v-else class="flex flex-col gap-3 pb-8">
               <div
                 v-for="row in dataList"
                 :key="row.id"
@@ -203,41 +237,13 @@
                   </div>
                 </div>
 
-                <!-- 内容区：目标配置、实战数据 -->
+                <!-- 内容区：任务状态、购买进度、余额/最近错误、明细入口 -->
                 <div class="flex flex-col gap-2 p-3 text-xs text-slate-600">
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">最高价格</span>
-                    <span class="font-medium text-red-600">{{ formatPrice(row.maxPrice) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">磨损范围</span>
-                    <span>{{ formatPaintwear(row) }}</span>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">停止规则</span>
-                    <div class="text-right">
-                      <div>{{ getStopModeLabel(row.stopMode) }}</div>
-                      <div v-if="row.stopMode === 'BUY_COUNT'" class="text-[10px] text-slate-500">
-                        目标: {{ row.targetBuyCount ?? "-" }}
-                      </div>
-                      <div
-                        v-else-if="row.balanceGuardMode === 'RESERVE_BALANCE'"
-                        class="text-[10px] text-slate-500"
-                      >
-                        保底: {{ formatPrice(row.reserveBalance) }}
-                      </div>
-                    </div>
-                  </div>
-                  <div class="flex items-center justify-between">
-                    <span class="text-slate-400">创建时间</span>
-                    <span>{{ formatDateTime(row.createTime) }}</span>
-                  </div>
-
-                  <div class="mt-1 rounded bg-slate-50 p-2">
+                  <div class="rounded bg-slate-50 p-2">
                     <div class="mb-1 flex items-center justify-between">
-                      <span class="text-slate-500">成功/预占 (命中: {{ row.hitCount ?? 0 }})</span>
+                      <span class="text-slate-500">购买进度</span>
                       <span class="font-bold text-emerald-600">
-                        {{ row.successBuyCount ?? 0 }} / {{ row.reservedBuyCount ?? 0 }}
+                        {{ row.successBuyCount ?? 0 }} / {{ row.targetBuyCount ?? 0 }}
                       </span>
                     </div>
                     <div class="h-1 w-full overflow-hidden rounded-full bg-slate-200">
@@ -248,8 +254,30 @@
                     </div>
                   </div>
 
-                  <div v-if="row.lastErrorMessage" class="mt-1 truncate text-[11px] text-rose-500">
-                    错误: {{ row.lastErrorMessage }}
+
+
+                  <div class="flex items-center justify-between">
+                    <span class="text-slate-400">命中次数</span>
+                    <span class="font-medium text-slate-700">{{ row.hitCount ?? 0 }}</span>
+                  </div>
+
+                  <div class="grid grid-cols-2 gap-2 rounded bg-slate-50 p-2">
+                    <div class="min-w-0">
+                      <div class="text-slate-400">创建时间</div>
+                      <div class="mt-0.5 truncate font-medium text-slate-700">
+                        {{ formatDateTime(row.createTime) }}
+                      </div>
+                    </div>
+                    <div class="min-w-0">
+                      <div class="text-slate-400">完成时间</div>
+                      <div class="mt-0.5 truncate font-medium text-slate-700">
+                        {{ formatDateTime(row.finishedAt) }}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div v-if="row.lastErrorMessage" class="truncate text-[11px] text-rose-500">
+                    最近错误: {{ row.lastErrorMessage }}
                   </div>
                 </div>
 
@@ -326,10 +354,22 @@
             :data="dataList"
             :columns="columns"
             :loading="loading"
+            :loading-props="{ indicator: false }"
             :pagination="undefined"
             hover
             class="c5-sniping-v2-table w-full bg-white"
           >
+            <template #loading>
+              <div class="flex flex-col items-center justify-center gap-3 py-10">
+                <t-loading size="medium">
+                  <template #indicator>
+                    <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+                  </template>
+                </t-loading>
+                <span class="text-sm text-slate-500">扫货任务加载中...</span>
+              </div>
+            </template>
+
             <template #empty>
               <div class="py-8">
                 <t-empty description="暂无扫货任务" />
@@ -384,36 +424,12 @@
               </div>
             </template>
 
-            <template #target="{ row }">
-              <div class="space-y-1 text-sm text-slate-600">
-                <div>
-                  最高价格：
-                  <span class="font-medium text-red-600">{{ formatPrice(row.maxPrice) }}</span>
-                </div>
-                <div>磨损范围：{{ formatPaintwear(row) }}</div>
-                <div>扫描间隔：{{ formatScanInterval(row.scanIntervalMs) }}</div>
-              </div>
-            </template>
-
-            <template #stopRule="{ row }">
-              <div class="space-y-1 text-sm text-slate-600">
-                <div>{{ getStopModeLabel(row.stopMode) }}</div>
-                <div v-if="row.stopMode === 'BUY_COUNT'">
-                  目标购买数：{{ row.targetBuyCount ?? "-" }}
-                </div>
-                <div v-else-if="row.balanceGuardMode === 'RESERVE_BALANCE'">
-                  保底余额：{{ formatPrice(row.reserveBalance) }}
-                </div>
-                <div v-else>余额口径：{{ getBalanceGuardModeLabel(row.balanceGuardMode) }}</div>
-              </div>
-            </template>
-
             <template #summary="{ row }">
               <div class="flex flex-col gap-1.5 py-1">
                 <div class="flex items-center justify-between text-[13px]">
-                  <span class="text-slate-500">成功/预占</span>
+                  <span class="text-slate-500">成功/目标</span>
                   <span class="font-bold text-emerald-600">
-                    {{ row.successBuyCount ?? 0 }} / {{ row.reservedBuyCount ?? 0 }}
+                    {{ row.successBuyCount ?? 0 }} / {{ row.targetBuyCount ?? 0 }}
                   </span>
                 </div>
                 <div class="h-1 w-full overflow-hidden rounded-full bg-slate-100">
@@ -429,17 +445,21 @@
               </div>
             </template>
 
-            <template #lastError="{ row }">
-              <t-tooltip :content="row.lastErrorMessage || '-'" placement="top-left">
-                <div class="max-w-[220px] truncate text-sm text-slate-600">
-                  {{ row.lastErrorMessage || "-" }}
-                </div>
-              </t-tooltip>
+            <template #accountState="{ row }">
+              <div class="space-y-1 text-sm text-slate-600">
+
+                <t-tooltip :content="row.lastErrorMessage || '-'" placement="top-left">
+                  <div class="max-w-[220px] truncate">
+                    最近错误：{{ row.lastErrorMessage || "-" }}
+                  </div>
+                </t-tooltip>
+              </div>
             </template>
 
-            <template #createTime="{ row }">
-              <div class="text-sm text-slate-600">
-                {{ formatDateTime(row.createTime) }}
+            <template #timeInfo="{ row }">
+              <div class="space-y-1 text-sm text-slate-600">
+                <div>创建：{{ formatDateTime(row.createTime) }}</div>
+                <div>完成：{{ formatDateTime(row.finishedAt) }}</div>
               </div>
             </template>
 
@@ -507,13 +527,16 @@
           </t-table>
         </div>
 
-        <div v-if="pagination.total > 0" class="border-t border-slate-200 bg-white px-4 py-3">
+        <div
+          v-if="pagination.total > 0"
+          class="shrink-0 border-t border-slate-200 bg-white px-4 py-3 pb-[calc(12px+env(safe-area-inset-bottom))]"
+        >
           <t-pagination
+            v-model="pagination.current"
+            v-model:page-size="pagination.pageSize"
             :size="isMobile ? 'small' : 'medium'"
             :theme="isMobile ? 'simple' : 'default'"
             :show-page-size="isMobile ? false : undefined"
-            v-model="pagination.current"
-            v-model:page-size="pagination.pageSize"
             :total="pagination.total"
             show-jumper
             @change="onPageChange"
@@ -767,9 +790,20 @@
         :data="detailDrawer.data"
         :columns="detailDrawer.columns"
         :loading="detailDrawer.loading"
+        :loading-props="{ indicator: false }"
         :pagination="undefined"
         hover
       >
+        <template #loading>
+          <div class="flex flex-col items-center justify-center gap-3 py-10">
+            <t-loading size="medium">
+              <template #indicator>
+                <t-icon name="loading" class="animate-spin text-blue-600" size="24px" />
+              </template>
+            </t-loading>
+            <span class="text-sm text-slate-500">记录加载中...</span>
+          </div>
+        </template>
         <template #empty>
           <div class="py-8">
             <t-empty :description="detailDrawer.emptyText" />
@@ -784,11 +818,11 @@
       </t-table>
       <div v-if="detailDrawer.pagination.total > 0" class="mt-3 flex justify-end">
         <t-pagination
-            :size="isMobile ? 'small' : 'medium'"
-            :theme="isMobile ? 'simple' : 'default'"
-            :show-page-size="isMobile ? false : undefined"
           v-model="detailDrawer.pagination.current"
           v-model:page-size="detailDrawer.pagination.pageSize"
+          :size="isMobile ? 'small' : 'medium'"
+          :theme="isMobile ? 'simple' : 'default'"
+          :show-page-size="isMobile ? false : undefined"
           :total="detailDrawer.pagination.total"
           show-jumper
           @change="onDetailPageChange"
@@ -823,13 +857,17 @@ import PageFrame from "@/components/PageFrame.vue";
 import PageHeader from "@/components/PageHeader.vue";
 import AppDialog from "@/components/AppDialog.vue";
 import type { C5SnipingAccount, C5SnipingAccountStatus } from "@/types/c5-sniping-account";
-import { BuffAccountStatusEnum, BuffAccountStatusMap } from "@/enums/BuffAccountStatusEnum";
+import {
+  C5SnipingAccountStatusEnum,
+  C5SnipingAccountStatusMap,
+} from "@/enums/C5SnipingAccountStatusEnum";
 import type { Cs2GoodsOption } from "@/types/cs2-goods";
 import { PermissionConstant } from "@/constant/PermissionConstant";
 import useNewPermission from "@/hooks/useNewPermission";
 import type {
   C5SnipingBuyAttemptV2Item,
   C5SnipingHitRecordV2Item,
+  C5SnipingTaskV2AccountBalance,
   C5SnipingTaskV2BalanceGuardMode,
   C5SnipingTaskV2EventPayload,
   C5SnipingTaskV2Item,
@@ -876,10 +914,14 @@ const queryParams = reactive<C5SnipingTaskV2QueryParam>({
 const pagination = reactive({ current: 1, pageSize: 10, total: 0 });
 const accountsLoading = ref(false);
 const c5Accounts = ref<C5SnipingAccount[]>([]);
+const accountBalances = ref<C5SnipingTaskV2AccountBalance[]>([]);
+const ACCOUNT_BALANCE_REFRESH_INTERVAL_MS = 1000;
+const accountBalanceRefreshQueue = new Set<number>();
+let accountBalanceRefreshTimer: number | undefined;
+let lastAccountBalanceRefreshAt = 0;
 
 const taskStatusOptions = [
   { label: "待开启", value: "DRAFT" },
-  { label: "待运行", value: "READY" },
   { label: "运行中", value: "RUNNING" },
   { label: "已停止", value: "STOPPED" },
   { label: "已完成", value: "COMPLETED" },
@@ -941,48 +983,32 @@ const columns = computed<PrimaryTableCol[]>(() => [
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "target",
-    title: "目标配置",
-    width: 180,
-    cell: "target",
-    className: taskTableBodyClass,
-    thClassName: taskTableHeaderClass,
-  },
-  {
-    colKey: "stopRule",
-    title: "停止规则",
-    width: 180,
-    cell: "stopRule",
-    className: taskTableBodyClass,
-    thClassName: taskTableHeaderClass,
-  },
-  {
     colKey: "summary",
-    title: "实战数据",
-    width: 160,
+    title: "购买进度",
+    width: 180,
     cell: "summary",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "lastError",
-    title: "错误详情",
-    width: 200,
-    cell: "lastError",
+    colKey: "accountState",
+    title: "最近错误",
+    width: 220,
+    cell: "accountState",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
-    colKey: "createTime",
-    title: "创建时间",
-    width: 170,
-    cell: "createTime",
+    colKey: "timeInfo",
+    title: "时间",
+    width: 220,
+    cell: "timeInfo",
     className: taskTableBodyClass,
     thClassName: taskTableHeaderClass,
   },
   {
     colKey: "op",
-    title: "操作",
+    title: "命中/下单尝试",
     width: 220,
     cell: "op",
     fixed: "right" as const,
@@ -1012,14 +1038,14 @@ const getDecisionResultLabel = (value?: string) => {
   };
   return value ? map[value] || value : "-";
 };
-const formatPaintwear = (row: C5SnipingTaskV2Item) =>
-  `${row.minPaintwear ?? 0} - ${row.maxPaintwear ?? 1}`;
-const formatScanInterval = (value?: number) => (value ? `${Math.ceil(value / 1000)}秒/次` : "-");
-
-const getTaskStatusMeta = (status: string) => {
-  const map: Record<string, { label: string; theme: TagProps["theme"]; dotClass: string }> = {
+const getTaskStatusMeta = (
+  status?: string
+): { label: string; theme: NonNullable<TagProps["theme"]>; dotClass: string } => {
+  const map: Record<
+    string,
+    { label: string; theme: NonNullable<TagProps["theme"]>; dotClass: string }
+  > = {
     DRAFT: { label: "待开启", theme: "default", dotClass: "bg-slate-400" },
-    READY: { label: "待运行", theme: "primary", dotClass: "bg-blue-400" },
     RUNNING: {
       label: "运行中",
       theme: "success",
@@ -1029,7 +1055,9 @@ const getTaskStatusMeta = (status: string) => {
     COMPLETED: { label: "已完成", theme: "success", dotClass: "bg-emerald-600" },
     ERROR: { label: "异常", theme: "danger", dotClass: "bg-rose-500 animate-pulse" },
   };
-  return map[status] || { label: status, theme: "default", dotClass: "bg-slate-300" };
+  return status
+    ? map[status] || { label: status, theme: "default", dotClass: "bg-slate-300" }
+    : { label: "未知", theme: "default", dotClass: "bg-slate-300" };
 };
 
 const getSuccessProgress = (row: C5SnipingTaskV2Item) => {
@@ -1039,16 +1067,8 @@ const getSuccessProgress = (row: C5SnipingTaskV2Item) => {
   return row.successBuyCount ? 100 : 0;
 };
 
-const getStopModeLabel = (value?: string) =>
-  value === "BUY_COUNT" ? "按购买数量停止" : value === "BALANCE_GUARD" ? "按余额停止" : "-";
-const getBalanceGuardModeLabel = (value?: string) =>
-  value === "MAX_PRICE"
-    ? "余额低于最高价格"
-    : value === "RESERVE_BALANCE"
-      ? "余额低于保底余额"
-      : "-";
 const isNormalAccount = (account: C5SnipingAccount) =>
-  account.status === BuffAccountStatusEnum.NORMAL;
+  account.status === C5SnipingAccountStatusEnum.NORMAL;
 const getAccountOptionLabel = (account: C5SnipingAccount) =>
   `${account.accountName}${account.id ? `（${account.id}）` : ""}`;
 const getTaskAccountName = (accountId?: number) =>
@@ -1056,7 +1076,7 @@ const getTaskAccountName = (accountId?: number) =>
 const getAccountStatusMeta = (
   status?: C5SnipingAccountStatus
 ): { label: string; theme: NonNullable<TagProps["theme"]> } => {
-  const meta = status ? BuffAccountStatusMap[status as BuffAccountStatusEnum] : undefined;
+  const meta = status ? C5SnipingAccountStatusMap[status as C5SnipingAccountStatusEnum] : undefined;
   return meta
     ? { label: meta.label, theme: meta.theme as NonNullable<TagProps["theme"]> }
     : { label: "异常", theme: "danger" };
@@ -1072,7 +1092,7 @@ const getSlotReserveMeta = (
     : { label: "预占中", theme: "warning" };
 };
 const isEnableVisible = (status?: string) => ["DRAFT", "STOPPED", "ERROR"].includes(status || "");
-const isDisableVisible = (status?: string) => ["READY", "RUNNING"].includes(status || "");
+const isDisableVisible = (status?: string) => status === "RUNNING";
 
 const fetchAccounts = async () => {
   accountsLoading.value = true;
@@ -1085,13 +1105,90 @@ const fetchAccounts = async () => {
   }
 };
 
+const initPageAccountBalances = () => {
+  const accountIds = [...new Set(dataList.value.map((item) => item.accountId))].filter(Boolean);
+  const previousMap = new Map(accountBalances.value.map((item) => [item.accountId, item]));
+
+  const nextBalances = accountIds.map((accountId) => {
+    const accountName = getTaskAccountName(accountId);
+    const previous = previousMap.get(accountId);
+    return previous
+      ? { ...previous, accountName }
+      : {
+          accountId,
+          accountName,
+          success: false,
+        };
+  });
+
+  const unchanged = nextBalances.length === accountBalances.value.length
+    && nextBalances.every((next, index) => {
+      const previous = accountBalances.value[index];
+      return previous
+        && previous.accountId === next.accountId
+        && previous.accountName === next.accountName
+        && previous.success === next.success
+        && previous.balance === next.balance
+        && previous.pendingBalance === next.pendingBalance
+        && previous.errorMsg === next.errorMsg
+        && previous.refreshTime === next.refreshTime;
+    });
+  if (!unchanged) {
+    accountBalances.value = nextBalances;
+  }
+  return accountIds;
+};
+
+const requestAccountBalanceRefresh = (accountIds: number[]) => {
+  if (accountIds.length === 0) {
+    return;
+  }
+
+  accountIds.forEach((accountId) => accountBalanceRefreshQueue.delete(accountId));
+  lastAccountBalanceRefreshAt = Date.now();
+  c5SnipingV2Api.refreshAccountBalances(accountIds).catch(() => {
+    MessagePlugin.error("C5 账号余额刷新请求失败");
+  });
+};
+
+const refreshCurrentPageAccountBalances = () => {
+  requestAccountBalanceRefresh(initPageAccountBalances());
+};
+
+const applyAccountBalanceEvent = (balance: C5SnipingTaskV2AccountBalance) => {
+  const index = accountBalances.value.findIndex((item) => item.accountId === balance.accountId);
+  if (index === -1) {
+    return;
+  }
+
+  const previous = accountBalances.value[index];
+  const next = {
+    ...previous,
+    ...balance,
+    accountName: balance.accountName || previous.accountName || getTaskAccountName(balance.accountId),
+  };
+  if (previous.accountName === next.accountName
+    && previous.success === next.success
+    && previous.balance === next.balance
+    && previous.pendingBalance === next.pendingBalance
+    && previous.errorMsg === next.errorMsg
+    && previous.refreshTime === next.refreshTime) {
+    return;
+  }
+  accountBalances.value.splice(index, 1, next);
+};
+
 const refreshData = async (silent = false) => {
   if (!silent) {
     loading.value = true;
   }
   try {
-    const res = await c5SnipingV2Api.getPage(queryParams);
+    const [res] = await Promise.all([
+      c5SnipingV2Api.getPage(queryParams),
+      fetchAccounts(),
+    ]);
     dataList.value = res.records;
+    refreshCurrentPageAccountBalances();
     pagination.total = res.total;
     pagination.current = res.current || queryParams.page;
     pagination.pageSize = res.size || queryParams.pageSize;
@@ -1519,12 +1616,50 @@ const scheduleTaskRefresh = (taskId: number) => {
   }, 500);
 };
 
+const flushQueuedAccountBalanceRefresh = () => {
+  if (document.hidden || accountBalanceRefreshQueue.size === 0) {
+    return;
+  }
+
+  const delay = Math.max(
+    ACCOUNT_BALANCE_REFRESH_INTERVAL_MS - (Date.now() - lastAccountBalanceRefreshAt),
+    0
+  );
+  if (delay > 0) {
+    accountBalanceRefreshTimer = window.setTimeout(() => {
+      accountBalanceRefreshTimer = undefined;
+      flushQueuedAccountBalanceRefresh();
+    }, delay);
+    return;
+  }
+
+  requestAccountBalanceRefresh(Array.from(accountBalanceRefreshQueue));
+};
+
+const scheduleAccountBalanceRefresh = (accountId?: number) => {
+  if (!accountId) {
+    return;
+  }
+
+  accountBalanceRefreshQueue.add(accountId);
+  if (accountBalanceRefreshTimer || document.hidden) {
+    return;
+  }
+
+  flushQueuedAccountBalanceRefresh();
+};
+
 const stopTaskRefresh = () => {
   if (taskRefreshTimer) {
     window.clearTimeout(taskRefreshTimer);
     taskRefreshTimer = undefined;
   }
+  if (accountBalanceRefreshTimer) {
+    window.clearTimeout(accountBalanceRefreshTimer);
+    accountBalanceRefreshTimer = undefined;
+  }
   taskRefreshQueue.clear();
+  accountBalanceRefreshQueue.clear();
 };
 
 const applyTaskEventPayload = (payload: C5SnipingTaskV2EventPayload) => {
@@ -1539,6 +1674,10 @@ const applyTaskEventPayload = (payload: C5SnipingTaskV2EventPayload) => {
 
   if (payload.taskStatus !== undefined) {
     next.taskStatus = payload.taskStatus;
+    changed = true;
+  }
+  if (payload.finishedAt !== undefined) {
+    next.finishedAt = payload.finishedAt;
     changed = true;
   }
   if (payload.stopRequested !== undefined) {
@@ -1574,9 +1713,14 @@ const handleVisibilityChange = () => {
       window.clearTimeout(taskRefreshTimer);
       taskRefreshTimer = undefined;
     }
+    if (accountBalanceRefreshTimer) {
+      window.clearTimeout(accountBalanceRefreshTimer);
+      accountBalanceRefreshTimer = undefined;
+    }
     return;
   }
   refreshQueuedTasks();
+  flushQueuedAccountBalanceRefresh();
 };
 
 const isCurrentTaskEvent = (payload: C5SnipingTaskV2EventPayload) => {
@@ -1595,11 +1739,24 @@ const isCurrentTaskEvent = (payload: C5SnipingTaskV2EventPayload) => {
 };
 
 const handleSnipingEvent = (payload: C5SnipingTaskV2EventPayload) => {
+  if (payload.eventType === "ACCOUNT_BALANCE_REFRESHED") {
+    if (payload.accountBalance) {
+      applyAccountBalanceEvent(payload.accountBalance);
+    }
+    return;
+  }
+
   if (!payload.taskId || !isCurrentTaskEvent(payload)) {
     return;
   }
 
-  if (!applyTaskEventPayload(payload)) {
+  const task = dataList.value.find((item) => item.id === payload.taskId);
+  const changed = applyTaskEventPayload(payload);
+  if (payload.eventType === "ATTEMPT_SUCCESS") {
+    scheduleAccountBalanceRefresh(task?.accountId);
+  }
+
+  if (!changed) {
     scheduleTaskRefresh(payload.taskId);
   }
 };
@@ -1622,6 +1779,7 @@ const connectSnipingEvents = () => {
 
   snipingEventSource.onerror = (error) => {
     console.warn("C5 扫货 2.0 实时事件连接异常，浏览器将自动重连", error);
+    refreshData(true);
   };
 };
 
@@ -1638,7 +1796,6 @@ watch(formVisible, (visible) => {
 });
 
 onMounted(() => {
-  fetchAccounts();
   fetchData();
   connectSnipingEvents();
   document.addEventListener("visibilitychange", handleVisibilityChange);

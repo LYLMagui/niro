@@ -198,3 +198,5 @@ metadata:
 - `D:\MySpace\niro\CLAUDE.md`
 - `D:\MySpace\niro\niro-server\CLAUDE.md`
 - 当前项目内相似的 Controller、Service、持久层、DTO、Entity 实现
+
+# 本项目不自动进行构建；如需编译验证，由用户手动执行。

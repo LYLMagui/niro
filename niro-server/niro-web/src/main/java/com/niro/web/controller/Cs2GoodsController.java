@@ -26,14 +26,21 @@ public class Cs2GoodsController {
     private final Cs2GoodsService cs2GoodsService;
 
     @GetMapping("/unbox-case-options")
-    @SaCheckPermission(PermissionConstants.GOODS_LIST)
+    @SaCheckPermission(PermissionConstants.SystemResource.GOODS_LIST)
     @Operation(summary = "获取开箱记录箱子商品选项")
     public List<Cs2GoodsOptionDTO> listUnboxCaseOptions(@RequestParam(name = "keyword", required = false) String keyword) {
         return cs2GoodsService.listUnboxCaseOptions(keyword);
     }
 
+    @GetMapping("/unbox-item-options")
+    @SaCheckPermission(PermissionConstants.SystemResource.GOODS_LIST)
+    @Operation(summary = "获取开箱记录饰品商品选项")
+    public List<Cs2GoodsOptionDTO> listUnboxItemOptions(@RequestParam(name = "keyword", required = false) String keyword) {
+        return cs2GoodsService.listUnboxItemOptions(keyword);
+    }
+
     @GetMapping("/c5-task-options")
-    @SaCheckPermission(PermissionConstants.TASK_SCAN_LIST)
+    @SaCheckPermission(PermissionConstants.Task.SCAN_LIST)
     @Operation(summary = "获取 C5 任务商品选项")
     public List<Cs2GoodsOptionDTO> listC5TaskOptions(@RequestParam(name = "keyword", required = false) String keyword) {
         return cs2GoodsService.listC5TaskOptions(keyword);

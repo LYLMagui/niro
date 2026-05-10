@@ -3,38 +3,43 @@ package com.niro.sdk.c5.client.core;
 import cn.hutool.core.collection.CollUtil;
 import cn.hutool.core.util.StrUtil;
 import cn.hutool.http.Method;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.DeserializationFeature;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.alibaba.fastjson2.JSON;
+import com.alibaba.fastjson2.JSONException;
+import com.alibaba.fastjson2.TypeReference;
 import com.niro.sdk.c5.config.C5Config;
+import com.niro.sdk.c5.constant.C5HttpConstant;
+import com.niro.sdk.c5.enums.C5BusinessStatusEnum;
+import com.niro.sdk.c5.enums.C5HttpStatusEnum;
 import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.exception.C5BusinessException;
 import com.niro.sdk.c5.exception.C5HttpException;
 import com.niro.sdk.c5.exception.C5NetworkException;
 import com.niro.sdk.c5.exception.C5SerializationException;
 import com.niro.sdk.c5.response.C5BaseResponse;
+import com.niro.sdk.common.util.SdkHttpUtil;
 import lombok.extern.slf4j.Slf4j;
-
-import static com.niro.sdk.c5.constant.C5HttpConstant.*;
-import static com.niro.sdk.common.util.SdkHttpUtil.*;
+import okhttp3.Call;
+import okhttp3.Callback;
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.RequestBody;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import org.slf4j.MDC;
 
 import java.io.IOException;
+import java.io.InterruptedIOException;
+import java.net.SocketTimeoutException;
 import java.net.URI;
-import java.net.http.HttpClient;
-import java.net.http.HttpRequest;
-import java.net.http.HttpResponse;
-import java.net.http.HttpTimeoutException;
-import java.nio.charset.StandardCharsets;
-import java.time.Duration;
 import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import java.util.concurrent.TimeUnit;
 
-import com.niro.sdk.c5.enums.C5BusinessStatusEnum;
-
-import com.niro.sdk.c5.enums.C5HttpStatusEnum;
+import static com.niro.sdk.c5.constant.C5HttpConstant.*;
+import static com.niro.sdk.common.util.SdkHttpUtil.*;
 
 /**
  * C5 HTTP 执行器。
@@ -44,19 +49,24 @@ import com.niro.sdk.c5.enums.C5HttpStatusEnum;
 @Slf4j
 public class C5HttpExecutor {
 
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper()
-            .configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+    private static final MediaType JSON_MEDIA_TYPE = MediaType.get(CONTENT_TYPE_JSON);
+    private static final String MDC_C5_TRACE_ID = "c5TraceId";
 
     private final C5Config config;
-    private final HttpClient httpClient;
+    private final OkHttpClient httpClient;
 
     public C5HttpExecutor(C5Config config) {
         this(config, C5HttpClientHolder.getInstance());
     }
 
-    public C5HttpExecutor(C5Config config, HttpClient httpClient) {
+    public C5HttpExecutor(C5Config config, OkHttpClient httpClient) {
         this.config = config;
-        this.httpClient = httpClient;
+        int timeoutSeconds = Math.max(MIN_TIMEOUT_SECONDS, config.getRequestTimeoutSeconds());
+        this.httpClient = httpClient.newBuilder()
+                .callTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .readTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .writeTimeout(timeoutSeconds, TimeUnit.SECONDS)
+                .build();
     }
 
     public <T> T execute(String endpoint, Method method, Object params,
@@ -100,11 +110,15 @@ public class C5HttpExecutor {
                             boolean allowFailureData) {
         RequestContext context = buildRequestContext(endpoint, method, params);
         long startNs = System.nanoTime();
-        log.info("[c5-trace={}] >>> method={}, endpoint={}, {}",
-                context.traceId(), method, context.path(), context.paramSummary());
-
-        HttpResponse<String> response = sendRequest(context.request(), context.traceId(), method, context.path(), startNs);
-        return handleResponse(response, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
+        MDC.put(MDC_C5_TRACE_ID, context.traceId());
+        try (Response response = sendRequest(context.request(), context.traceId(), method, context.path(), startNs)) {
+            String body = readBody(response);
+            return handleResponse(response.code(), body, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
+        } catch (IOException e) {
+            throw toNetworkException(e, context.traceId(), method, context.path(), startNs);
+        } finally {
+            MDC.remove(MDC_C5_TRACE_ID);
+        }
     }
 
     private <T> CompletableFuture<T> doExecuteAsync(String endpoint, Method method, Object params,
@@ -112,16 +126,35 @@ public class C5HttpExecutor {
                                                     boolean allowFailureData) {
         RequestContext context = buildRequestContext(endpoint, method, params);
         long startNs = System.nanoTime();
-        log.info("[c5-trace={}] >>> method={}, endpoint={}, {}",
-                context.traceId(), method, context.path(), context.paramSummary());
+        CompletableFuture<T> future = new CompletableFuture<>();
+        httpClient.newCall(context.request()).enqueue(new Callback() {
+            @Override
+            public void onFailure(Call call, IOException e) {
+                MDC.put(MDC_C5_TRACE_ID, context.traceId());
+                try {
+                    future.completeExceptionally(toNetworkException(e, context.traceId(), method, context.path(), startNs));
+                } finally {
+                    MDC.remove(MDC_C5_TRACE_ID);
+                }
+            }
 
-        return httpClient.sendAsync(context.request(), HttpResponse.BodyHandlers.ofString())
-                .handle((response, throwable) -> {
-                    if (throwable != null) {
-                        throw toCompletionException(toNetworkException(throwable, context.traceId(), method, context.path(), startNs));
-                    }
-                    return handleResponse(response, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
-                });
+            @Override
+            public void onResponse(Call call, Response response) {
+                MDC.put(MDC_C5_TRACE_ID, context.traceId());
+                try (response) {
+                    String body = readBody(response);
+                    T result = handleResponse(response.code(), body, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
+                    future.complete(result);
+                } catch (IOException e) {
+                    future.completeExceptionally(toNetworkException(e, context.traceId(), method, context.path(), startNs));
+                } catch (RuntimeException e) {
+                    future.completeExceptionally(e);
+                } finally {
+                    MDC.remove(MDC_C5_TRACE_ID);
+                }
+            }
+        });
+        return future;
     }
 
     private RequestContext buildRequestContext(String endpoint, Method method, Object params) {
@@ -156,46 +189,40 @@ public class C5HttpExecutor {
         }
 
         URI uri = buildUri(fullUrl, queryParams);
-        HttpRequest request = buildRequest(uri, method, bodyParams, traceId);
-        String paramSummary = summarizeParams(queryParams, bodyParams, SENSITIVE_KEYS);
-        return new RequestContext(request, traceId, path, paramSummary);
+        String paramSummary = SdkHttpUtil.summarizeParams(queryParams, bodyParams, C5HttpConstant.SENSITIVE_KEYS);
+        Request request = buildRequest(uri, method, bodyParams, traceId, path, paramSummary);
+        return new RequestContext(request, traceId, path);
     }
 
-    private HttpResponse<String> sendRequest(HttpRequest request, String traceId,
-                                             Method method, String path, long startNs) {
+    private Response sendRequest(Request request, String traceId, Method method, String path, long startNs) {
         try {
-            return httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-        } catch (HttpTimeoutException e) {
-            log.error("[c5-trace={}] !!! request timeout: method={}, endpoint={}, costMs={}",
-                    traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), e);
-            throw new C5NetworkException("Request timeout: " + e.getMessage(), e, true);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-            log.error("[c5-trace={}] !!! request interrupted: method={}, endpoint={}, costMs={}",
-                    traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), e);
-            throw new C5NetworkException("Request interrupted: " + e.getMessage(), e, false);
+            return httpClient.newCall(request).execute();
         } catch (IOException e) {
-            log.error("[c5-trace={}] !!! request io failed: method={}, endpoint={}, costMs={}",
-                    traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), e);
-            throw new C5NetworkException("Request failed: " + e.getMessage(), e, true);
+            throw toNetworkException(e, traceId, method, path, startNs);
         }
     }
 
     private C5NetworkException toNetworkException(Throwable throwable, String traceId,
                                                   Method method, String path, long startNs) {
         Throwable cause = unwrapCompletionException(throwable);
-        if (cause instanceof HttpTimeoutException) {
-            log.error("[c5-trace={}] !!! request timeout: method={}, endpoint={}, costMs={}",
+        if (cause instanceof SocketTimeoutException) {
+            log.error("C5 SDK request timeout c5TraceId={}, method={}, endpoint={}, costMs={}",
                     traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), cause);
             return new C5NetworkException("Request timeout: " + cause.getMessage(), cause, true);
         }
-        if (cause instanceof InterruptedException) {
+        if (cause instanceof InterruptedIOException && Thread.currentThread().isInterrupted()) {
             Thread.currentThread().interrupt();
-            log.error("[c5-trace={}] !!! request interrupted: method={}, endpoint={}, costMs={}",
+            log.error("C5 SDK request interrupted c5TraceId={}, method={}, endpoint={}, costMs={}",
                     traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), cause);
             return new C5NetworkException("Request interrupted: " + cause.getMessage(), cause, false);
         }
-        log.error("[c5-trace={}] !!! request io failed: method={}, endpoint={}, costMs={}",
+        if (cause instanceof InterruptedException) {
+            Thread.currentThread().interrupt();
+            log.error("C5 SDK request interrupted c5TraceId={}, method={}, endpoint={}, costMs={}",
+                    traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), cause);
+            return new C5NetworkException("Request interrupted: " + cause.getMessage(), cause, false);
+        }
+        log.error("C5 SDK request io failed c5TraceId={}, method={}, endpoint={}, costMs={}",
                 traceId, method, path, elapsedMs(startNs, NANOS_PER_MILLI), cause);
         return new C5NetworkException("Request failed: " + cause.getMessage(), cause, true);
     }
@@ -207,49 +234,40 @@ public class C5HttpExecutor {
         return throwable;
     }
 
-    private CompletionException toCompletionException(RuntimeException exception) {
-        if (exception instanceof CompletionException completionException) {
-            return completionException;
-        }
-        return new CompletionException(exception);
+    private String readBody(Response response) throws IOException {
+        ResponseBody responseBody = response.body();
+        return responseBody == null ? "" : responseBody.string();
     }
 
-    private <T> T handleResponse(HttpResponse<String> response, TypeReference<C5BaseResponse<T>> typeReference,
+    private <T> T handleResponse(int statusCode, String body, TypeReference<C5BaseResponse<T>> typeReference,
                                  String traceId, Method method, String path, long startNs,
                                  boolean allowFailureData) {
         long costMs = elapsedMs(startNs, NANOS_PER_MILLI);
-        int statusCode = response.statusCode();
-        String body = response.body() == null ? "" : response.body();
+        String bodySummary = truncate(body, LOG_BODY_LIMIT);
 
         if (statusCode < HTTP_OK_MIN || statusCode >= HTTP_OK_MAX) {
-            String truncatedBody = truncate(body, LOG_BODY_LIMIT);
             String statusDesc = C5HttpStatusEnum.getDesc(statusCode, "HTTP 请求失败");
-            log.warn("[c5-trace={}] <<< http error: method={}, endpoint={}, status={}, statusDesc={}, costMs={}, body={}",
-                    traceId, method, path, statusCode, statusDesc, costMs, truncatedBody);
-            throw new C5HttpException(statusCode, truncatedBody,
-                    String.format("C5 HTTP Error [%d]: %s, endpoint=%s, body=%s", statusCode, statusDesc, path, truncatedBody));
+            log.warn("C5 SDK http failed c5TraceId={}, method={}, endpoint={}, status={}, statusDesc={}, costMs={}, body={}",
+                    traceId, method, path, statusCode, statusDesc, costMs, bodySummary);
+            throw new C5HttpException(statusCode, body,
+                    String.format("C5 HTTP Error [%d]: %s, endpoint=%s, body=%s", statusCode, statusDesc, path, bodySummary));
         }
 
         C5BaseResponse<T> resp = parseResponse(body, typeReference, traceId, method, path, costMs);
 
         if (!resp.isSuccess()) {
             String errorMsg = C5BusinessStatusEnum.getDesc(resp.getErrorCode(), resp.getErrorMsg());
-            log.warn("[c5-trace={}] <<< business failed: method={}, endpoint={}, costMs={}, errorCode={}, errorMsg={}, errorData={}, allowFailureData={}",
-                    traceId, method, path, costMs,
-                    resp.getErrorCode(), errorMsg, truncate(String.valueOf(resp.getErrorData()), LOG_BODY_LIMIT), allowFailureData);
+            log.warn("C5 SDK business failed c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, errorCode={}, errorMsg={}, errorData={}, allowFailureData={}, body={}",
+                    traceId, method, path, statusCode, costMs,
+                    resp.getErrorCode(), errorMsg, String.valueOf(resp.getErrorData()), allowFailureData, bodySummary);
             if (allowFailureData && resp.getData() != null) {
                 return resp.getData();
             }
             throw new C5BusinessException(resp.getErrorCode(), errorMsg, resp.getErrorData());
         }
 
-        if (log.isDebugEnabled()) {
-            log.debug("[c5-trace={}] <<< success: method={}, endpoint={}, costMs={}, body={}",
-                    traceId, method, path, costMs, truncate(body, LOG_BODY_LIMIT));
-        } else {
-            log.info("[c5-trace={}] <<< success: method={}, endpoint={}, costMs={}",
-                    traceId, method, path, costMs);
-        }
+        log.info("C5 SDK response c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, body={}",
+                traceId, method, path, statusCode, costMs, bodySummary);
         return resp.getData();
     }
 
@@ -257,46 +275,47 @@ public class C5HttpExecutor {
                                                 String traceId, Method method, String path, long costMs) {
         C5BaseResponse<T> resp;
         try {
-            resp = OBJECT_MAPPER.readValue(body, typeReference);
-        } catch (JsonProcessingException e) {
-            log.error("[c5-trace={}] <<< parse failed: method={}, endpoint={}, costMs={}, body={}",
+            resp = JSON.parseObject(body, typeReference);
+        } catch (JSONException e) {
+            log.error("C5 SDK parse failed c5TraceId={}, method={}, endpoint={}, costMs={}, body={}",
                     traceId, method, path, costMs, truncate(body, LOG_BODY_LIMIT), e);
             throw new C5SerializationException("Response parse failed: " + e.getMessage(), e);
         }
         if (resp == null) {
-            log.warn("[c5-trace={}] <<< empty response: method={}, endpoint={}, costMs={}",
+            log.warn("C5 SDK empty response c5TraceId={}, method={}, endpoint={}, costMs={}",
                     traceId, method, path, costMs);
             throw new C5SerializationException("Response parse failed: empty body", null);
         }
         return resp;
     }
 
-    private HttpRequest buildRequest(URI uri, Method method, Map<String, Object> bodyParams, String traceId) {
-        HttpRequest.Builder builder = HttpRequest.newBuilder()
-                .uri(uri)
-                .timeout(Duration.ofSeconds(Math.max(MIN_TIMEOUT_SECONDS, config.getRequestTimeoutSeconds())))
+    private Request buildRequest(URI uri, Method method, Map<String, Object> bodyParams,
+                                 String traceId, String path, String paramSummary) {
+        Request.Builder builder = new Request.Builder()
+                .url(uri.toString())
                 .header(HEADER_ACCEPT, CONTENT_TYPE_JSON)
-                .header(HEADER_TRACE, traceId);
+                .header(HEADER_TRACE, traceId)
+                .tag(C5RequestLogContext.class, new C5RequestLogContext(traceId, method.name(), path, paramSummary));
 
         if (method == Method.POST) {
             builder.header(HEADER_CONTENT_TYPE, CONTENT_TYPE_JSON);
             if (CollUtil.isNotEmpty(bodyParams)) {
                 String json;
                 try {
-                    json = OBJECT_MAPPER.writeValueAsString(bodyParams);
-                } catch (JsonProcessingException e) {
+                    json = JSON.toJSONString(bodyParams);
+                } catch (JSONException e) {
                     throw new C5SerializationException("Serialize request body failed", e);
                 }
-                builder.POST(HttpRequest.BodyPublishers.ofString(json, StandardCharsets.UTF_8));
+                builder.post(RequestBody.create(json, JSON_MEDIA_TYPE));
             } else {
-                builder.POST(HttpRequest.BodyPublishers.noBody());
+                builder.post(RequestBody.create("", JSON_MEDIA_TYPE));
             }
         } else {
-            builder.GET();
+            builder.get();
         }
         return builder.build();
     }
 
-    private record RequestContext(HttpRequest request, String traceId, String path, String paramSummary) {
+    private record RequestContext(Request request, String traceId, String path) {
     }
 }

@@ -8,18 +8,15 @@ import com.niro.web.dto.C5SnipingTaskV2EventDTO;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.C5SnipingAccountRuntimeV2;
 import com.niro.web.entity.C5SnipingBuyAttemptV2;
-import com.niro.web.entity.C5SnipingTaskRunV2;
 import com.niro.web.entity.C5SnipingTaskV2;
 import com.niro.web.entity.TradeOrderRecord;
 import com.niro.web.enums.C5SnipingBuyAttemptV2StatusEnum;
-import com.niro.web.enums.C5SnipingTaskRunV2StatusEnum;
 import com.niro.web.enums.C5SnipingTaskV2StatusEnum;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingAccountRuntimeV2MapperManager;
 import com.niro.web.manager.C5SnipingBuyAttemptV2MapperManager;
-import com.niro.web.manager.C5SnipingTaskRunV2MapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.C5ApiClientService;
@@ -36,23 +33,17 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
 
-import java.net.InetAddress;
 import java.time.LocalDateTime;
-import java.util.Comparator;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
-import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.stream.Collectors;
 
 /**
  * C5 扫货 2.0 调度服务实现。
  * <p>
- * 使用 Spring Scheduling 做轻量调度，并通过数据库 lease 避免多实例重复启动 READY 任务。
+ * 单实例部署下，RUNNING 任务由本地虚拟线程持续循环执行。
  * </p>
  */
 @Slf4j
@@ -63,8 +54,6 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     private static final long IDLE_SCHEDULE_INTERVAL_MS = 1_000L;
     private static final long EXPIRED_INIT_ATTEMPT_INTERVAL_MS = 5_000L;
     private static final long UNSETTLED_TERMINAL_ATTEMPT_INTERVAL_MS = 5_000L;
-    private static final long LEASE_TTL_SECONDS = 300L;
-    private static final long LEASE_REFRESH_AHEAD_SECONDS = 60L;
     private static final long SLEEP_CHECK_INTERVAL_MS = 1_000L;
     private static final int EXPIRED_INIT_ATTEMPT_BATCH_SIZE = 50;
     private static final int UNSETTLED_TERMINAL_ATTEMPT_BATCH_SIZE = 50;
@@ -75,7 +64,6 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     private final C5SnipingTaskV2MapperManager taskManager;
     private final C5SnipingAccountMapperManager accountManager;
     private final C5SnipingAccountRuntimeV2MapperManager accountRuntimeManager;
-    private final C5SnipingTaskRunV2MapperManager runManager;
     private final C5SnipingBuyAttemptV2MapperManager buyAttemptManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordManager;
     private final C5ApiClientService c5ApiClientService;
@@ -85,20 +73,6 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     private final TransactionTemplate transactionTemplate;
     private final Set<Long> localRunningTaskIds = ConcurrentHashMap.newKeySet();
     private final ExecutorService taskExecutor = Executors.newVirtualThreadPerTaskExecutor();
-    private String leaseOwner;
-
-    /**
-     * 初始化当前调度实例租约持有者标识。
-     */
-    @PostConstruct
-    public void initLeaseOwner() {
-        try {
-            leaseOwner = InetAddress.getLocalHost().getHostName() + ':' + UUID.randomUUID();
-        } catch (Exception e) {
-            leaseOwner = "unknown:" + UUID.randomUUID();
-            log.warn("C5扫货2.0调度实例主机名获取失败，已降级使用随机租约标识", e);
-        }
-    }
 
     @PreDestroy
     public void shutdownTaskExecutor() {
@@ -106,7 +80,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     }
 
     /**
-     * 服务启动后恢复异常中断的 RUNNING 任务。
+     * 服务启动后恢复 RUNNING 任务的本地循环。
      */
     @PostConstruct
     @Override
@@ -117,19 +91,10 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
             return;
         }
         for (C5SnipingTaskV2 task : tasks) {
-            if (C5SnipingTaskV2StatusEnum.RUNNING.equals(task.getTaskStatus())) {
-                settleUnreleasedAttempts(task.getId());
-                if (Boolean.TRUE.equals(task.getStopRequested())) {
-                    runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "SERVER_RECOVER_STOP_REQUESTED", "服务启动按停用请求恢复为STOPPED");
-                    taskManager.markStoppedByRequest(task.getId());
-                    publishTaskEvent(taskManager.getById(task.getId()), "TASK_STOPPED", task.getLatestRunId(), C5SnipingTaskV2StatusEnum.STOPPED, "服务启动按停用请求恢复为STOPPED");
-                } else {
-                    runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "SERVER_RECOVER", "服务启动恢复为READY");
-                    taskManager.markTaskStatus(task.getId(), C5SnipingTaskV2StatusEnum.RUNNING, C5SnipingTaskV2StatusEnum.READY);
-                    publishTaskEvent(taskManager.getById(task.getId()), "TASK_ENABLED", task.getLatestRunId(), C5SnipingTaskV2StatusEnum.READY, "服务启动恢复为READY");
-                }
-                taskManager.clearReservedBuyCountIfNoUnsettledAttempt(task.getId());
-            }
+            settleUnreleasedAttempts(task.getId());
+            taskManager.clearReservedBuyCountIfNoUnsettledAttempt(task.getId());
+            startTaskAsync(task);
+            publishTaskEvent(taskManager.getById(task.getId()), "TASK_RUNNING", C5SnipingTaskV2StatusEnum.RUNNING, "服务启动恢复RUNNING任务循环");
         }
     }
 
@@ -157,49 +122,17 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     }
 
     /**
-     * 周期调度 READY 任务。
+     * 周期兜底启动 RUNNING 任务的本地循环。
      */
     @Override
     @Scheduled(fixedDelay = IDLE_SCHEDULE_INTERVAL_MS)
     public void scheduleReadyTasks() {
-        LocalDateTime now = LocalDateTime.now();
-        recoverExpiredRunningTasks(now);
-        List<C5SnipingTaskV2> dueReadyTasks = taskManager.listDueReadyTasks();
-        if (CollUtil.isEmpty(dueReadyTasks)) {
+        List<C5SnipingTaskV2> runningTasks = taskManager.listRunningTasks();
+        if (CollUtil.isEmpty(runningTasks)) {
             return;
         }
-        Map<Long, List<C5SnipingTaskV2>> readyByAccount = dueReadyTasks.stream()
-                .collect(Collectors.groupingBy(C5SnipingTaskV2::getAccountId));
-        for (Map.Entry<Long, List<C5SnipingTaskV2>> entry : readyByAccount.entrySet()) {
-            Long accountId = entry.getKey();
-            if (accountRuntimeManager.isCoolingDown(accountId, now)) {
-                continue;
-            }
-            long runningCount = taskManager.countRunningTasksByAccount(accountId);
-            C5SnipingAccountRuntimeV2 runtime = accountRuntimeManager.getOrCreateByAccountId(accountId);
-            int concurrencyLimit = resolveConcurrencyLimit(runtime);
-            int availableSlots = (int) Math.max(0, concurrencyLimit - runningCount);
-            if (availableSlots <= 0) {
-                continue;
-            }
-            Set<Long> scheduledGoodsIds = new HashSet<>();
-            entry.getValue().stream()
-                    .sorted(Comparator.comparing(C5SnipingTaskV2::getPriority, Comparator.nullsFirst(Integer::compareTo)).reversed()
-                            .thenComparing(C5SnipingTaskV2::getNextScanAt, Comparator.nullsLast(LocalDateTime::compareTo)))
-                    .filter(task -> scheduledGoodsIds.add(task.getCs2GoodsId()))
-                    .limit(availableSlots)
-                    .forEach(task -> taskExecutor.submit(() -> startTaskAsync(task)));
-        }
-    }
-
-    private void recoverExpiredRunningTasks(LocalDateTime now) {
-        List<C5SnipingTaskV2> expiredTasks = taskManager.listExpiredRunningTasks(now);
-        for (C5SnipingTaskV2 task : expiredTasks) {
-            settleUnreleasedAttempts(task.getId());
-            runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "LEASE_EXPIRED", "运行租约过期恢复为READY");
-            taskManager.markTaskStatus(task.getId(), C5SnipingTaskV2StatusEnum.RUNNING, C5SnipingTaskV2StatusEnum.READY);
-            taskManager.clearReservedBuyCountIfNoUnsettledAttempt(task.getId());
-            publishTaskEvent(taskManager.getById(task.getId()), "TASK_ENABLED", task.getLatestRunId(), C5SnipingTaskV2StatusEnum.READY, "运行租约过期恢复为READY");
+        for (C5SnipingTaskV2 task : runningTasks) {
+            startTaskAsync(task);
         }
     }
 
@@ -209,82 +142,47 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
      * @param task 任务定义
      */
     public void startTaskAsync(C5SnipingTaskV2 task) {
-        if (!localRunningTaskIds.add(task.getId())) {
+        if (task == null || task.getId() == null || !localRunningTaskIds.add(task.getId())) {
             return;
         }
-        C5SnipingTaskRunV2 run = null;
-        try {
-            LocalDateTime now = LocalDateTime.now();
-            if (!taskManager.tryAcquireLease(task.getId(), leaseOwner, now, now.plusSeconds(LEASE_TTL_SECONDS))) {
-                return;
+        taskExecutor.submit(() -> {
+            try {
+                taskManager.markRunning(task.getId());
+                publishTaskEvent(taskManager.getById(task.getId()), "TASK_RUNNING", C5SnipingTaskV2StatusEnum.RUNNING, null);
+                executeTaskLoop(task.getId());
+            } catch (Exception e) {
+                String message = StrUtil.maxLength(StrUtil.blankToDefault(e.getMessage(), "扫货任务循环异常"), 500);
+                log.warn("C5扫货2.0任务循环异常，将等待调度兜底重启: taskId={}, msg={}", task.getId(), message, e);
+                taskManager.updateLastError(task.getId(), message);
+            } finally {
+                localRunningTaskIds.remove(task.getId());
             }
-            if (accountRuntimeManager.isCoolingDown(task.getAccountId(), LocalDateTime.now())) {
-                taskManager.clearLeaseByOwner(task.getId(), leaseOwner);
-                return;
-            }
-            runManager.finishRunningByTaskId(task.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "STALE_RUNNING_RUN", "启动前清理遗留运行记录");
-            run = runManager.createRun(task.getId());
-            boolean marked = taskManager.markRunning(task.getId(), run.getId(), leaseOwner, LocalDateTime.now(), LocalDateTime.now().plusSeconds(LEASE_TTL_SECONDS));
-            if (!marked) {
-                runManager.finishRun(run.getId(), C5SnipingTaskRunV2StatusEnum.STOPPED, "TASK_NOT_READY", null);
-                taskManager.clearLeaseByOwner(task.getId(), leaseOwner);
-                return;
-            }
-            publishTaskEvent(taskManager.getById(task.getId()), "TASK_RUNNING", run.getId(), C5SnipingTaskV2StatusEnum.RUNNING, null);
-            executeTaskLoop(task.getId(), run.getId());
-        } catch (Exception e) {
-            log.error("C5扫货2.0任务启动失败: taskId={}", task.getId(), e);
-            if (run != null) {
-                runManager.finishRun(run.getId(), C5SnipingTaskRunV2StatusEnum.ERROR, "START_ERROR", e.getMessage());
-            }
-            taskManager.markTaskStatus(task.getId(), List.of(C5SnipingTaskV2StatusEnum.READY, C5SnipingTaskV2StatusEnum.RUNNING),
-                    C5SnipingTaskV2StatusEnum.ERROR, e.getMessage());
-            publishTaskEvent(taskManager.getById(task.getId()), "TASK_ERROR", run == null ? null : run.getId(), C5SnipingTaskV2StatusEnum.ERROR, e.getMessage());
-        } finally {
-            localRunningTaskIds.remove(task.getId());
-        }
+        });
     }
 
-    private int resolveConcurrencyLimit(C5SnipingAccountRuntimeV2 runtime) {
-        if (runtime == null || runtime.getConcurrencyLimit() == null || runtime.getConcurrencyLimit() < 1) {
-            return C5SnipingAccountRuntimeV2MapperManager.DEFAULT_CONCURRENCY_LIMIT;
-        }
-        return runtime.getConcurrencyLimit();
-    }
-
-    private void executeTaskLoop(Long taskId, Long runId) {
-        LocalDateTime leaseUntil = LocalDateTime.now().plusSeconds(LEASE_TTL_SECONDS);
+    private void executeTaskLoop(Long taskId) {
         while (!Thread.currentThread().isInterrupted()) {
             C5SnipingTaskV2 task = taskManager.getById(taskId);
-            C5SnipingTaskRunV2 run = runManager.getById(runId);
-            if (task == null || run == null || !C5SnipingTaskV2StatusEnum.RUNNING.equals(task.getTaskStatus())) {
+            if (task == null || !C5SnipingTaskV2StatusEnum.RUNNING.equals(task.getTaskStatus())) {
                 return;
             }
-            if (shouldRefreshLease(leaseUntil)) {
-                leaseUntil = LocalDateTime.now().plusSeconds(LEASE_TTL_SECONDS);
-                if (!taskManager.refreshRunningLease(taskId, leaseOwner, leaseUntil)) {
-                    return;
-                }
-            }
             if (Boolean.TRUE.equals(task.getStopRequested())) {
-                runManager.finishRun(runId, C5SnipingTaskRunV2StatusEnum.STOPPED, "MANUAL_STOP", null);
                 taskManager.markStoppedByRequest(taskId);
                 taskManager.clearReservedBuyCountIfNoUnsettledAttempt(taskId);
-                publishTaskEvent(taskManager.getById(taskId), "TASK_STOPPED", runId, C5SnipingTaskV2StatusEnum.STOPPED, null);
+                publishTaskEvent(taskManager.getById(taskId), "TASK_STOPPED", C5SnipingTaskV2StatusEnum.STOPPED, null);
                 return;
             }
             if (accountRuntimeManager.isCoolingDown(task.getAccountId(), LocalDateTime.now())) {
-                leaseUntil = sleepBeforeNextCycle(task, leaseUntil);
+                sleepBeforeNextCycle(task);
                 continue;
             }
 
-            C5SnipingTaskV2ExecutionResult result = executionService.executeOneCycle(task, run);
+            C5SnipingTaskV2ExecutionResult result = executionService.executeOneCycle(task);
             if (result.isStopTask()) {
-                runManager.finishRun(runId, result.getRunStatus(), result.getReason(), result.getErrorMessage());
                 taskManager.markTaskStatus(taskId, C5SnipingTaskV2StatusEnum.RUNNING, result.getTaskStatus());
                 taskManager.clearStopRequest(taskId);
                 taskManager.clearReservedBuyCountIfNoUnsettledAttempt(taskId);
-                publishTaskEvent(taskManager.getById(taskId), resolveTaskStatusEvent(result.getTaskStatus()), runId, result.getTaskStatus(), result.getErrorMessage());
+                publishTaskEvent(taskManager.getById(taskId), resolveTaskStatusEvent(result.getTaskStatus()), result.getTaskStatus(), result.getErrorMessage());
                 return;
             }
 
@@ -293,44 +191,33 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
                 return;
             }
             if (Boolean.TRUE.equals(latestTask.getStopRequested())) {
-                runManager.finishRun(runId, C5SnipingTaskRunV2StatusEnum.STOPPED, "MANUAL_STOP", null);
                 taskManager.markStoppedByRequest(taskId);
                 taskManager.clearReservedBuyCountIfNoUnsettledAttempt(taskId);
-                publishTaskEvent(taskManager.getById(taskId), "TASK_STOPPED", runId, C5SnipingTaskV2StatusEnum.STOPPED, null);
+                publishTaskEvent(taskManager.getById(taskId), "TASK_STOPPED", C5SnipingTaskV2StatusEnum.STOPPED, null);
                 return;
             }
 
-            leaseUntil = sleepBeforeNextCycle(latestTask, leaseUntil);
+            sleepBeforeNextCycle(latestTask);
         }
     }
 
-    private boolean shouldRefreshLease(LocalDateTime leaseUntil) {
-        return leaseUntil == null || !leaseUntil.minusSeconds(LEASE_REFRESH_AHEAD_SECONDS).isAfter(LocalDateTime.now());
-    }
-
-    private LocalDateTime sleepBeforeNextCycle(C5SnipingTaskV2 task, LocalDateTime leaseUntil) {
+    private void sleepBeforeNextCycle(C5SnipingTaskV2 task) {
         long remainingMs = resolveInterval(task);
         while (remainingMs > 0 && !Thread.currentThread().isInterrupted()) {
             try {
-                Thread.sleep(Math.min(remainingMs, SLEEP_CHECK_INTERVAL_MS));
+                long sleepMs = Math.min(remainingMs, SLEEP_CHECK_INTERVAL_MS);
+                Thread.sleep(sleepMs);
+                remainingMs -= sleepMs;
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
-                return leaseUntil;
-            }
-            remainingMs -= SLEEP_CHECK_INTERVAL_MS;
-            if (shouldRefreshLease(leaseUntil)) {
-                leaseUntil = LocalDateTime.now().plusSeconds(LEASE_TTL_SECONDS);
-                if (!taskManager.refreshRunningLease(task.getId(), leaseOwner, leaseUntil)) {
-                    return leaseUntil;
-                }
+                return;
             }
             C5SnipingTaskV2 latestTask = taskManager.getById(task.getId());
             if (latestTask == null || !C5SnipingTaskV2StatusEnum.RUNNING.equals(latestTask.getTaskStatus())
                     || Boolean.TRUE.equals(latestTask.getStopRequested())) {
-                return leaseUntil;
+                return;
             }
         }
-        return leaseUntil;
     }
 
     private void settleUnreleasedAttempts(Long taskId) {
@@ -472,11 +359,11 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
                 .update();
     }
 
-    private void publishTaskEvent(C5SnipingTaskV2 task, String eventType, Long runId, C5SnipingTaskV2StatusEnum taskStatus, String message) {
+    private void publishTaskEvent(C5SnipingTaskV2 task, String eventType, C5SnipingTaskV2StatusEnum taskStatus, String message) {
         if (task == null) {
             return;
         }
-        eventService.publish(task.getUserId(), buildEvent(task, eventType, runId, null, null, taskStatus, message));
+        eventService.publish(task.getUserId(), buildEvent(task, eventType, null, null, taskStatus, message));
     }
 
     private void publishAttemptEvent(C5SnipingBuyAttemptV2 attempt, String eventType, String message) {
@@ -484,19 +371,19 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
         if (task == null) {
             return;
         }
-        eventService.publish(task.getUserId(), buildEvent(task, eventType, attempt.getRunId(), attempt.getHitRecordId(), attempt.getId(), task.getTaskStatus(), message));
+        eventService.publish(task.getUserId(), buildEvent(task, eventType, attempt.getHitRecordId(), attempt.getId(), task.getTaskStatus(), message));
     }
 
-    private C5SnipingTaskV2EventDTO buildEvent(C5SnipingTaskV2 task, String eventType, Long runId, Long hitRecordId,
+    private C5SnipingTaskV2EventDTO buildEvent(C5SnipingTaskV2 task, String eventType, Long hitRecordId,
                                                Long attemptId, C5SnipingTaskV2StatusEnum taskStatus, String message) {
         return C5SnipingTaskV2EventDTO.builder()
                 .taskId(task.getId())
                 .eventType(eventType)
                 .occurredAt(LocalDateTime.now())
-                .runId(runId)
                 .hitRecordId(hitRecordId)
                 .attemptId(attemptId)
                 .taskStatus(taskStatus == null ? null : taskStatus.getCode())
+                .finishedAt(task.getFinishedAt())
                 .stopRequested(task.getStopRequested())
                 .successBuyCount(task.getSuccessBuyCount())
                 .reservedBuyCount(task.getReservedBuyCount())
@@ -509,9 +396,6 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
     private String resolveTaskStatusEvent(C5SnipingTaskV2StatusEnum taskStatus) {
         if (C5SnipingTaskV2StatusEnum.COMPLETED.equals(taskStatus)) {
             return "TASK_COMPLETED";
-        }
-        if (C5SnipingTaskV2StatusEnum.ERROR.equals(taskStatus)) {
-            return "TASK_ERROR";
         }
         if (C5SnipingTaskV2StatusEnum.STOPPED.equals(taskStatus)) {
             return "TASK_STOPPED";

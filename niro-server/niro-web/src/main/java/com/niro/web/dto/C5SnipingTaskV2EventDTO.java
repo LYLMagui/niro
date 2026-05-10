@@ -15,14 +15,15 @@ public class C5SnipingTaskV2EventDTO {
     private Long taskId;
     private String eventType;
     private LocalDateTime occurredAt;
-    private Long runId;
     private Long hitRecordId;
     private Long attemptId;
     private String taskStatus;
+    private LocalDateTime finishedAt;
     private Boolean stopRequested;
     private Integer successBuyCount;
     private Integer reservedBuyCount;
     private Integer hitCount;
     private String lastErrorMessage;
     private String message;
+    private C5SnipingAccountBalanceRefreshResultDTO accountBalance;
 }

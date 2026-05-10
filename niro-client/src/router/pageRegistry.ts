@@ -65,18 +65,6 @@ const pageRegistry: Record<string, NewPageRegistryItem> = {
       breadcrumb: true,
     },
   },
-  GoodsList: {
-    pageKey: "GoodsList",
-    path: "goods-list",
-    routeName: "GoodsList",
-    component: () => import("@/views/GoodsList.vue"),
-    meta: {
-      title: "商品列表",
-      icon: "shop",
-      noCache: false,
-      breadcrumb: true,
-    },
-  },
   InventoryBoard: {
     pageKey: "InventoryBoard",
     path: "inventory-board",

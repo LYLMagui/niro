@@ -1,5 +1,5 @@
 import request from "@/utils/request";
-import type { PageResult } from "@/types/goods";
+import type { PageResult } from "@/types/page";
 import type { C5SnipingAccount } from "@/types/c5-sniping-account";
 import type {
   C5SnipingBuyAttemptV2Item,
@@ -32,6 +32,10 @@ export const c5SnipingV2Api = {
 
   getAvailableAccounts() {
     return request.get<C5SnipingAccount[]>(`${baseUrl}/accounts`);
+  },
+
+  refreshAccountBalances(accountIds: number[]) {
+    return request.post<void>("/api/c5/sniping/v2/accounts/refresh-balance/async", { accountIds });
   },
 
   enable(id: number) {

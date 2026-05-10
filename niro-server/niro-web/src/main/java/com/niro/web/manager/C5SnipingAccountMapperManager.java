@@ -84,6 +84,7 @@ public class C5SnipingAccountMapperManager extends ServiceImpl<C5SnipingAccountM
                 .collect(Collectors.toMap(C5SnipingAccount::getId, Function.identity(), (left, right) -> left));
     }
 
+
     /**
      * 查询任务绑定时可用的账号。
      *
