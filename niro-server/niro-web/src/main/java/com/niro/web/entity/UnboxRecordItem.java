@@ -28,6 +28,8 @@ public class UnboxRecordItem {
 
     private String weaponName;
 
+    private Long cs2GoodsId;
+
     private BigDecimal inGamePrice;
 
     private BigDecimal discount;

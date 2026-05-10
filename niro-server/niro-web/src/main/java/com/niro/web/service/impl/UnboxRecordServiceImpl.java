@@ -36,6 +36,7 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -165,6 +166,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         UnboxRecordC5ListingPageDTO dto = new UnboxRecordC5ListingPageDTO();
         dto.setRecords(reference.getRecords().stream()
                 .map(listing -> toC5ListingVO(listing, goods, marketHashName))
+                .sorted(Comparator.comparing(UnboxRecordC5ListingVO::getPrice, Comparator.nullsLast(BigDecimal::compareTo)))
                 .toList());
         dto.setPageNum(reference.getPageNum());
         dto.setPageSize(reference.getPageSize());
@@ -351,13 +353,18 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
             return;
         }
         List<String> weaponNames = items.stream()
+                .filter(item -> item.getCs2GoodsId() == null || item.getCs2GoodsId() <= 0)
                 .map(UnboxRecordItemDTO::getWeaponName)
                 .map(this::normalizeText)
                 .filter(StrUtil::isNotBlank)
                 .distinct()
                 .toList();
         Map<String, Long> goodsIdMap = cs2GoodsMapperManager.mapUnboxItemIdsByDisplayName(weaponNames);
-        items.forEach(item -> item.setCs2GoodsId(goodsIdMap.get(normalizeText(item.getWeaponName()))));
+        items.forEach(item -> {
+            if (item.getCs2GoodsId() == null || item.getCs2GoodsId() <= 0) {
+                item.setCs2GoodsId(goodsIdMap.get(normalizeText(item.getWeaponName())));
+            }
+        });
     }
 
     private UnboxRecordItem toItemEntity(Long recordId, UnboxRecordItemParam item, Integer sortNo, LocalDateTime now) {
@@ -365,6 +372,7 @@ public class UnboxRecordServiceImpl implements UnboxRecordService {
         entity.setRecordId(recordId);
         entity.setSortNo(sortNo);
         entity.setWeaponName(normalizeText(item.getWeaponName()));
+        entity.setCs2GoodsId(item.getCs2GoodsId() == null ? 0L : item.getCs2GoodsId());
         entity.setWear(item.getWear() == null ? BigDecimal.ZERO : item.getWear());
         entity.setExterior(item.getExterior());
         entity.setNote(normalizeText(item.getNote()));

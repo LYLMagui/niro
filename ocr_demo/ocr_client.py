@@ -2,6 +2,7 @@ import json
 import logging
 import os
 from pathlib import Path
+from threading import RLock
 from typing import Any
 
 import cv2
@@ -38,15 +39,21 @@ class OcrClient:
             cpu_threads=4,
         )
         self.use_predict_api = hasattr(self.ocr, "predict")
-        self._warmup_image = np.full((64, 320, 3), 255, dtype=np.uint8)
+        self._infer_lock = RLock()
+        self._warmup_images = [
+            np.full((64, 320, 3), 255, dtype=np.uint8),
+            np.full((96, 420, 3), 255, dtype=np.uint8),
+            np.zeros((96, 420, 3), dtype=np.uint8),
+        ]
         self._warmup()
 
     def _warmup(self) -> None:
-        try:
-            self._infer_once(self._warmup_image)
-        except Exception:
-            logger.warning("ocr warmup first pass failed, retrying", exc_info=True)
-            self._infer_once(self._warmup_image)
+        for image in self._warmup_images:
+            try:
+                self._infer_once(image)
+            except Exception:
+                logger.warning("ocr warmup pass failed, retrying", exc_info=True)
+                self._infer_once(image)
 
     def _parse_result(self, results: Any) -> dict[str, Any]:
         if not results:
@@ -88,9 +95,10 @@ class OcrClient:
         return {"texts": texts, "scores": scores}
 
     def _infer_once(self, image_input: str | np.ndarray) -> Any:
-        if self.use_predict_api:
-            return self.ocr.predict(input=image_input)
-        return self.ocr.ocr(image_input, cls=False)
+        with self._infer_lock:
+            if self.use_predict_api:
+                return self.ocr.predict(input=image_input)
+            return self.ocr.ocr(image_input, cls=False)
 
     def _infer(self, image_input: str | np.ndarray) -> Any:
         try:

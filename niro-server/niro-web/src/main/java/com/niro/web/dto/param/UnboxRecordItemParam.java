@@ -32,6 +32,9 @@ public class UnboxRecordItemParam {
     @Schema(description = "武器名称")
     private String weaponName;
 
+    @Schema(description = "饰品商品ID，对应 cs2_goods.id")
+    private Long cs2GoodsId;
+
     @NotNull(message = "游戏内售价不能为空")
     @DecimalMin(value = "0", message = "游戏内售价不能小于0")
     @Schema(description = "游戏内售价")

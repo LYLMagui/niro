@@ -3043,7 +3043,8 @@ async function fetchRowC5Listings(row: UnboxRow, pageNum: number, refresh = fals
   state.snapshotMessage = pageResult.message || "";
   state.snapshotLastSuccessTime = pageResult.lastSuccessTime || null;
   state.snapshotStale = Boolean(pageResult.stale);
-  state.listings = pageNum === 1 ? pageResult.records : [...state.listings, ...pageResult.records];
+  const nextListings = pageNum === 1 ? pageResult.records : [...state.listings, ...pageResult.records];
+  state.listings = nextListings.sort((first, second) => Number(first.price ?? 0) - Number(second.price ?? 0));
 }
 
 async function runRowC5Query(row: UnboxRow, options?: { force?: boolean }) {
