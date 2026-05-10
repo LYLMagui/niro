@@ -243,31 +243,31 @@ public class C5HttpExecutor {
                                  String traceId, Method method, String path, long startNs,
                                  boolean allowFailureData) {
         long costMs = elapsedMs(startNs, NANOS_PER_MILLI);
-        String bodySummary = truncate(body, LOG_BODY_LIMIT);
+        int bodyLength = body == null ? 0 : body.length();
 
         if (statusCode < HTTP_OK_MIN || statusCode >= HTTP_OK_MAX) {
             String statusDesc = C5HttpStatusEnum.getDesc(statusCode, "HTTP 请求失败");
-            log.warn("C5 SDK http failed c5TraceId={}, method={}, endpoint={}, status={}, statusDesc={}, costMs={}, body={}",
-                    traceId, method, path, statusCode, statusDesc, costMs, bodySummary);
+            log.warn("C5 SDK http failed c5TraceId={}, method={}, endpoint={}, status={}, statusDesc={}, costMs={}, responseLength={}",
+                    traceId, method, path, statusCode, statusDesc, costMs, bodyLength);
             throw new C5HttpException(statusCode, body,
-                    String.format("C5 HTTP Error [%d]: %s, endpoint=%s, body=%s", statusCode, statusDesc, path, bodySummary));
+                    String.format("C5 HTTP Error [%d]: %s, endpoint=%s, responseLength=%d", statusCode, statusDesc, path, bodyLength));
         }
 
         C5BaseResponse<T> resp = parseResponse(body, typeReference, traceId, method, path, costMs);
 
         if (!resp.isSuccess()) {
             String errorMsg = C5BusinessStatusEnum.getDesc(resp.getErrorCode(), resp.getErrorMsg());
-            log.warn("C5 SDK business failed c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, errorCode={}, errorMsg={}, errorData={}, allowFailureData={}, body={}",
+            log.warn("C5 SDK business failed c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, errorCode={}, errorMsg={}, allowFailureData={}, responseLength={}",
                     traceId, method, path, statusCode, costMs,
-                    resp.getErrorCode(), errorMsg, String.valueOf(resp.getErrorData()), allowFailureData, bodySummary);
+                    resp.getErrorCode(), errorMsg, allowFailureData, bodyLength);
             if (allowFailureData && resp.getData() != null) {
                 return resp.getData();
             }
             throw new C5BusinessException(resp.getErrorCode(), errorMsg, resp.getErrorData());
         }
 
-        log.info("C5 SDK response c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, body={}",
-                traceId, method, path, statusCode, costMs, bodySummary);
+        log.info("C5 SDK response c5TraceId={}, method={}, endpoint={}, status={}, costMs={}, responseLength={}",
+                traceId, method, path, statusCode, costMs, bodyLength);
         return resp.getData();
     }
 
