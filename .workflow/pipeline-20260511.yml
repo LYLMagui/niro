@@ -7,6 +7,9 @@ triggers:
     branches:
       precise:
         - main
+    paths:
+      precise:
+        - niro-server
 stages:
   - name: stage-build
     displayName: 构建
