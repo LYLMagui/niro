@@ -7,9 +7,6 @@ triggers:
     branches:
       precise:
         - main
-    paths:
-      precise:
-        - niro-server
 stages:
   - name: stage-build
     displayName: 构建
@@ -24,7 +21,9 @@ stages:
         jdkVersion: '21'
         mavenVersion: 3.9.11
         commands:
-          - mvn -f niro/niro-server/pom.xml clean package -pl niro-web -am -Dmaven.test.skip=true -B
+          - cd niro-server && mvn clean package -pl niro-web -am -Dmaven.test.skip=true -B
+          - ''
+          - ''
         artifacts:
           - name: BUILD_ARTIFACT
             path:
