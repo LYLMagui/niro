@@ -9,7 +9,7 @@ triggers:
         - ''
     paths:
       precise:
-        - niro/niro-web
+        - niro/niro-server
 stages:
   - name: stage-0dd6489c
     displayName: 构建
