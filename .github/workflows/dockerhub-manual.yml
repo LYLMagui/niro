@@ -53,17 +53,19 @@ jobs:
 
           # 根据输入环境切换配置
           if [ "${{ github.event.inputs.target_env }}" = "prod" ]; then
+            ENV_PREFIX=prod
             echo "COMPOSE_FILE=docker-compose.yml" >> "$GITHUB_ENV"
             echo "ENV_LATEST=latest" >> "$GITHUB_ENV"
-            echo "ENV_PREFIX=prod" >> "$GITHUB_ENV"
+            echo "ENV_PREFIX=${ENV_PREFIX}" >> "$GITHUB_ENV"
             # 定义本地镜像名（需与 docker-compose.yml 里的 build 结果一致）
             echo "LOCAL_IMAGES=niro_postgres niro_ocr niro_web niro_client" >> "$GITHUB_ENV"
             # 定义远程仓库名（Docker Hub 上的名字）
             echo "REMOTE_NAMES=niro-postgres niro-ocr niro-web niro-client" >> "$GITHUB_ENV"
           else
+            ENV_PREFIX=test
             echo "COMPOSE_FILE=docker-compose.test.yml" >> "$GITHUB_ENV"
             echo "ENV_LATEST=test-latest" >> "$GITHUB_ENV"
-            echo "ENV_PREFIX=test" >> "$GITHUB_ENV"
+            echo "ENV_PREFIX=${ENV_PREFIX}" >> "$GITHUB_ENV"
             echo "LOCAL_IMAGES=niro_postgres_test niro_ocr_test niro_web_test niro_client_test" >> "$GITHUB_ENV"
             echo "REMOTE_NAMES=niro-postgres niro-ocr niro-web niro-client" >> "$GITHUB_ENV"
             echo "CLIENT_ENV=test" >> "$GITHUB_ENV"
