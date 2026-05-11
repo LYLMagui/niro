@@ -26,6 +26,7 @@ export const PermissionConstant = {
   LOG_LIST: "system:logs:list",
   ACCOUNT_LIST: "system:account:list",
   GOODS_LIST: "system:goods:list",
+  DATA_EXPORT_VIEW: "statistics:data-export:view",
 
   ORDER_RECORD_UPDATE: "order:record:update",
   ORDER_RECORD_DELETE: "order:record:delete",
@@ -55,6 +56,7 @@ export const PermissionConstant = {
   PERMISSION_PUBLISH: "system:permission:publish",
 
   UNBOX_RECORD_CREATE: "unbox:record:create",
+  UNBOX_RECORD_EXPORT: "unbox:record:export",
   UNBOX_RECORD_UPDATE: "unbox:record:update",
   UNBOX_RECORD_DELETE: "unbox:record:delete",
   UNBOX_RECORD_OCR: "unbox:record:ocr",

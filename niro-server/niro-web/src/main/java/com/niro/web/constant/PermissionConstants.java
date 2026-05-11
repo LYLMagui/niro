@@ -72,6 +72,10 @@ public final class PermissionConstants {
          * 商品列表权限。
          */
         public static final String GOODS_LIST = "system:goods:list";
+        /**
+         * 数据导出页面查看权限。
+         */
+        public static final String DATA_EXPORT_VIEW = "statistics:data-export:view";
     }
 
     /**
@@ -292,6 +296,10 @@ public final class PermissionConstants {
          * 创建开箱记录权限。
          */
         public static final String CREATE = "unbox:record:create";
+        /**
+         * 创建开箱记录导出任务权限。
+         */
+        public static final String EXPORT = "unbox:record:export";
         /**
          * 更新开箱记录权限。
          */

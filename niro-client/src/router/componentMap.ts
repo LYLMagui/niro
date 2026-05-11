@@ -24,6 +24,8 @@ const componentMap: Record<string, () => Promise<Component>> = {
   inventory: () => import("@/views/InventoryBoard.vue"),
   inventorymanagement: () => import("@/views/InventoryManagement.vue"),
   "inventory-management": () => import("@/views/InventoryManagement.vue"),
+  dataexport: () => import("@/views/DataExport.vue"),
+  "data-export": () => import("@/views/DataExport.vue"),
   unboxrecord: () => import("@/views/UnboxRecord.vue"),
   invitecode: () => import("@/views/InviteCodeManage.vue"),
   "invite-code": () => import("@/views/InviteCodeManage.vue"),

@@ -89,6 +89,18 @@ const pageRegistry: Record<string, NewPageRegistryItem> = {
       breadcrumb: true,
     },
   },
+  DataExport: {
+    pageKey: "DataExport",
+    path: "data-export",
+    routeName: "DataExport",
+    component: () => import("@/views/DataExport.vue"),
+    meta: {
+      title: "数据导出",
+      icon: "download",
+      noCache: false,
+      breadcrumb: true,
+    },
+  },
   UnboxRecord: {
     pageKey: "UnboxRecord",
     path: "unbox-record",
