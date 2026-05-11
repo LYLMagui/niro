@@ -1,7 +1,6 @@
 version: '1.0'
 name: pipeline-20260511
 displayName: niro后端构建
-
 triggers:
   trigger: manual
   push:
@@ -11,7 +10,6 @@ triggers:
     paths:
       prefix:
         - niro-server/
-
 stages:
   - name: stage-build
     displayName: 构建
@@ -37,6 +35,5 @@ stages:
         notify: []
         strategy:
           retry: '0'
-
 strategy:
   blocking: true
