@@ -1,9 +1,6 @@
 services:
   niro-db:
-    image: niro_postgres
-    build:
-      context: ./docker/postgres
-      dockerfile: Dockerfile
+    image: wkelai/niro-postgres:latest
     container_name: niro-db
     restart: always
     environment:
@@ -45,10 +42,7 @@ services:
       - niro-data-net
 
   niro-ocr:
-    image: niro_ocr
-    build:
-      context: ./ocr_demo
-      dockerfile: Dockerfile
+    image: wkelai/niro-ocr:latest
     container_name: niro-ocr
     restart: always
     environment:
@@ -70,12 +64,7 @@ services:
       - niro-data-net
 
   niro-web:
-    image: niro_web
-    build:
-      context: ./niro-server
-      dockerfile: Dockerfile
-      args:
-        ENV_TYPE: prod
+    image: wkelai/niro-web:latest
     container_name: niro-web
     restart: always
     depends_on:
@@ -126,12 +115,7 @@ services:
       - niro-data-net
 
   niro-client:
-    image: niro_client
-    build:
-      context: ./niro-client
-      dockerfile: Dockerfile
-      args:
-        ENV_TYPE: prod
+    image: wkelai/niro-client:latest
     container_name: niro-client
     restart: always
     environment:

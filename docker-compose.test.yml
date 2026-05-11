@@ -1,9 +1,6 @@
 services:
   niro-db-test:
-    image: niro_postgres_test
-    build:
-      context: ./docker/postgres
-      dockerfile: Dockerfile
+    image: wkelai/niro-postgres:test-latest
     container_name: niro-db-test
     restart: always
     environment:
@@ -46,10 +43,7 @@ services:
       - niro-data-net-test
 
   niro-ocr-test:
-    image: niro_ocr_test
-    build:
-      context: ./ocr_demo
-      dockerfile: Dockerfile
+    image: wkelai/niro-ocr:test-latest
     container_name: niro-ocr-test
     restart: always
     environment:
@@ -71,10 +65,7 @@ services:
       - niro-data-net-test
 
   niro-web-test:
-    image: niro_web_test
-    build:
-      context: ./niro-server
-      dockerfile: Dockerfile
+    image: wkelai/niro-web:test-latest
     container_name: niro-web-test
     hostname: niro-web-test
     restart: always
@@ -127,12 +118,7 @@ services:
       - niro-data-net-test
 
   niro-client-test:
-    image: niro_client_test
-    build:
-      context: ./niro-client
-      dockerfile: Dockerfile
-      args:
-        ENV_TYPE: ${CLIENT_ENV}
+    image: wkelai/niro-client:test-latest
     container_name: niro-client-test
     restart: always
     environment:
