@@ -1,7 +1,6 @@
 version: '1.0'
 name: pipeline-20260511
 displayName: niro后端构建
-
 triggers:
   trigger: manual
   push:
@@ -9,9 +8,8 @@ triggers:
       precise:
         - main
     paths:
-      prefix:
-        - niro-server/
-
+      precise:
+        - niro-server
 stages:
   - name: stage-build
     displayName: 构建
@@ -26,17 +24,16 @@ stages:
         jdkVersion: '21'
         mavenVersion: 3.9.11
         commands:
-          - mvn -f niro-server/pom.xml clean package -pl niro-web -am -Dmaven.test.skip=true -B
+          - mvn -f niro/niro-server/pom.xml clean package -pl niro-web -am -Dmaven.test.skip=true -B
         artifacts:
           - name: BUILD_ARTIFACT
             path:
-              - niro-server/niro-web/target/*.jar
+              - niro/niro-server/niro-web/target/*.jar
         settings: []
         caches:
           - ~/.m2
         notify: []
         strategy:
           retry: '0'
-
 strategy:
   blocking: true
