@@ -1,20 +1,8 @@
 # Build stage
 FROM maven:3.9.6-eclipse-temurin-21-alpine AS build
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-ARG ALL_PROXY
-ARG NO_PROXY
 WORKDIR /app
 # 增加 Maven 内存限制，防止编译时 OOM
-ENV MAVEN_OPTS="-Xmx1024m" \
-    http_proxy=${HTTP_PROXY} \
-    https_proxy=${HTTPS_PROXY} \
-    all_proxy=${ALL_PROXY} \
-    no_proxy=${NO_PROXY} \
-    HTTP_PROXY=${HTTP_PROXY} \
-    HTTPS_PROXY=${HTTPS_PROXY} \
-    ALL_PROXY=${ALL_PROXY} \
-    NO_PROXY=${NO_PROXY}
+ENV MAVEN_OPTS="-Xmx1024m"
 COPY pom.xml .
 COPY maven-settings.xml .
 COPY niro-sdk/pom.xml niro-sdk/
@@ -30,22 +18,10 @@ RUN mvn clean package -s maven-settings.xml -Dmaven.test.skip=true
 
 # Run stage
 FROM eclipse-temurin:21-jre-alpine
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-ARG ALL_PROXY
-ARG NO_PROXY
 WORKDIR /app
 
 # 安装时区数据并设置上海时区
-ENV TZ=Asia/Shanghai \
-    http_proxy=${HTTP_PROXY} \
-    https_proxy=${HTTPS_PROXY} \
-    all_proxy=${ALL_PROXY} \
-    no_proxy=${NO_PROXY} \
-    HTTP_PROXY=${HTTP_PROXY} \
-    HTTPS_PROXY=${HTTPS_PROXY} \
-    ALL_PROXY=${ALL_PROXY} \
-    NO_PROXY=${NO_PROXY}
+ENV TZ=Asia/Shanghai
 RUN apk add --no-cache tzdata \
     && cp /usr/share/zoneinfo/Asia/Shanghai /etc/localtime \
     && echo "Asia/Shanghai" > /etc/timezone

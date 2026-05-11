@@ -1,23 +1,15 @@
 # syntax=docker/dockerfile:1.7
 FROM python:3.11-slim
 
-ARG HTTP_PROXY
-ARG HTTPS_PROXY
-ARG NO_PROXY
-
 WORKDIR /app
 
-RUN export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
-    http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY \
-    && apt-get update \
+RUN apt-get update \
     && apt-get install -y --no-install-recommends libgomp1 libgl1 libglib2.0-0 \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
 RUN --mount=type=cache,target=/root/.cache/pip \
-    export HTTP_PROXY=$HTTP_PROXY HTTPS_PROXY=$HTTPS_PROXY NO_PROXY=$NO_PROXY \
-    http_proxy=$HTTP_PROXY https_proxy=$HTTPS_PROXY no_proxy=$NO_PROXY \
-    && pip install --timeout 300 --retries 5 -r requirements.txt
+    pip install --timeout 300 --retries 5 -r requirements.txt
 
 COPY app.py ./
 COPY service.py ./
