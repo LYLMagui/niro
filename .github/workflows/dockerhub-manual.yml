@@ -1,0 +1,115 @@
+name: Manual Build and Push Niro Images
+
+# 1. 触发器：允许手动选择环境和标签进行构建
+on:
+  workflow_dispatch:
+    inputs:
+      target_env:
+        description: '选择构建环境 (prod 使用最新代码，test 使用测试配置)'
+        required: true
+        type: choice
+        default: prod
+        options:
+          - prod
+          - test
+      image_tag:
+        description: '自定义镜像标签 (如 v1.0.1)。留空则自动生成: 环境-SHA'
+        required: false
+        type: string
+
+jobs:
+  build-and-push:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      # --- 准备阶段 ---
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 设置 Docker Buildx (这是启用缓存和高级构建功能的关键)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          # 启用 GitHub Actions 缓存驱动
+          driver-opts: image=moby/buildkit:latest
+
+      # 登录到 Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # --- 变量计算阶段 ---
+      - name: Set build variables
+        id: vars
+        shell: bash
+        run: |
+          # 获取 Git 短哈希
+          SHORT_SHA=$(echo ${{ github.sha }} | cut -c1-7)
+          NAMESPACE=${{ secrets.DOCKERHUB_USERNAME }}
+
+          # 根据输入环境切换配置
+          if [ "${{ github.event.inputs.target_env }}" = "prod" ]; then
+            echo "COMPOSE_FILE=docker-compose.yml" >> "$GITHUB_ENV"
+            echo "ENV_LATEST=latest" >> "$GITHUB_ENV"
+            echo "ENV_PREFIX=prod" >> "$GITHUB_ENV"
+            # 定义本地镜像名（需与 docker-compose.yml 里的 build 结果一致）
+            echo "LOCAL_IMAGES=niro_postgres niro_ocr niro_web niro_client" >> "$GITHUB_ENV"
+            # 定义远程仓库名（Docker Hub 上的名字）
+            echo "REMOTE_NAMES=niro-postgres niro-ocr niro-web niro-client" >> "$GITHUB_ENV"
+          else
+            echo "COMPOSE_FILE=docker-compose.test.yml" >> "$GITHUB_ENV"
+            echo "ENV_LATEST=test-latest" >> "$GITHUB_ENV"
+            echo "ENV_PREFIX=test" >> "$GITHUB_ENV"
+            echo "LOCAL_IMAGES=niro_postgres_test niro_ocr_test niro_web_test niro_client_test" >> "$GITHUB_ENV"
+            echo "REMOTE_NAMES=niro-postgres niro-ocr niro-web niro-client" >> "$GITHUB_ENV"
+            echo "CLIENT_ENV=test" >> "$GITHUB_ENV"
+          fi
+
+          # 确定最终版本标签 (优先级: 用户输入 > 自动生成)
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "FINAL_TAG=${{ github.event.inputs.image_tag }}" >> "$GITHUB_ENV"
+          else
+            echo "FINAL_TAG=${ENV_PREFIX}-${SHORT_SHA}" >> "$GITHUB_ENV"
+          fi
+
+      # --- 构建阶段 ---
+      - name: Build images with Docker Compose
+        shell: bash
+        run: |
+          # 开启 BuildKit 缓存以加速构建
+          export DOCKER_BUILDKIT=1
+          # 如果有环境参数，传递给 Compose
+          CLIENT_ENV=${CLIENT_ENV:-prod} docker compose -f "${COMPOSE_FILE}" build
+
+      # --- 推送阶段 ---
+      - name: Tag and Push images to Docker Hub
+        shell: bash
+        run: |
+          # 将字符串转为数组
+          locals=($LOCAL_IMAGES)
+          remotes=($REMOTE_NAMES)
+          NAMESPACE=${{ secrets.DOCKERHUB_USERNAME }}
+
+          for i in "${!locals[@]}"; do
+            L_IMG="${locals[$i]}"
+            R_NAME="${remotes[$i]}"
+            FULL_PATH="${NAMESPACE}/${R_NAME}"
+
+            echo "正在标记并推送: ${L_IMG} -> ${FULL_PATH}"
+
+            # 1. 打上环境标签 (latest 或 test-latest)
+            docker tag "${L_IMG}" "${FULL_PATH}:${ENV_LATEST}"
+            docker push "${FULL_PATH}:${ENV_LATEST}"
+
+            # 2. 打上版本标签 (SHA 或 自定义版本)
+            docker tag "${L_IMG}" "${FULL_PATH}:${FINAL_TAG}"
+            docker push "${FULL_PATH}:${FINAL_TAG}"
+          done
+
+      # --- 清理阶段 (可选) ---
+      - name: Logout from Docker Hub
+        run: docker logout
