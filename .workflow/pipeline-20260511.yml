@@ -30,7 +30,7 @@ stages:
         artifacts:
           - name: BUILD_ARTIFACT
             path:
-              - niro/niro-server/niro-web/target/*.jar
+              - niro-web/target/*.jar
         settings: []
         caches:
           - ~/.m2
