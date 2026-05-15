@@ -15,6 +15,7 @@ import org.springframework.stereotype.Component;
         topic = MqConstant.TOPIC_C5_MARKET_PRICE_SNAPSHOT,
         selectorExpression = MqConstant.TAG_C5_MARKET_PRICE_SNAPSHOT_REFRESH,
         consumerGroup = MqConstant.CONSUMER_GROUP_C5_MARKET_PRICE_SNAPSHOT_REFRESH,
+        namespace = "${ROCKETMQ_NAMESPACE:}",
         consumeThreadNumber = 1
 )
 public class C5MarketPriceSnapshotRefreshConsumer implements RocketMQListener<Long> {

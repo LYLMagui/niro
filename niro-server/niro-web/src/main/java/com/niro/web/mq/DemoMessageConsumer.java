@@ -10,6 +10,7 @@ import org.springframework.stereotype.Component;
 @RocketMQMessageListener(
     topic = "niro-test-topic",
     consumerGroup = "niro-test-consumer-group",
+    namespace = "${ROCKETMQ_NAMESPACE:}",
     selectorExpression = "*"
 )
 public class DemoMessageConsumer implements RocketMQListener<String> {

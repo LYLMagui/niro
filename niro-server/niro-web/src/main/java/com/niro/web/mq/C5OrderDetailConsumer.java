@@ -46,6 +46,7 @@ import java.util.concurrent.TimeUnit;
     topic = MqConstant.TOPIC_C5_ORDER,
     selectorExpression = MqConstant.TAG_C5_ORDER_DETAIL_SYNC,
     consumerGroup = MqConstant.CONSUMER_GROUP_C5_ORDER_DETAIL,
+    namespace = "${ROCKETMQ_NAMESPACE:}",
     consumeThreadNumber = 10
 )
 public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMessage> {

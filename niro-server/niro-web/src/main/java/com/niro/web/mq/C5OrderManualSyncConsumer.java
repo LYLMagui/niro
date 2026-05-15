@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
         topic = MqConstant.TOPIC_C5_ORDER,
         selectorExpression = MqConstant.TAG_C5_ORDER_MANUAL_SYNC,
         consumerGroup = MqConstant.CONSUMER_GROUP_C5_ORDER_MANUAL_SYNC,
+        namespace = "${ROCKETMQ_NAMESPACE:}",
         consumeThreadNumber = 1
 )
 public class C5OrderManualSyncConsumer implements RocketMQListener<C5OrderManualSyncMessage> {

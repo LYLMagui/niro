@@ -63,10 +63,10 @@ xxl:
 
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
-  namespace: ${ROCKETMQ_NAMESPACE:}
   producer:
     # 生产者组名
     group: ${ROCKETMQ_PRODUCER_GROUP:niro-producer-group}
+    namespace: ${ROCKETMQ_NAMESPACE:}
     # 发送消息超时时间（毫秒）
     send-message-timeout: 3000
     # 发送失败时重试次数
@@ -84,6 +84,7 @@ rocketmq:
   consumer:
     # 默认消费者组名（可被 @RocketMQMessageListener 覆盖）
     group: ${ROCKETMQ_CONSUMER_GROUP:niro-consumer-group}
+    namespace: ${ROCKETMQ_NAMESPACE:}
     # 消费线程数配置
     consume-thread-min: 20
     consume-thread-max: 64
