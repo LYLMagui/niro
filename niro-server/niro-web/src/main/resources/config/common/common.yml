@@ -63,6 +63,7 @@ xxl:
 
 rocketmq:
   name-server: ${ROCKETMQ_NAME_SERVER:127.0.0.1:9876}
+  namespace: ${ROCKETMQ_NAMESPACE:}
   producer:
     # 生产者组名
     group: ${ROCKETMQ_PRODUCER_GROUP:niro-producer-group}
