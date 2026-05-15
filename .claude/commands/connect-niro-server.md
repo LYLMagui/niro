@@ -1,11 +1,11 @@
 ---
 description: 连接 Niro 远程服务器并查看指定环境状态
-argument-hint: "<test|prod> [extra-remote-command]"
+argument-hint: "<test|prod|baidu> [extra-remote-command]"
 ---
 
 # Connect Niro Server
 
-连接 Niro 远程服务器，按用户指定连接测试环境 `root@106.53.11.158` 或生产环境 `root@119.29.200.243`，默认使用本机私钥 `~/.ssh/niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前指定环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
+连接 Niro 远程服务器，按用户指定连接测试环境 `root@106.53.11.158:62222`、生产环境 `root@119.29.200.243:62222` 或百度云环境 `root@106.12.50.74:62222`。`test` 与 `prod` 默认使用本机私钥 `C:\Users\24160\.ssh\ThinkBook.pem`，`baidu` 默认使用本机私钥 `C:\Users\24160\.ssh\niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前指定环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
 
 ## What This Command Does
 
@@ -20,10 +20,12 @@ argument-hint: "<test|prod> [extra-remote-command]"
 ```bash
 /connect-niro-server test
 /connect-niro-server prod
+/connect-niro-server baidu
 /connect-niro-server test "docker logs --tail 100 niro-web-test"
 /connect-niro-server prod "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 /connect-niro-server test "cd /home/app/niro && git status --short"
 /connect-niro-server prod "cd /home/workspace/niro && git status --short"
+/connect-niro-server baidu "docker ps --format 'table {{.Names}}\t{{.Status}}\t{{.Ports}}'"
 ```
 
 ## Implementation Steps
@@ -34,31 +36,40 @@ When this command is invoked:
 
 Require the first argument to identify the target environment:
 
-- `test`: 测试环境，连接 `root@106.53.11.158`
-- `prod`: 生产环境，连接 `root@119.29.200.243`
+- `test`: 测试环境，连接 `root@106.53.11.158:62222`
+- `prod`: 生产环境，连接 `root@119.29.200.243:62222`
+- `baidu`: 百度云环境，连接 `root@106.12.50.74:62222`
 
-If the first argument is missing or is not `test` / `prod`:
+If the first argument is missing or is not `test` / `prod` / `baidu`:
 
 - Stop immediately.
 - Ask the user to specify the target server.
-- Show examples: `/connect-niro-server test` and `/connect-niro-server prod`.
+- Show examples: `/connect-niro-server test`、`/connect-niro-server prod` and `/connect-niro-server baidu`.
 
 Choose `SSH_TARGET` from the first argument:
 
 ```bash
-SSH_KEY="$HOME/.ssh/niro_server_ed25519"
+SSH_TEST_KEY="C:\Users\24160\.ssh\ThinkBook.pem"
+SSH_PROD_KEY="C:\Users\24160\.ssh\ThinkBook.pem"
+SSH_BAIDU_KEY="C:\Users\24160\.ssh\niro_server_ed25519"
 SSH_TEST_TARGET="root@106.53.11.158"
 SSH_PROD_TARGET="root@119.29.200.243"
-SSH_TARGET="$SSH_TEST_TARGET"  # when the first argument is test
-SSH_TARGET="$SSH_PROD_TARGET"  # when the first argument is prod
+SSH_BAIDU_TARGET="root@106.12.50.74"
+SSH_KEY="$SSH_TEST_KEY"       # when the first argument is test
+SSH_KEY="$SSH_PROD_KEY"       # when the first argument is prod
+SSH_KEY="$SSH_BAIDU_KEY"      # when the first argument is baidu
+SSH_TARGET="$SSH_TEST_TARGET" # when the first argument is test
+SSH_TARGET="$SSH_PROD_TARGET" # when the first argument is prod
+SSH_TARGET="$SSH_BAIDU_TARGET" # when the first argument is baidu
 SSH_TEST_PROJECT_DIR="/home/app/niro"
 SSH_PROD_PROJECT_DIR="/home/workspace/niro"
 REMOTE_PROJECT_DIR="$SSH_TEST_PROJECT_DIR"  # when the first argument is test
 REMOTE_PROJECT_DIR="$SSH_PROD_PROJECT_DIR"  # when the first argument is prod
-SSH_OPTS="-i $SSH_KEY -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10"
+REMOTE_PROJECT_DIR=""                       # when the first argument is baidu
+SSH_OPTS="-i $SSH_KEY -p 62222 -o IdentitiesOnly=yes -o BatchMode=yes -o ConnectTimeout=10"
 ```
 
-Treat all remaining arguments after `test` / `prod` as the optional extra remote command.
+Treat all remaining arguments after `test` / `prod` / `baidu` as the optional extra remote command.
 
 Do not print private key content. Do not ask the user for passwords.
 
@@ -67,21 +78,22 @@ Do not print private key content. Do not ask the user for passwords.
 Use Bash tool to run:
 
 ```bash
-test -f "$HOME/.ssh/niro_server_ed25519"
+test -f "$SSH_KEY"
 ```
 
 If the file does not exist:
 
 - Stop immediately.
 - Report that the SSH private key is missing.
-- Tell the user to generate or place the key at `~/.ssh/niro_server_ed25519`.
+- Tell the user to generate or place the selected key at the path configured by `SSH_KEY`.
 
 ### 3. Run connection check
 
 Use Bash tool to run:
 
 ```bash
-ssh -i "$HOME/.ssh/niro_server_ed25519" \
+ssh -i "$SSH_KEY" \
+  -p 62222 \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
@@ -107,7 +119,8 @@ If SSH exits non-zero:
 Use Bash tool to run this read-only remote status command:
 
 ```bash
-ssh -i "$HOME/.ssh/niro_server_ed25519" \
+ssh -i "$SSH_KEY" \
+  -p 62222 \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
@@ -136,21 +149,24 @@ If the optional extra remote command is not empty:
 - Use Bash tool to run:
 
 ```bash
-ssh -i "$HOME/.ssh/niro_server_ed25519" \
+ssh -i "$SSH_KEY" \
+  -p 62222 \
   -o IdentitiesOnly=yes \
   -o BatchMode=yes \
   -o ConnectTimeout=10 \
   "$SSH_TARGET" '$ARGUMENTS'
 ```
 
-For project-specific commands, prefer arguments that explicitly enter the selected environment project directory:
+For project-specific commands, prefer arguments that explicitly enter the selected environment project directory when that environment has one:
 
 - `test`: `/home/app/niro`
 - `prod`: `/home/workspace/niro`
+- `baidu`: 无项目目录，仅执行用户显式提供的远程命令
 
 ```bash
 "cd /home/app/niro && <command>"
 "cd /home/workspace/niro && <command>"
+"<command>"
 ```
 
 ### 6. Safety rules
