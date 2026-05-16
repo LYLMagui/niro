@@ -1,0 +1,35 @@
+services:
+  napcat:
+    image: ${NAPCAT_IMAGE:-mlikiowa/napcat-docker:latest}
+    container_name: napcat
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+      NAPCAT_UID: ${NAPCAT_UID:-1000}
+      NAPCAT_GID: ${NAPCAT_GID:-1000}
+    volumes:
+      - ${NAPCAT_CONFIG_DIR:-./napcat/config}:/app/napcat/config
+      - ${NAPCAT_QQ_DIR:-./napcat/qq}:/app/.config/QQ
+      - ${NAPCAT_PLUGINS_DIR:-./napcat/plugins}:/app/napcat/plugins
+    networks:
+      - napcat-astrbot-network
+      - niro-data-net
+
+  astrbot:
+    image: ${ASTRBOT_IMAGE:-soulter/astrbot:latest}
+    container_name: astrbot
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-Asia/Shanghai}
+    volumes:
+      - ${ASTRBOT_DATA_DIR:-./astrbot/data}:/AstrBot/data
+    networks:
+      - napcat-astrbot-network
+      - niro-data-net
+
+networks:
+  napcat-astrbot-network:
+    name: napcat-astrbot-network
+    driver: bridge
+  niro-data-net:
+    external: true
