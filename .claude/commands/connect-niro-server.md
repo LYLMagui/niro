@@ -5,7 +5,7 @@ argument-hint: "<test|prod|baidu> [extra-remote-command]"
 
 # Connect Niro Server
 
-连接 Niro 远程服务器，按用户指定连接测试环境 `root@106.53.11.158:62222`、生产环境 `root@119.29.200.243:62222` 或百度云环境 `root@106.12.50.74:62222`。`test` 与 `prod` 默认使用本机私钥 `C:\Users\24160\.ssh\ThinkBook.pem`，`baidu` 默认使用本机私钥 `C:\Users\24160\.ssh\niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前指定环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
+连接 Niro 远程服务器，按用户指定连接测试环境 `root@106.53.11.158:62222`、生产环境 `root@119.29.200.243:62222` 或百度云环境 `root@106.12.50.74:62222`。`test` 默认使用本机私钥 `C:\Users\24160\.ssh\ThinkBook.pem`，`prod` 与 `baidu` 默认使用本机私钥 `C:\Users\24160\.ssh\niro_server_ed25519`。这个命令的主要功能是建立连接、确认远程主机状态、查看当前指定环境容器与监听端口；默认不拉取项目、不构建镜像、不启动或重启容器。
 
 ## What This Command Does
 
@@ -50,7 +50,7 @@ Choose `SSH_TARGET` from the first argument:
 
 ```bash
 SSH_TEST_KEY="C:\Users\24160\.ssh\ThinkBook.pem"
-SSH_PROD_KEY="C:\Users\24160\.ssh\ThinkBook.pem"
+SSH_PROD_KEY="C:\Users\24160\.ssh\niro_server_ed25519"
 SSH_BAIDU_KEY="C:\Users\24160\.ssh\niro_server_ed25519"
 SSH_TEST_TARGET="root@106.53.11.158"
 SSH_PROD_TARGET="root@119.29.200.243"
