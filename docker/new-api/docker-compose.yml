@@ -3,6 +3,9 @@ services:
     image: calciumion/new-api:latest
     container_name: new-api
     restart: always
+    networks:
+      - default
+      - niro-data-net
     command: --log-dir /app/logs
     ports:
       - '3000:3000'
@@ -15,11 +18,9 @@ services:
       - TZ=Asia/Shanghai
       - ERROR_LOG_ENABLED=true # 是否启用错误日志记录
       - BATCH_UPDATE_ENABLED=true # 是否启用批量更新
-
     depends_on:
       - redis
       - postgres
-
     healthcheck:
       test:
         [
@@ -57,3 +58,7 @@ services:
       POSTGRES_DB: ${NEW_API_DB_NAME}
     volumes:
       - /home/data/new-api/data:/var/lib/postgresql/data
+
+networks:
+  niro-data-net:
+    external: true
