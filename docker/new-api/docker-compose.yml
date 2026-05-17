@@ -37,7 +37,6 @@ services:
     restart: always
     networks:
       - default
-      - niro-data-net
 
   postgres:
     image: postgres:15
@@ -63,7 +62,6 @@ services:
       - /home/data/new-api/data:/var/lib/postgresql/data
     networks:
       - default
-      - niro-data-net
 
 networks:
   niro-data-net:
