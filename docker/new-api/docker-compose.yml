@@ -35,6 +35,9 @@ services:
     image: redis:latest
     container_name: redis
     restart: always
+    networks:
+      - default
+      - niro-data-net
 
   postgres:
     image: postgres:15
@@ -58,6 +61,9 @@ services:
       POSTGRES_DB: ${NEW_API_DB_NAME}
     volumes:
       - /home/data/new-api/data:/var/lib/postgresql/data
+    networks:
+      - default
+      - niro-data-net
 
 networks:
   niro-data-net:
