@@ -1,202 +1,207 @@
 ---
 name: backend-development-standard
 description: >
-  识别当前项目的后端技术栈、分层结构、返回模型、DTO/VO/Param/Entity 边界和持久层访问方式，
-  并按项目既有规范新增、修改、重构、审查或沉淀后端代码。Use when 用户要求新增、修改、
-  重构、规范化、沉淀或审查后端接口、业务链路、Controller、Service、Mapper/DAO、Entity、
-  DTO、VO、Param、事务、鉴权、校验、分页或后端开发流程。
-metadata:
-  tags: backend, architecture, standards, api
-  platforms: Claude
+  在 Niro 仓库中按固定项目规范处理后端接口、业务链路、Controller、Service、MapperManager、Mapper、Entity、DTO、VO、Param、SDK 接入、接口返回模型与 MyBatis 查询。
+  Use when 用户要求新增、修改、重构、规范化或审查这些后端代码；即使用户没有明确说“后端规范”，只要意图是按 Niro 现有后端分层和约束落地实现，也应触发本技能。
+allowed-tools: Read Grep Glob Edit Write Bash
+compatibility: Niro repository only. Assumes the fixed Java/Spring Boot multi-module backend in this workspace and the repository CLAUDE.md constraints.
 ---
 
-# Backend Development Standard
-
-## Overview
-
-这是一个“后端项目规范分析 + 落地执行”的总控技能。
-
-它不预设所有项目都遵循同一套后端规范，也不把某个仓库的分层、返回值、ORM 用法、命名约束硬编码成通用真理。
-
-它的职责是：
-
-1. 识别当前项目使用的语言、框架、ORM、分层和返回模型。
-2. 优先读取当前 skill 下已沉淀的项目规范参考文件。
-3. 如果参考文件不存在，就从当前项目代码中归纳出一份项目规范。
-4. 后续新增、修改、重构、review 后端代码时，按项目规范执行，而不是跨架构硬套。
+# Niro Backend Development
 
 ## When to use this skill
 
-在以下场景使用本技能：
+在 Niro 仓库内处理以下任务时启用本技能：
 
-- 用户要求新增、修改、重构或规范化后端接口
-- 用户要求补业务链路、梳理分层、统一后端写法
-- 用户要求 review 后端代码风格、架构一致性、数据访问边界
-- 用户要求沉淀当前仓库的后端开发规范或落地流程
-- 任务涉及 Controller、Service、Repository / Mapper / DAO、Entity、DTO、VO、Param、事务、鉴权、校验、分页、响应模型
-- 你需要先判断当前项目是否已有稳定后端规范，再决定如何实现
+- 新增或修改后端接口、业务链路或分层落点
+- 新增或调整 Controller、Service、MapperManager、Mapper、Entity、DTO、VO、Param
+- 修正 MyBatis 查询写法、接口返回模型或事务边界
+- 修改 `niro-sdk` 中的第三方平台接入代码，且需要符合 Niro 当前后端边界
+- review 后端实现是否符合 Niro 既有风格与兼容性约束
+- 统一某个模块的后端写法，但仍需保持局部收敛和历史兼容
 
-以下场景不必强行使用本技能：
+以下场景不作为默认入口：
 
 - 纯前端页面、样式或交互任务
-- 纯数据库建模任务，且不涉及当前项目后端落地约束
-- 纯部署、运维、CI/CD 配置
-- 只做概念解释，不需要按当前项目规范落地
-
-## Rules
-
-- 先识别当前项目是什么，再决定如何写，不跨架构硬套。
-- 先读当前项目已有实现和相似代码，再提炼规范，不凭印象输出“标准答案”。
-- 参考文件存在时优先使用，但不能盲信；若与当前代码事实明显冲突，以代码事实为准并更新参考文件。
-- 参考文件不存在时，先归纳项目规范，再开始大规模实现或规范化。
-- 规范的目标是帮助当前项目保持一致，不是为了制造新的抽象层或重写整仓库。
-- 新代码优先遵循项目推荐写法；旧代码若存在历史包袱，除非任务明确要求，不顺手做跨模块大清洗。
-- 代码不能过度拆分或者封装，必须保证可读性
+- 纯数据库建模或 SQL 迁移，且不涉及 Java 后端落地
+- 纯部署、CI/CD、环境配置调整
+- 只做概念讲解，不需要在 Niro 代码中落地实现
 
 ## Instructions
 
-### Step 1: Classify the backend task
-先判断本次任务属于哪类：
+将本技能视为 **Niro 固定仓库专用执行器**。不要再走“识别任意项目形态、自动生成通用后端规范”的流程。优先读取 Niro 已沉淀的项目规则，再结合目标模块现状完成最小必要改动。
 
-- 新增接口
-- 修改已有接口
-- 新增业务链路
-- 重构已有分层
-- 代码审查 / 风格审查
-- 规范文档沉淀或更新
+### Step 1: Classify the task
 
-明确范围、目标层级和兼容性要求，避免上来就跨层乱改。
+先判断任务落点：
 
-### Step 2: Load or create the project backend standard
-优先检查当前 skill 目录下是否存在：
+- Controller 接口调整
+- Service 业务逻辑调整
+- MapperManager / Mapper 查询调整
+- DTO / VO / Param / Entity 调整
+- SDK / 第三方接口接入调整
+- 链路补齐或规范化 review
 
-- `.claude/skills/backend-development-standard/references/project-backend-standard.md`
+明确目标层级、影响范围、上下游调用方和兼容性要求。不要在范围未清前开始改代码。
 
-处理规则：
+### Step 2: Load Niro rules first
 
-1. **如果存在**：
-   - 先读取它。
-   - 将它视为当前项目默认规范来源。
-   - 如果本次任务涉及的代码明显与参考文件冲突，补读实际代码，再修正参考文件。
+默认先读取以下内容：
 
-2. **如果不存在**：
-   - 读取当前项目有代表性的 Controller、Service、持久层、DTO/VO/Param/Entity、配置或项目说明。
-   - 归纳该项目的后端规范。
-   - 在 `.claude/skills/backend-development-standard/references/project-backend-standard.md` 中写入项目规范。
-   - 后续按新生成的参考文件执行。
+1. `references/project-backend-standard.md`
+2. 当前目标文件
+3. 同模块相似实现
+4. 项目级 `CLAUDE.md` / `PROJECT_RULES.md` / `CODING_RULES.md` 中与分层、兼容性、验证相关的约束
 
-### Step 3: Analyze the project shape before prescribing structure
-至少识别这些维度：
+如果 reference 与当前稳定代码事实冲突：
 
-- 语言与运行时（Java / Go / Node / Python ...）
-- Web 框架（Spring Boot / NestJS / Gin / FastAPI ...）
-- 持久层模式（MyBatis-Plus / JPA / Repository / DAO / Prisma / raw SQL ...）
-- 常见分层（Controller / Service / Manager / Repository / Domain ...）
-- 接口返回模型（直接返回 DTO、统一包装、自动响应增强等）
-- 参数校验方式
-- 鉴权方式
-- 事务边界
-- 包结构、命名规则、DTO/Entity 边界
+- 分层职责、返回模型默认约束、MapperManager 边界、`lambdaQuery` 默认写法、构造注入、DTO/Param/VO/Entity 边界、SDK 敏感日志约束等，优先遵守 reference
+- 历史接口兼容性、旧返回结构、既有非 RESTful 路径、被调用方依赖的字段结构、局部旧模块稳定写法等，优先尊重当前稳定实现
+- 只有在确认出现了长期稳定新规则时，才回写 reference
 
-目标是回答：这个项目本来就是怎么写的，而不是你希望它怎么写。
+### Step 3: Reconstruct the call chain before editing
 
-### Step 4: Read the current implementation and similar modules
-至少阅读：
+对常规业务接口，优先还原 Niro 推荐链路：
 
-- 当前目标文件
-- 同模块相似 Controller / Service / Repository / Mapper / Entity
-- 当前接口的入参和返回对象
-- 相关异常、事务、鉴权、校验、分页写法
-- 如有项目说明文件，也要读（例如 `CLAUDE.md`、模块说明、架构文档）
+```text
+Controller
+  -> Service
+  -> MapperManager
+  -> Mapper
+  -> Entity
+```
 
-如果项目已经有稳定模式，优先复用；如果项目处于迁移期，要同时识别“推荐写法”和“历史遗留写法”。
+对第三方接入任务，至少确认：
 
-### Step 5: Design the change against project conventions
-在开始写代码前，先确认：
+```text
+Controller / Service
+  -> SDK Client / Engine
+  -> Third-party API
+```
 
-- 当前接口应该返回什么类型
-- 业务逻辑应该放在哪一层
-- 数据访问应该经由哪一层
-- DTO / VO / Param / Entity 的边界是否清晰
-- 当前任务应该遵循推荐写法，还是需要兼容某段已有旧实现
+至少确认：
 
-如果你发现当前项目并不采用某种常见模式，例如没有 `MapperManager`、没有统一 `Result`、没有 `ServiceImpl`，那就不要把这种模式硬塞进去。
+- 参数从哪一层进入
+- 业务判断该落在哪一层
+- 数据查询由谁负责
+- 返回对象在哪一层组装
+- SDK 是否只负责协议适配而未混入业务流程
+- 现有调用方是否依赖当前路径、签名或字段结构
 
-### Step 6: Implement with the project standard, and refresh the reference when needed
-实现时遵循这些边界：
+如果当前任务只落在链路中的一个局部节点，也要先看上下游，不要孤立修改。
 
-- 小改动优先沿用所在模块的稳定写法
-- 新增模块或规范化改造优先按项目参考规范落地
-- 只有当你确认发现了稳定、可复用、值得长期保留的新规范时，才更新 `.claude/skills/backend-development-standard/references/project-backend-standard.md`
-- 如果只是某个文件的临时例外，不要把它升级成项目规范
+### Step 4: Decide layer ownership
 
-### Step 7: Verify the result with compatibility in mind
-根据任务范围选择最小必要验证：
+按 Niro 既有职责边界分配改动：
 
-- 编译通过
-- 单测通过
-- 静态检查通过
-- 接口签名兼容
-- 调用链没有被错误分层破坏
-- 返回字段、事务边界、异常路径与现有调用方一致
+- **niro-core**：公共组件、响应增强、异常处理、配置、工具类，不放具体业务流程
+- **Controller**：接参与鉴权，调用 Service，返回业务对象，不直接访问持久层
+- **Service**：业务判断、事务控制、DTO / VO 组装、跨资源协调
+- **MapperManager**：承载语义明确的数据访问入口、分页、统计、批量查询与保存更新
+- **Mapper**：承载映射能力和必要复杂 SQL
+- **Entity / DTO / VO / Param**：只表达数据边界，不承载流程逻辑
+- **niro-sdk**：只封装第三方协议，不承载 Niro 业务编排，不直接依赖 `niro-web`
 
-如果无法执行某项验证，要明确说明缺口和剩余风险。
+如果当前模块已有固定分页转换、返回模型、命名方式或历史兼容写法，优先沿用模块内模式，不横向移植别处规则。
+
+### Step 5: Implement minimally
+
+开始改代码时，控制改动粒度：
+
+- 小改动沿用目标模块现有风格
+- 新增接口优先复用已有 DTO、VO、Param、MapperManager、分页和鉴权模式
+- 缺少查询能力时，新增语义明确的 MapperManager 方法，不把查询细节塞进 Controller 或 Service
+- Controller 默认直接返回 `DTO / VO / List / Page / void`，不要为新代码手动包 `Result`
+- MyBatis 查询默认优先使用 `lambdaQuery()` / `lambdaUpdate()` 和方法引用
+- 业务断言优先使用项目已有 `Assert` 工具类
+- 不跨层落代码：Controller 不堆业务，Service 不越过 MapperManager 直接查库，SDK 不承载 Niro 业务流程
+- 不顺手做无关重构，不为了“更优雅”额外制造抽象
+
+默认追求“当前需求最小闭环”，不为单次修改提前铺大框架。
+
+### Step 6: Check compatibility before finishing
+
+完成代码后，至少从兼容性角度复核：
+
+- Controller 是否越层访问持久层
+- Service / MapperManager 职责是否清晰
+- 接口返回结构、路径、参数绑定是否影响现有调用方
+- 历史 `Result<T>` 接口或非 RESTful 路径是否被无意破坏
+- DTO / Param / VO / Entity 边界是否被混用
+- SDK 是否泄露敏感日志，是否正确区分 HTTP 失败、解析失败和业务失败
+- 涉及余额、订单、库存、状态回写等并发敏感逻辑时，锁、幂等和状态流转是否保持原有约束
+
+如果无法执行某项验证，明确说明缺口、影响和剩余风险。
+
+### Step 7: Update the project reference only when justified
+
+仅在以下场景更新 `references/project-backend-standard.md`：
+
+- 发现 reference 与当前稳定代码事实不一致
+- 某类新写法已经在多个模块稳定出现，值得上升为项目规则
+- 新增了后续高频复用的明确约束
+
+不要把某个文件的临时例外写成项目规范。本项目不自动进行构建；如需编译、测试或启动，只报告建议，默认由用户手动执行。若确需执行后端命令，必须显式使用 `D:\Environment\JDK\jdk-21.0.2`。
 
 ## Examples
 
-### Example 1: Reference exists, implement against it
-用户说：
+### Example 1: Add a backend endpoint
 
-> 按当前项目后端规范补一个新接口。
+输入：
 
-你应该：
+> 在 Niro 里给某个业务模块补一个新接口，按现有后端规范来。
 
-1. 先读取 `.claude/skills/backend-development-standard/references/project-backend-standard.md`。
-2. 再读取当前模块的相似 Controller / Service / 持久层实现。
-3. 按参考规范和当前模块既有模式落代码。
-4. 若发现参考规范与当前模块实现冲突，先确认是否是旧代码偏差还是规范已过时。
+执行要点：
 
-### Example 2: No reference exists yet
-用户说：
+1. 先读 `references/project-backend-standard.md`
+2. 再读当前模块相似 Controller、Service、MapperManager 实现
+3. 先还原链路，再补齐缺失节点
+4. 优先复用当前模块已有 DTO、分页和鉴权方式
 
-> 帮我统一一下这个后端仓库的接口写法。
+### Example 2: Adjust Service and MapperManager boundary
 
-你应该：
+输入：
 
-1. 先检查 `.claude/skills/backend-development-standard/references/project-backend-standard.md` 是否存在。
-2. 若不存在，读取代表性的 Controller、Service、持久层、DTO、Entity 和项目说明。
-3. 总结项目的分层、返回值、查询方式、校验与事务模式。
-4. 生成 `.claude/skills/backend-development-standard/references/project-backend-standard.md`。
-5. 再开始后续规范化改造。
+> 帮我把这个 Service 里的查询挪到合适的 MapperManager，别破坏老接口返回。
 
-### Example 3: The project differs from a familiar pattern
-用户说：
+执行要点：
 
-> 把这个 Service 改成统一写法。
+1. 先确认任务属于 Service / MapperManager 分层调整
+2. 检查当前 Service 与同模块 MapperManager 的既有写法
+3. 把查询能力下沉到明确命名的 MapperManager 方法
+4. 保持原有返回结构和调用方兼容
 
-你应该重点检查：
+### Example 3: Review Niro SDK integration code
 
-- 当前仓库是否真的有统一写法
-- 当前模块是推荐写法还是历史写法
-- 数据访问边界该落在哪一层
-- 是否需要补 reference，而不是直接照搬别的项目规则
-- 变更是否会破坏现有调用方或接口契约
+输入：
+
+> review 一下这个 C5 接入实现有没有把业务逻辑塞进 SDK，或者日志里有敏感信息。
+
+执行要点：
+
+1. 先看 `references/project-backend-standard.md` 中的 SDK 约束
+2. 再检查调用入口、SDK Client / Engine、日志和异常处理
+3. 重点看协议适配边界、敏感信息脱敏和错误分类是否清晰
+
+## Output format
+
+完成任务后的结果说明至少包含：
+
+- 已读取的规范入口与相似实现范围
+- 改动落点和分层边界判断
+- 兼容性关注点
+- 已完成的验证与未验证项
 
 ## Best practices
 
-1. skill 本体只写元规则，不把项目私有规范硬编码进去。
-2. `description` 只写触发条件和职责，不塞过多项目细节。
-3. 参考文件存在时优先读取；不存在时先归纳、再生成、再执行。
-4. 参考文件是“当前项目规范快照”，不是不可质疑的圣经。
-5. 发现规范和代码事实冲突时，以代码事实为准，并回写参考文件。
-6. 规范化的目标是提升一致性，不是顺手把整个仓库改成你熟悉的架构。
-7. 对处于迁移期的项目，要同时记录推荐写法和已知历史偏差，避免误导后续改动。
+1. 先读 `references/project-backend-standard.md`，再读目标模块相似实现。
+2. 以当前模块稳定代码事实为第一依据，不拿别的项目规则硬套。
+3. 改动保持最小闭环，不顺手做跨模块清洗或无关重构。
+4. 涉及历史接口、返回结构、SDK 签名或并发敏感链路时优先考虑兼容性。
+5. 只有确认形成长期稳定规则时，才更新项目 reference。
 
 ## References
 
-- `.claude/skills/backend-development-standard/references/project-backend-standard.md`
-- `D:\MySpace\niro\CLAUDE.md`
-- `D:\MySpace\niro\niro-server\CLAUDE.md`
-- 当前项目内相似的 Controller、Service、持久层、DTO、Entity 实现
+- `references/project-backend-standard.md` — Niro 后端项目规则、分层边界、返回约束、SDK 约束与兼容性原则的主入口。
 
-# 本项目不自动进行构建；如需编译验证，由用户手动执行。
+如果任务本身存在更强的项目指令、用户要求或仓库内文档约束，以更具体、更接近代码事实的规则优先。

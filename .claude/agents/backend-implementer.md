@@ -2,7 +2,7 @@
 name: backend-implementer
 description: 负责后端接口、服务、DTO、Entity、Mapper 与业务链路的代码落地实现，严格按现有文档执行，不做发散设计。
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: sonnet
+model: opus
 skills:
   - backend-development-standard
 disallowedTools:

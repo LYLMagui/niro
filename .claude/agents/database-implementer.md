@@ -2,7 +2,7 @@
 name: database-implementer
 description: 负责数据库表结构、迁移脚本与 SQL 变更的代码落地实现，严格按现有文档执行，不做发散设计。
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: sonnet
+model: opus
 skills:
   - sql-database-workflow
 disallowedTools:

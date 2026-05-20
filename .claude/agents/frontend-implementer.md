@@ -2,7 +2,7 @@
 name: frontend-implementer
 description: 负责前端页面、组件、路由与交互的代码落地实现，严格按现有文档执行，不做发散设计。
 tools: Read, Grep, Glob, Edit, Write, Bash
-model: sonnet
+model: opus
 skills:
   - frontend-page-development
 disallowedTools:
