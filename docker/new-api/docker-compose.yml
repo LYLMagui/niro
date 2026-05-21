@@ -10,8 +10,8 @@ services:
     ports:
       - '3000:3000'
     volumes:
-      - ./data:/data
-      - ./logs:/app/logs
+      - ${NEW_API_BASE_DIR:-/home/data/new-api}/data:/data
+      - ${NEW_API_BASE_DIR:-/home/data/new-api}/logs:/app/logs
     environment:
       - SQL_DSN=postgresql://${NEW_API_DB_USER}:${NEW_API_DB_PASSWORD}@postgres:5432/${NEW_API_DB_NAME} # 从 .env 读取 PostgreSQL 连接信息
       - REDIS_CONN_STRING=redis://redis
@@ -59,7 +59,7 @@ services:
       POSTGRES_PASSWORD: ${NEW_API_DB_PASSWORD}
       POSTGRES_DB: ${NEW_API_DB_NAME}
     volumes:
-      - /home/data/new-api/data:/var/lib/postgresql/data
+      - ${NEW_API_BASE_DIR:-/home/data/new-api}/postgres_data:/var/lib/postgresql/data
     networks:
       - default
 

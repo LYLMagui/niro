@@ -35,7 +35,7 @@ services:
       - "${BIND_HOST:-127.0.0.1}:${SERVER_PORT:-8080}:8080"
     volumes:
       # Local directory mapping for easy migration
-      - ./data:/app/data
+      - ${SUB2API_BASE_DIR:-/home/data/sub2api}/data:/app/data
       # Optional: Mount custom config.yaml (uncomment and create the file first)
       # Copy config.example.yaml to config.yaml, modify it, then uncomment:
       # - ./config.yaml:/app/data/config.yaml
@@ -174,7 +174,7 @@ services:
         hard: 100000
     volumes:
       # Local directory mapping for easy migration
-      - ./postgres_data:/var/lib/postgresql/data
+      - ${SUB2API_BASE_DIR:-/home/data/sub2api}/postgres_data:/var/lib/postgresql/data
     command:
       - postgres
       - -c
@@ -219,7 +219,7 @@ services:
         hard: 100000
     volumes:
       # Local directory mapping for easy migration
-      - ./redis_data:/data
+      - ${SUB2API_BASE_DIR:-/home/data/sub2api}/redis_data:/data
     command: >
       sh -c '
         redis-server
