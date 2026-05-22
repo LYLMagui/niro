@@ -6,10 +6,12 @@ import com.niro.core.util.Assert;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.dto.param.UserPlatformSettingsParam;
 import com.niro.web.entity.UserPlatformSettings;
+import com.niro.web.event.UserPlatformSettingsChangedEvent;
 import com.niro.web.mapper.UserPlatformSettingsMapper;
 import com.niro.web.service.AppKeyCryptoService;
 import com.niro.web.service.UserPlatformSettingsService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,6 +28,7 @@ import java.time.LocalDateTime;
 public class UserPlatformSettingsServiceImpl extends ServiceImpl<UserPlatformSettingsMapper, UserPlatformSettings> implements UserPlatformSettingsService {
 
     private final AppKeyCryptoService appKeyCryptoService;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Override
     public UserPlatformSettingsDTO getByUserId(Long userId) {
@@ -81,6 +84,10 @@ public class UserPlatformSettingsServiceImpl extends ServiceImpl<UserPlatformSet
             this.updateById(settings);
         } else {
             this.save(settings);
+        }
+
+        if (StrUtil.isNotBlank(param.getEncryptedC5AppKey())) {
+            eventPublisher.publishEvent(new UserPlatformSettingsChangedEvent(userId));
         }
     }
 

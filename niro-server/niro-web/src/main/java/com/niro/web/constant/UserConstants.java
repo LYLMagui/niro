@@ -14,8 +14,14 @@ public class UserConstants {
      */
     public static final String DEFAULT_ROLE_KEY = "user";
 
+    /**
+     * 管理员角色编码。
+     */
     public static final String ADMIN_ROLE_KEY = "admin";
 
+    /**
+     * 默认数据权限范围标识。
+     */
     public static final String DEFAULT_DATA_SCOPE = "1";
 
     /**

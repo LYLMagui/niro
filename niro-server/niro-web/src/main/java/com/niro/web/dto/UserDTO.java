@@ -1,9 +1,5 @@
 package com.niro.web.dto;
 
-import com.baomidou.mybatisplus.annotation.IdType;
-import com.baomidou.mybatisplus.annotation.TableId;
-import com.baomidou.mybatisplus.annotation.TableLogic;
-
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Data;
 
@@ -19,7 +15,6 @@ public class UserDTO {
     /**
      * 主键ID
      */
-    @TableId(value = "id", type = IdType.AUTO)
     @Schema(description = "主键ID")
     private Long id;
 
@@ -28,7 +23,7 @@ public class UserDTO {
      */
     @Schema(description = "账号")
     private String username;
-    
+
 
     /**
      * 昵称
@@ -57,13 +52,6 @@ public class UserDTO {
     /**
      * 是否删除: 0-否, 1-是
      */
-    @TableLogic
     @Schema(description = "是否删除: 0-否, 1-是")
     private Integer isDelete;
-
-    /**
-     * Token令牌
-     */
-    @Schema(description = "Token令牌")
-    private String token;
 }

@@ -11,6 +11,7 @@ import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
 import com.niro.core.util.RedisUtil;
+import com.niro.web.constant.InviteCodeConstants;
 import com.niro.web.constant.UserConstants;
 import com.niro.web.dto.UserDTO;
 import com.niro.web.dto.ValidateInviteCodeDTO;
@@ -85,14 +86,14 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         if (record == null) {
             return ValidateInviteCodeDTO.fail("邀请码不存在");
         }
-        if (!InviteCodeMapperManager.STATUS_ENABLED.equals(record.getStatus())) {
+        if (!InviteCodeConstants.STATUS_ENABLED.equals(record.getStatus())) {
             return ValidateInviteCodeDTO.fail("邀请码已停用");
         }
         if (record.getExpireTime() != null && record.getExpireTime().isBefore(LocalDateTime.now())) {
             return ValidateInviteCodeDTO.fail("邀请码已过期");
         }
         if (record.getUsedUserId() != null
-                && !record.getUsedUserId().equals(InviteCodeMapperManager.UNUSED_USER_ID)) {
+                && !record.getUsedUserId().equals(InviteCodeConstants.UNUSED_USER_ID)) {
             return ValidateInviteCodeDTO.fail("邀请码已被使用");
         }
         return ValidateInviteCodeDTO.ok("邀请码可用");
@@ -179,11 +180,11 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
 
     private void assertInviteCodeUsable(InviteCode record) {
         Assert.notNull(record, "邀请码不存在");
-        Assert.isTrue(InviteCodeMapperManager.STATUS_ENABLED.equals(record.getStatus()), "邀请码已停用");
+        Assert.isTrue(InviteCodeConstants.STATUS_ENABLED.equals(record.getStatus()), "邀请码已停用");
         Assert.isTrue(record.getExpireTime() == null || record.getExpireTime().isAfter(LocalDateTime.now()),
                 "邀请码已过期");
         Assert.isTrue(record.getUsedUserId() == null
-                        || record.getUsedUserId().equals(InviteCodeMapperManager.UNUSED_USER_ID),
+                        || record.getUsedUserId().equals(InviteCodeConstants.UNUSED_USER_ID),
                 "邀请码已被使用");
     }
 
@@ -202,7 +203,6 @@ public class UserServiceImpl extends ServiceImpl<UserMapper, User> implements Us
         StpUtil.login(user.getId());
         // 返回结果
         UserDTO userDTO = BeanUtil.copyProperties(user, UserDTO.class);
-        userDTO.setToken(StpUtil.getTokenValue());
         return userDTO;
     }
 

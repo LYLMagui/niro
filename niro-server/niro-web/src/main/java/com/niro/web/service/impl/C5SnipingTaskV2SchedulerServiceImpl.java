@@ -6,7 +6,6 @@ import com.niro.sdk.c5.order.C5OrderDetailRequest;
 import com.niro.sdk.c5.order.C5OrderDetailResponse;
 import com.niro.web.dto.C5SnipingTaskV2EventDTO;
 import com.niro.web.entity.C5SnipingAccount;
-import com.niro.web.entity.C5SnipingAccountRuntimeV2;
 import com.niro.web.entity.C5SnipingBuyAttemptV2;
 import com.niro.web.entity.C5SnipingTaskV2;
 import com.niro.web.entity.TradeOrderRecord;
@@ -179,7 +178,7 @@ public class C5SnipingTaskV2SchedulerServiceImpl implements C5SnipingTaskV2Sched
 
             C5SnipingTaskV2ExecutionResult result = executionService.executeOneCycle(task);
             if (result.isStopTask()) {
-                taskManager.markTaskStatus(taskId, C5SnipingTaskV2StatusEnum.RUNNING, result.getTaskStatus());
+                taskManager.markTaskStatus(taskId, List.of(C5SnipingTaskV2StatusEnum.RUNNING), result.getTaskStatus(), result.getErrorMessage());
                 taskManager.clearStopRequest(taskId);
                 taskManager.clearReservedBuyCountIfNoUnsettledAttempt(taskId);
                 publishTaskEvent(taskManager.getById(taskId), resolveTaskStatusEvent(result.getTaskStatus()), result.getTaskStatus(), result.getErrorMessage());

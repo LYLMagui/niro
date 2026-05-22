@@ -6,9 +6,11 @@ import com.niro.core.exception.BusinessException;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.web.entity.UserPlatformSettings;
+import com.niro.web.event.UserPlatformSettingsChangedEvent;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
 import java.util.Map;
@@ -120,6 +122,20 @@ public class C5ApiClientService {
                 log.info("移除 C5ApiClient 缓存，用户ID: {}", userId);
             }
         }
+    }
+
+    public void removeClientByAppKey(String appKey) {
+        if (StrUtil.isNotBlank(appKey)) {
+            C5ApiClient removed = appKeyClientCache.remove(appKey);
+            if (removed != null) {
+                log.info("移除 C5ApiClient appKey 缓存");
+            }
+        }
+    }
+
+    @EventListener
+    public void onUserPlatformSettingsChanged(UserPlatformSettingsChangedEvent event) {
+        removeClient(event.getUserId());
     }
 
     /**

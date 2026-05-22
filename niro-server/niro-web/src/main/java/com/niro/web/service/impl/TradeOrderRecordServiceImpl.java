@@ -7,10 +7,7 @@ import cn.hutool.core.util.StrUtil;
 import cn.hutool.json.JSONObject;
 import cn.hutool.json.JSONUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
-import com.niro.core.exception.BusinessException;
 import com.niro.core.util.Assert;
-import com.niro.sdk.c5.client.C5ApiClient;
-import com.niro.sdk.c5.config.C5Config;
 import com.niro.web.dto.InventoryItemDTO;
 import com.niro.web.dto.PurchaseStatsItemDTO;
 import com.niro.web.dto.PurchaseStatsSplitItemDTO;
@@ -19,17 +16,15 @@ import com.niro.web.dto.PurchaseStatsTrendDTO;
 import com.niro.web.dto.TradeOrderRecordDTO;
 import com.niro.web.entity.C5SnipingAccount;
 import com.niro.web.entity.TradeOrderRecord;
-import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.PlatformEnum;
 import com.niro.web.manager.C5SnipingAccountMapperManager;
 import com.niro.web.manager.C5SnipingTaskV2MapperManager;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
 import com.niro.web.service.TradeOrderRecordService;
-import com.niro.web.service.UserPlatformSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.annotation.Value;
+import org.springframework.dao.DuplicateKeyException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -44,7 +39,6 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 /**
@@ -64,10 +58,6 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
     private final C5SnipingAccountMapperManager c5SnipingAccountMapperManager;
     private final C5SnipingTaskV2MapperManager c5SnipingTaskV2MapperManager;
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
-    private final UserPlatformSettingsService userPlatformSettingsService;
-
-    @Value("${c5.base-url:https://openapi.c5game.com}")
-    private String c5BaseUrl;
 
     private LocalDateTime parseStartDate(String startDate) {
         if (StrUtil.isBlank(startDate)) {
@@ -107,96 +97,69 @@ public class TradeOrderRecordServiceImpl implements TradeOrderRecordService {
         return tradeOrderRecordMapperManager.listSuccessfulPurchaseRecords(userId, keyword, startDateTime, endDateTime);
     }
 
-    private final Map<Long, C5ApiClient> clientCache = new ConcurrentHashMap<>();
-
-    private C5ApiClient getC5Client(Long userId) {
-        return getC5ApiClient(userId, clientCache, userPlatformSettingsService, c5BaseUrl);
-    }
-
-    public static C5ApiClient getC5ApiClient(Long userId, Map<Long, C5ApiClient> clientCache,
-                                              UserPlatformSettingsService userPlatformSettingsService,
-                                              String c5BaseUrl) {
-        return clientCache.computeIfAbsent(userId, uid -> {
-            UserPlatformSettings settings = userPlatformSettingsService.lambdaQuery()
-                    .eq(UserPlatformSettings::getUserId, uid)
-                    .one();
-            if (settings == null) {
-                throw new BusinessException("用户配置不存在");
-            }
-            if (StrUtil.isBlank(settings.getC5AppKeyEncrypted())) {
-                throw new BusinessException("C5 App Key 未配置");
-            }
-            C5Config config = new C5Config()
-                    .setAppKey(userPlatformSettingsService.decryptC5AppKey(settings))
-                    .setBaseUrl(c5BaseUrl);
-            return new C5ApiClient(config);
-        });
-    }
-
     @Override
     @Transactional(rollbackFor = Exception.class)
     public void handleOrderReport(String message) {
-        try {
-            if (StrUtil.isBlank(message)) {
+        if (StrUtil.isBlank(message)) {
+            return;
+        }
+        JSONObject json = JSONUtil.parseObj(message);
+
+        String orderId = json.getStr("orderId");
+        if (StrUtil.isNotBlank(orderId)) {
+            boolean exists = tradeOrderRecordMapperManager.lambdaQuery()
+                    .eq(TradeOrderRecord::getOrderId, orderId)
+                    .exists();
+            if (exists) {
+                log.info("订单已存在，忽略上报: {}", orderId);
                 return;
             }
-            JSONObject json = JSONUtil.parseObj(message);
-
-            String orderId = json.getStr("orderId");
-            if (StrUtil.isNotBlank(orderId)) {
-                boolean exists = tradeOrderRecordMapperManager.lambdaQuery()
-                        .eq(TradeOrderRecord::getOrderId, orderId)
-                        .exists();
-                if (exists) {
-                    log.info("订单已存在，忽略上报: {}", orderId);
-                    return;
-                }
-            }
-
-            TradeOrderRecord record = new TradeOrderRecord();
-            record.setPlatform(json.getStr("platform", PlatformEnum.C5.getCode()));
-            record.setUserId(json.getLong("userId", 0L));
-            record.setTaskId(json.getLong("taskId", 0L));
-            record.setAccountId(json.getLong("accountId", 0L));
-            String marketHashName = json.getStr("marketHashName", "");
-            if (StrUtil.isNotBlank(marketHashName)) {
-                marketHashName = StrUtil.trim(marketHashName);
-            }
-            record.setMarketHashName(marketHashName);
-            record.setGoodsName(json.getStr("goodsName", ""));
-            record.setGoodsImg(json.getStr("goodsImg", ""));
-            record.setOrderId(orderId);
-            record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
-            record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
-
-            String errorMsg = json.getStr("errorMsg", "");
-            if (StrUtil.isBlank(errorMsg)) {
-                errorMsg = json.getStr("failedDesc", "");
-            }
-            record.setErrorMsg(errorMsg);
-
-            if (json.containsKey("extraInfo")) {
-                record.setExtraInfo(json.getJSONObject("extraInfo"));
-            }
-
-            Long timestamp = json.getLong("timestamp");
-            if (timestamp != null) {
-                if (timestamp < 10000000000L) {
-                    timestamp = timestamp * 1000;
-                }
-                record.setCreateTime(DateUtil.date(timestamp).toLocalDateTime());
-            } else {
-                record.setCreateTime(LocalDateTime.now());
-            }
-            record.setUpdateTime(LocalDateTime.now());
-
-            tradeOrderRecordMapperManager.save(record);
-            log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
-
-
-        } catch (Exception e) {
-            log.error("处理订单上报消息异常: {}", message, e);
         }
+
+        TradeOrderRecord record = new TradeOrderRecord();
+        record.setPlatform(json.getStr("platform", PlatformEnum.C5.getCode()));
+        record.setUserId(json.getLong("userId", 0L));
+        record.setTaskId(json.getLong("taskId", 0L));
+        record.setAccountId(json.getLong("accountId", 0L));
+        String marketHashName = json.getStr("marketHashName", "");
+        if (StrUtil.isNotBlank(marketHashName)) {
+            marketHashName = StrUtil.trim(marketHashName);
+        }
+        record.setMarketHashName(marketHashName);
+        record.setGoodsName(json.getStr("goodsName", ""));
+        record.setGoodsImg(json.getStr("goodsImg", ""));
+        record.setOrderId(orderId);
+        record.setPrice(json.getBigDecimal("price", BigDecimal.ZERO));
+        record.setStatus(json.getInt("status", OrderStatusEnum.PENDING.getCode()));
+
+        String errorMsg = json.getStr("errorMsg", "");
+        if (StrUtil.isBlank(errorMsg)) {
+            errorMsg = json.getStr("failedDesc", "");
+        }
+        record.setErrorMsg(errorMsg);
+
+        if (json.containsKey("extraInfo")) {
+            record.setExtraInfo(json.getJSONObject("extraInfo"));
+        }
+
+        Long timestamp = json.getLong("timestamp");
+        if (timestamp != null) {
+            if (timestamp < 10000000000L) {
+                timestamp = timestamp * 1000;
+            }
+            record.setCreateTime(DateUtil.date(timestamp).toLocalDateTime());
+        } else {
+            record.setCreateTime(LocalDateTime.now());
+        }
+        record.setUpdateTime(LocalDateTime.now());
+
+        try {
+            tradeOrderRecordMapperManager.save(record);
+        } catch (DuplicateKeyException e) {
+            log.info("订单已存在(唯一索引拦截): orderId={}", orderId);
+            return;
+        }
+        log.info("订单记录入库成功: orderId={}, status={}", orderId, record.getStatus());
     }
 
     @Override

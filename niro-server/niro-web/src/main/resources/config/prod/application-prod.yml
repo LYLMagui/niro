@@ -46,3 +46,8 @@ buff:
   debug: false
   jwt:
     secret: ${JWT_SECRET:prod_secret_key}
+
+niro:
+  security:
+    allowed-origins:
+      - https://nriobox.online

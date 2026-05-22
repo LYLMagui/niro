@@ -1,5 +1,6 @@
 package com.niro.web.scheduler;
 
+import com.niro.web.constant.TradeOrderConstants;
 import com.niro.web.service.TradeOrderRecordService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,7 +27,6 @@ public class TradeOrderConsumer implements ApplicationRunner {
     private final StringRedisTemplate stringRedisTemplate;
     private final TradeOrderRecordService tradeOrderRecordService;
 
-    private static final String REDIS_KEY_ORDER_REPORT = "niro:order:report";
     private volatile boolean running = true;
     
     // 使用单线程线程池来执行阻塞监听
@@ -42,7 +42,7 @@ public class TradeOrderConsumer implements ApplicationRunner {
         while (running) {
             try {
                 // 阻塞式右侧弹出，超时时间 5 秒
-                String message = stringRedisTemplate.opsForList().rightPop(REDIS_KEY_ORDER_REPORT, 5, TimeUnit.SECONDS);
+                String message = stringRedisTemplate.opsForList().rightPop(TradeOrderConstants.ORDER_REPORT_QUEUE_KEY, 5, TimeUnit.SECONDS);
                 if (message != null) {
                     log.debug("收到订单上报消息: {}", message);
                     tradeOrderRecordService.handleOrderReport(message);

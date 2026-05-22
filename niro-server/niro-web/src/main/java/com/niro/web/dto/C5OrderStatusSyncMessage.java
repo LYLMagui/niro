@@ -45,11 +45,6 @@ public class C5OrderStatusSyncMessage implements Serializable {
     private Long userId;
 
     /**
-     * C5 App Key
-     */
-    private String appKey;
-
-    /**
      * 商品名称
      */
     private String marketHashName;

@@ -7,11 +7,15 @@ import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.order.C5OrderDetailRequest;
 import com.niro.sdk.c5.order.C5OrderDetailResponse;
+import com.niro.web.constant.C5OrderSyncConstants;
 import com.niro.web.dto.C5OrderDetailMessage;
 import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.enums.platform.C5OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.manager.UserPlatformSettingsMapperManager;
+import com.niro.web.service.UserPlatformSettingsService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
@@ -51,10 +55,9 @@ import java.util.concurrent.TimeUnit;
 )
 public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMessage> {
 
-    private static final String LIMITER_KEY = "niro:limiter:c5:order:detail";
-    private static final int ACQUIRE_TIMEOUT_SECONDS = 5;
-
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
+    private final UserPlatformSettingsMapperManager userPlatformSettingsMapperManager;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final RedissonClient redissonClient;
 
     private RRateLimiter c5ApiLimiter;
@@ -64,9 +67,9 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
 
     @PostConstruct
     private void initLimiter() {
-        log.debug("开始初始化 C5 订单详情消费者限流器, key={}", LIMITER_KEY);
+        log.debug("开始初始化 C5 订单详情消费者限流器, key={}", C5OrderSyncConstants.ORDER_DETAIL_LIMITER_KEY);
         try {
-            c5ApiLimiter = redissonClient.getRateLimiter(LIMITER_KEY);
+            c5ApiLimiter = redissonClient.getRateLimiter(C5OrderSyncConstants.ORDER_DETAIL_LIMITER_KEY);
             // 限流: 每 1 秒产生 10 个令牌，与 MQ 并发数匹配，避免触发 C5 平台限流
             c5ApiLimiter.trySetRate(RateType.OVERALL, 10, 1, RateIntervalUnit.SECONDS);
             log.info("C5 订单详情消费者限流器初始化成功: 10 QPS");
@@ -82,7 +85,6 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
         // 验证消息
         Assert.notNull(message.getOrderId(), "C5订单号不能为空");
         Assert.notNull(message.getUserId(), "用户ID不能为空");
-        Assert.notBlank(message.getAppKey(), "C5 App Key 不能为空");
 
         // 1. 查询本地订单记录
         TradeOrderRecord record = tradeOrderRecordMapperManager.getByOrderId(message.getOrderId());
@@ -99,10 +101,18 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
         }
 
         try {
+            UserPlatformSettings settings = userPlatformSettingsMapperManager.lambdaQuery()
+                    .eq(UserPlatformSettings::getUserId, message.getUserId())
+                    .one();
+            Assert.notNull(settings, "用户未配置 C5 平台");
+            Assert.notNull(settings.getC5AppKeyEncrypted(), "用户未配置 C5 App Key");
+            String appKey = userPlatformSettingsService.decryptC5AppKey(settings);
+            Assert.notBlank(appKey, "C5 App Key 解密失败");
+
             // 2. 创建 C5 API 客户端，使用消息中的 appKey
             C5Config config = new C5Config();
             config.setBaseUrl(c5BaseUrl);
-            config.setAppKey(message.getAppKey());
+            config.setAppKey(appKey);
             C5ApiClient c5ApiClient = new C5ApiClient(config);
 
             // 3. 构造请求参数（只使用 orderId）
@@ -145,7 +155,7 @@ public class C5OrderDetailConsumer implements RocketMQListener<C5OrderDetailMess
             return true;
         }
         try {
-            return c5ApiLimiter.tryAcquire(1, ACQUIRE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            return c5ApiLimiter.tryAcquire(1, C5OrderSyncConstants.LIMITER_ACQUIRE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("获取 C5 API 令牌异常，降级直接放行", e);
             return true;

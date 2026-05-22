@@ -106,11 +106,12 @@ public class C5MarketPriceSnapshotServiceImpl implements C5MarketPriceSnapshotSe
         C5MarketPriceSnapshot snapshot = getOrCreateSnapshot(key, now);
         int pageNum = normalizePageNum(param.getPageNum());
         int limit = normalizeLimit(param.getLimit(), C5MarketPriceSnapshotDisplayModeEnum.PRICE_LOWEST.name());
-        boolean canRaisePriority = tryAcquireManualRefreshThrottle(snapshot.getId());
+        boolean forceImmediateRefresh = hasNoReferenceForRefresh(snapshot, key);
+        boolean canRaisePriority = forceImmediateRefresh || tryAcquireManualRefreshThrottle(snapshot.getId());
         touchSnapshot(snapshot, now, canRaisePriority);
         if (canRaisePriority && snapshotManager.acquireRefreshing(snapshot.getId(), now)) {
             try {
-                refreshSnapshot(snapshot.getId(), false);
+                refreshSnapshot(snapshot.getId(), forceImmediateRefresh);
             } catch (RuntimeException ignored) {
             }
         }
@@ -218,11 +219,23 @@ public class C5MarketPriceSnapshotServiceImpl implements C5MarketPriceSnapshotSe
     }
 
     /**
-     * 尝试获取手动刷新冷却许可。
+     * 判断本次手动刷新对应区间是否仍然没有参考价。
      *
-     * @param snapshotId 快照ID
-     * @return 是否允许本次手动刷新
+     * @param snapshot 快照记录
+     * @param key 快照查询键
+     * @return 是否缺少参考价
      */
+    private boolean hasNoReferenceForRefresh(C5MarketPriceSnapshot snapshot, SnapshotKey key) {
+        if (snapshot == null) {
+            return true;
+        }
+        List<C5MarketPriceSnapshotListingDTO> listings = readListings(snapshot);
+        if (C5MarketPriceSnapshotRangeTypeEnum.ALL.name().equals(key.rangeType())) {
+            return listings.isEmpty();
+        }
+        return filterListingsByWear(listings, key.wearMin(), key.wearMax()).isEmpty();
+    }
+
     private boolean tryAcquireManualRefreshThrottle(Long snapshotId) {
         String throttleKey = C5MarketPriceSnapshotConstants.MANUAL_REFRESH_THROTTLE_KEY_PREFIX + snapshotId;
         return redissonClient.getBucket(throttleKey)
