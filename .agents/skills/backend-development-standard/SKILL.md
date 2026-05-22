@@ -48,7 +48,7 @@ compatibility: Niro repository only. Assumes the fixed Java/Spring Boot multi-mo
 
 默认先读取以下内容：
 
-1. `references/project-backend-standard.md`
+1. `./references/project-backend-standard.md`
 2. 当前目标文件
 3. 同模块相似实现
 4. 项目级 `CLAUDE.md` / `PROJECT_RULES.md` / `CODING_RULES.md` 中与分层、兼容性、验证相关的约束
@@ -135,7 +135,7 @@ Controller / Service
 
 ### Step 7: Update the project reference only when justified
 
-仅在以下场景更新 `references/project-backend-standard.md`：
+仅在以下场景更新 `./references/project-backend-standard.md`：
 
 - 发现 reference 与当前稳定代码事实不一致
 - 某类新写法已经在多个模块稳定出现，值得上升为项目规则
@@ -153,7 +153,7 @@ Controller / Service
 
 执行要点：
 
-1. 先读 `references/project-backend-standard.md`
+1. 先读 `./references/project-backend-standard.md`
 2. 再读当前模块相似 Controller、Service、MapperManager 实现
 3. 先还原链路，再补齐缺失节点
 4. 优先复用当前模块已有 DTO、分页和鉴权方式
@@ -179,7 +179,7 @@ Controller / Service
 
 执行要点：
 
-1. 先看 `references/project-backend-standard.md` 中的 SDK 约束
+1. 先看 `./references/project-backend-standard.md` 中的 SDK 约束
 2. 再检查调用入口、SDK Client / Engine、日志和异常处理
 3. 重点看协议适配边界、敏感信息脱敏和错误分类是否清晰
 
@@ -194,7 +194,7 @@ Controller / Service
 
 ## Best practices
 
-1. 先读 `references/project-backend-standard.md`，再读目标模块相似实现。
+1. 先读 `./references/project-backend-standard.md`，再读目标模块相似实现。
 2. 以当前模块稳定代码事实为第一依据，不拿别的项目规则硬套。
 3. 改动保持最小闭环，不顺手做跨模块清洗或无关重构。
 4. 涉及历史接口、返回结构、SDK 签名或并发敏感链路时优先考虑兼容性。
@@ -202,6 +202,6 @@ Controller / Service
 
 ## References
 
-- `references/project-backend-standard.md` — Niro 后端项目规则、分层边界、返回约束、SDK 约束与兼容性原则的主入口。
+- `./references/project-backend-standard.md` — Niro 后端项目规则、分层边界、返回约束、SDK 约束与兼容性原则的主入口。
 
 如果任务本身存在更强的项目指令、用户要求或仓库内文档约束，以更具体、更接近代码事实的规则优先。

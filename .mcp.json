@@ -51,18 +51,6 @@
     "serena-niro-claude": {
       "type": "http",
       "url": "http://127.0.0.1:9122/mcp"
-    },
-    "idea-server-mcp": {
-      "type": "stdio",
-      "env": {
-        "IJ_MCP_SERVER_PORT": "64342"
-      },
-      "command": "D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\jbr\\bin\\java",
-      "args": [
-        "-classpath",
-        "D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\plugins\\mcpserver\\lib\\mcpserver-frontend.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\util-8.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.ktor.client.cio.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.ktor.client.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.ktor.network.tls.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.ktor.io.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.ktor.utils.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.kotlinx.io.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.kotlinx.serialization.core.jar;D:\\Environment\\SoftWare\\IntelliJ IDEA 2025.3.4\\lib\\module-intellij.libraries.kotlinx.serialization.json.jar",
-        "com.intellij.mcpserver.stdio.McpStdioRunnerKt"
-      ]
     }
   }
 }
