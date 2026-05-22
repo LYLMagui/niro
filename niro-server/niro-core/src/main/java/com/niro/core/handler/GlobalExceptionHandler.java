@@ -80,7 +80,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(NoResourceFoundException.class)
     public Result<Void> handlerNoResourceFoundException(NoResourceFoundException ex, HttpServletRequest request) {
         log.debug("接口未找到 | URI: {}", request.getRequestURI());
-        return Result.failure(StatusCode.NOT_FOUND_CODE, "404");
+        return Result.failure(StatusCode.NOT_FOUND_CODE, "请求的资源不存在");
     }
 
     @ExceptionHandler(AsyncRequestTimeoutException.class)

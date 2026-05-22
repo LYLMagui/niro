@@ -1,12 +1,15 @@
 package com.niro.core.result;
 
+import java.io.Serializable;
+
+import org.slf4j.MDC;
+
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.niro.core.constant.TraceConstant;
+
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.experimental.Accessors;
-import org.slf4j.MDC;
-
-import java.io.Serializable;
 
 /**
  * 全局统计返回结果对象
@@ -38,7 +41,11 @@ public class Result<T> implements Serializable {
      * @param <T>
      */
     public static <T> Result<T> success(T data) {
-        return new Result<T>().setCode(StatusCode.SUCCESS_CODE).setMessage(GlobalMessageConstant.SUCCESS).setData(data);
+        return new Result<T>()
+                .setCode(StatusCode.SUCCESS_CODE)
+                .setMessage(GlobalMessageConstant.SUCCESS)
+                .setData(data)
+                .setTraceId(MDC.get(TraceConstant.TRACE_ID_MDC_KEY));
     }
 
     /**
@@ -47,7 +54,10 @@ public class Result<T> implements Serializable {
      * @param <T>
      */
     public static <T> Result<T> success(){
-        return new Result<T>().setCode(StatusCode.SUCCESS_CODE).setMessage(GlobalMessageConstant.SUCCESS);
+        return new Result<T>()
+                .setCode(StatusCode.SUCCESS_CODE)
+                .setMessage(GlobalMessageConstant.SUCCESS)
+                .setTraceId(MDC.get(TraceConstant.TRACE_ID_MDC_KEY));
     }
 
 
@@ -60,7 +70,7 @@ public class Result<T> implements Serializable {
         return new Result<T>()
                 .setCode(StatusCode.FAIL_CODE)
                 .setMessage(GlobalMessageConstant.FAILURE)
-                .setTraceId(MDC.get("traceId"));
+                .setTraceId(MDC.get(TraceConstant.TRACE_ID_MDC_KEY));
     }
 
     /**
@@ -73,7 +83,7 @@ public class Result<T> implements Serializable {
         return new Result<T>()
                 .setCode(StatusCode.FAIL_CODE)
                 .setMessage(message)
-                .setTraceId(MDC.get("traceId"));
+                .setTraceId(MDC.get(TraceConstant.TRACE_ID_MDC_KEY));
     }
 
     /**
@@ -86,7 +96,7 @@ public class Result<T> implements Serializable {
         return new Result<T>()
                 .setCode(code)
                 .setMessage(message)
-                .setTraceId(MDC.get("traceId"));
+                .setTraceId(MDC.get(TraceConstant.TRACE_ID_MDC_KEY));
     }
 
 

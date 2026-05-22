@@ -20,6 +20,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
+import com.niro.core.constant.TraceConstant;
+
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -39,9 +41,6 @@ import lombok.extern.slf4j.Slf4j;
 @Component
 @RequiredArgsConstructor
 public class RocketMqHelper {
-
-    private static final String TRACE_ID_MDC_KEY = "traceId";
-    private static final String TRACE_ID_HEADER = "TRACE_ID";
 
     private final RocketMQTemplate template;
     private final MqTxSender mqTxSender;
@@ -120,7 +119,7 @@ public class RocketMqHelper {
         public MessageBuilder(String topic) {
             this.topic = topic;
             // 默认绑定 MDC 中的 TraceId
-            this.traceId = MDC.get(TRACE_ID_MDC_KEY);
+            this.traceId = MDC.get(TraceConstant.TRACE_ID_MDC_KEY);
         }
 
         public MessageBuilder tag(String tag) {
@@ -246,7 +245,7 @@ public class RocketMqHelper {
                         try {
                             restoreMdc();
                             if (StringUtils.hasText(currentTraceId)) {
-                                MDC.put(TRACE_ID_MDC_KEY, currentTraceId);
+                                MDC.put(TraceConstant.TRACE_ID_MDC_KEY, currentTraceId);
                             }
                             validateResult(result);
                             future.complete(result);
@@ -262,7 +261,7 @@ public class RocketMqHelper {
                         try {
                             restoreMdc();
                             if (StringUtils.hasText(currentTraceId)) {
-                                MDC.put(TRACE_ID_MDC_KEY, currentTraceId);
+                                MDC.put(TraceConstant.TRACE_ID_MDC_KEY, currentTraceId);
                             }
                             log.error("Async send failed, {}", sendContext, e);
                         } finally {
@@ -336,7 +335,7 @@ public class RocketMqHelper {
 
             // 2. TraceId 透传
             if (StringUtils.hasText(traceId)) {
-                builder.setHeader(TRACE_ID_HEADER, traceId);
+                builder.setHeader(TraceConstant.TRACE_ID_MESSAGE_HEADER, traceId);
             }
 
             // 3. 延迟级别
@@ -352,7 +351,7 @@ public class RocketMqHelper {
                     builder.setHeader(MessageConst.PROPERTY_KEYS, finalKey);
                 }
                 if (StringUtils.hasText(traceId)) {
-                    builder.setHeader(TRACE_ID_HEADER, traceId);
+                    builder.setHeader(TraceConstant.TRACE_ID_MESSAGE_HEADER, traceId);
                 }
                 if (delayLevel != null && delayLevel > 0) {
                     builder.setHeader(MessageConst.PROPERTY_DELAY_TIME_LEVEL, delayLevel);

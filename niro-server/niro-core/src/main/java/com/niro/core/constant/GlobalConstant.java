@@ -39,10 +39,19 @@ public class GlobalConstant {
     public static final Integer DEFAULT_PAGE_SIZE = 10;
 
 
+    /**
+     * 数值 1 的通用 Long 常量
+     */
     public static final Long ONE = 1L;
 
+    /**
+     * 通用是标记值
+     */
     public static final Long YES = 1L;
 
+    /**
+     * 通用否标记值
+     */
     public static final Long NO = 0L;
 
 }

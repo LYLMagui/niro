@@ -13,7 +13,9 @@ public final class LogSanitizeConstant {
     private LogSanitizeConstant() {
     }
 
-    // 命中后整体替换为 ***，字段名统一小写比较
+    /**
+     * 命中后整体替换为脱敏占位符的字段集合，字段名统一按小写比较
+     */
     public static final Set<String> FULL_MASK_FIELDS = Set.of(
             "password",
             "passwd",
@@ -35,7 +37,9 @@ public final class LogSanitizeConstant {
             "steamcookie"
     );
 
-    // 命中后做部分脱敏，字段名统一小写比较
+    /**
+     * 命中后执行部分脱敏的字段集合，字段名统一按小写比较
+     */
     public static final Set<String> PARTIAL_MASK_FIELDS = Set.of(
             "mobile",
             "phone",
@@ -45,7 +49,13 @@ public final class LogSanitizeConstant {
             "idnumber"
     );
 
+    /**
+     * 完全脱敏时使用的占位符
+     */
     public static final String FULL_MASK = "***";
 
+    /**
+     * 单次日志正文允许记录的最大长度
+     */
     public static final int LOG_BODY_MAX_LENGTH = 2048;
 }

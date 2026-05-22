@@ -1,13 +1,13 @@
 package com.niro.core.util;
 
-import java.util.Iterator;
-import java.util.Map;
-
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.niro.core.constant.LogSanitizeConstant;
+
+import java.util.Iterator;
+import java.util.Map;
 
 /**
  * 日志参数脱敏序列化工具
@@ -20,6 +20,14 @@ public final class LogSanitizer {
     private LogSanitizer() {
     }
 
+    /**
+     * 将对象脱敏后序列化为字符串。
+     *
+     * @param mapper Jackson 对象映射器
+     * @param value 待序列化对象
+     * @param maxLength 最大输出长度
+     * @return 脱敏后的字符串
+     */
     public static String stringify(ObjectMapper mapper, Object value, int maxLength) {
         try {
             JsonNode root = mapper.valueToTree(value);
@@ -29,12 +37,11 @@ public final class LogSanitizer {
                 return json.substring(0, maxLength) + "...";
             }
             return json;
-        } catch (Throwable e) {
+        } catch (Exception e) {
             return "无法序列化参数";
         }
     }
 
-    // 递归脱敏：ObjectNode 按字段名匹配，ArrayNode 透传到元素
     private static void sanitize(JsonNode node) {
         if (node == null || node.isNull()) {
             return;

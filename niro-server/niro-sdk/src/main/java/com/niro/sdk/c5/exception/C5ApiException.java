@@ -1,5 +1,6 @@
 package com.niro.sdk.c5.exception;
 
+import com.niro.sdk.c5.constant.C5SdkConstant;
 import lombok.Getter;
 
 /**
@@ -11,9 +12,6 @@ import lombok.Getter;
 @Getter
 public class C5ApiException extends RuntimeException {
 
-    /** 未携带远端错误码时使用的占位值。 */
-    private static final int DEFAULT_ERROR_CODE = -1;
-
     private final Integer errorCode;
     private final String errorMsg;
     private final Object errorData;
@@ -23,7 +21,7 @@ public class C5ApiException extends RuntimeException {
     }
 
     public C5ApiException(Integer errorCode, String errorMsg, Object errorData) {
-        super(String.format("C5 API Error [%d]: %s", errorCode, errorMsg));
+        super(String.format(C5SdkConstant.API_ERROR_MESSAGE_TEMPLATE, errorCode, errorMsg));
         this.errorCode = errorCode;
         this.errorMsg = errorMsg;
         this.errorData = errorData;
@@ -31,14 +29,14 @@ public class C5ApiException extends RuntimeException {
 
     public C5ApiException(String message) {
         super(message);
-        this.errorCode = DEFAULT_ERROR_CODE;
+        this.errorCode = C5SdkConstant.DEFAULT_ERROR_CODE;
         this.errorMsg = message;
         this.errorData = null;
     }
 
     public C5ApiException(String message, Throwable cause) {
         super(message, cause);
-        this.errorCode = DEFAULT_ERROR_CODE;
+        this.errorCode = C5SdkConstant.DEFAULT_ERROR_CODE;
         this.errorMsg = message;
         this.errorData = null;
     }

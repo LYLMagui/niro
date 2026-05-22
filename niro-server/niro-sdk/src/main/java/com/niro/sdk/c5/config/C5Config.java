@@ -1,6 +1,7 @@
 package com.niro.sdk.c5.config;
 
 import lombok.Data;
+import lombok.ToString;
 import lombok.experimental.Accessors;
 
 /**
@@ -12,6 +13,7 @@ public class C5Config {
     /**
      * App Key
      */
+    @ToString.Exclude
     private String appKey;
 
     /**
