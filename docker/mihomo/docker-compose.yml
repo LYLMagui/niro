@@ -15,6 +15,10 @@ services:
       - NET_ADMIN
     devices:
       - /dev/net/tun:/dev/net/tun
+    networks:
+      - mihomo
+      - niro-data-net
+
 
   # Web 面板 (Metacubexd)
   panel:
@@ -29,3 +33,11 @@ services:
       # 预设后端地址和密码，解决电脑端转圈问题
       - DEFAULT_BACKEND_URL=http://119.29.200.243:9090
       - DEFAULT_SECRET=Lyl010430.
+    networks:
+      - mihomo
+    
+networks:
+  mihomo:
+    driver: bridge
+  niro-data-net:
+    external: true
