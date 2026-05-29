@@ -103,6 +103,7 @@ services:
       NO_PROXY: ${NO_PROXY:-localhost,127.0.0.1,::1,niro-db,niro-redis,niro-ocr,niro-web,niro-client},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web:/var/log/niro
+      - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web/xxl-job:/app/logs/xxl-job
     ports:
       - "8080:8080"
       - "9999:9999"

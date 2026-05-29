@@ -105,6 +105,7 @@ services:
       - NO_PROXY=${NO_PROXY:-localhost,127.0.0.1,::1,niro-db-test,niro-redis-test,niro-ocr-test,niro-web-test,niro-client-test},xxl-job-admin,rmqnamesrv,rmqbroker,rmqdashboard
     volumes:
       - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web:/var/log/niro
+      - ${NIRO_WORK_DIR:-/home/app}/logs/niro/web/xxl-job:/app/logs/xxl-job
     ports:
       - "8080:8080" # 生产环境映射到 8081，避免与测试环境 8080 冲突
       - "9999:9999"
