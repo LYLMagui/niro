@@ -294,7 +294,6 @@ public class C5HttpExecutor {
         Request.Builder builder = new Request.Builder()
                 .url(uri.toString())
                 .header(HEADER_ACCEPT, CONTENT_TYPE_JSON)
-                .header("Accept-Encoding", "gzip, br, zstd, deflate")
                 .header(HEADER_TRACE, traceId)
                 .tag(C5RequestLogContext.class, new C5RequestLogContext(traceId, method.name(), path, paramSummary));
 
