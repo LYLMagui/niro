@@ -1,6 +1,5 @@
 package com.niro.web.controller;
 
-import com.niro.core.exception.BusinessException;
 import com.niro.web.service.C5OrderSyncService;
 import com.niro.web.constant.PermissionConstants;
 import cn.dev33.satoken.annotation.SaCheckPermission;
@@ -49,16 +48,7 @@ public class C5OrderSyncController {
             @RequestParam(defaultValue = "1") Integer daysBefore) {
         Long userId = StpUtil.getLoginIdAsLong();
         log.info("手动触发 C5 订单同步, userId={}, accountId={}, daysBefore={}", userId, accountId, daysBefore);
-        try {
-            c5OrderSyncService.submitSyncTask(userId, accountId, daysBefore);
-            return "C5 订单同步任务已提交，请稍后刷新查看";
-        } catch (BusinessException e) {
-            log.warn("手动触发 C5 订单同步被拒绝, userId={}, accountId={}, daysBefore={}, message={}",
-                    userId, accountId, daysBefore, e.getMessage());
-            return e.getMessage();
-        } catch (Exception e) {
-            log.error("手动触发 C5 订单同步失败", e);
-            return "同步失败: " + e.getMessage();
-        }
+        c5OrderSyncService.submitSyncTask(userId, accountId, daysBefore);
+        return "C5 订单同步任务已提交，请稍后刷新查看";
     }
 }

@@ -2,7 +2,6 @@ package com.niro.web.controller;
 
 import cn.dev33.satoken.stp.StpUtil;
 import cn.dev33.satoken.annotation.SaCheckLogin;
-import com.niro.core.result.Result;
 import com.niro.web.dto.AppKeyPublicKeyDTO;
 import com.niro.web.dto.UserPlatformSettingsDTO;
 import com.niro.web.dto.param.UserPlatformSettingsParam;
@@ -32,22 +31,21 @@ public class UserPlatformSettingsController {
 
     @Operation(summary = "获取配置")
     @GetMapping
-    public Result<UserPlatformSettingsDTO> getSettings() {
+    public UserPlatformSettingsDTO getSettings() {
         Long userId = StpUtil.getLoginIdAsLong();
-        return Result.success(userPlatformSettingsService.getByUserId(userId));
+        return userPlatformSettingsService.getByUserId(userId);
     }
 
     @Operation(summary = "获取AppKey字段加密公钥")
     @GetMapping("/app-key/public-key")
-    public Result<AppKeyPublicKeyDTO> getAppKeyPublicKey() {
-        return Result.success(appKeyCryptoService.getPublicKey());
+    public AppKeyPublicKeyDTO getAppKeyPublicKey() {
+        return appKeyCryptoService.getPublicKey();
     }
 
     @Operation(summary = "保存配置")
     @PostMapping
-    public Result<Void> saveSettings(@RequestBody @Valid UserPlatformSettingsParam param) {
+    public void saveSettings(@RequestBody @Valid UserPlatformSettingsParam param) {
         Long userId = StpUtil.getLoginIdAsLong();
         userPlatformSettingsService.saveOrUpdate(userId, param);
-        return Result.success();
     }
 }

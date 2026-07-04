@@ -16,7 +16,7 @@ public final class C5HttpClientHolder {
 
     private static final Duration CONNECT_TIMEOUT = Duration.ofSeconds(10);
     private static final Pattern SENSITIVE_QUERY_PATTERN = Pattern.compile(
-            "(?i)([?&](?:app-key|appkey|token|apisecret|secret|sign|signature|password)=)[^&\\s]+"
+            "(?i)([?&](?:app-key|appkey|token|accesstoken|refreshtoken|cookie|setcookie|apisecret|secret|sign|signature|password|appsecret|privatekey|steamcookie)=)[^&\\s]+"
     );
 
     private static final class Holder {

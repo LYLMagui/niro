@@ -20,6 +20,13 @@ public class RoleResourceDraftMapperManager extends ServiceImpl<RoleResourceDraf
                 .list();
     }
 
+    public boolean existsByRoleId(Long roleId) {
+        return this.lambdaQuery()
+                .eq(RoleResourceDraft::getRoleId, roleId)
+                .eq(RoleResourceDraft::getDelFlag, 0)
+                .exists();
+    }
+
     public List<RoleResourceDraft> listByResourceId(Long resourceId) {
         return this.lambdaQuery()
                 .eq(RoleResourceDraft::getResourceId, resourceId)

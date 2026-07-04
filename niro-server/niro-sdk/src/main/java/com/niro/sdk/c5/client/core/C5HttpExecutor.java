@@ -8,6 +8,7 @@ import com.alibaba.fastjson2.JSONException;
 import com.alibaba.fastjson2.TypeReference;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.constant.C5HttpConstant;
+import com.niro.sdk.c5.constant.C5SdkConstant;
 import com.niro.sdk.c5.enums.C5BusinessStatusEnum;
 import com.niro.sdk.c5.enums.C5HttpStatusEnum;
 import com.niro.sdk.c5.exception.C5ApiException;
@@ -50,7 +51,6 @@ import static com.niro.sdk.common.util.SdkHttpUtil.*;
 public class C5HttpExecutor {
 
     private static final MediaType JSON_MEDIA_TYPE = MediaType.get(CONTENT_TYPE_JSON);
-    private static final String MDC_C5_TRACE_ID = "c5TraceId";
 
     private final C5Config config;
     private final OkHttpClient httpClient;
@@ -110,14 +110,14 @@ public class C5HttpExecutor {
                             boolean allowFailureData) {
         RequestContext context = buildRequestContext(endpoint, method, params);
         long startNs = System.nanoTime();
-        MDC.put(MDC_C5_TRACE_ID, context.traceId());
+        MDC.put(C5SdkConstant.MDC_TRACE_ID, context.traceId());
         try (Response response = sendRequest(context.request(), context.traceId(), method, context.path(), startNs)) {
             String body = readBody(response);
             return handleResponse(response.code(), body, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
         } catch (IOException e) {
             throw toNetworkException(e, context.traceId(), method, context.path(), startNs);
         } finally {
-            MDC.remove(MDC_C5_TRACE_ID);
+            MDC.remove(C5SdkConstant.MDC_TRACE_ID);
         }
     }
 
@@ -130,17 +130,17 @@ public class C5HttpExecutor {
         httpClient.newCall(context.request()).enqueue(new Callback() {
             @Override
             public void onFailure(Call call, IOException e) {
-                MDC.put(MDC_C5_TRACE_ID, context.traceId());
+                MDC.put(C5SdkConstant.MDC_TRACE_ID, context.traceId());
                 try {
                     future.completeExceptionally(toNetworkException(e, context.traceId(), method, context.path(), startNs));
                 } finally {
-                    MDC.remove(MDC_C5_TRACE_ID);
+                    MDC.remove(C5SdkConstant.MDC_TRACE_ID);
                 }
             }
 
             @Override
             public void onResponse(Call call, Response response) {
-                MDC.put(MDC_C5_TRACE_ID, context.traceId());
+                MDC.put(C5SdkConstant.MDC_TRACE_ID, context.traceId());
                 try (response) {
                     String body = readBody(response);
                     T result = handleResponse(response.code(), body, typeReference, context.traceId(), method, context.path(), startNs, allowFailureData);
@@ -150,7 +150,7 @@ public class C5HttpExecutor {
                 } catch (RuntimeException e) {
                     future.completeExceptionally(e);
                 } finally {
-                    MDC.remove(MDC_C5_TRACE_ID);
+                    MDC.remove(C5SdkConstant.MDC_TRACE_ID);
                 }
             }
         });

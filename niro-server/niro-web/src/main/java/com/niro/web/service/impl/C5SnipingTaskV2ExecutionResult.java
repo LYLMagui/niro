@@ -26,4 +26,8 @@ public class C5SnipingTaskV2ExecutionResult {
     public static C5SnipingTaskV2ExecutionResult stopped(String reason) {
         return new C5SnipingTaskV2ExecutionResult(true, C5SnipingTaskV2StatusEnum.STOPPED, reason, null);
     }
+
+    public static C5SnipingTaskV2ExecutionResult stopped(String reason, String errorMessage) {
+        return new C5SnipingTaskV2ExecutionResult(true, C5SnipingTaskV2StatusEnum.STOPPED, reason, errorMessage);
+    }
 }

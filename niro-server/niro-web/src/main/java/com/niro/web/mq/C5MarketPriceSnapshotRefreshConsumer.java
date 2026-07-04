@@ -24,10 +24,6 @@ public class C5MarketPriceSnapshotRefreshConsumer implements RocketMQListener<Lo
 
     @Override
     public void onMessage(Long snapshotId) {
-        try {
-            marketPriceSnapshotService.consumeRefreshSnapshot(snapshotId);
-        } catch (Exception e) {
-            log.error("C5市场价格快照刷新消息处理失败, snapshotId={}", snapshotId, e);
-        }
+        marketPriceSnapshotService.consumeRefreshSnapshot(snapshotId);
     }
 }

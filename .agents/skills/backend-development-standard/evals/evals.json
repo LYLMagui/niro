@@ -1,0 +1,47 @@
+{
+  "skill_name": "backend-development-standard",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "在 Niro 里给用户平台设置模块新增一个后端接口，按现有项目规范补齐 Controller、Service 和 MapperManager 链路。",
+      "expected_output": "技能应被触发，并先读取 references/project-backend-standard.md，再按 Niro 固定分层判断接口落点与最小改动方案。",
+      "assertions": [
+        "输出明确这是 Niro 后端任务，应使用 backend-development-standard",
+        "输出提到先读取 references/project-backend-standard.md",
+        "输出提到 Controller -> Service -> MapperManager -> Mapper -> Entity 链路或等价分层判断",
+        "输出强调按当前模块相似实现和最小必要改动落地"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "帮我把这个 Service 里直接查库的逻辑挪到合适的 MapperManager，别破坏老接口返回结构。",
+      "expected_output": "技能应被触发，并将问题归类为 Service / MapperManager 分层调整，优先关注历史兼容。",
+      "assertions": [
+        "输出提到这是 Service 与 MapperManager 的分层边界调整",
+        "输出提到 Service 不应越过 MapperManager 直接查库",
+        "输出提到保持旧接口返回结构兼容",
+        "输出提到优先复用当前模块稳定写法"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "review 一下 com.niro.sdk.c5 下面这段接入代码，看看有没有把业务逻辑塞进 SDK，或者日志里打印了敏感信息。",
+      "expected_output": "技能应被触发，并把任务识别为 Niro SDK 边界与安全日志 review。",
+      "assertions": [
+        "输出提到 niro-sdk 只做第三方协议适配，不承载 Niro 业务编排",
+        "输出提到要检查敏感信息是否进入日志，如 token、cookie、app-key",
+        "输出提到需要区分 HTTP 失败、解析失败和业务失败",
+        "输出提到先读取 project-backend-standard reference 或 SDK 约束"
+      ]
+    },
+    {
+      "id": 4,
+      "prompt": "帮我调整一下订单列表页的筛选表单布局和按钮间距。",
+      "expected_output": "该技能不应触发，因为这是纯前端页面任务。",
+      "assertions": [
+        "backend-development-standard 不应作为首选技能",
+        "输出不应把任务解释为 Controller、Service、MapperManager、DTO 或 SDK 后端任务"
+      ]
+    }
+  ]
+}

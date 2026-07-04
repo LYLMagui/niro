@@ -1,20 +1,23 @@
 package com.niro.web.mq;
 
 import cn.hutool.core.collection.CollUtil;
-import cn.hutool.core.util.StrUtil;
 import com.niro.core.constant.MqConstant;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.client.C5ApiClient;
 import com.niro.sdk.c5.config.C5Config;
 import com.niro.sdk.c5.order.C5BuyerStatusRequest;
 import com.niro.sdk.c5.order.C5BuyerStatusResponse;
+import com.niro.web.constant.C5OrderSyncConstants;
 import com.niro.web.dto.C5OrderStatusSyncMessage;
 import com.niro.web.entity.TradeOrderRecord;
+import com.niro.web.entity.UserPlatformSettings;
 import com.niro.web.enums.OrderStatusEnum;
 import com.niro.web.manager.TradeOrderRecordMapperManager;
+import com.niro.web.manager.UserPlatformSettingsMapperManager;
+import com.niro.web.service.UserPlatformSettingsService;
+import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.apache.rocketmq.common.message.MessageConst;
 import org.apache.rocketmq.spring.annotation.RocketMQMessageListener;
 import org.apache.rocketmq.spring.core.RocketMQListener;
 import org.redisson.api.RRateLimiter;
@@ -24,10 +27,8 @@ import org.redisson.api.RedissonClient;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
-import jakarta.annotation.PostConstruct;
 import java.time.LocalDateTime;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 /**
@@ -53,18 +54,18 @@ import java.util.concurrent.TimeUnit;
 public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatusSyncMessage> {
 
     private final TradeOrderRecordMapperManager tradeOrderRecordMapperManager;
+    private final UserPlatformSettingsMapperManager userPlatformSettingsMapperManager;
+    private final UserPlatformSettingsService userPlatformSettingsService;
     private final RedissonClient redissonClient;
 
     @Value("${c5.base-url:https://openapi.c5game.com}")
     private String c5BaseUrl;
 
-    private static final String LIMITER_KEY = "niro:limiter:c5:order:status-sync";
-    private static final int ACQUIRE_TIMEOUT_SECONDS = 5;
     private RRateLimiter c5ApiLimiter;
 
     @PostConstruct
     private void initLimiter() {
-        c5ApiLimiter = redissonClient.getRateLimiter(LIMITER_KEY);
+        c5ApiLimiter = redissonClient.getRateLimiter(C5OrderSyncConstants.ORDER_STATUS_SYNC_LIMITER_KEY);
         // 限流: 每 1 秒产生 5 个令牌，与 consumeThreadNumber 匹配
         c5ApiLimiter.trySetRate(RateType.OVERALL, 5, 1, RateIntervalUnit.SECONDS);
     }
@@ -80,7 +81,6 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
             Assert.notNull(message.getRecordId(), "订单记录ID不能为空");
             Assert.notNull(message.getOrderId(), "C5订单号不能为空");
             Assert.notNull(message.getUserId(), "用户ID不能为空");
-            Assert.notBlank(message.getAppKey(), "C5 App Key不能为空");
 
             // 获取限流令牌
             if (!acquireLimiter()) {
@@ -88,9 +88,17 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
                 throw new RuntimeException("获取 C5 API 限流令牌超时");
             }
 
+            UserPlatformSettings settings = userPlatformSettingsMapperManager.lambdaQuery()
+                    .eq(UserPlatformSettings::getUserId, message.getUserId())
+                    .one();
+            Assert.notNull(settings, "用户未配置 C5 平台");
+            Assert.notNull(settings.getC5AppKeyEncrypted(), "用户未配置 C5 App Key");
+            String appKey = userPlatformSettingsService.decryptC5AppKey(settings);
+            Assert.notBlank(appKey, "C5 App Key 解密失败");
+
             // 初始化 C5 客户端
             C5Config config = new C5Config()
-                    .setAppKey(message.getAppKey())
+                    .setAppKey(appKey)
                     .setBaseUrl(c5BaseUrl);
             C5ApiClient c5ApiClient = new C5ApiClient(config);
 
@@ -169,7 +177,7 @@ public class C5OrderStatusSyncConsumer implements RocketMQListener<C5OrderStatus
             return true;
         }
         try {
-            return c5ApiLimiter.tryAcquire(1, ACQUIRE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+            return c5ApiLimiter.tryAcquire(1, C5OrderSyncConstants.LIMITER_ACQUIRE_TIMEOUT_SECONDS, TimeUnit.SECONDS);
         } catch (Exception e) {
             log.error("获取 C5 API 令牌异常，降级直接放行", e);
             return true;

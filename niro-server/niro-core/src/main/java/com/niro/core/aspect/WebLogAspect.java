@@ -14,8 +14,9 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.niro.core.constant.LogSanitizeConstant;
+import com.niro.core.util.LogSanitizer;
 
-import cn.hutool.core.util.StrUtil;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -47,7 +48,7 @@ public class WebLogAspect {
     @Around("webLog()")
     public Object doAround(ProceedingJoinPoint proceedingJoinPoint) throws Throwable {
         long startTime = System.currentTimeMillis();
-        
+
         // 获取当前请求对象
         ServletRequestAttributes attributes = (ServletRequestAttributes) RequestContextHolder.getRequestAttributes();
         HttpServletRequest request = attributes.getRequest();
@@ -58,42 +59,32 @@ public class WebLogAspect {
         String ip = getIpAddress(request);
         String className = proceedingJoinPoint.getSignature().getDeclaringTypeName();
         String methodName = proceedingJoinPoint.getSignature().getName();
-        
+
         // 获取请求参数（过滤掉文件等无法序列化的参数）
         Object[] args = proceedingJoinPoint.getArgs();
         List<Object> logArgs = Arrays.stream(args)
                 .filter(arg -> (!(arg instanceof HttpServletRequest) && !(arg instanceof MultipartFile)))
                 .collect(Collectors.toList());
-        
-        String params = "";
-        try {
-            params = objectMapper.writeValueAsString(logArgs);
-        } catch (Throwable e) {
-            // 捕获 Throwable 防止某些情况下序列化导致 StackOverflowError
-            params = "无法序列化参数";
-        }
 
-        log.info("🌐 收到请求 | URL: {} | Method: {} | IP: {} | Class: {} | Method: {} | Params: {}", 
+        String params = LogSanitizer.stringify(objectMapper, logArgs, LogSanitizeConstant.LOG_BODY_MAX_LENGTH);
+
+        log.info("🌐 收到请求 | URL: {} | Method: {} | IP: {} | Class: {} | Method: {} | Params: {}",
                 url, method, ip, className, methodName, params);
 
-        // 执行目标方法
-        Object result = proceedingJoinPoint.proceed();
-
-        // 计算耗时
-        long takeTime = System.currentTimeMillis() - startTime;
-        
-        // 记录响应结果（可选，如果结果太大可以截断或不打印）
-        String resultStr = "";
+        // 执行目标方法，异常时打 error 并 rethrow，避免吞掉栈
+        Object result;
         try {
-            resultStr = objectMapper.writeValueAsString(result);
-            // 如果返回结果过长，截取前1000个字符
-            if (StrUtil.length(resultStr) > 1000) {
-                resultStr = StrUtil.sub(resultStr, 0, 1000) + "...";
-            }
-        } catch (Throwable e) {
-            // 捕获 Throwable 防止某些情况下序列化导致 StackOverflowError
-            resultStr = "无法序列化结果";
+            result = proceedingJoinPoint.proceed();
+        } catch (Throwable ex) {
+            long costMs = System.currentTimeMillis() - startTime;
+            log.error("❌ 请求异常 | URL: {} | Method: {} | IP: {} | Class: {} | Method: {} | CostMs: {} | Msg: {}",
+                    url, method, ip, className, methodName, costMs, ex.getMessage());
+            throw ex;
         }
+
+        long takeTime = System.currentTimeMillis() - startTime;
+
+        String resultStr = LogSanitizer.stringify(objectMapper, result, LogSanitizeConstant.LOG_BODY_MAX_LENGTH);
 
         log.info("✅ 请求结束 | Time: {}ms | Result: {}", takeTime, resultStr);
 
@@ -115,5 +106,5 @@ public class WebLogAspect {
             ip = request.getRemoteAddr();
         }
         return ip;
-    }   
+    }
 }

@@ -59,10 +59,10 @@ export const useUserStore = defineStore("user", () => {
   async function login(loginParams: UserLoginParam) {
     try {
       const res = await userApi.login(loginParams);
-      if (res && res.token) {
+      const storedToken = localStorage.getItem("niro-web-token");
+      if (res && storedToken) {
         clearNewPermissionCache();
-        token.value = res.token;
-        localStorage.setItem("niro-web-token", res.token);
+        token.value = storedToken;
         MessagePlugin.success("登录成功");
         return true;
       }

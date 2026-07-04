@@ -1,6 +1,7 @@
 package com.niro.web.manager;
 
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
+import com.niro.web.constant.InviteCodeConstants;
 import com.niro.web.entity.InviteCode;
 import com.niro.web.mapper.InviteCodeMapper;
 import org.springframework.stereotype.Service;
@@ -15,13 +16,6 @@ import cn.hutool.core.util.StrUtil;
 @Service
 public class InviteCodeMapperManager extends ServiceImpl<InviteCodeMapper, InviteCode> {
 
-    /**
-     * 邀请码启用状态
-     */
-    public static final Integer STATUS_ENABLED = 1;
-    public static final Long UNUSED_USER_ID = 0L;
-    public static final Long HISTORICAL_USED_USER_ID = -1L;
-    public static final LocalDateTime UNUSED_AT = LocalDateTime.of(1970, 1, 1, 0, 0, 0);
 
     /**
      * 根据邀请码查询
@@ -44,8 +38,8 @@ public class InviteCodeMapperManager extends ServiceImpl<InviteCodeMapper, Invit
                 .set(InviteCode::getUsedAt, LocalDateTime.now())
                 .setSql("updated_at = now()")
                 .eq(InviteCode::getCode, code)
-                .eq(InviteCode::getStatus, STATUS_ENABLED)
-                .eq(InviteCode::getUsedUserId, UNUSED_USER_ID)
+                .eq(InviteCode::getStatus, InviteCodeConstants.STATUS_ENABLED)
+                .eq(InviteCode::getUsedUserId, InviteCodeConstants.UNUSED_USER_ID)
                 .gt(InviteCode::getExpireTime, LocalDateTime.now())
                 .update();
     }

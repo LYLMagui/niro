@@ -5,6 +5,7 @@ import cn.hutool.core.util.StrUtil;
 import com.baomidou.mybatisplus.extension.plugins.pagination.Page;
 import com.baomidou.mybatisplus.extension.service.impl.ServiceImpl;
 import com.niro.core.util.Assert;
+import com.niro.web.constant.InviteCodeConstants;
 import com.niro.web.dto.InviteCodeBatchCreateResultDTO;
 import com.niro.web.dto.InviteCodeDetailDTO;
 import com.niro.web.dto.InviteCodePageDTO;
@@ -37,13 +38,6 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteCode> implements InviteCodeService {
 
-    private static final String INVITE_CODE_CHARS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int INVITE_CODE_LENGTH = 10;
-    private static final String AVAILABILITY_AVAILABLE = "available";
-    private static final String AVAILABILITY_USED = "used";
-    private static final String AVAILABILITY_EXPIRED = "expired";
-    private static final String AVAILABILITY_DISABLED = "disabled";
-    private static final Long SYSTEM_USER_ID = 0L;
 
     private final InviteCodeMapperManager inviteCodeMapperManager;
     private final UserService userService;
@@ -89,12 +83,12 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
     public InviteCodeDetailDTO createInviteCode(Long operatorUserId, InviteCodeCreateParam param) {
         InviteCode record = new InviteCode();
         record.setCode(resolveCode(param.getCode(), null));
-        record.setIssuerUserId(operatorUserId == null ? SYSTEM_USER_ID : operatorUserId);
+        record.setIssuerUserId(operatorUserId == null ? InviteCodeConstants.SYSTEM_USER_ID : operatorUserId);
         record.setMaxUseCount(1);
         record.setUsedCount(0);
-        record.setStatus(InviteCodeMapperManager.STATUS_ENABLED);
-        record.setUsedUserId(InviteCodeMapperManager.UNUSED_USER_ID);
-        record.setUsedAt(InviteCodeMapperManager.UNUSED_AT);
+        record.setStatus(InviteCodeConstants.STATUS_ENABLED);
+        record.setUsedUserId(InviteCodeConstants.UNUSED_USER_ID);
+        record.setUsedAt(InviteCodeConstants.UNUSED_AT);
         record.setExpireTime(resolveExpireTime(param.getForever(), param.getExpireTime()));
         record.setRemark(StrUtil.blankToDefault(StrUtil.trim(param.getRemark()), ""));
         boolean saved = this.save(record);
@@ -112,12 +106,12 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
         for (int i = 0; i < param.getQuantity(); i++) {
             InviteCode record = new InviteCode();
             record.setCode(generateUniqueCode(prefix, generatedCodes));
-            record.setIssuerUserId(operatorUserId == null ? SYSTEM_USER_ID : operatorUserId);
+            record.setIssuerUserId(operatorUserId == null ? InviteCodeConstants.SYSTEM_USER_ID : operatorUserId);
             record.setMaxUseCount(1);
             record.setUsedCount(0);
-            record.setStatus(InviteCodeMapperManager.STATUS_ENABLED);
-            record.setUsedUserId(InviteCodeMapperManager.UNUSED_USER_ID);
-            record.setUsedAt(InviteCodeMapperManager.UNUSED_AT);
+            record.setStatus(InviteCodeConstants.STATUS_ENABLED);
+            record.setUsedUserId(InviteCodeConstants.UNUSED_USER_ID);
+            record.setUsedAt(InviteCodeConstants.UNUSED_AT);
             record.setExpireTime(resolveExpireTime(param.getForever(), param.getExpireTime()));
             record.setRemark(StrUtil.blankToDefault(StrUtil.trim(param.getRemark()), ""));
             records.add(record);
@@ -274,19 +268,19 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
 
     private String resolveAvailability(InviteCode record) {
         if (isUsed(record)) {
-            return AVAILABILITY_USED;
+            return InviteCodeConstants.AVAILABILITY_USED;
         }
-        if (!InviteCodeMapperManager.STATUS_ENABLED.equals(record.getStatus())) {
-            return AVAILABILITY_DISABLED;
+        if (!InviteCodeConstants.STATUS_ENABLED.equals(record.getStatus())) {
+            return InviteCodeConstants.AVAILABILITY_DISABLED;
         }
         if (record.getExpireTime() != null && record.getExpireTime().isBefore(LocalDateTime.now())) {
-            return AVAILABILITY_EXPIRED;
+            return InviteCodeConstants.AVAILABILITY_EXPIRED;
         }
-        return AVAILABILITY_AVAILABLE;
+        return InviteCodeConstants.AVAILABILITY_AVAILABLE;
     }
 
     private boolean isUsed(InviteCode record) {
-        return record.getUsedUserId() != null && record.getUsedUserId() != 0;
+        return record.getUsedUserId() != null && !record.getUsedUserId().equals(InviteCodeConstants.UNUSED_USER_ID);
     }
 
     private String resolveCode(String manualCode, String prefix) {
@@ -306,7 +300,7 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
     private String generateUniqueCode(String prefix, Set<String> generatedCodes) {
         String normalizedPrefix = normalizePrefix(prefix);
         for (int attempt = 0; attempt < 50; attempt++) {
-            String candidate = normalizedPrefix + randomCode(INVITE_CODE_LENGTH - normalizedPrefix.length());
+            String candidate = normalizedPrefix + randomCode(InviteCodeConstants.INVITE_CODE_LENGTH - normalizedPrefix.length());
             if (!generatedCodes.contains(candidate) && inviteCodeMapperManager.findByCode(candidate) == null) {
                 generatedCodes.add(candidate);
                 return candidate;
@@ -319,8 +313,8 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
     private String randomCode(int length) {
         StringBuilder builder = new StringBuilder();
         for (int i = 0; i < length; i++) {
-            int index = (int) (Math.random() * INVITE_CODE_CHARS.length());
-            builder.append(INVITE_CODE_CHARS.charAt(index));
+            int index = (int) (Math.random() * InviteCodeConstants.INVITE_CODE_CHARS.length());
+            builder.append(InviteCodeConstants.INVITE_CODE_CHARS.charAt(index));
         }
         return builder.toString();
     }
@@ -349,7 +343,7 @@ public class InviteCodeServiceImpl extends ServiceImpl<InviteCodeMapper, InviteC
 
     private LocalDateTime resolveExpireTime(Boolean forever, LocalDateTime expireTime) {
         if (Boolean.TRUE.equals(forever)) {
-            return LocalDateTime.of(9999, 12, 31, 23, 59, 59);
+            return InviteCodeConstants.FOREVER_EXPIRE_TIME;
         }
         Assert.notNull(expireTime, "过期时间不能为空");
         return expireTime;

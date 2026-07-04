@@ -32,11 +32,6 @@ public class C5OrderDetailMessage implements Serializable {
     private Long userId;
 
     /**
-     * C5 App Key
-     */
-    private String appKey;
-
-    /**
      * 消息创建时间戳
      */
     private Long timestamp;

@@ -20,6 +20,13 @@ public class RoleResourcePublishedMapperManager extends ServiceImpl<RoleResource
                 .list();
     }
 
+    public boolean existsByRoleId(Long roleId) {
+        return this.lambdaQuery()
+                .eq(RoleResourcePublished::getRoleId, roleId)
+                .eq(RoleResourcePublished::getDelFlag, 0)
+                .exists();
+    }
+
     public List<RoleResourcePublished> listByResourceId(Long resourceId) {
         return this.lambdaQuery()
                 .eq(RoleResourcePublished::getResourceId, resourceId)

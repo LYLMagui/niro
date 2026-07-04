@@ -6,6 +6,9 @@ import org.springframework.web.servlet.config.annotation.CorsRegistry;
 import org.springframework.web.servlet.config.annotation.InterceptorRegistry;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
+import com.niro.core.constant.TokenHeaderConstant;
+import com.niro.core.constant.TraceConstant;
+
 import cn.dev33.satoken.interceptor.SaInterceptor;
 import cn.dev33.satoken.router.SaRouter;
 import cn.dev33.satoken.stp.StpUtil;
@@ -25,6 +28,8 @@ public class WebConfig implements WebMvcConfigurer {
 
     private static final long SSE_TIMEOUT_MS = 30 * 60 * 1000L;
 
+    private final SecurityProperties securityProperties;
+
     @Override
     public void configureAsyncSupport(AsyncSupportConfigurer configurer) {
         configurer.setDefaultTimeout(SSE_TIMEOUT_MS);
@@ -33,10 +38,12 @@ public class WebConfig implements WebMvcConfigurer {
     @Override
     public void addCorsMappings(CorsRegistry registry) {
         registry.addMapping("/**")
-                .allowedOriginPatterns("*")
+                .allowedOriginPatterns(securityProperties.getAllowedOrigins().toArray(new String[0]))
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
-                .exposedHeaders("X-Niro-Trace-Id", "niro-web-token", "niro-web-token-update")
+                .exposedHeaders(TraceConstant.TRACE_ID_RESPONSE_HEADER,
+                        TokenHeaderConstant.WEB_TOKEN_HEADER,
+                        TokenHeaderConstant.WEB_TOKEN_UPDATE_HEADER)
                 .allowCredentials(true)
                 .maxAge(3600);
     }

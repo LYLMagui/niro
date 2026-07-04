@@ -6,6 +6,7 @@ import cn.hutool.core.util.StrUtil;
 import com.niro.core.util.Assert;
 import com.niro.sdk.c5.exception.C5ApiException;
 import com.niro.sdk.c5.account.C5BalanceResponse;
+import com.niro.web.constant.C5SnipingAccountRuntimeConstants;
 import com.niro.web.dto.AppKeyPublicKeyDTO;
 import com.niro.web.dto.AppKeyRevealDTO;
 import com.niro.web.dto.C5SnipingAccountBalanceRefreshResultDTO;
@@ -437,8 +438,8 @@ public class C5SnipingAccountServiceImpl implements C5SnipingAccountService {
         dto.setC5AppKeyMasked(account.getC5AppKeyMasked());
         dto.setMoneyAmount(account.getBalance());
         dto.setTotalBalance(sumBalance(account.getBalance(), account.getPendingBalance(), account.getDepositAmount(), account.getCreditMoney(), account.getCreditDeposit()));
-        dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_CONCURRENCY_LIMIT));
-        dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts(), C5SnipingAccountRuntimeV2MapperManager.DEFAULT_MAX_IN_FLIGHT_ATTEMPTS));
+        dto.setConcurrencyLimit(resolvePositive(runtime.getConcurrencyLimit(), C5SnipingAccountRuntimeConstants.DEFAULT_CONCURRENCY_LIMIT));
+        dto.setMaxInFlightAttempts(resolvePositive(runtime.getMaxInFlightAttempts(), C5SnipingAccountRuntimeConstants.DEFAULT_MAX_IN_FLIGHT_ATTEMPTS));
         if (boundTask != null) {
             dto.setBoundTaskId(boundTask.getId());
             dto.setBoundTaskName(boundTask.getName());
